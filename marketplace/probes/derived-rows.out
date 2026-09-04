@@ -1,0 +1,129 @@
+Derived-row reconstruction
+source: https://mainnet-public.mirrornode.hedera.com/api/v1  (unauthenticated, no account, no key)
+probe for the row scope decision
+
+Subject: the shared treasury 0.0.10116630 and every token it moves.
+
+========================================================================
+0. The tokens this one treasury moves
+========================================================================
+
+  0.0.10633046  US912797UJ40
+  0.0.9379157   LGIM US Dollar Liquidity Fund (4-Class)
+  0.0.9379166   BlackRock ICS US Treasury Fund (Premier Dis)
+  0.0.9379174   State Street USD Liquidity LVNAV Fund (Premier)
+  0.0.9379189   Fidelity ILF - The United States Dollar Fund (A-FLEX
+  0.0.9379434   abrdn Liquidity Fund (Lux) - US Dollar Fund (L-1 Inc
+
+  6 tokens, 5 distinct asset managers: BlackRock, Fidelity, LGIM, State Street, abrdn
+  One account, competing managers. Extended.
+
+========================================================================
+DERIVED FACT 1: the counterparty graph
+========================================================================
+
+  from             to                n         volume  kind
+  0.0.10116630  -> 0.0.10420070     52        5820445  PRIMARY
+  0.0.10116630  -> 0.0.10420063      2        2971188  PRIMARY
+  0.0.10116630  -> 0.0.10420066      2        3185523  PRIMARY
+  0.0.10116630  -> 0.0.10420064      2        3143895  PRIMARY
+  0.0.10116630  -> 0.0.10420056      1        4739526  PRIMARY
+  0.0.10116630  -> 0.0.10420058      1        4575525  PRIMARY
+  0.0.10116630  -> 0.0.10308438      1      216014405  PRIMARY
+
+  8 parties, 7 directed edges, 61 transfers.
+  fn(trader identity, quantity). Not one of the ten primitive rows.
+
+========================================================================
+DERIVED FACT 2: per-account activity fingerprint
+========================================================================
+
+  account             n             net           gross   mean ticket   toks
+  0.0.10116630 (T)   61      -240450507       240450507       3941811      6
+  0.0.10420070       52         5820445         5820445        111931      1
+  0.0.10420063        2         2971188         2971188       1485594      1
+  0.0.10420066        2         3185523         3185523       1592761      1
+  0.0.10420064        2         3143895         3143895       1571947      1
+  0.0.10420056        1         4739526         4739526       4739526      1
+  0.0.10420058        1         4575525         4575525       4575525      1
+  0.0.10308438        1       216014405       216014405     216014405      1
+
+  fn(trader identity, quantity, time). Ticket-size distribution and
+  breadth across share classes is a strategy fingerprint. the ten have a row
+  for quantity and a row for identity, and no row for the pair.
+
+========================================================================
+DERIVED FACT 3: fund flow, which is a fact about the ISSUER
+========================================================================
+
+  0.0.10633046  issue    216014405  redeem            0  net    +216014405  secondary 0
+  0.0.9379157   issue      3185523  redeem            0  net      +3185523  secondary 0
+  0.0.9379166   issue      2971188  redeem            0  net      +2971188  secondary 0
+  0.0.9379174   issue      3143895  redeem            0  net      +3143895  secondary 0
+  0.0.9379189   issue      5820445  redeem            0  net      +5820445  secondary 0
+  0.0.9379434   issue      9315051  redeem            0  net      +9315051  secondary 0
+
+  Subscription and redemption pressure per share class, daily, public.
+  This is not a property of any trader. It is a property of the fund,
+  and a matrix indexed by (row, observer, time) has no cell for it.
+
+========================================================================
+DERIVED FACT 4: submission routing is public, and it is pinned
+========================================================================
+
+  Deep history, not just the sampled window:
+    treasury 0.0.10116630         190 token txs across 1 node(s)
+      node 0.0.29     190  100.0%   Aberdeen Investments
+    counterparty 0.0.10420070     111 token txs across 3 node(s)
+      node 0.0.29     109   98.2%   Aberdeen Investments
+      node 0.0.7        1    0.9%   Nomura
+      node 0.0.10       1    0.9%   
+
+  CONTROL. Is that concentration normal? 100 random recent mainnet txs:
+    distinct receiving nodes 28, busiest 7.0% of traffic
+    Routing across mainnet is spread over the whole address book.
+    So 100 percent on one node is a deliberate pin, not a default.
+
+  The receiving consensus node is a PUBLIC field on every transaction.
+  Two things follow. The consensus visibility lever is already production
+  practice, so it is not exotic. And it is not confidential: the
+  choice of first observer is itself disclosed, permanently.
+  fn(nothing in the ten). A new axis, not a new row.
+
+  Stated without allegation, because the structural point does not
+  need one: every transaction on this treasury, across five competing
+  managers, is handed first to a node operated by one of them.
+
+========================================================================
+DERIVED FACT 5: cadence
+========================================================================
+
+  window      2026-07-06 to 2026-08-28
+  transfers   61
+  median gap  21.2 h
+  active days 39 of 53 in window
+  busiest     2026-07-15 n=5, 2026-08-07 n=5, 2026-07-20 n=3
+
+  fn(time) alone. Survives hiding every amount and every identity.
+  This is the activity leak, and none of the ten covers it.
+
+========================================================================
+What this settles for the row decision
+========================================================================
+
+  Five derived facts, reconstructible today with no key and no account, none
+  of them one of the ten primitive rows:
+
+    1. counterparty graph      fn(identity, quantity)        trader-scoped
+    2. activity fingerprint    fn(identity, quantity, time)  trader-scoped
+    3. fund flow               fn(quantity, asset)           ISSUER-scoped
+    4. submission routing      fn(nothing in the ten)             TRANSPORT-scoped
+    5. cadence                 fn(time)                      trader-scoped
+
+  1, 2 and 5 are derived rows: functions over the primitive rows, fixable by admitting
+  rows whose value is a function and which carry their own (G, O, T).
+
+  3 and 4 are NOT rows at any granularity, and this is the finding. Fact 3 is
+  a property of the issuer, not of any participant, so no per-trader cell can
+  express it. Fact 4 is a property of the transport, and it exists whatever
+  the venue writes. Admitting derived rows fixes three of five.

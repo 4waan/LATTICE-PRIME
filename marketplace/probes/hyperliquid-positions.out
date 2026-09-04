@@ -1,0 +1,84 @@
+==============================================================
+ 1. The trader register. Public, unauthenticated, whole-market.
+==============================================================
+   GET stats-data leaderboard  http=200  bytes=37155691
+   accounts listed: 44,627
+   every row carries an address, an account value, and day/week/month/all-time PnL and volume.
+
+   address                                            accountValue         30d volume
+   0x1c498a93b145e7a73d69691e9023f6f308e1cc3f     5208997195.68408                0.0
+   0x24de6b77e8bc31c40aa452926daa6bbab7a71b0f     2647832746.67784                0.0
+   0x393d0b87ed38fc779fd9611144ae649ba6082109     1117176783.33800                0.0
+   0xe6111266afdcdf0b1fe8505028cc1f7419d798a7     827524253.536964                0.0
+   0x8d68efbf06fb8cf932518bcb53705e674c4852dc     690842766.693387                0.0
+
+==============================================================
+ 2. Per-account position state, including the liquidation price.
+==============================================================
+
+   0x5b5d51203a0f9079f8aeb098a6523a13f298c060   accountValue=81913175.27544
+      BTC     size=-1707.27249      entry=70551.3      LIQUIDATION=124904.26132943  5x cross  uPnL=-13932374.0349
+      ETH     size=-55114.1154      entry=2124.08      LIQUIDATION=3888.6625421988  5x cross  uPnL=-19215117.6033
+      SOL     size=-788679.41       entry=93.6161      LIQUIDATION=201.0069217427   10x cross  uPnL=-7897734.82678
+      SUI     size=-0.5             entry=3.67761      LIQUIDATION=148434785.87493  10x cross  uPnL=1.472896
+
+   0xb83de012dba672c76a7dbbbf3e459cb59d7d6e36   accountValue=59117339.50581
+      BTC     size=-1229.17112      entry=65311.9      LIQUIDATION=123097.87899020  5x cross  uPnL=-16474600.2956
+      ETH     size=-40874.1792      entry=2113.21      LIQUIDATION=3781.0632197633  5x cross  uPnL=-14701625.0853
+      SOL     size=-280506.83       entry=87.3969      LIQUIDATION=294.710918638    5x cross  uPnL=-4557150.87415
+      AVAX    size=-0.41            entry=6.5726       LIQUIDATION=124728242.99662  10x cross  uPnL=-0.284704
+
+   0xecb63caa47c7c4e77f60f1ce858cf28dc2b82b00   accountValue=47494405.49200
+      BTC     size=-150.60627       entry=78664.9      LIQUIDATION=348726.31744122  20x cross  uPnL=-7530.607639
+      ETH     size=-19366.1932      entry=2465.18      LIQUIDATION=4557.2738718239  15x cross  uPnL=-149396.319588
+      ATOM    size=-15877.25        entry=1.4977       LIQUIDATION=2358.9915774337  5x cross  uPnL=131.42089
+      SOL     size=-258689.35       entry=103.9131     LIQUIDATION=258.9238562329   20x cross  uPnL=69865.738211
+
+   0x8def9f50456c6c4e37fa5d3d57f108ed23992dae   accountValue=10860570.06416
+      HYPE    size=-484858.79       entry=53.9653      LIQUIDATION=148.0035568887   3x cross  uPnL=-14763795.1076
+
+   accounts with open positions displayed: 4
+
+==============================================================
+ 3. The full order book, to the level, for anyone.
+==============================================================
+   POST l2Book BTC  http=200  bytes=1566
+   bid levels=20  ask levels=20
+   best bid px=78724.0 sz=8.83786 n=30   best ask px=78725.0 sz=1.58215 n=10
+
+==============================================================
+ 4. Where this venue sits commercially. Revenue retained, 30d.
+==============================================================
+   GET llama fees overview  http=200  bytes=3717634
+   protocols tracked: 2,287
+
+   rank protocol                      30d revenue USD  category
+   1    Tether                            478,312,617  Stablecoin Issuer
+   2    Circle USDC                       191,083,139  Stablecoin Issuer
+   3    Hyperliquid Perps                  49,145,903  Derivatives
+   4    Canton                             48,821,841  Chain
+   5    pump.fun                           35,889,956  Launchpad
+   6    GMGN                               26,542,530  Telegram Bot
+   7    Tron                               25,708,422  Chain
+   8    Axiom                              23,819,321  Trading App
+   9    Polymarket International           15,727,271  Prediction Market
+   10   PumpSwap                           15,595,373  Dexs
+
+   Hyperliquid Perps all-time revenue: 1,182,188,458 USD
+
+NOTE
+  Sections 1 to 3 are the activity leak, complete, with no waiver and no
+  deferral: identity (pseudonymous but persistent and ranked), position size,
+  entry price, leverage, unrealised PnL, and the price at which the account is
+  forcibly closed. Section 4 is why that matters. This is not a fringe design.
+  Excluding the two stablecoin issuers, which earn on reserves rather than on
+  trading, Hyperliquid Perps is the highest-revenue protocol in crypto.
+
+  So the honest position for our thesis is not that transparency is unworkable.
+  It plainly works here. It is that transparency is affordable exactly where the
+  leaked information is cheap, and the institutions we are building for do not
+  trade where it is expensive. See marketplace/venues/04-perp-dexes.md.
+
+  Addresses printed above are already published on Hyperliquid's own public
+  leaderboard. No attempt is made here to attribute any of them to a person or
+  a firm, and none should be.

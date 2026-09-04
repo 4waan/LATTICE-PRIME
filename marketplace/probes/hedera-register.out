@@ -1,0 +1,121 @@
+Probe H1 -- mainnet, unauthenticated
+
+TOKEN 0.0.9350212  abrdn Liquidity Fund (Lux) - Sterling Fund (L-1 Inc) (AAGLL1)
+  treasury      0.0.10116630
+  total_supply  436651433 (decimals 2)
+  kyc_key set   True
+  holder register:
+    4 associated accounts visible
+    0.0.10116630     balance 436651433
+    0.0.9349874      balance 0
+    0.0.9273789      balance 0
+    0.0.6827532      balance 0
+  per-account compliance status:
+    0.0.10116630     kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.9349874      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.9273789      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.6827532      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+
+TOKEN 0.0.9379197  abrdn Liquidity Fund (Lux) - Euro Fund (L-1 Inc) (AAELL1)
+  treasury      0.0.10116630
+  total_supply  0 (decimals 2)
+  kyc_key set   True
+  holder register:
+    2 associated accounts visible
+    0.0.10116630     balance 0
+    0.0.6827532      balance 0
+  per-account compliance status:
+    0.0.10116630     kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.6827532      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+
+TOKEN 0.0.9379434  abrdn Liquidity Fund (Lux) - US Dollar Fund (L-1 Inc) (AAULL1)
+  treasury      0.0.10116630
+  total_supply  1750829880 (decimals 2)
+  kyc_key set   True
+  holder register:
+    23 associated accounts visible
+    0.0.10420069     balance 0
+    0.0.10420068     balance 500000000
+    0.0.10420061     balance 168699466
+    0.0.10420058     balance 34191451
+    0.0.10420057     balance 164036740
+    0.0.10420056     balance 58982718
+    0.0.10420055     balance 50000000
+    0.0.10420054     balance 50000000
+    0.0.10420052     balance 50000000
+    0.0.10116630     balance 674919505
+    0.0.10085660     balance 0
+    0.0.9229333      balance 0
+    0.0.9223488      balance 0
+    0.0.9223487      balance 0
+    0.0.8159164      balance 0
+    0.0.8159079      balance 0
+    0.0.8158987      balance 0
+    0.0.7400342      balance 0
+    0.0.7400340      balance 0
+    0.0.7400338      balance 0
+    0.0.7400336      balance 0
+    0.0.6827532      balance 0
+    0.0.5715846      balance 0
+  per-account compliance status:
+    0.0.10420069     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420068     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420061     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420058     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420057     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420056     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420055     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420054     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10420052     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.10116630     kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.10085660     kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.9229333      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.9223488      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.9223487      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.8159164      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.8159079      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.8158987      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.7400342      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.7400340      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.7400338      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.7400336      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.6827532      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.5715846      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+
+TOKEN 0.0.9378484  State Street USD Treasury Liquidity Fund (Premier) (ASUTPS)
+  treasury      0.0.10116630
+  total_supply  0 (decimals 2)
+  kyc_key set   True
+  holder register:
+    2 associated accounts visible
+    0.0.10116630     balance 0
+    0.0.6827532      balance 0
+  per-account compliance status:
+    0.0.10116630     kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.6827532      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+
+TOKEN 0.0.9378532  BlackRock ICS US Treasury Fund (Premier Acc) (ABUTPA)
+  treasury      0.0.10116630
+  total_supply  0 (decimals 2)
+  kyc_key set   True
+  holder register:
+    4 associated accounts visible
+    0.0.10116630     balance 0
+    0.0.7915722      balance 0
+    0.0.6827532      balance 0
+    0.0.976895       balance 0
+  per-account compliance status:
+    0.0.10116630     kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.7915722      kyc_status REVOKED   freeze_status NOT_APPLICABLE
+    0.0.6827532      kyc_status GRANTED   freeze_status NOT_APPLICABLE
+    0.0.976895       kyc_status REVOKED   freeze_status NOT_APPLICABLE
+
+What this shows, and it is the whole point:
+
+  1. The set of accounts permitted to hold a regulated fund is public, and it is
+     public BEFORE any of them holds a balance. Association is itself disclosure.
+  2. kyc_status is published per account per token. That is a public compliance
+     register at the Hedera token layer, keyed by address.
+  3. Neither fact required a key, an account, or a relationship with the issuer.
+
+This is the identity leak, in production, on the chain we are building on.
