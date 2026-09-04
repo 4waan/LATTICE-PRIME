@@ -1,0 +1,36 @@
+# a design decision: Groth16 versus PLONK on Hedera testnet 296.
+# One circuit (trivial.circom, a*b==c with a,b != 1), one ptau
+# (powersOfTau28_hez_final_12), both proof systems, same machine, same hour.
+# Toolchain rebuilt from nothing: circom 2.2.3 from source, snarkjs from npm.
+
+--- local, snarkjs ---
+groth16: setup + 1 phase-2 contribution + prove + verify   OK
+plonk:   setup (NO phase 2 at all) + prove + verify        OK
+
+--- sizes ---
+  groth16 proof         802 bytes json      calldata  637 hex chars
+  plonk   proof        2249 bytes json      calldata 1729 hex chars
+  groth16 verifier     7061 bytes sol   ->  1352 bytes deployed
+  plonk   verifier    28983 bytes sol   ->  5417 bytes deployed
+  EIP-170 limit                            24576 bytes. Both fit.
+
+--- on chain, Hedera testnet 296 ---
+{"step":"groth16","address":"0xE504bA1EF2f682EDE202F5968E64aC28EDCcA673","deployGas":"345578",
+ "validProofReturns":true,"corruptedProofReturns":false,"verifyGas":"228649",
+ "controlsPass":true,"recordedPreviously":214202}
+{"step":"plonk","address":"0x1Db5347dDd984FFef843934635bAF494BAD0B89c","deployGas":"1224531",
+ "validProofReturns":true,"corruptedProofReturns":false,"verifyGas":"322697",
+ "controlsPass":true,"inferredPreviously":290000}
+{"step":"comparison","groth16Gas":"228649","plonkGas":"322697","plonkOverheadPct":41.13,
+ "ceilingUsedGroth16Pct":1.52,"ceilingUsedPlonkPct":2.15}
+
+# Controls: each verifier returned TRUE for its valid proof and FALSE for the
+# same proof with the public signal incremented by one. A verifier that answered
+# the same way to both would have made the gas numbers meaningless.
+#
+# On the two prior figures:
+#   Groth16 214,202 was measured by driving the precompile sequence directly.
+#   228,649 is through a deployed Solidity verifier and includes intrinsic and
+#   calldata cost. 6.7 percent apart by two different methods, which is a
+#   consistency check, not an identity.
+#   PLONK's [INFERRED] ~290,000 was 10 percent low. The real figure is 322,697.
