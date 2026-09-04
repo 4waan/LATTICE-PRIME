@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Foundry
+venue/out/
+venue/cache/
+venue/lib/
+
+# Generated circuit material
+venue/circuits/build/
+
+# Scratch and superseded revisions
+*.bak
+*.pre-*
+
+# Public ceremony transcripts, downloaded not authored
+*.ptau
+
+# Local working trees not part of this project
+asset-tokenization-studio/
+ats-pr1/
+ats-pr2/
