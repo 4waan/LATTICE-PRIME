@@ -1,0 +1,36 @@
+Spike 2 + 3, Hedera testnet,  15:36-15:37 UTC
+Signer 0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115 (0.0.10298158)
+Factory 0xd1F118A40f3b02883D35909eF2517e7EDd78379d (the ATS team's, unmodified)
+Resolver 0xBA2D5FC2083A0b8f164c50e65d782087fBA18E0a
+
+{"step":"env","signer":"0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115","balanceHbar":980.3278,"quotedTinybar":122,"bidTinybar":146}
+{"step":"deployBond","hash":"0xf70cc9e44d2ae5973d13272271c3b79ffe5392dace648eb79916016e0f17d733","gasUsed":"7310717","bond":"0x893AB1A77B098aC3aE930de50ce47a58d3d5B328"}
+{"step":"mint","gasUsed":"450329","to":"0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115","amount":1000}
+{"step":"transfer_before_seam","gasUsed":"438436","expected":"success","got":"success"}
+{"step":"deploy_kyc_list","address":"0x1B9B5E6147a55e243232d9E2Cc350Fe63B040C83","gasUsed":"151899"}
+{"step":"register_kyc_list","gasUsed":"127236"}
+{"step":"transfer_with_seam_denying","expected":"revert","blocked":true,"reason":"CONTRACT_REVERT_EXECUTED"}
+{"step":"grant_kyc_sender","gasUsed":"45074"}
+{"step":"grant_kyc_receiver","gasUsed":"44858"}
+{"step":"transfer_after_grant","gasUsed":"240301","expected":"success","got":"success"}
+{"step":"done","bond":"0x893AB1A77B098aC3aE930de50ce47a58d3d5B328","kycList":"0x1B9B5E6147a55e243232d9E2Cc350Fe63B040C83","hbarSpent":10.2182}
+
+--- revert decoded afterwards, because "it reverted" is not "the seam blocked it" ---
+transfer(0x...beef, 10) against the same bond, mirror node POST /contracts/call:
+  CONTRACT_REVERT_EXECUTED
+  data 0xfc855b1b000000000000000000000000000000000000000000000000000000000000beef
+  0xfc855b1b = InvalidKycStatus()
+  trailing word = 0x...beef, the account that failed
+Control: InvalidKycStatus(address) would be 0x155a732e. It is not that.
+Throw site: ERC1594StorageWrapper.sol:610
+  return (false, Eip1066.DISALLOWED_OR_STOP, IKyc.InvalidKycStatus.selector, abi.encode(account));
+
+--- fee reconciliation ---
+gas total          8,808,850
+bid                146 tinybar (eth_gasPrice 122 x 1.2, ATS's own multiplier)
+mirror gas_price   146          <- reports the BID, not the charge
+implied at bid     12.8609 HBAR
+observed spend     10.2182 HBAR (balance delta, 980.3278 -> 970.1095862)
+actual price       116 tinybar
+8,808,850 x 116 =  10.218266 HBAR, residual ~0
+stage 2 comparison: charged 114, quoted 120. Both runs: charged = quote - 6.

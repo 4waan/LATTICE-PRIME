@@ -1,0 +1,20 @@
+# Spike 6, testnet 296. Reproduce with:
+#   cd asset-tokenization-studio/packages/ats/contracts
+#   nvm use 22.21.1
+#   HEDERA_TESTNET_PRIVATE_KEY_0="$(cat ~/.hedera-testnet-key)" \
+#     npx hardhat run --network hedera-testnet scripts/spike/seam-shapes.ts
+# Hardhat build chatter trimmed. Every result line is verbatim.
+
+{"step":"env","signer":"0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115","balanceHbar":967.9863}
+{"step":"C1_baseline","lists":["0x1B9B5E6147a55e243232d9E2Cc350Fe63B040C83"],"transferSucceeds":true,"reason":"","expected":"true, the mock grants both parties"}
+{"step":"C3_empty_list","transferSucceeds":true,"expected":"true, an empty list reads GRANTED"}
+{"step":"shape","addr":"0x00000000000000000000000000000000009d7900","label":"HTS token, HIP-719 facade","codeLengthGuard":"ADMITS, 147 bytes","registered":true,"isExternallyGranted":"revert: execution reverted: CONTRACT_REVERT_EXECUTED","transferSucceeds":false,"reason":"execution reverted: CONTRACT_REVERT_EXECUTED","verdict":"fails closed"}
+{"step":"shape","addr":"0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115","label":"EOA, ECDSA alias","codeLengthGuard":"rejects, 0 bytes","registered":true,"isExternallyGranted":"revert: execution reverted: CONTRACT_REVERT_EXECUTED","transferSucceeds":false,"reason":"execution reverted: CONTRACT_REVERT_EXECUTED","verdict":"fails closed"}
+{"step":"shape","addr":"0x0000000000000000000000000000000000000167","label":"HTS system contract","codeLengthGuard":"rejects, 0 bytes","registered":true,"isExternallyGranted":"revert: execution reverted: CONTRACT_REVERT_EXECUTED","transferSucceeds":false,"reason":"execution reverted: CONTRACT_REVERT_EXECUTED","verdict":"fails closed"}
+{"step":"shape","addr":"0x0000000000000000000000000000000000000006","label":"bn254 ecAdd precompile","codeLengthGuard":"rejects, 0 bytes","registered":true,"isExternallyGranted":"revert: execution reverted: CONTRACT_REVERT_EXECUTED","transferSucceeds":false,"reason":"execution reverted: CONTRACT_REVERT_EXECUTED","verdict":"fails closed"}
+{"step":"shape","addr":"0x893AB1A77B098aC3aE930de50ce47a58d3d5B328","label":"C2 a contract that reverts","codeLengthGuard":"ADMITS, 390 bytes","registered":true,"isExternallyGranted":"revert: execution reverted: CONTRACT_REVERT_EXECUTED","transferSucceeds":false,"reason":"execution reverted: CONTRACT_REVERT_EXECUTED","verdict":"fails closed"}
+{"step":"restore","lists":["0x1B9B5E6147a55e243232d9E2Cc350Fe63B040C83"],"matchesBaseline":true,"transferSucceeds":true,"hbarSpent":1.2885}
+
+# Read: registration accepted all five shapes. The typed seam then failed closed
+# on all five. C3 (no list) and C1 (mock restored) both succeed, so the harness
+# can produce a success and the reverts above are results, not a stuck rig.
