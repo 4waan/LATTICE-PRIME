@@ -1,0 +1,38 @@
+[profile.default]
+src          = "src"
+out          = "out"
+libs         = ["lib"]
+test         = "test"
+script       = "script"
+solc         = "0.8.24"
+optimizer    = true
+optimizer_runs = 200
+via_ir       = false
+# an earlier measurement: ATS facets sit at 97 percent of EIP-170 and the ATS hardhat config hides
+# it with allowUnlimitedContractSize. We do the opposite. Size is measured every
+# build, never at deploy.
+bytecode_hash = "none"
+# The proof fixtures are read by the seam D integration test. Read only, and the
+# narrowest grant that works, so a test cannot reach anything else on disk.
+fs_permissions = [{access = "read", path = "./test/fixtures"}]
+
+[profile.default.fuzz]
+runs = 512
+
+[fmt]
+line_length = 96
+tab_width = 4
+bracket_spacing = false
+
+[lint]
+# Immutables here are public getters and read as ordinary accessors at every call
+# site, including from the ATS side. SCREAMING_SNAKE would make `registry.EPOCH_ZERO()`
+# the public API, which reads as a constant and is not one.
+exclude_lints = [
+    "screaming-snake-case-immutable",
+    # `commitmentOf` hashes a six field preimage once per call, off the hot path.
+    # Hand written assembly here would save a few hundred gas and make the one
+    # function a client has to reproduce exactly harder to read, which is the
+    # wrong trade for a preimage the client and the contract must agree on.
+    "asm-keccak256",
+]
