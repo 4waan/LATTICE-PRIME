@@ -1,0 +1,115 @@
+# Disclosure matrix collusion check.
+# The join over the filled disclosure matrix, mechanised rather than argued in
+# prose. Reproduce: python3 scripts/collusion-check.py
+#
+# Controls. A check whose mitigations can be switched off without changing the
+# output is not checking them. Three toggles, three differentials:
+#   --no-inv24  3 -> 4 derived leaks   deanonymisation appears, held by {iss} alone
+#   --no-rule1  3 -> 4 derived leaks   pre-trade order intent appears, held by {nodes}
+#   --no-pool   R17 moves {relay}exact -> {pub}exact
+
+the disclosure matrix COLLUSION CHECK
+==========================================================================
+rows: 18   parties: 7   subsets checked: 63
+Rule 1 (commitments for hidden values): ON
+Section 7.5 account pool:               ON
+
+AXIS FINDING
+--------------------------------------------------------------------------
+  `relay` (the sponsoring relay) is used by this check and is NOT in
+  the observer axis. J4 is a subset containing it
+  and SECURITY-MODEL.md section 6.1 carries it as adversary A5.
+
+PART 1 - PER-ROW JOINS AGAINST CEILING
+--------------------------------------------------------------------------
+  subsets containing no party entitled to the row
+
+  R6  Quantity                           {nodes}          exact@pre > bucket
+  R12 Counterparty relationship          {pub}            exact@imm > none  <- named unsolved  (public, so every party holds it)
+       THE CELL WE DID NOT SOLVE. Settlement runs the stock ATS transfer path (D-05, D-07), which discloses the pair. Should sit at {reg,cp}. Fix is D-08's order-book-only second layer, on the roadmap.
+  R15 Activity fingerprint               {nodes}          exact@pre > agg
+  R16 Cadence                            {pub}            exact@imm > bucket  (public, so every party holds it)
+  R17 Account provenance                 {relay}          exact@imm > bucket
+
+PART 2 - EMERGENT ROW JOINS (strictly more than any member alone)
+--------------------------------------------------------------------------
+  none. No row is reconstructed by pooling that a member did not
+  already hold. Every row-level leak above is one party's alone,
+  which is why part 3 is where the design is actually tested.
+
+PART 3 - DERIVED FACTS (the check a cell-by-cell review cannot do)
+--------------------------------------------------------------------------
+  Counterparty graph
+       held by {iss}   (permitted: {cp u reg u ven})
+       inputs: R1>=exact, R12>=exact
+       F4-ROW-SCOPE derived fact 1, reconstructed on mainnet.
+
+  Activity fingerprint
+       held by {iss}   (permitted: {cp u reg u ven})
+       inputs: R1>=exact, R6>=bucket, R16>=exact
+       F4-ROW-SCOPE derived fact 2. Identity plus quantity plus time.
+
+  Fund flow per share class
+       held by {nodes}   (permitted: {cp u iss u reg u ven})
+       inputs: R6>=exact, R7>=exact
+       F4-ROW-SCOPE derived fact 3. Scoped to the issuer, not the trader.
+
+==========================================================================
+rows checked:                                  18
+row-level ceiling violations (minimal):        5
+emergent row joins:                            0
+derived facts outside their permitted set:     3
+rows at ceiling `none` and violated:           R12
+
+Read this as the design intends: the failures below are the ones the
+documents already name and price. A check that finds nothing has not
+been run against a real design.
+
+=================== CONTROL: --no-inv24 ===================
+PART 3 - DERIVED FACTS (the check a cell-by-cell review cannot do)
+--------------------------------------------------------------------------
+  Deanonymisation: real identity behind a nullifier
+       held by {iss}   (permitted: nobody unilaterally)
+       inputs: R1>=exact, R11>=exact, R18>=exact
+       J4. The issuer holds identity to credential; the registry publishes address to nullifier. The missing edge is cid to n, and INV-24's proof of possession on pk_D = pk_I + pk_V is what keeps it missing.
+
+  Counterparty graph
+       held by {iss}   (permitted: {cp u reg u ven})
+       inputs: R1>=exact, R12>=exact
+       F4-ROW-SCOPE derived fact 1, reconstructed on mainnet.
+
+  Activity fingerprint
+       held by {iss}   (permitted: {cp u reg u ven})
+       inputs: R1>=exact, R6>=bucket, R16>=exact
+       F4-ROW-SCOPE derived fact 2. Identity plus quantity plus time.
+
+  Fund flow per share class
+       held by {nodes}   (permitted: {cp u iss u reg u ven})
+       inputs: R6>=exact, R7>=exact
+       F4-ROW-SCOPE derived fact 3. Scoped to the issuer, not the trader.
+
+==========================================================================
+=================== CONTROL: --no-rule1 ===================
+PART 3 - DERIVED FACTS (the check a cell-by-cell review cannot do)
+--------------------------------------------------------------------------
+  Counterparty graph
+       held by {iss}   (permitted: {cp u reg u ven})
+       inputs: R1>=exact, R12>=exact
+       F4-ROW-SCOPE derived fact 1, reconstructed on mainnet.
+
+  Activity fingerprint
+       held by {iss}   (permitted: {cp u reg u ven})
+       inputs: R1>=exact, R6>=bucket, R16>=exact
+       F4-ROW-SCOPE derived fact 2. Identity plus quantity plus time.
+
+  Fund flow per share class
+       held by {nodes}   (permitted: {cp u iss u reg u ven})
+       inputs: R6>=exact, R7>=exact
+       F4-ROW-SCOPE derived fact 3. Scoped to the issuer, not the trader.
+
+  Pre-trade order intent
+       held by {nodes}   (permitted: {ven})
+       inputs: R3>=exact, R4>=exact
+       J3. Size and price at `pre` is front-running material, before the venue can apply any policy. Rule 1 of section 7.4 is the mitigation.
+
+==========================================================================
