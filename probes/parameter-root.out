@@ -1,0 +1,62 @@
+# probes/parameter-root.out
+# a design decision. forge test, full suite.
+
+Ran 2 tests for test/Regime.t.sol:VolumeCapTest
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 25.16ms (7.07ms CPU time)
+Ran 15 tests for test/SeamCoverage.t.sol:SeamCoverageTest
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 30.41ms (13.81ms CPU time)
+Ran 14 tests for test/Repo.t.sol:RepoVaultTest
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 31.45ms (5.73ms CPU time)
+Ran 16 tests for test/ParameterRoot.t.sol:ParameterRootTest
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 18.07ms (15.70ms CPU time)
+Ran 7 tests for test/Repo.t.sol:RepoMathTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 29.57ms (29.49ms CPU time)
+Ran 9 tests for test/OrderBook.t.sol:OrderBookTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 76.76ms (52.98ms CPU time)
+Ran 13 tests for test/KycRegistration.t.sol:KycRegistrationTest
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 54.15ms (130.94ms CPU time)
+Ran 6 tests for test/MarketAbuse.t.sol:MarketAbuseTest
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 84.67ms (5.83ms CPU time)
+Ran 24 tests for test/SeamJournal.t.sol:SeamJournalTest
+Suite result: ok. 24 passed; 0 failed; 0 skipped; finished in 89.73ms (146.09ms CPU time)
+Ran 9 tests for test/DisclosureBudget.t.sol:DisclosureBudgetTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 209.41ms (193.93ms CPU time)
+Ran 12 tests for test/DisclosureLattice.t.sol:DisclosureLatticeTest
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 361.78ms (1.03s CPU time)
+Ran 7 tests for test/Regime.t.sol:RegimeTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 654.78ms (637.70ms CPU time)
+Ran 12 test suites in 675.61ms (1.67s CPU time): 134 tests passed, 0 failed, 0 skipped (134 total tests)
+
+## test/ParameterRoot.t.sol, verbose
+[PASS] test_aDroppedKeyStopsAnswering() (gas: 184755)
+[PASS] test_aDuplicateKeyIsRefused() (gas: 10611)
+[PASS] test_aRowValueThatIsNotAnIdealIsRefused() (gas: 254848)
+[PASS] test_adoptionIsPermissionlessAndStillNeedsTheSet() (gas: 329870)
+[PASS] test_anUnpublishedRowDisclosesNothing() (gas: 15137)
+[PASS] test_keysMustAscend() (gas: 11220)
+[PASS] test_republishingTheSameRootIsRefused() (gas: 338844)
+[PASS] test_revocationTakesTheCurrentRootOnly() (gas: 203260)
+[PASS] test_theCostOfAskingTheMatrix() (gas: 30123)
+  ceilingFor, waived row (external call): 2163
+  ceilingFor, unwaived row (external call): 1364
+[PASS] test_theProposalDisclosesThatAChangeIsComingAndNothingElse() (gas: 335166)
+[PASS] test_theRegimeBoundsOnlyTheWaivedRows() (gas: 53950)
+[PASS] test_theRootIsDerivedFromTheSetAndNeverDeclared() (gas: 140127)
+[PASS] test_theSetCannotLandEarly() (gas: 75295)
+[PASS] test_theSupersededRootIsAcceptedUntilTheGraceExpires() (gas: 341612)
+[PASS] test_theWindowClosesEvenIfTheRootNeverMovesAgain() (gas: 333284)
+[PASS] test_theZeroRootIsNeverAccepted() (gas: 129673)
+
+## the two new OrderBook tests
+[PASS] test_theCommitmentIsFiledUnderProvenanceAndNotIdentity() (gas: 22472)
+[PASS] test_theMatrixAsWrittenRefusesTheReveal() (gas: 497771)
+
+## sizes
+| Contract                | Runtime Size (B) | Initcode Size (B) | Runtime Margin (B) | Initcode Margin (B) |
+| OrderBook               | 4,728            | 5,047             | 19,848             | 44,105              |
+| ParameterRoot           | 4,708            | 4,998             | 19,868             | 44,154              |
+| Regime                  | 4,370            | 5,612             | 20,206             | 43,540              |
+| RepoVault               | 6,301            | 6,579             | 18,275             | 42,573              |
+| VolumeCap               | 2,510            | 3,805             | 22,066             | 45,347              |
+ --> test/OrderBook.t.sol:7:9
+7 | import {ParameterRoot} from "../src/policy/ParameterRoot.sol";

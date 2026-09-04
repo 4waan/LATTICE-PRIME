@@ -1,0 +1,7 @@
+Seam census probe  mainnet, unauthenticated
+Question: any live ATS token with a non-contract in compliance() or identityRegistry()?
+
+No ATS factory is published for mainnet.
+The deployed-addresses page lists testnet only, the SDK ships no
+mainnet factory constant, and the testnet entity numbers resolve to
+nothing here. Vacuously clean until someone deploys.

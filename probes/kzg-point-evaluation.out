@@ -1,0 +1,12 @@
+============================================================
+hedera-testnet
+  valid   y=0 (accept)   ACCEPTED+correct output
+  CONTROL y=1 (reject)   FAIL {"code": -32000, "message": "[Request ID: 33826979-447f-4caf-8450-3cec1ae901d8] Error occurred durin
+============================================================
+hedera-mainnet
+  valid   y=0 (accept)   ACCEPTED+correct output
+  CONTROL y=1 (reject)   FAIL {"code": -32000, "message": "[Request ID: cb7e4416-75f7-4d32-827a-5ef312d5f6c8] Error occurred durin
+============================================================
+ethereum-CONTROL
+  valid   y=0 (accept)   ACCEPTED+correct output
+  CONTROL y=1 (reject)   FAIL {"code": -32000, "message": "error verifying kzg proof: can't verify opening proof"}

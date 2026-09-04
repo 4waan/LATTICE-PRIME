@@ -1,0 +1,124 @@
+Sourcify v2, chain 296, corrected run
+
+C1b AtomicityProbe v2, deployed AFTER the edit 0xF715c2dF554A2Fa12711739F797992f5cEC4a1B2
+    1 sources, 0.12 MB stdJsonInput, solc 0.8.28+commit.7893614a
+    exact_match              expected should verify  -> PASS   (5.4s)
+    runtimeMatch=exact_match creationMatch=None
+
+ScheduleProbe, spike 4                         0x48a4F97121CD019d793d3b95E251E5D2F32d7094
+    1 sources, 0.10 MB stdJsonInput, solc 0.8.28+commit.7893614a
+    exact_match              expected should verify  -> PASS   (6.8s)
+    runtimeMatch=exact_match creationMatch=None
+
+C2 AtomicityProbe v1, source edited since      0xAECF4D3E5Fb45372596813d37A15725610344907
+    1 sources, 0.12 MB stdJsonInput, solc 0.8.28+commit.7893614a
+    bytecode_length_mismatch expected must FAIL      -> PASS   (7.8s)
+    runtimeMatch=None creationMatch=None
+
+
+Every contract verified on Hedera testnet 296, by deployment path
+
+contract                 deployment path              runtimeMatch   creationMatch
+------------------------------------------------------------------------------------
+TrivialVerifier          snarkjs flat, via relay      exact_match    None
+GuardedVerifier          snarkjs flat + ctor args     exact_match    None
+(stage2 third)           snarkjs flat                 exact_match    None
+ATS bond                 factory CREATE, 108 facets   exact_match    None
+MockedExternalKycList    hardhat, via relay           exact_match    None
+AtomicityProbe v2        hardhat, via relay           exact_match    None
+ScheduleProbe            hardhat, via relay           exact_match    None
+
+0 of 7 verified contracts have a creation match.
+Three deployment paths, one relay, one factory. The factory explanation
+recorded in spikes/ats/README.md does not cover the EOA-deployed rows.
+
+Mirror node contract entity: is the init code there?
+
+ScheduleProbe, EOA deploy    init=     1 bytes  runtime=  1008 bytes  identical=False
+     init    starts 0x
+     runtime starts 0x608060405260043610610057
+     created_by=1788279119.055425105  file_id=None
+
+ATS bond, factory CREATE     init=  2589 bytes  runtime=   391 bytes  identical=False
+     init    starts 0x608060405260405161065c38
+     runtime starts 0x60806040523661000b57005b
+     created_by=1788190619.534651105  file_id=None
+
+
+Init code as recorded by the mirror node, by deployment path
+
+contract                 deployed by                init B  runtime B
+----------------------------------------------------------------------
+TrivialVerifier          relay, Aug 31 12:2x             0       1350
+GuardedVerifier          relay + ctor args               0       1332
+stage2 third             relay                           0       1723
+ATS bond                 factory CREATE               2588        390
+MockedExternalKycList    relay, Aug 31                   0        456
+AtomicityProbe v2        relay, today                    0       1434
+ScheduleProbe            relay, today                    0       1007
+AtomicityProbe v1        relay, today                    0       1072
+
+relay-deployed with EMPTY init code:   7 of 7
+factory-deployed with EMPTY init code: 0 of 1
+
+GuardedVerifier, two ctor args  HTTP 200
+  creationBytecode present: False
+  constructorArguments    : ABSENT
+  runtimeBytecode present : True (2666 hex chars)
+  compilation name        : GuardedVerifier
+
+ATS bond, factory CREATE  HTTP 200
+  creationBytecode present: False
+  constructorArguments    : ABSENT
+  runtimeBytecode present : True (782 hex chars)
+  compilation name        : ResolverProxy
+
+--- relay-deployed: ScheduleProbe, created 1788279119.055425105 ---
+  creating tx hash        0xb34d0c40588d567f51a8
+  function_parameters     1035 bytes
+  first 40 hex            0x6080604052348015600e575f5ffd5b506103ef80
+  bytecode field          0 bytes
+  -> init code IS in the creating transaction's record
+
+--- factory-deployed: ATS bond ---
+  entity bytecode         2588 bytes
+  tail 128 hex (ctor args live at the end of init code):
+    0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000d1f118a40f3b02883d35909ef2517e7edd78379d
+
+ATS bond init code: 2588 bytes
+first ctor word found at hex offset 3256 (byte 1628)
+ctor args region: 960 bytes, 30 words
+  word 0  000000000000000000000000ba2d5fc2083a0b8f164c50e65d782087fba18e0a
+  word 1  0000000000000000000000000000000000000000000000000000000000000002
+  word 2  0000000000000000000000000000000000000000000000000000000000000001
+  word 3  0000000000000000000000000000000000000000000000000000000000000080
+  word 4  0000000000000000000000000000000000000000000000000000000000000005
+  word 5  00000000000000000000000000000000000000000000000000000000000000a0
+  word 6  0000000000000000000000000000000000000000000000000000000000000120
+  word 7  00000000000000000000000000000000000000000000000000000000000001a0
+  word 8  0000000000000000000000000000000000000000000000000000000000000220
+  word 9  00000000000000000000000000000000000000000000000000000000000002a0
+  word 10 0000000000000000000000000000000000000000000000000000000000000000
+  word 11 0000000000000000000000000000000000000000000000000000000000000040
+  word 12 0000000000000000000000000000000000000000000000000000000000000001
+  word 13 000000000000000000000000d30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  word 14 5eeaf5602c75bf26e73b5206d0bd6ee82f621166255e5fd73cc06bc7bd84a95f
+  word 15 0000000000000000000000000000000000000000000000000000000000000040
+  word 16 0000000000000000000000000000000000000000000000000000000000000001
+  word 17 000000000000000000000000d30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  word 18 ec811504e835acf29535b5b62307b08000468f0c61ca6163ed6f17a03629b91e
+  word 19 0000000000000000000000000000000000000000000000000000000000000040
+  word 20 0000000000000000000000000000000000000000000000000000000000000001
+  word 21 000000000000000000000000d30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  word 22 ccf29bda8369877bcc921e38f30df86156a571ca5c5b8e777bf7ff75270313ea
+  word 23 0000000000000000000000000000000000000000000000000000000000000040
+  word 24 0000000000000000000000000000000000000000000000000000000000000001
+  word 25 000000000000000000000000d30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  word 26 0000000000000000000000000000000000000000000000000000000000000000
+  word 27 0000000000000000000000000000000000000000000000000000000000000040
+  word 28 0000000000000000000000000000000000000000000000000000000000000001
+  word 29 000000000000000000000000d1f118a40f3b02883d35909ef2517e7edd78379d
+
+CHECK resolver   arg0 == 0xba2d5fc2083a0b8f164c50e65d782087fba18e0a : True
+CHECK configId   arg1 == bond config 0x..02 : True
+CHECK version    arg2 = 1

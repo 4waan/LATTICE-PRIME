@@ -1,0 +1,119 @@
+Hedera consensus-layer observer set
+source: https://mainnet-public.mirrornode.hedera.com  (unauthenticated)
+probe for consensus visibility
+
+========================================================================
+1. The address book: every entity that sees a transaction pre-consensus
+========================================================================
+
+Every consensus node receives gossiped events, and a hashgraph event
+carries an array of transactions, not hashes. So this list IS the
+pre-consensus observer set. It is not a subset of it.
+
+  id   account   operator and location                         stake   share
+  ------------------------------------------------------------------------
+  1    0.0.4     Swirlds | Iowa, USA                       450000000   4.34%
+  4    0.0.7     Nomura | Tokyo, Japan                     450000000   4.34%
+  5    0.0.8     Google | Helsinki, Finland                450000000   4.34%
+  7    0.0.10    Magalu | Sao Paulo, Brazil                450000000   4.34%
+  11   0.0.14    IBM | Texas, USA                          450000000   4.34%
+  12   0.0.15    Deutsche Telekom | Berlin, Germany        450000000   4.34%
+  20   0.0.23    Chainlink Labs | Michigan, USA            450000000   4.34%
+  35   0.0.38    Repsol | La Rioja, Spain                  450000000   4.34%
+  36   0.0.39    McLaren Racing | London, UK               450000000   4.34%
+  38   0.0.41    Accenture | Brussels, Belgium             445050813   4.29%
+  0    0.0.3     LG | Singapore                            439113887   4.23%
+  34   0.0.37    Blockchain for Energy | Helsinki, Finl    437725682   4.22%
+  37   0.0.40    FedEx | Zürich, Switzerland               432937262   4.17%
+  25   0.0.28    Ubisoft | Quebec, Canada                  396980945   3.83%
+  22   0.0.25    IIT Madras | Naaldwijk, Netherlands       382141534   3.68%
+  10   0.0.13    Tata Communications | Frankfurt, Germa    379687238   3.66%
+  18   0.0.21    EDF | Paris, France                       374482441   3.61%
+  33   0.0.36    Nairobi Securities Exchange | London,     369352250   3.56%
+  26   0.0.29    Aberdeen Investments | London, UK         364832704   3.52%
+  15   0.0.18    Dentons | Roubaix, France                 361361772   3.48%
+  31   0.0.34    BitGo | Stockholm, Sweden                 348889453   3.36%
+  6    0.0.9     Zain Group | Kuwait City, Kuwait          293788351   2.83%
+  39   0.0.42    Dell | Cork, Ireland                      291236046   2.81%
+  32   0.0.35    Arrow Electronics | Virginia, USA         284746804   2.75%
+  21   0.0.24    LSE | Falkenstein, Germany                244668189   2.36%
+  9    0.0.12    DLA Piper | Helsinki, Finland             178143796   1.72%
+  17   0.0.20    Australian Payments Plus | Sydney, Aus    140999609   1.36%
+  30   0.0.33    Mondelēz International | Mumbai, India     86711140   0.84%
+  19   0.0.22    Shinhan Bank | London, UK                  70263129   0.68%
+
+  observers          29
+  total stake        10373113045 hbar
+  largest single     4.34%
+  nodes at zero stake 0
+
+========================================================================
+3. How many observers are financial institutions
+========================================================================
+  0.0.7     Nomura | Tokyo, Japan
+  0.0.29    Aberdeen Investments | London, UK
+  0.0.34    BitGo | Stockholm, Sweden
+  0.0.24    LSE | Falkenstein, Germany
+  0.0.20    Australian Payments Plus | Sydney, Australia
+  0.0.22    Shinhan Bank | London, UK
+
+  6 of 29 observers (21%), holding 15.61% of stake
+
+  Note the entity at node 0.0.29. Aberdeen Investments operates a
+  consensus node AND is the asset manager behind the tokenised money
+  market funds found issued on this same mainnet, and a
+  counterparty in the July 2025 tokenised-collateral trade that
+  marketplace/hedera-record.md treats as our exact use case.
+  It is on both sides of the glass.
+
+  jurisdictions represented: 18
+  USA x4, UK x4, Finland x3, Germany x3, France x2, Singapore x1, Japan x1, Kuwait x1, Brazil x1, Australia x1, Netherlands x1, Canada x1, India x1, Sweden x1, Spain x1, Switzerland x1, Belgium x1, Ireland x1
+
+========================================================================
+4. The pre-consensus window, upper bound
+========================================================================
+
+  valid_start -> consensus_timestamp, n=100, seconds
+    min     3.823
+    p25     8.226
+    median  10.522
+    p75     10.893
+    p90     13.538
+    max     59.293
+
+  by type:
+    CRYPTOTRANSFER             n=71   median 10.591
+    CONTRACTCALL               n=10   median 7.966
+    CONSENSUSSUBMITMESSAGE     n=9    median 10.435
+    ETHEREUMTRANSACTION        n=4    median 7.235
+    CRYPTOAPPROVEALLOWANCE     n=2    median 13.463
+    CRYPTOCREATEACCOUNT        n=1    median 10.245
+
+  CAVEAT, and it is why this is an upper bound and not a measurement.
+  valid_start is chosen by the CLIENT, and the SDKs deliberately backdate it
+  to survive clock skew. So this interval contains an unknown amount of
+  client-side offset. The true window is bounded above by these figures and
+  below by the observed min. Hedera documents ~2 to 3 seconds for the fame
+  elections that decide order, which is consistent with the min here.
+
+  A clean measurement needs a transaction we submit ourselves with a known
+  local clock. That is the same transaction mu1.2 needs in order to inspect
+  calldata shape, so the two probes should be run together.
+
+========================================================================
+What this settles
+========================================================================
+
+  A Hedera transaction names its recipient node in the signed body, so it is
+  valid at exactly one node. The submitter therefore CHOOSES its first
+  observer. That is a real and unusual property.
+
+  It does not survive gossip. The receiving node validates, packs the
+  transaction into an event, and gossips the event onward. Events carry
+  transactions, so within the consensus window all 29 entities above hold the
+  plaintext, and they hold it before any of it is public.
+
+  The absence of a public mempool is therefore true and materially good: there
+  is no open queue for an anonymous searcher to watch. It is not the same
+  claim as pre-trade privacy. It relocates the observer set from "anyone"
+  to "these 29", and 6 of them are financial institutions.

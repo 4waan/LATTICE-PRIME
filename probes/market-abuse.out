@@ -1,0 +1,24 @@
+No files changed, compilation skipped
+
+Ran 6 tests for test/MarketAbuse.t.sol:MarketAbuseTest
+[PASS] test_MA01_liquidationThresholdIsPublicToTheUnit() (gas: 49371)
+Logs:
+  MA-01 mark at open              : 10000000
+  MA-01 liquidation threshold, t+15d: 9400390
+  MA-01 fall required, bps        : 599
+
+[PASS] test_MA01b_theWholeFutureTrajectoryIsComputableAtOpen() (gas: 317666)
+[PASS] test_MA02_unblindedMarkCommitmentFallsToASmallSearch() (gas: 749088)
+Logs:
+  MA-02 candidates tried: 1432
+
+[PASS] test_MA03_theVaultDisclosesUnderACellItsOwnOracleForbids() (gas: 52408)
+[PASS] test_MA04_thirtyDailyMarksExceedTheBudgetTheLatticeCannotSee() (gas: 36951)
+Logs:
+  MA-04 marks until row 14 is spent: 9
+  MA-04 marks in one 30 day epoch  : 30
+
+[PASS] test_MA07_theOnlySelfDealingDetectorIsRow11AndItIsAnEventField() (gas: 681070)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 15.83ms (32.97ms CPU time)
+
+Ran 1 test suite in 334.31ms (15.83ms CPU time): 6 tests passed, 0 failed, 0 skipped (6 total tests)

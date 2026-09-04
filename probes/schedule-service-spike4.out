@@ -1,0 +1,29 @@
+=== Spike 4, independent confirmation from the mirror node ===
+
+NOTE. The schedule address printed by the harness (0.0.10322500) came from
+a staticCall simulation, not from the transaction that ran. It does not
+exist: /schedules/0.0.10322500 is 404. The real entity is below. Recorded
+because it is the an earlier measurement pattern, a plausible id from a call that
+measured something else, and the mirror node is what caught it.
+
+  schedule_id            0.0.10321500
+  creator_account_id     0.0.10298158
+  payer_account_id       0.0.10321498
+  consensus_timestamp    1788279141.995339725
+  expiration_time        1788279231.000000000
+  executed_timestamp     1788279231.008414720
+  deleted                False
+  wait_for_expiry        True
+
+  created            1788279141.995339632
+  expiry             1788279231.000000000
+  executed           1788279231.008414745
+  lag after expiry   0.008415 seconds
+  scheduled ahead by 89.005 seconds
+
+=== the transaction that created it ===
+  1788279141.995339724     ETHEREUMTRANSACTION  SUCCESS  entity=0.0.10321498 charged=163574724
+
+  The schedule's consensus timestamp is exactly 1 nanosecond after the
+  ETHEREUMTRANSACTION above, so it is a child of it. No off-chain party
+  created it and payer_account_id is the contract's own account.

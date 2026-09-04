@@ -1,0 +1,38 @@
+Seam census probe  testnet, unauthenticated
+Question: any live ATS token with a non-contract in compliance() or identityRegistry()?
+
+factory 0.0.7512002  (2.0.1, docs version history)
+  172 tokens, 344 seam reads returned zero
+
+factory 0.0.7708432  (4.0.0, the only one the docs publish)
+  6 tokens, 12 seam reads returned zero
+
+factory 0.0.7783349  (vendored record 2026-01-29, expired)
+  11 tokens, 22 seam reads returned zero
+
+factory 0.0.7838301  (vendored record 2026-02-05)
+  24 tokens, 48 seam reads returned zero
+
+factory 0.0.8673518  (vendored record 2026-04-16)
+  1 tokens, 2 seam reads returned zero
+
+factory 0.0.9005295  (vendored record 2026-05-19)
+  0 tokens, 0 seam reads returned zero
+
+factory 0.0.9213391  (vendored record 2026-06-12, the live one)
+  43 tokens, 86 seam reads returned zero
+
+control, on one live token:
+  unregistered selector 0xdeadbeef -> revert 0x5416eb98 (expect 0x5416eb98, FunctionNotFound)
+  compliance()                     -> ok, 0x00000000...
+  so the facet is registered and the zero is a stored value.
+
+seam reads:            514
+returned zero:         514   (zero is the explicit disabled state)
+facet not registered:  0
+seam set to something: 0
+
+FAIL-OPEN (non-contract in a live seam): 0
+
+This is an ordinary hardening PR. No live token is in the fail-open state.
+

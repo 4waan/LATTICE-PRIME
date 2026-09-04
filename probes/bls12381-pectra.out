@@ -1,0 +1,68 @@
+EIP-2537 BLS12-381 precompile probe
+
+==================================================================
+hedera-testnet https://testnet.hashio.io/api
+==================================================================
+
+  [existence sweep] empty input: FAIL = present, OK/empty = absent
+    0x0b BLS12_G1ADD            ABSENT (returned empty)
+    0x0c BLS12_G1MSM            ABSENT (returned empty)
+    0x0d BLS12_G2ADD            ABSENT (returned empty)
+    0x0e BLS12_G2MSM            ABSENT (returned empty)
+    0x0f BLS12_PAIRING_CHECK    ABSENT (returned empty)
+    0x10 BLS12_MAP_FP_TO_G1     ABSENT (returned empty)
+    0x11 BLS12_MAP_FP2_TO_G2    ABSENT (returned empty)
+
+  [known-answer] 0x0b BLS12_G1ADD
+    G1ADD(G, O) = G      MISMATCH  (0 bytes returned)
+    G1ADD(G, -G) = O     MISMATCH  (0 bytes returned)
+    G1ADD(O, O) = O      MISMATCH  (0 bytes returned)
+
+==================================================================
+hedera-mainnet https://mainnet.hashio.io/api
+==================================================================
+
+  [existence sweep] empty input: FAIL = present, OK/empty = absent
+    0x0b BLS12_G1ADD            ABSENT (returned empty)
+    0x0c BLS12_G1MSM            ABSENT (returned empty)
+    0x0d BLS12_G2ADD            ABSENT (returned empty)
+    0x0e BLS12_G2MSM            ABSENT (returned empty)
+    0x0f BLS12_PAIRING_CHECK    ABSENT (returned empty)
+    0x10 BLS12_MAP_FP_TO_G1     ABSENT (returned empty)
+    0x11 BLS12_MAP_FP2_TO_G2    ABSENT (returned empty)
+
+  [known-answer] 0x0b BLS12_G1ADD
+    G1ADD(G, O) = G      MISMATCH  (0 bytes returned)
+    G1ADD(G, -G) = O     MISMATCH  (0 bytes returned)
+    G1ADD(O, O) = O      MISMATCH  (0 bytes returned)
+
+==================================================================
+ethereum-CONTROL https://ethereum-rpc.publicnode.com
+==================================================================
+
+  [existence sweep] empty input: FAIL = present, OK/empty = absent
+    0x0b BLS12_G1ADD            PRESENT (rejected empty)
+    0x0c BLS12_G1MSM            PRESENT (rejected empty)
+    0x0d BLS12_G2ADD            PRESENT (rejected empty)
+    0x0e BLS12_G2MSM            PRESENT (rejected empty)
+    0x0f BLS12_PAIRING_CHECK    PRESENT (rejected empty)
+    0x10 BLS12_MAP_FP_TO_G1     PRESENT (rejected empty)
+    0x11 BLS12_MAP_FP2_TO_G2    PRESENT (rejected empty)
+
+  [known-answer] 0x0b BLS12_G1ADD
+    G1ADD(G, O) = G      PASS  (128 bytes returned)
+    G1ADD(G, -G) = O     PASS  (128 bytes returned)
+    G1ADD(O, O) = O      PASS  (128 bytes returned)
+
+============================================================
+hedera-testnet
+  valid   y=0 (accept)   ACCEPTED+correct output
+  CONTROL y=1 (reject)   FAIL {"code": -32000, "message": "[Request ID: d45b4792-d6db-48f4-9ac9-2d80bc1161a8] Error occurred durin
+============================================================
+hedera-mainnet
+  valid   y=0 (accept)   ACCEPTED+correct output
+  CONTROL y=1 (reject)   FAIL {"code": -32000, "message": "[Request ID: 47ae5ea8-0dd6-4fd7-9670-ccb1669aabc6] Error occurred durin
+============================================================
+ethereum-CONTROL
+  valid   y=0 (accept)   ACCEPTED+correct output
+  CONTROL y=1 (reject)   FAIL {"code": -32000, "message": "error verifying kzg proof: can't verify opening proof"}

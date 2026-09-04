@@ -1,0 +1,74 @@
+==========================================================================
+matching-clearing.py    seed 20260904
+==========================================================================
+
+1. THEOREM A. The maximum executable volume is attained at a
+   submitted price, so an O(n^2) scan over submitted prices is
+   complete rather than heuristic.
+   books checked against a half-integer grid : 20000
+   books where the grid beat every submitted price : 0
+
+2. THEOREM B. Both tie-break stages have connected argmax sets, so
+   'the midpoint' names a price that is itself a maximiser and the
+   rule is total.
+   crossing books checked            : 15730
+   disconnected volume maximisers    : 0
+   disconnected imbalance minimisers : 0
+
+3. WHAT THE TIE-BREAK COSTS. Signed bias in price units, positive
+   means the buyer pays less than the exact midpoint.
+   crossing books: 15526
+   rule                         volume lost    mean signed bias
+   lowest maximiser                       0              8.8306
+   highest maximiser                      0             -8.8306
+   midpoint, floored                      0              0.1429
+
+4. WHERE THE ROUNDING GOES. Absolute error against exact
+   arithmetic, in minor units, over every non-zero fill. Swept over
+   lot size, because the answer is not a constant factor.
+      max lot    fills   round-first mean      max   divide-once mean    max    ratio
+          100    11387               6.12     50.0              0.074    0.5      82x
+         1000    11249              57.58    499.0              0.071    0.5     807x
+        10000    11387             609.94   5000.0              0.076    0.5    8011x
+       100000    11361            6188.31  49949.0              0.076    0.5   81278x
+   The round-first error grows with the lot. The divide-once error is
+   bounded by one half whatever the lot is. That is the invariant, and
+   any single 'improvement factor' is an artefact of the lot size the
+   benchmark happened to draw.
+
+5. DOES RESTING PAY? Crossings a year at 600 orders a year,
+   Poisson, daily rounds. An upper bound: price is assumed never to
+   get in the way.
+   resting rounds          crossings/yr      vs R=0
+   R=0                            130.0       1.00x
+   R=1                            211.8       1.63x
+   R=7                            277.8       2.14x
+   R=30                           292.8       2.25x
+
+   And the window itself, at R=0, which is what an earlier measurement's arithmetic
+   says about anonymity sets as much as about liquidity.
+   round                   orders/round    crossings/yr
+   15 min                         0.017             2.5
+   1 day                          1.644           130.3
+   1 week                        11.507           229.4
+   30 days                       49.315           266.9
+
+6. DOES SPLITTING THE BOOK COST ANYTHING? k books, daily round,
+   R=7, same total order flow divided between them.
+   books                   crossings/yr      vs k=1
+   k=1                            276.3      100.0%
+   k=2                            257.7       93.3%
+   k=4                            225.6       81.6%
+   k=6                            201.8       73.0%
+
+7. THE ALLOCATION INVARIANT. Pro rata at the marginal level plus a
+   stated remainder rule must allocate the cleared volume EXACTLY on
+   both sides, and must never fill an order beyond its own size.
+   crossing books checked          : 15544
+   orders filled beyond their size : 0
+   sides not summing to the volume : 0
+
+8. Wrote 64 clearing vectors to
+   venue/test/fixtures/clearing.json, replayed by CallAuction.t.sol.
+
+done.

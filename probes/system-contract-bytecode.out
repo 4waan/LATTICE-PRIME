@@ -1,0 +1,27 @@
+EXTCODESIZE from inside a Hedera consensus node, testnet 296
+address                                      what                         codesize
+------------------------------------------------------------------------------------
+0x0000000000000000000000000000000000000167   HTS system contract                 0
+0x0000000000000000000000000000000000000168   exchange rate system c.             0
+0x0000000000000000000000000000000000000169   PRNG system contract                0
+0x000000000000000000000000000000000000016a   HAS (hbar allowance)                0
+0x0000000000000000000000000000000000000006   C3 bn254 ecAdd precompile           0
+0x0000000000000000000000000000000000000001   C3 ecrecover precompile             0
+0x893AB1A77B098aC3aE930de50ce47a58d3d5B328   C1 spike 2 bond (ATS)             390
+0x1B9B5E6147a55e243232d9E2Cc350Fe63B040C83   C1 spike 3 kyc list               456
+0x0000000000000000000000000000000000000fff   C2 never deployed                   0
+
+[PASS] C1 spike 2 bond (ATS) expected nonzero, got 390
+[PASS] C1 spike 3 kyc list expected nonzero, got 456
+[PASS] C2 never deployed expected zero, got 0
+
+controls PASS. Rows above are a measurement.
+
+--- round 2: the shapes an operator could actually type into the form ---
+address                                      what                                 codesize
+--------------------------------------------------------------------------------------------
+0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115   EOA 0.0.10298158, ECDSA alias               0
+0x00000000000000000000000000000000009d232e   EOA 0.0.10298158, long-zero                 0
+0x00000000000000000000000000000000009d7900   HTS token 0.0.10320128                    147
+0x00000000000000000000000000000000009d7609   HTS token 0.0.10319369                    147
+0x00000000000000000000000000000000009d7c3a   hollow acct 0.0.10319674 (an earlier measurement)           0

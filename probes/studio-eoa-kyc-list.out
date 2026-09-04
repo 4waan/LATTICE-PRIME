@@ -1,0 +1,9 @@
+step 1: is the target actually an EOA, and are the controls sane?
+
+account          what                       mirror     entity    codesize  expected
+0.0.2            EOA offered to the form    exists     account          0  exists, 0 code
+0.0.10306623     C1 spike 3 KYC list        exists     contract       456  exists, nonzero code
+0.0.999999999    C2 an earlier measurement's nonexistent id HTTP 404   n/a            n/a  does not resolve
+
+The probe is only meaningful if the first row exists with codesize 0,
+C1 is nonzero and C2 does not resolve.

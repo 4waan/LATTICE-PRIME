@@ -1,0 +1,18 @@
+No files changed, compilation skipped
+
+Ran 2 tests for test/Regime.t.sol:VolumeCapTest
+[PASS] test_recordingIsPermissionedSoTheCapCannotBeWeaponised() (gas: 8916)
+[PASS] test_theCapIsHeldByArithmeticAndTriggeredByAnyone() (gas: 1679608)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 2.06ms (1.36ms CPU time)
+
+Ran 7 tests for test/Regime.t.sol:RegimeTest
+[PASS] testFuzz_nothingReachableEverExceedsTheGrant(uint32,uint32,uint32) (runs: 513, μ: 313772, ~: 310490)
+[PASS] test_aNarrowingThatOvertakesAProposalClampsRatherThanReverts() (gas: 95359)
+[PASS] test_narrowingIsImmediateAndClampsTheLiveConfiguration() (gas: 37239)
+[PASS] test_theOperatorCannotLeaveTheIdeal() (gas: 38770)
+[PASS] test_theSupervisorCannotWidenPastTheIdeal() (gas: 41106)
+[PASS] test_theTransparencyEndOfTheDialIsTOP() (gas: 1120359)
+[PASS] test_wideningWaitsForTheBoundary() (gas: 93998)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 443.70ms (446.42ms CPU time)
+
+Ran 2 test suites in 444.34ms (445.76ms CPU time): 9 tests passed, 0 failed, 0 skipped (9 total tests)

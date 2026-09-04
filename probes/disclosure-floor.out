@@ -1,0 +1,74 @@
+# probes/disclosure-floor.out
+# forge test, full suite, forge lint, sizes
+# from a clean build, and the three mutations that show the new
+# assertions are load-bearing.
+
+Ran 14 tests for test/Repo.t.sol:RepoVaultTest
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 3.19ms (1.48ms CPU time)
+Ran 15 tests for test/SeamCoverage.t.sol:SeamCoverageTest
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 5.80ms (5.37ms CPU time)
+Ran 5 tests for test/Regime.t.sol:VolumeCapTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 6.56ms (5.92ms CPU time)
+Ran 6 tests for test/MarketAbuse.t.sol:MarketAbuseTest
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 13.99ms (10.75ms CPU time)
+Ran 9 tests for test/OrderBook.t.sol:OrderBookTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 22.89ms (21.88ms CPU time)
+Ran 7 tests for test/Repo.t.sol:RepoMathTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 25.00ms (25.03ms CPU time)
+Ran 24 tests for test/SeamJournal.t.sol:SeamJournalTest
+Suite result: ok. 24 passed; 0 failed; 0 skipped; finished in 112.03ms (170.58ms CPU time)
+Ran 13 tests for test/KycRegistration.t.sol:KycRegistrationTest
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 226.32ms (90.30ms CPU time)
+Ran 9 tests for test/DisclosureBudget.t.sol:DisclosureBudgetTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 263.90ms (263.45ms CPU time)
+Ran 12 tests for test/DisclosureLattice.t.sol:DisclosureLatticeTest
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 513.23ms (1.48s CPU time)
+Ran 22 tests for test/ParameterRoot.t.sol:ParameterRootTest
+Suite result: ok. 22 passed; 0 failed; 0 skipped; finished in 1.98s (1.98s CPU time)
+Ran 15 tests for test/Regime.t.sol:RegimeTest
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 2.05s (3.30s CPU time)
+Ran 12 test suites in 2.05s (5.22s CPU time): 151 tests passed, 0 failed, 0 skipped (151 total tests)
+
+== the floor, named ==
+[PASS] testFuzz_nothingReachableEverFallsBelowTheObligation(uint32,uint32,uint32) (runs: 512, μ: 469135, ~: 462745)
+[PASS] test_aNarrowingThatWouldForbidTheObligationIsRefused() (gas: 53565)
+[PASS] test_aScheduledRelaxTheFloorOvertookLiftsRatherThanWedging() (gas: 90964)
+[PASS] test_theCeilingCannotCompelAndTheFloorDoes() (gas: 75649)
+[PASS] test_theOperatorCannotProposeBelowTheFloor() (gas: 25238)
+[PASS] test_theSupervisorCannotLowerPastTheMandate() (gas: 26937)
+[PASS] test_aSuspensionThatCannotRaiseIsRefusedAtDeployment() (gas: 1454837)
+[PASS] test_recordingIsPermissionedSoTheCapCannotBeWeaponised() (gas: 9002)
+[PASS] test_theCapIsHeldByArithmeticAndTriggeredByAnyone() (gas: 2115776)
+[PASS] test_theCapMovesTheVenueAndNotOnlyTheCeiling() (gas: 2115221)
+[PASS] test_theWaiverComesBackAtABoundaryAndTheOperatorHasToAskForIt() (gas: 2149069)
+[PASS] testFuzz_noRowIsEverObligedAndForbiddenAtOnce(uint32,uint32) (runs: 512, μ: 884411, ~: 880467)
+[PASS] test_aFloorOnAnUnpublishedRowIsUnadoptable() (gas: 143160)
+[PASS] test_aRowFloorOutsideItsRowCeilingIsUnadoptable() (gas: 172323)
+[PASS] test_aRowFloorThatIsNotAnIdealIsRefused() (gas: 167579)
+[PASS] test_anObligationLiftsAWaivedRowCeilingAndNoOther() (gas: 228586)
+[PASS] test_bothBoundsAreGovernedByTheOneRoot() (gas: 496239)
+[PASS] test_theRegimeBoundsOnlyTheWaivedRows() (gas: 64950)
+
+== mutation 1: VolumeCap.enforce back to regime.narrow, the narrow regime ==
+   [FAIL: the obligation did not rise] test_theCapIsHeldByArithmeticAndTriggeredByAnyone
+   [FAIL: the cap fired and the venue kept trading dark] test_theCapMovesTheVenueAndNotOnlyTheCeiling
+   [FAIL: the obligation lifted in the same block] test_theWaiverComesBackAtABoundaryAndTheOperatorHasToAskForIt
+
+== mutation 2: Regime._reconcile with the upward clamp deleted ==
+   [FAIL: the venue can still trade dark] test_theCeilingCannotCompelAndTheFloorDoes
+   [FAIL: the venue may still hide what it must publish] test_theCapIsHeldByArithmeticAndTriggeredByAnyone
+   [FAIL: the cap fired and the venue kept trading dark] test_theCapMovesTheVenueAndNotOnlyTheCeiling
+
+== mutation 3: ParameterRoot._effective with the ceiling join deleted ==
+   [FAIL: a row was obliged to publish what it was forbidden to publish] testFuzz_noRowIsEverObligedAndForbiddenAtOnce
+   [FAIL: the waived row did not lift] test_anObligationLiftsAWaivedRowCeilingAndNoOther
+
+== forge lint, src/policy and src/interfaces: 0 warnings ==
+
+== deployed size, clean build ==
+| Contract                | Runtime Size (B) | Initcode Size (B) | Runtime Margin (B) | Initcode Margin (B) |
+| OrderBook               | 4,728            | 5,047             | 19,848             | 44,105              |
+| ParameterRoot           | 5,229            | 5,529             | 19,347             | 43,623              |
+| Regime                  | 6,215            | 7,658             | 18,361             | 41,494              |
+| RepoVault               | 6,301            | 6,579             | 18,275             | 42,573              |
+| VolumeCap               | 2,651            | 4,175             | 21,925             | 44,977              |

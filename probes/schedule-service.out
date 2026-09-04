@@ -1,0 +1,6 @@
+Hedera Schedule Service at 0x16b, testnet 296
+
+hasScheduleCapacity(uint256,uint256)  HIP-1215 SUCCESS  DATA   0x0000000000000000000000000000000000000000000000000000000000000000
+getScheduledTransactionInfo(address)     SUCCESS  empty  0x
+authorizeSchedule(address)           HIP-755 revert   empty  CONTRACT_EXECUTION_EXCEPTION
+CONTROL garbage selector, must be empty  SUCCESS  empty  0x

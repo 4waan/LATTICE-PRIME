@@ -1,0 +1,33 @@
+A typed seam call, against each shape an operator could register
+testnet 296, via mirror node /contracts/call
+
+C1 MockedExternalKycList   0x1B9B5E6147a55e243232d9E2Cc350Fe63B040C83
+    getKycStatus(address)      SUCCESS  0x0000000000000000000000000000000000000000000000000000000000000001
+    isBlacklisted(address)     revert   CONTRACT_REVERT_EXECUTED
+    isPaused()                 revert   CONTRACT_REVERT_EXECUTED
+    isVerified(address)        revert   CONTRACT_REVERT_EXECUTED
+
+C2 EOA (0 bytes code)   0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115
+    getKycStatus(address)      SUCCESS  0x
+    isBlacklisted(address)     SUCCESS  0x
+    isPaused()                 SUCCESS  0x
+    isVerified(address)        SUCCESS  0x
+
+HTS token (147 bytes)   0x00000000000000000000000000000000009d7900
+    getKycStatus(address)      SUCCESS  0x
+    isBlacklisted(address)     SUCCESS  0x
+    isPaused()                 SUCCESS  0x
+    isVerified(address)        SUCCESS  0x
+
+ATS bond, wrong iface   0x893AB1A77B098aC3aE930de50ce47a58d3d5B328
+    getKycStatus(address)      revert   CONTRACT_REVERT_EXECUTED
+    isBlacklisted(address)     revert   CONTRACT_REVERT_EXECUTED
+    isPaused()                 revert   CONTRACT_REVERT_EXECUTED
+    isVerified(address)        revert   CONTRACT_REVERT_EXECUTED
+
+HTS system contract   0x0000000000000000000000000000000000000167
+    getKycStatus(address)      SUCCESS  0x
+    isBlacklisted(address)     SUCCESS  0x
+    isPaused()                 SUCCESS  0x
+    isVerified(address)        SUCCESS  0x
+

@@ -1,0 +1,20 @@
+hasRole(DEFAULT_ADMIN, ?) on the spike 2 bond, live on testnet
+
+  C1 our EOA, we granted it      True    raw 0x0000000000000000000000000000000000000000000000000000000000000001
+  THE FACTORY                    False   raw 0x0000000000000000000000000000000000000000000000000000000000000000
+  the resolver                   False   raw 0x0000000000000000000000000000000000000000000000000000000000000000
+  C2 0xdead, never granted       False   raw 0x0000000000000000000000000000000000000000000000000000000000000000
+
+controls PASS, the rows above are a measurement
+selectors: getRoleMembers=0x2a861f57 getRoleMemberCount=0xca15c873
+
+Live role enumeration, spike 2 bond
+
+  DEFAULT_ADMIN                    count=1   members=0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  ISSUER                           count=1   members=0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  KYC_MANAGER                      count=1   members=0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  CONTROL_LIST_MANAGER             count=1   members=0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115
+  CONTROL never granted, must be 0 count=0   members=none
+
+constructor args said 5 RBAC entries, including DEFAULT_ADMIN for the
+factory 0xd1f118a4...379d. Compare with the live count above.

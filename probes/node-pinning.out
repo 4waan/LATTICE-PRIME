@@ -1,0 +1,20 @@
+account            0.0.10298158  (testnet)
+records sampled    100
+C2 no node field   14   (child records, excluded from the denominator)
+top-level records  86
+distinct nodes     7
+
+node          count   share
+0.0.5            16   18.6%
+0.0.6            14   16.3%
+0.0.9            14   16.3%
+0.0.3            14   16.3%
+0.0.8            12   14.0%
+0.0.4            11   12.8%
+0.0.7             5    5.8%
+
+top node holds 18.6% of 86 records across 7 nodes.
+the marketplace study measured the mainnet institutional comparator at 100% of 190 across 1 node,
+and the mainnet baseline at 28 nodes with the busiest holding 7%.
+
+READ: this account is NOT pinned. The SDK is choosing a node per transaction.

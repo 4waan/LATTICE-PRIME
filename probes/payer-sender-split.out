@@ -1,0 +1,35 @@
+==========================================================================
+O1 probe: is the EVM signer the account that pays, on Hedera mainnet?
+==========================================================================
+
+[1] sampling 60 successful ETHEREUMTRANSACTION calls
+    joined to a contract result: 60
+
+[2] payer vs signer
+    signer address decodes to a Hedera id : 60/60
+    payer differs from signer             : 51/60
+    signer debited ZERO, payer paid all   : 0/60
+
+[2b] who actually bore the fee, on the 51 rows where payer != signer
+    signer bore it alone, payer bore nothing : 51
+    payer bore it alone, signer bore nothing : 0
+    split between the two                    : 0
+
+[3] C3, does each transfer list conserve (sum to zero)
+    rows not summing to zero              : 0/60
+    PASS, the transfer lists are read whole, so [2] and [2b] hold
+
+[4] who are the payers (the anonymity set a registrant would hide in)
+    0.0.995584      14 calls  ##############
+    0.0.7898307     14 calls  ##############
+    0.0.10646219     8 calls  ########
+    0.0.6319439      6 calls  ######
+    0.0.7650890      4 calls  ####
+    0.0.7660483      4 calls  ####
+
+[5] C1 control: native CONTRACTCALL, where payer IS the caller
+    sampled 3, decoded 3, classifier says sponsored: 0
+    EXPECT 0. PASS, classifier is not just saying yes
+
+[6] no fully sponsored call in this sample. That is a result, not an error.
+    Report the split rate and say the allowance path was not observed live.
