@@ -1,0 +1,53 @@
+==========================================================================
+O1: can a never-funded address sign a Hedera transaction?
+==========================================================================
+
+operator/relay 0.0.10298158  0xd30de9c5aef8079b4718b4988e8fd1d1a96f3115
+balance        96870156309 tinybar
+
+virgin signer  0xAE3aF24e344d0296aA5B72510393De828d7eB930   (generated now, never funded)
+
+[C2] control: is the virgin address really unknown to the network?
+     mirror node: 404, unknown. PASS, the key is virgin
+
+[A] virgin key with NO Hedera account, gasPrice = 0, relay allowance 2 HBAR
+    HIP-410 line 405 predicts this fails: the sender must resolve to an account.
+    receipt: INVALID_ACCOUNT_ID
+    result            INVALID_ACCOUNT_ID
+    charged_tx_fee    133017 tinybar
+    relay  0.0.10298158 debited 133017
+    signer (no account) debited null
+    => signer bore cost or relay paid nothing
+
+[*] creating a hollow account for the virgin address (1 tinybar transfer)
+    virgin address is now 0.0.10319674, balance 1 tinybar
+
+[B] same virgin key, now with an account, gasPrice = 0, relay allowance 2 HBAR
+    HIP-410 predicts the relay must cover 100 percent.
+    result            SUCCESS
+    charged_tx_fee    2373000 tinybar
+    relay  0.0.10298158 debited 2373000
+    signer 0.0.10319674 debited 0
+    => SPONSORED, signer paid nothing
+    msg.sender recorded as 0x00000000000000000000000000000000009d773a
+    alias 0xae3af24e344d0296aa5b72510393de828d7eb930
+    long-zero form of 0.0.10319674 is 0x00000000000000000000000000000000009d773a
+    MATCHES the virgin key. The sponsored call really came from it.
+    NOTE: the public record carries the account NUMBER, not the alias.
+    Hedera account numbers are monotonic, so the number dates the account.
+
+[C1] control: operator signs and pays for itself, gasPrice > 0.
+     Known answer: the signer IS debited. If this also reads 'sponsored',
+     the classifier is broken and B means nothing.
+     network gas price 113 tinybar, bidding 2x = 2260000000000 weibar
+    result            SUCCESS
+    charged_tx_fee    2373000 tinybar
+    relay  0.0.10298158 debited 2373000
+    signer 0.0.10298158 debited 2373000
+    => signer bore cost or relay paid nothing
+     PASS, control shows the signer paying
+
+==========================================================================
+ANSWER: a registration address needs NO funding of its own. The relay
+pays 100 percent. The only on-chain link to it is the dust transfer that
+created it, which comes from the relay, not from the trader.

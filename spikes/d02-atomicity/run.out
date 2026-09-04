@@ -1,0 +1,21 @@
+# a design decision step 2, testnet 296. Hardhat build chatter trimmed.
+# Cash leg: HTS fungible token GBPX, 0.0.10321401 = 0x...009d7df9, 2 decimals.
+# Security leg: spike 2's ATS bond 0x893AB1A7...B328.
+
+--- arms A and B, scripts/spike/d02-atomicity.ts ---
+{"step":"deploy","probe":"0xAECF4D3E5Fb45372596813d37A15725610344907","signer":"0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115"}
+{"step":"associate","ok":true}
+{"step":"seed","probeBalance":"10000","expected":"10000"}
+{"step":"C1_move_then_succeed","before":"10000","after":"9900","moved":"100","pass":true,"expected":"moved by 100"}
+{"step":"A_move_then_revert","txReverted":true,"reason":"transaction execution reverted","before":"9900","after":"9900","moved":"0","verdict":"ATOMIC, HTS rolled back with the EVM"}
+{"step":"B_revert_caught_by_caller","outerReverted":false,"innerCaught":"true","before":"9900","after":"9900","moved":"0","verdict":"inner frame rolled back, caller saw the catch"}
+{"step":"done","probe":"0xAECF4D3E5Fb45372596813d37A15725610344907","token":"0x00000000000000000000000000000000009d7df9","finalProbeBalance":"9900"}
+
+--- arm C, the composite, scripts/spike/d02-composite.ts ---
+{"step":"setup","probe":"0xF715c2dF554A2Fa12711739F797992f5cEC4a1B2","probeCash":"1000"}
+{"step":"C1_cash_alone","moved":"100","pass":true}
+{"step":"C_cash_then_failing_security","txReverted":true,"reason":"transaction execution reverted","cashBefore":"900","cashAfter":"900","cashMoved":"0","verdict":"ATOMIC. The security leg failing rolled the cash leg back","predictionHeld":true}
+
+# Read: in all three arms the control moved the balance by exactly 100 and the
+# test arm moved it by 0. A rig that could only ever report "did not move" would
+# have failed C1 first.

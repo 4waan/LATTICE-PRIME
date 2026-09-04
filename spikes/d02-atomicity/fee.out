@@ -1,0 +1,49 @@
+# a design decision sub-question 2 (fractional fee arithmetic) and O7 (does the fee leak tier).
+# Testnet 296. Tokens: GBPX 0.0.10321401 (no fee schedule key, so it
+# can never have fees, used as the baseline) and GBPY 0.0.10321635 (25 bp).
+# Every arm reports sender debited, recipient credited and collector credited,
+# and every arm conserved.
+
+--- setup finding, before any measurement ---
+TokenFeeScheduleUpdate on GBPX returned TOKEN_HAS_NO_FEE_SCHEDULE_KEY.
+A fee schedule key must be set at CREATION. There is no way to add one later.
+
+--- rounding, 25 bp, min 0, floor confirmed across 10 amounts ---
+  sent   exact fee   charged   recipient got   shortfall
+  400000        1000      1000         399000        1000
+   10000          25        25           9975          25
+    4000          10        10           3990          10
+     401      1.0025         1            400           1
+     400           1         1            399           1
+     399      0.9975         0            399           0
+     100        0.25         0            100           0
+      40         0.1         0             40           0
+       4        0.01         0              4           0
+       1      0.0025         0              1           0
+
+--- baseline, a token that has no fee and structurally cannot ---
+{"label":"BASELINE no-fee token, 399","sent":399,"senderDebited":399,"recipientCredited":399,"collectorCredited":0,"conserved":true}
+{"label":"BASELINE no-fee token, 4000","sent":4000,"senderDebited":4000,"recipientCredited":4000,"collectorCredited":0,"conserved":true}
+
+--- 25 bp, min 0 ---
+{"label":"25bp min=0, 399 (below threshold)","sent":399,"senderDebited":399,"recipientCredited":399,"collectorCredited":0,"conserved":true}
+{"label":"25bp min=0, 400 (at threshold)","sent":400,"senderDebited":400,"recipientCredited":399,"collectorCredited":1,"conserved":true}
+
+--- 25 bp, min 1 ---
+{"minimum":1}
+{"label":"25bp min=1, 399","sent":399,"senderDebited":399,"recipientCredited":398,"collectorCredited":1,"conserved":true}
+{"label":"25bp min=1, 1 unit","sent":1,"senderDebited":1,"recipientCredited":0,"collectorCredited":1,"conserved":true}
+{"label":"25bp min=1, 4000 (min must not override)","sent":4000,"senderDebited":4000,"recipientCredited":3990,"collectorCredited":10,"conserved":true}
+
+--- the fee schedule as the public sees it, /api/v1/tokens/0.0.10321635 ---
+{"fixed_fees":[],"fractional_fees":[{"all_collectors_are_exempt":false,
+ "amount":{"numerator":25,"denominator":10000},
+ "collector_account_id":"0.0.10298158","denominating_token_id":"0.0.10321635",
+ "maximum":null,"minimum":0,"net_of_transfers":false}]}
+
+# Read:
+#   fee = floor(amount * numerator / denominator), then max(fee, minimum).
+#   net_of_transfers false, so the fee comes OUT of the amount and the recipient
+#   receives amount - fee.
+#   min 0  -> everything below denominator/numerator units moves free.
+#   min 1  -> a 1 unit transfer delivers ZERO and does not revert.
