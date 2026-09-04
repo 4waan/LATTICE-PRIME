@@ -1,0 +1,7 @@
+out/
+cache/
+broadcast/
+circuits/build/
+*.zkey
+*.ptau
+node_modules

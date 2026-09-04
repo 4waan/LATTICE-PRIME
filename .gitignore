@@ -7,7 +7,6 @@ node_modules/
 # Foundry
 venue/out/
 venue/cache/
-venue/lib/
 
 # Generated circuit material
 venue/circuits/build/

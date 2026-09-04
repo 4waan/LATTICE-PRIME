@@ -1,0 +1,3 @@
+[submodule "venue/lib/forge-std"]
+	path = venue/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
