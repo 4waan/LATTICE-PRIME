@@ -1,0 +1,29 @@
+TOPOLOGY OF THE GAS STEP FUNCTION
+
+== hedera-testnet ==  control 0x...beef01 confirmed codeless
+  case                       g*         g*(nocode)  delta     spec     verdict
+  0x06 ecAdd  G+G            21710      21560       150       150      PRESENT, price exact
+  0x06 ecAdd  O+O -> O       21662      21512       150       150      PRESENT, price exact
+  0x06 ecAdd  off-curve      None       21560       -         reject   REJECT, correct
+  0x07 ecMul  2*G            27420      21420       6000      6000     PRESENT, price exact
+  0x08 pair   empty          66000      21000       45000     45000    PRESENT, price exact
+  0x08 pair   bilinear x2    138980     25980       113000    113000   PRESENT, price exact
+
+== hedera-mainnet ==  control 0x...beef01 confirmed codeless
+  case                       g*         g*(nocode)  delta     spec     verdict
+  0x06 ecAdd  G+G            21710      21560       150       150      PRESENT, price exact
+  0x06 ecAdd  O+O -> O       21662      21512       150       150      PRESENT, price exact
+  0x06 ecAdd  off-curve      None       21560       -         reject   REJECT, correct
+  0x07 ecMul  2*G            27420      21420       6000      6000     PRESENT, price exact
+  0x08 pair   empty          66000      21000       45000     45000    PRESENT, price exact
+  0x08 pair   bilinear x2    138980     25980       113000    113000   PRESENT, price exact
+
+== ethereum-mainnet (control) ==  control 0x...beef01 confirmed codeless
+  case                       g*         g*(nocode)  delta     spec     verdict
+  0x06 ecAdd  G+G            22400      22400       0         150      ABSENT / fail-open
+  0x06 ecAdd  O+O -> O       22280      22280       0         150      ABSENT / fail-open
+  0x06 ecAdd  off-curve      XPRT (relay error, not an execution result: point is not on curve): no verdict, not a failure
+  0x07 ecMul  2*G            27420      22050       5370      6000     PRESENT, price 5370, spec 6000
+  0x08 pair   empty          66000      21000       45000     45000    PRESENT, price exact
+  0x08 pair   bilinear x2    138980     33450       105530    113000   PRESENT, price 105530, spec 113000
+

@@ -1,0 +1,21 @@
+Spike 1 stage 2 on Hedera testnet (296). Every gas number below is
+consensus recorded: receipt.gasUsed from a transaction, not eth_call,
+not gasleft(). Contracts:
+  TrivialVerifier  0xd8a26a6049f10573518b86b8358b3297702f1e39
+  FiveVerifier     0xb1c5fadb04a5462b196284dbc43ded237d3e8736
+  GuardedVerifier  0x7df3169722086b339cddc1d66a39a2943c284457
+
+  case                               gasUsed   limit      returns
+-- generated verifier, unmodified --
+  valid proof                        214202    300000     true
+  A negated (on curve)               214202    300000     false
+  wrong public signal                214202    300000     false
+  public signal == r                 26179     300000     false
+-- 5 public signals --
+  valid proof                        241362    320000     true
+-- the malformed input burn, at Hedera's 15,000,000 ceiling --
+  A off curve (1,1)                  14766186  15000000   false
+-- GuardedVerifier, on-curve check then capped call --
+  valid proof                        220450    300000     ran=true  ok=true
+  A negated                          220450    300000     ran=true  ok=false
+  A off curve (1,1)                  25599     15000000   ran=true  ok=false

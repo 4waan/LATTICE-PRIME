@@ -1,0 +1,22 @@
+
+=== hedera-testnet  (mirror node) ===
+  valid proof, 1 public signal     ran=True  ok=True   ok
+  valid proof, 5 public signals    ran=True  ok=True   ok
+  A negated, still on curve        ran=True  ok=False  ok
+  public signal 33 -> 34           ran=True  ok=False  ok
+  C negated                        ran=True  ok=False  ok
+  public signal == r               ran=True  ok=False  ok
+  A off curve (1,1)                ran=False ok=False  ok
+  forged proof, 0x08 codeless      ran=False ok=False  ok   <- control
+
+=== hedera-mainnet  (mirror node) ===
+  valid proof, 1 public signal     ran=True  ok=True   ok
+  valid proof, 5 public signals    ran=True  ok=True   ok
+  A negated, still on curve        ran=True  ok=False  ok
+  public signal 33 -> 34           ran=True  ok=False  ok
+  C negated                        ran=True  ok=False  ok
+  public signal == r               ran=True  ok=False  ok
+  A off curve (1,1)                ran=False ok=False  ok
+  forged proof, 0x08 codeless      ran=False ok=False  ok   <- control
+
+0 failure(s)

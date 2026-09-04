@@ -1,0 +1,46 @@
+O4: max calldata per Hedera contract call, testnet
+
+CONTROL 0: the instrument echoes, so a pass is checked not assumed
+        1 bytes -> ran=True echoed=1 match
+       32 bytes -> ran=True echoed=32 match
+     1024 bytes -> ran=True echoed=1024 match
+
+BRACKET: exponential probe, mirror node
+      1024 bytes (    1.0 KiB) -> ran=True ok
+      2048 bytes (    2.0 KiB) -> ran=True ok
+      4096 bytes (    4.0 KiB) -> ran=True ok
+      8192 bytes (    8.0 KiB) -> ran=True ok
+     16384 bytes (   16.0 KiB) -> ran=True ok
+     32768 bytes (   32.0 KiB) -> ran=True ok
+     65536 bytes (   64.0 KiB) -> ran=True ok
+    131072 bytes (  128.0 KiB) -> ran=True ok
+    262144 bytes (  256.0 KiB) -> ran=False EDGE-403-HTML (CDN, not Hedera)
+
+BISECT between 131072 and 262144, on both transports
+   mirror node        max accepted = 131072 bytes (128.00 KiB)
+                      first reject = 131073, reason: TRANSACTION_OVERSIZE
+   hashio JSON-RPC    max accepted = 131072 bytes (128.00 KiB)
+                      first reject = 131073, reason: HTTP 400 {"error":{"code":-32000,"message":"[Request ID: a69e5c3a-17f0-4157-bb6
+
+   transports agree: True
+
+CONTROL 1: byte content. Same boundary for 4-gas and 16-gas bytes?
+   0x00 ( 4 gas/byte): 131072 ran=True, 131073 ran=False (TRANSACTION_OVERSIZE)
+   0xff (16 gas/byte): 131072 ran=True, 131073 ran=False (TRANSACTION_OVERSIZE)
+   Identical boundary means a SIZE limit, not a gas limit.
+
+CONTROL 2: is the gas field even honoured on this path?
+   gas=  15000000: ran=True ok
+   gas=   1000000: ran=True ok
+   gas=    100000: ran=False INSUFFICIENT_GAS
+   INSUFFICIENT_GAS at a low cap proves gas is live, so the
+   oversize rejection above is not a mislabelled gas failure.
+
+RESULT: max calldata = 131072 bytes = 128 KiB exactly
+        131073 bytes returns TRANSACTION_OVERSIZE
+
+Consequence for SECURITY-MODEL.md 8.2, at ~50,100 gas and 256 bytes
+per batched Groth16 proof:
+   gas ceiling  allows ~299 proofs
+   calldata cap allows ~512 proofs
+   GAS binds first. Calldata has 71% headroom.

@@ -1,0 +1,38 @@
+Route bn254 G1 `mul_affine` into GLV.
+
+`AffineRepr::mul_bigint` dispatches to `SWCurveConfig::mul_affine`, which bn254
+does not override, so it falls through to the default `double_and_add_affine`:
+a 254-iteration binary ladder with no windowing and no endomorphism. Only
+`mul_projective` is overridden, so GLV is reachable only from a projective
+receiver. Any caller that deserializes a point and multiplies it, which is what
+the EVM `ecMul` precompile does, silently gets the naive ladder.
+
+Measured through `revm_precompile::bn254::run_mul`, 20,000 calls, release build:
+  without: 130,325 ns/call
+  with:     72,830 ns/call    1.79x
+Outputs are byte-identical across a 17-frame EVM trace, and all algebraic
+conformance checks (mul(G,1)=G, mul(G,r)=O, homomorphism over 512 random scalar
+pairs, 254 bit-position edges) pass either way.
+
+`bls12_381` and `bls12_377` G1 have the same gap. No curve in the workspace
+overrides `mul_affine`.
+
+--- a/curves/bn254/src/curves/g1.rs
++++ b/curves/bn254/src/curves/g1.rs
+@@ -55,6 +55,16 @@ impl SWCurveConfig for Config {
+         GLVConfig::glv_mul_projective(*p, s)
+     }
+
++    /// `mul_bigint` on an `Affine` routes through `mul_affine`, not `mul_projective`, so
++    /// without this override every caller holding a deserialized affine point silently gets
++    /// `double_and_add_affine`: a bit-by-bit ladder with no windowing and no endomorphism.
++    /// That is the path the EVM `ecMul` precompile takes in revm, which reads a point from
++    /// 64 bytes and calls `mul_bigint` on the affine result.
++    #[inline]
++    fn mul_affine(p: &G1Affine, scalar: &[u64]) -> Projective<Self> {
++        Self::mul_projective(&(*p).into(), scalar)
++    }
++
+     #[inline]
+     fn is_in_correct_subgroup_assuming_on_curve(_p: &G1Affine) -> bool {
+         // G1 = E(Fq) so if the point is on the curve, it is also in the subgroup.
