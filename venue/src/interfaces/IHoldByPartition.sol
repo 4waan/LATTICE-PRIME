@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: BUSL-1.1
 // VENDORED from hashgraph/asset-tokenization-studio, Apache-2.0.
 // Sources: packages/ats/contracts/contracts/facets/hold/IHoldTypes.sol
 //          packages/ats/contracts/contracts/facets/holdByPartition/IHoldByPartition.sol

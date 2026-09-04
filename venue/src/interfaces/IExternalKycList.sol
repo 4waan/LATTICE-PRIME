@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: BUSL-1.1
 // VENDORED from hashgraph/asset-tokenization-studio, Apache-2.0.
 // Source: packages/ats/contracts/contracts/facets/layer_1/externalKycList/IExternalKycList.sol
 // Verbatim. This is seam D, the interface our registry implements so that ATS
