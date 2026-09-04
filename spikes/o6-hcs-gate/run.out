@@ -1,0 +1,35 @@
+# O6: is the HCS disclosure record forceable, or merely customary.
+# Testnet 296. Probe contract HcsAuthProbe.
+# Construction: the topic's SUBMIT KEY is a contract id, so nothing reaches the
+# topic unless that contract authorises it through HIP-755 authorizeSchedule.
+
+--- the gate, spikes/o6-hcs-gate/gate.js, probe 0xCa24174d...52E1 ---
+{"step":"topic_created","topic":"0.0.10321777","submitKey":"ContractId"}
+{"step":"C1_unauthorised_submit","result":"INVALID_SIGNATURE","pass":true}
+{"step":"schedule_created","schedule":"0.0.10321778"}
+{"step":"topic_before_authorize","messages":0,"expected":0}
+{"step":"authorize_called","status":"SUCCESS"}
+{"step":"topic_after_authorize","messages":1,"contents":["disclosure record, contract authorised"]}
+
+--- the coupling, spikes/o6-hcs-gate/arms.js, probe 0x7C016ADa...6f35 ---
+{"step":"C0_known_good","topic":"0.0.10322101","call":"SUCCESS","messages":1,"pass":true}
+{"step":"ARM_A_authorize_then_revert","topic":"0.0.10322104","call":"CONTRACT_REVERT_EXECUTED","messages":0,
+ "verdict":"COUPLED. The revert took the record with it."}
+{"step":"arm_B_topic_deleted","topic":"0.0.10322107"}
+{"step":"ARM_B_record_cannot_land","call":"CONTRACT_REVERT_EXECUTED"}
+
+--- arm B's mechanism, spikes/o6-hcs-gate/armB-code.js ---
+# Arm B's revert came from my own `if (code != 22) revert` guard, which is the
+# same visible result an authorizeSchedule that reverted on its own would give.
+# Rerun with the non-reverting entry point and read the int64 it returns.
+{"step":"setup","topic":"0.0.10322118","schedule":"0.0.10322121","topicDeleted":true}
+{"step":"result","status":"SUCCESS","call_result":"0x...00ce","decodedInt64":"206"}
+# 206 = UNRESOLVABLE_REQUIRED_SIGNERS (response_code.proto:715). Not 22.
+
+# Read:
+#   1. The submit key gates. Our own key is refused with INVALID_SIGNATURE.
+#   2. The contract authorises and the record lands.
+#   3. Authorise then revert leaves ZERO messages. The HCS write shares a
+#      rollback boundary with the EVM, the same property an earlier measurement measured for HTS.
+#   4. When the record cannot land, authorizeSchedule RETURNS 206 rather than
+#      reverting, so the contract can branch on it and refuse to release.
