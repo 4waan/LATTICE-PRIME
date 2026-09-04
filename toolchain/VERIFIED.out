@@ -1,0 +1,54 @@
+# Toolchain verification.
+# Reproduce the end-to-end arm with:
+#   nvm use 22.21.1 && cd toolchain/smoke
+#   circom smoke.circom --r1cs --wasm --sym -o .
+#   ../node_modules/.bin/snarkjs plonk setup smoke.r1cs ../ptau/powersOfTau28_hez_final_15.ptau smoke_plonk.zkey
+
+INSTALLED HERE (third-party, gitignore before the Sept 4 commit)
+  circomlib 2.0.5      poseidon, comparators, bitify, smt/smtverifier, eddsaposeidon, mux1 all present
+  snarkjs   0.7.6      same version the D-09 spike used, so its numbers stay comparable
+  ptau      2^15 (36 MB) and 2^16 (72 MB), from storage.googleapis.com/zkevm/ptau
+
+  Why both powers. The D-09 spike shipped only powersOfTau28_hez_final_12 = 4,096
+  constraints, and the KYC circuit is estimated at ~13k. Measured on the smoke
+  circuit, snarkjs turns 674 r1cs constraints into 912 PLONK constraints, a 1.35x
+  factor. So 13k r1cs is ~17.5k PLONK and needs 2^15; 25k r1cs is ~34k and needs
+  2^16. Both are here, so the day-1 constraint gate cannot be blocked by a download.
+
+ALREADY ON THE MACHINE
+  node      16.20.2 default on PATH, but 22.21.1 / 22.23.2 / 24.15.0 all installed.
+            Everything here and every spike needs `nvm use 22.21.1` first.
+  circom    2.2.3 (cargo)
+  forge     1.5.1-stable, fetches solc itself (verified: compiled with 0.8.30)
+  hardhat   2.28.6, hoisted to asset-tokenization-studio/node_modules, runs from
+            packages/ats/contracts where every spike script already lives
+  gh        authenticated as 4waan
+  solc      not on PATH, and not needed: hardhat and forge each fetch their own
+
+TESTNET
+  key       ~/.hedera-testnet-key derives 0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115,
+            which matches account 0.0.10298158. Verified, not assumed.
+  balance   887.3 HBAR
+  live      ATS bond 0.0.10306616 answers name() = "Spike Gilt 2027"
+
+END-TO-END ARM: circomlib -> PLONK -> verify, on the shape of the real circuit
+  smoke.circom is Poseidon(3) for a nullifier plus GreaterEqThan(64) for a threshold.
+  compile   329 non-linear + 345 linear constraints, 3 public inputs, 2 public outputs
+  setup     1.8 s against the 2^15 ptau
+  prove     1.3 s
+  verify    OK
+
+  CONTROL 1  tamper a public signal (threshold 1000 -> 999)   -> "Invalid Proof". Correct.
+  CONTROL 2  witness with value 500 < threshold 1000          -> proof VERIFIES, and the
+             public output `passes` is 0.
+
+  CONTROL 2 IS A DESIGN FINDING, NOT A PASS. The circuit proves the comparison was
+  computed honestly; it does not prove the comparison succeeded. A verifier returning
+  true therefore does NOT mean the holder is compliant. The on-chain gate has to read
+  the public output and require passes == 1. This is the shape ("cannot
+  distinguish false from could not check") reappearing one layer up, in our own
+  circuit rather than in the generated verifier, and it binds component 7.
+
+  Solidity verifier exports at 36,271 bytes of source. Deployed size must be checked
+  against EIP-170 once the real circuit's public-input count is known; the D-09 spike
+  measured PLONK's trivial verifier at 5,417 bytes deployed against a 24,576 limit.
