@@ -355,7 +355,7 @@ contract SeamJournal is ICompliance {
 
     /// @notice Publish the epoch's activity at the coarsest granularity the
     ///         ceiling allows. Permissionless, so the timing of disclosure is
-    ///         not itself a discretionary signal. BUILD-PLAN 7.4 Rule 2.
+    ///         not itself a discretionary signal.
     function disclose(uint64 e) external {
         if (e >= _epochAt(block.timestamp)) return; // not closed yet
         EpochRecord storage r = _epoch[e];

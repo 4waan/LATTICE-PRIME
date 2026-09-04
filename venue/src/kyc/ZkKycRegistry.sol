@@ -152,7 +152,7 @@ contract ZkKycRegistry is IExternalKycList {
     // -------------------------------------------- governance, an invariant / Rule 2
 
     /// @notice Propose a new gate. Takes effect at the next epoch boundary.
-    /// @dev BUILD-PLAN section 7.4 Rule 2: governance actions land only at epoch
+    /// @dev Governance rule: governance actions land only at epoch
     ///      boundaries. The reason is disclosure rather than safety. A gate that
     ///      can be swapped on demand makes the swap itself an observable event
     ///      correlated with whatever prompted it, and that observation is not in

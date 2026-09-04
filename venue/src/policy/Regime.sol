@@ -46,7 +46,7 @@ interface IEpochClock {
 /// because narrowing is always safe: the safe set is downward closed (D11c), so
 /// every policy below a safe policy is safe, and a suspension that has to wait
 /// for an epoch boundary is not a suspension. `operator` widening waits for the
-/// boundary because BUILD-PLAN 7.4 Rule 2 and an invariant say governance lands on
+/// boundary because the governance rule and an invariant say governance lands on
 /// boundaries, and the reason is disclosure rather than safety: a threshold that
 /// moves on demand is itself an observation that a large order arrived.
 ///

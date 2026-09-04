@@ -30,7 +30,7 @@ pragma solidity ^0.8.24;
 ///
 /// Axis orientation, stated once because the two axes point opposite ways in the
 /// prose. Granularity ascends with disclosure: `none` reveals least, `exact`
-/// most. Time as written in BUILD-PLAN section 7.1 ascends with *delay*: `pre`
+/// most. Time as modelled ascends with *delay*: `pre`
 /// is seen before the fact and `never` is not seen at all, so time ascends with
 /// secrecy. The poset order used here is disclosure strength throughout, so the
 /// time axis is reversed: `(g, t) <= (g', t')` when `g <= g'` and `t >= t'`.

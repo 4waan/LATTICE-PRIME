@@ -399,7 +399,7 @@ P(`**${noD.length} of the ${moves.length} value moves never consult seam D**, th
   `eligibility gate a zero knowledge proof terminates at:`);
 P();
 for (const e of noD) {
-    P(`- ${name(e)} — seams \`${e.seams.join(" ")}\``);
+    P(`- ${name(e)} - seams \`${e.seams.join(" ")}\``);
 }
 P();
 P(`**${postOnly.length} of them are observable only after the balance has already ` +
@@ -413,7 +413,7 @@ P(`**Encumbrance is mostly unobserved.** ${enc.length} entry points immobilise a
   `the pause check and no other seam at all**:`);
 P();
 for (const e of encBlind) {
-    P(`- ${name(e)} — seams \`${e.seams.join(" ")}\``);
+    P(`- ${name(e)} - seams \`${e.seams.join(" ")}\``);
 }
 P();
 P(`The ${enc.length - encBlind.length} that are gated are the clearing approval ` +
@@ -446,7 +446,7 @@ P();
 P("## Per facet");
 P();
 for (const f of report.facets) {
-    if (f.error) { P(`### ${f.facet} — ${f.error}`); P(); continue; }
+    if (f.error) { P(`### ${f.facet} - ${f.error}`); P(); continue; }
     const reaching = f.entries.filter((e) => e.seams.length);
     P(`### \`${f.facet}\` (${f.group})`);
     P();
@@ -457,8 +457,8 @@ for (const f of report.facets) {
         P("|---|---|---|---|---|---|");
         for (const e of reaching) {
             P(`| \`${e.contract}.${e.fn}\` | ${e.depth} | ${e.nodes} | ${e.seams.join(" ")} | ` +
-              `${e.writes.map((w) => w.slice(2)).join(" ") || "—"} | ` +
-              `${e.incidental.map((w) => w.slice(2)).join(" ") || "—"} |`);
+              `${e.writes.map((w) => w.slice(2)).join(" ") || "-"} | ` +
+              `${e.incidental.map((w) => w.slice(2)).join(" ") || "-"} |`);
         }
         P();
     }
