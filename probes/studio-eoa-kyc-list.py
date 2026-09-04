@@ -30,7 +30,7 @@ Agreeing, it is a measurement.
 Usage:
     python3 probes/studio-eoa-kyc-list.py targets            # step 1
     python3 probes/studio-eoa-kyc-list.py baseline 0.0.10298158
-    ... run the runbook in upstream/03-studio-external-kyc-validation.md ...
+    ... submit the Studio add-external-KYC form by hand ...
     python3 probes/studio-eoa-kyc-list.py verify
 
 Controls, because a probe that reports "nothing happened" for everything

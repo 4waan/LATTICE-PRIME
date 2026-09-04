@@ -22,6 +22,7 @@ venue/circuits/build/
 asset-tokenization-studio/
 ats-pr1/
 ats-pr2/
+upstream/
 
 # Rendered copies of working documents
 privacy-abstraction/disclosure-lattice.html
