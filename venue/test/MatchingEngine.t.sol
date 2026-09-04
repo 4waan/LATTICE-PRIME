@@ -171,6 +171,8 @@ contract MatchingEngineTest is Test, PolicyFixture {
     uint64 internal constant DELAY = 5 minutes;
     uint64 internal constant WINDOW = 30 minutes;
     uint256 internal constant BOND = 0.01 ether;
+    /// `ceil(BOND * DELAY / (DELAY + WINDOW))`. See `OrderBook.cancelFee`.
+    uint256 internal constant FEE = (BOND * DELAY + (DELAY + WINDOW) - 1) / (DELAY + WINDOW);
     uint64 internal constant ROUND = 1 days;
     uint64 internal constant REST = 7;
     bytes32 internal constant PARTITION = bytes32(uint256(1));
@@ -193,8 +195,9 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _deployPolicy(set, address(0));
         ats = new AtsHolds();
         seamC = new ComplianceSpy();
-        engine =
-            new MatchingEngine(DELAY, WINDOW, BOND, params, ROUND, REST, ats, PARTITION, seamC);
+        engine = new MatchingEngine(
+            DELAY, WINDOW, BOND, FEE, params, ROUND, REST, ats, PARTITION, seamC
+        );
         cap = new VolumeCap(regime, address(engine), 4000, L.point(L.G_EXACT, L.T_IMM));
         regime.bootstrapSupervisor(address(cap));
         engine.attachVolumeCap(cap);
@@ -661,8 +664,9 @@ contract MatchingEngineTest is Test, PolicyFixture {
     ///         clears unmetered.
     function test_clearingRefusesUntilTheCapIsAttached() public {
         _deployPolicy(asDeployed(), address(0));
-        MatchingEngine bare =
-            new MatchingEngine(DELAY, WINDOW, BOND, params, ROUND, REST, ats, PARTITION, seamC);
+        MatchingEngine bare = new MatchingEngine(
+            DELAY, WINDOW, BOND, FEE, params, ROUND, REST, ats, PARTITION, seamC
+        );
         vm.warp(block.timestamp + ROUND + 1);
         vm.expectRevert(MatchingEngine.VolumeCapNotAttached.selector);
         bare.crossRound(0);
@@ -796,6 +800,49 @@ contract MatchingEngineTest is Test, PolicyFixture {
     }
 
     // --------------------------------------------------------------- helpers
+
+    // ------------------------------------------------------------- the cancel
+
+    /// @notice **The engine needs no cancel override**, and that follows from
+    ///         where the window sits rather than being something left undone.
+    ///
+    /// @dev `_bind` is the only writer of `backingOf`, and it runs at reveal. A
+    ///      cancel is legal only before reveal opens, so there is no hold to
+    ///      release, no escrow to return and no entry to clear. Everything
+    ///      `cancel` touches lives in the base contract.
+    ///
+    ///      **A window reaching one second past `revealDelay` would have needed
+    ///      the whole of `_unbind`**, on a path that must not revert, releasing a
+    ///      hold through a low level call whose failure the base cannot see. The
+    ///      security argument for closing the window where it closes and the
+    ///      argument for this being a base-only change are the same argument.
+    function test_cancellingNeedsNothingFromTheEngine() public {
+        uint256 holdId = _hold(SELLER, 1_000);
+        uint256 executionsBefore = ats.executions();
+        uint256 nextIdBefore = ats.nextId();
+
+        bytes32 id = _commit(SELLER, OrderBook.Side.SELL, 100, 500, "cancelme");
+        vm.prank(SELLER);
+        engine.cancel(id);
+
+        (uint256 boundHold, uint256 snapshot, uint256 escrow) = engine.backingOf(id);
+        assertEq(boundHold, 0, "no hold was ever bound");
+        assertEq(snapshot, 0, "and none was snapshotted");
+        assertEq(escrow, 0, "and no cash was escrowed");
+        assertEq(ats.executions(), executionsBefore, "no hold was executed");
+        assertEq(ats.nextId(), nextIdBefore, "and none was created");
+        assertEq(engine.credit(SELLER), BOND - FEE, "the refund is the base contract's");
+        assertEq(engine.feesRetained(), FEE);
+
+        // The hold is untouched and still usable, which is the property a seller
+        // cares about: pulling a quote must not cost them their lot.
+        (uint256 amount,,,,,,) = ats.getHoldForByPartition(
+            IHoldTypes.HoldIdentifier({
+                partition: PARTITION, tokenHolder: SELLER, holdId: holdId
+            })
+        );
+        assertEq(amount, 1_000, "the lot is still encumbered to the engine, unspent");
+    }
 
     function _hold(address who, uint256 amount) internal returns (uint256 id) {
         vm.prank(who);

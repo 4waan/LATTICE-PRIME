@@ -53,7 +53,7 @@ abstract contract PolicyFixture {
 
     /// @notice Section 7.2, verbatim, for the rows these contracts touch.
     function sevenTwoAsWritten() internal pure returns (ParameterRoot.Param[] memory set) {
-        set = new ParameterRoot.Param[](10);
+        set = new ParameterRoot.Param[](11);
         set[0] = ParameterRoot.Param(bytes32(uint256(3)), L.point(L.G_BUCKET, L.T_EOD));
         set[1] = ParameterRoot.Param(bytes32(uint256(4)), L.point(L.G_EXACT, L.T_15M));
         set[2] = ParameterRoot.Param(bytes32(uint256(5)), L.point(L.G_EXACT, L.T_15M));
@@ -71,9 +71,14 @@ abstract contract PolicyFixture {
         // See `MatchingEngine.ROW_MATCH_PREDICATE`.
         set[5] = ParameterRoot.Param(bytes32(uint256(13)), L.point(L.G_PRED, L.T_IMM));
         set[6] = ParameterRoot.Param(bytes32(uint256(14)), L.point(L.G_PRED, L.T_IMM));
-        set[7] = ParameterRoot.Param(bytes32(uint256(16)), L.point(L.G_EXACT, L.T_IMM));
-        set[8] = ParameterRoot.Param(bytes32(uint256(17)), L.point(L.G_EXACT, L.T_IMM));
-        set[9] = ParameterRoot.Param(keccak256("hedera2026.param.waivedRows.v1"), WAIVED);
+        // Row 15, activity fingerprint, verbatim. `OrderBook.cancel` is the
+        // venue's first caller on this row and the cell as written refuses it: a
+        // contract with no scheduler cannot produce an aggregate deferred to end
+        // of day. Disposition in `asDeployed`.
+        set[7] = ParameterRoot.Param(bytes32(uint256(15)), L.point(L.G_AGG, L.T_EOD));
+        set[8] = ParameterRoot.Param(bytes32(uint256(16)), L.point(L.G_EXACT, L.T_IMM));
+        set[9] = ParameterRoot.Param(bytes32(uint256(17)), L.point(L.G_EXACT, L.T_IMM));
+        set[10] = ParameterRoot.Param(keccak256("hedera2026.param.waivedRows.v1"), WAIVED);
     }
 
     /// @notice Where a row's key sits in a parameter set.
@@ -132,6 +137,20 @@ abstract contract PolicyFixture {
         // it is the same objection `RepoVault.close` already records about the
         // repurchase price, at a second site.
         set[_rowAt(set, 5)].value = L.point(L.G_EXACT, L.T_IMM);
+        // **Row 15 moves sideways rather than up.** Rows 3, 4 and 5 all moved
+        // because their cells are reached through a `{ven}` stage a public ledger
+        // does not have, and each landed strictly above section 7.2. Row 15's
+        // cell is a genuine deferral with no stage to collapse, achievable in
+        // principle by counting cancellations and publishing at end of day. The
+        // venue lacks the mechanism: a contract cannot defer an event, so that
+        // needs an accumulator and a permissionless flush, and neither is built.
+        //
+        // So the published cell is `(pred, {pub}, imm)`: less per event than the
+        // matrix allows and sooner. Neither ideal contains the other, making this
+        // the venue's only incomparable divergence. Worth publishing rather than
+        // dropping the feature because `pred` is the one granularity in the book
+        // a coalition budget can bind. See `meteredCancellations`.
+        set[_rowAt(set, 15)].value = L.point(L.G_PRED, L.T_IMM);
     }
 
     /// @notice `asDeployed`, plus a row floor on rows 3 and 5.
@@ -180,6 +199,33 @@ abstract contract PolicyFixture {
         // keys. Row 14's budget is key 50.
         set[base.length - 1] =
             ParameterRoot.Param(bytes32(uint256(36 + 14)), _packBudget(8, 2, 4, 3));
+        set[base.length] = base[base.length - 1];
+    }
+
+    /// @notice `asDeployed`, plus a coalition budget on row 15.
+    /// @dev **The set in which the order book is metered for the first time.**
+    ///      Rows 3, 4 and 17 publish at `exact` and Rule B refuses a budget on
+    ///      each, so until `cancel` existed there was nothing to attach one to.
+    ///
+    ///      A cancel discloses at `pred`, priced at one bit, so the arithmetic is
+    ///      exact rather than rounded: `budgetBits = 3` announces the first three
+    ///      cancellations of an epoch and withholds the fourth, and
+    ///      `breakingSize(15, G_PRED)` says 4 with no division to argue about.
+    ///
+    ///      `domainBits = 8` is a fixture number on the same footing as row 14's
+    ///      and marked as one. It is not derived from the regulation, which is
+    ///      why this is a fixture set and `asDeployed` publishes the ceiling with
+    ///      no budget under it.
+    function meteredCancellations() internal pure returns (ParameterRoot.Param[] memory set) {
+        ParameterRoot.Param[] memory base = asDeployed();
+        set = new ParameterRoot.Param[](base.length + 1);
+        for (uint256 i = 0; i < base.length - 1; ++i) {
+            set[i] = base[i];
+        }
+        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then keccak keys.
+        // Row 15's budget is key 51.
+        set[base.length - 1] =
+            ParameterRoot.Param(bytes32(uint256(36 + 15)), _packBudget(8, 2, 4, 3));
         set[base.length] = base[base.length - 1];
     }
 

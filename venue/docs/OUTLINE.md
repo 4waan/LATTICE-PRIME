@@ -18,6 +18,13 @@ legs of an opening.
 A commit and reveal order book, so what reaches the consensus node set carries
 no size, no price and no side.
 
+Cancellation of a sealed order before its reveal window opens, at a bond charge
+derived from how long the commitment sat on the book rather than chosen. The
+window closes at the instant reveal opens, which is what keeps the bond pricing
+the choice not to open. It is also the only thing the venue publishes coarsely
+enough for the coalition budget to bind, so it is the first place that bound does
+any work on the trading path.
+
 Policy parameters, regimes and volume caps, with the parameter set addressed by
 a root so that a change is a single visible event.
 

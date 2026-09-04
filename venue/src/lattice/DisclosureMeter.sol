@@ -82,11 +82,18 @@ import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 /// **the meter binds exactly the rows the venue does not already publish
 /// exactly**, and a reader can tell which those are from the committed root.
 ///
-/// The first result of running this over the deployed matrix is a finding rather
-/// than a pass. Every cell `OrderBook` discloses is at `G_EXACT`, so the order
-/// book is unmeterable by construction, and no budget parameter can change that.
-/// The lever is a coarser disclosure, not a tighter bound.
-/// `test_theOrderBookIsUnmeterableByConstruction` pins it.
+/// The first result of running this over the deployed matrix was a finding
+/// rather than a pass. Every cell `OrderBook` disclosed was at `G_EXACT`, so the
+/// book was unmeterable by construction and no budget parameter could change it.
+/// The lever that leaves is a coarser disclosure, not a tighter bound.
+/// `test_theBooksExactRowsAreUnmeterableByConstruction` pins the half still true.
+///
+/// **That lever has since been taken, by a new entry point rather than a new
+/// parameter.** `OrderBook.cancel` publishes row 15 at `(pred, imm)`, one bit,
+/// the book's first cell below `G_EXACT` and so the first a budget can bind.
+/// Worth stating plainly because it says what this library is for: a meter is
+/// not something to attach to a venue that publishes everything exactly, it is a
+/// reason to publish something coarsely.
 ///
 /// ## What this costs
 ///

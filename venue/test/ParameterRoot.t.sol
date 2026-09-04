@@ -160,12 +160,27 @@ contract ParameterRootTest is Test, PolicyFixture {
 
     // --------------------------------------------------------- fail closed
 
+    /// @dev **Stated over the complement rather than a named row, and the third
+    ///      rewrite is why.** Row 12 stood here until the engine published it,
+    ///      then row 15 until `OrderBook.cancel` published that. Each time the
+    ///      assertion failed for a reason unrelated to the property under test,
+    ///      which is that an *unpublished* row reads `BOTTOM`. Quantifying over
+    ///      the rows the deployed set omits is not hostage to the next feature,
+    ///      and is the stronger claim.
     function test_anUnpublishedRowDisclosesNothing() public view {
-        assertEq(params.ceilingFor(1), L.BOTTOM, "row 1 was never published");
-        // Row 15, activity fingerprint. Row 12 used to stand here and no
-        // longer can: the engine publishes it, which is the whole of the
-        // "settle row 12" decision showing up in an unrelated assertion.
-        assertEq(params.ceilingFor(15), L.BOTTOM, "nor row 15");
+        ParameterRoot.Param[] memory set = asDeployed();
+        uint256 checked;
+        for (uint16 row = 1; row < params.ROW_CARD(); ++row) {
+            bool published;
+            for (uint256 i = 0; i < set.length; ++i) {
+                if (set[i].key == bytes32(uint256(row))) published = true;
+            }
+            if (published) continue;
+            assertEq(params.ceilingFor(row), L.BOTTOM, "an unpublished row is un-granted");
+            assertEq(params.floorFor(row), L.BOTTOM, "and un-obliged");
+            checked++;
+        }
+        assertTrue(checked > 0, "the deployed set does not cover every row");
     }
 
     /// @notice A key dropped from the new set stops answering.

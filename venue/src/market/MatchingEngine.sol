@@ -213,17 +213,35 @@ contract MatchingEngine is OrderBook {
     error NotInstaller();
     error CapIsNotOurs(address venue);
 
+    /// @dev `cancelFee_` passes straight through. **No cancel override is
+    ///      needed, and that is where the window sits rather than an omission.**
+    ///      `_bind` runs at reveal, so a commitment cancelled before reveal opens
+    ///      has no hold and no escrow: nothing for `_unbind` to release and
+    ///      `backingOf[id]` still zero. A window reaching past `revealDelay`
+    ///      would have needed both, on a path that must not revert.
+    ///      `test_cancellingNeedsNothingFromTheEngine`.
     constructor(
         uint64 revealDelay_,
         uint64 revealWindow_,
         uint256 commitBond_,
+        uint256 cancelFee_,
         IDisclosurePolicy policy_,
         uint64 roundLength_,
         uint64 restRounds_,
         IHoldByPartition security_,
         bytes32 partition_,
         ICompliance compliance_
-    ) OrderBook(revealDelay_, revealWindow_, commitBond_, policy_, roundLength_, restRounds_) {
+    )
+        OrderBook(
+            revealDelay_,
+            revealWindow_,
+            commitBond_,
+            cancelFee_,
+            policy_,
+            roundLength_,
+            restRounds_
+        )
+    {
         security = security_;
         partition = partition_;
         compliance = compliance_;

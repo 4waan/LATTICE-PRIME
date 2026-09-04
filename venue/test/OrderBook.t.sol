@@ -18,10 +18,14 @@ contract OrderBookTest is Test, PolicyFixture {
     /// 1.644 orders and 0.36 crossings, and a week of resting on top of it.
     uint64 constant ROUND = 1 days;
     uint64 constant REST = 7;
+    /// The derived floor, `ceil(BOND * DELAY / (DELAY + WINDOW))`, as arithmetic
+    /// rather than a literal. `OrderCancelTest.test_theDeployedFeeIsTheDerivedMinimum`
+    /// checks it against the contract's own `minimumCancelFee`.
+    uint256 constant FEE = (BOND * DELAY + (DELAY + WINDOW) - 1) / (DELAY + WINDOW);
 
     function setUp() public {
         _deployPolicy(asDeployed());
-        book = new OrderBook(DELAY, WINDOW, BOND, params, ROUND, REST);
+        book = new OrderBook(DELAY, WINDOW, BOND, FEE, params, ROUND, REST);
         vm.deal(ALICE, 10 ether);
         vm.deal(MALLORY, 10 ether);
         vm.warp(1_000_000);

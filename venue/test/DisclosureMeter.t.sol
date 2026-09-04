@@ -68,8 +68,8 @@ contract HoldsStub is IHoldByPartition {
 /// script says the matrix would hold if the venue behaved as written, and these
 /// say the venue behaves that way. The two disagreements that motivated the
 /// meter are pinned here as tests rather than left as prose, in
-/// `test_theOrderBookIsUnmeterableByConstruction` and
-/// `test_row14IsTheOnlyMeterableRowInTheDeployedMatrix`.
+/// `test_theBooksExactRowsAreUnmeterableByConstruction` and
+/// `test_theMeterableSurfaceIsTwoRowsAndOneOfThemCarriesABudget`.
 contract DisclosureMeterTest is Test, PolicyFixture {
     RepoVault internal vault;
     OrderBook internal book;
@@ -82,6 +82,7 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     uint16 internal constant ROW_POSITION = 14;
     uint16 internal constant ROW_ORDER_SIZE = 3;
     uint16 internal constant ROW_PROVENANCE = 17;
+    uint16 internal constant ROW_ACTIVITY = 15;
 
     bytes32 internal constant PARTITION = bytes32(uint256(1));
 
@@ -89,7 +90,10 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         _deployPolicy(withBudgets());
         holds = new HoldsStub();
         vault = new RepoVault(holds, ENGINE, params);
-        book = new OrderBook(1 hours, 1 days, 0, params, 1 days, 0);
+        // A zero bond, so the derived cancel-fee floor is zero too and this
+        // deployment says nothing about the fee policy. `OrderCancelTest` owns
+        // that; this suite only needs a book that discloses.
+        book = new OrderBook(1 hours, 1 days, 0, 0, params, 1 days, 0);
     }
 
     function _terms() internal pure returns (RepoVault.Terms memory) {
@@ -131,37 +135,60 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         assertEq(params.packBudget(r), _packBudget(8, 2, 4, 3), "round trip");
     }
 
-    /// @notice The deployed matrix meters exactly one row, and the reason is
-    ///         structural rather than an omission.
-    /// @dev Rows 3, 4, 5, 7, 16 and 17 publish at `(exact, imm)`. An exact
-    ///      disclosure costs `domainBits` and `requireWellFormed` demands
-    ///      `budgetBits < domainBits`, so no well formed budget can afford one.
-    ///      Row 14 is the only published row disclosed below exact, so it is the
-    ///      only row a budget can attach to. **This is the venue's real coalition
-    ///      surface, and it is one row wide.**
-    function test_row14IsTheOnlyMeterableRowInTheDeployedMatrix() public view {
-        uint16[7] memory rows = [uint16(3), 4, 5, 7, 14, 16, 17];
+    /// @notice The deployed matrix carries one budget, and two rows could carry
+    ///         one. The gap between those numbers is the finding.
+    ///
+    /// @dev Rows 3, 4, 5, 7, 16 and 17 publish at `(exact, imm)`, which costs
+    ///      `domainBits` against a budget `requireWellFormed` holds below it, so
+    ///      `adopt` refuses every one. Rule B, and structural: no number fixes
+    ///      those rows.
+    ///
+    ///      **Two rows escape it and the second arrived with the cancel.** Row 14
+    ///      has carried the venue's only budget since the meter was wired; row 15
+    ///      is the first meterable row on the trading path rather than the repo
+    ///      one. `asDeployed` publishes its ceiling with no budget under it and
+    ///      `meteredCancellations` is the set that binds it.
+    ///
+    ///      So the distinction drawn here is between a row that carries a bound
+    ///      and one that could. Collapsing them is how a venue ends up believing
+    ///      it is metered on a surface it merely could be.
+    function test_theMeterableSurfaceIsTwoRowsAndOneOfThemCarriesABudget() public view {
+        uint16[8] memory rows = [uint16(3), 4, 5, 7, 14, 15, 16, 17];
         uint256 metered;
+        uint256 meterable;
         for (uint256 i = 0; i < rows.length; ++i) {
             bool exactCeiling =
                 L.permits(params.ceilingFor(rows[i]), L.point(L.G_EXACT, L.T_IMM));
+            bool published = params.ceilingFor(rows[i]) != L.BOTTOM;
             bool hasBudget = params.budgetFor(rows[i]).budgetBits != 0;
             assertTrue(
                 !(exactCeiling && hasBudget), "Rule B pairs an exact ceiling with a budget"
             );
             if (hasBudget) metered++;
+            if (published && !exactCeiling) meterable++;
         }
-        assertEq(metered, 1, "exactly one metered row");
+        assertEq(metered, 1, "exactly one row carries a budget today");
         assertTrue(params.budgetFor(ROW_POSITION).budgetBits != 0, "and it is row 14");
+        assertEq(meterable, 2, "two rows could carry one");
+        assertFalse(
+            L.permits(params.ceilingFor(ROW_ACTIVITY), L.point(L.G_EXACT, L.T_IMM)),
+            "and the second is row 15, the cancel"
+        );
     }
 
-    /// @notice The order book cannot be metered by any parameter set, and no
-    ///         budget number fixes it.
-    /// @dev The lever is a coarser disclosure. Recorded as a test because the
-    ///      alternative is that someone later reads the inert meter in
-    ///      `OrderBook` as an oversight and "fixes" it by publishing a budget,
-    ///      which would silence the book on every call.
-    function test_theOrderBookIsUnmeterableByConstruction() public {
+    /// @notice The order book's **exact** rows cannot be metered by any
+    ///         parameter set, and no budget number fixes them.
+    ///
+    /// @dev The lever is a coarser disclosure, which `OrderBook.ROW_ACTIVITY`
+    ///      took: see `OrderCancelTest.test_cancellationIsTheBooksOnlyMeterableRow`
+    ///      for the row that now binds. **This test's scope narrowed when the
+    ///      cancel landed**: it used to say the book was unmeterable full stop,
+    ///      and what it ever demonstrated is that rows disclosed at `exact` are.
+    ///
+    ///      Recorded so nobody later reads the inert meter on rows 3, 4 and 17 as
+    ///      an oversight and "fixes" it with a budget, which under Rule A would
+    ///      silence those rows on every call rather than bounding them.
+    function test_theBooksExactRowsAreUnmeterableByConstruction() public {
         ParameterRoot.Param[] memory set = withBudgets();
         // Attach a budget to row 3, which the book discloses at `exact`.
         ParameterRoot.Param[] memory bad = new ParameterRoot.Param[](set.length + 1);
