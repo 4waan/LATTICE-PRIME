@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {Rulebook} from "../src/observatory/Rulebook.sol";
 import {OrderBook} from "../src/market/OrderBook.sol";
 import {AxeBoard, ISealedOrderBook, IRespondentRegistry} from "../src/market/AxeBoard.sol";
+import {RepoVault} from "../src/repo/RepoVault.sol";
+import {MockHolds} from "./Repo.t.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 
 /// @notice A tariff source whose number can move after publication.
@@ -75,6 +77,7 @@ contract RulebookTest is Test, PolicyFixture {
     Rulebook internal book_;
     OrderBook internal orders;
     AxeBoard internal axes;
+    RepoVault internal vault;
 
     uint64 internal constant DELAY = 5 minutes;
     uint64 internal constant WINDOW = 30 minutes;
@@ -92,12 +95,16 @@ contract RulebookTest is Test, PolicyFixture {
 
     address internal constant ANYONE = address(0xA11);
 
+    /// @dev 0.10 bp a day. Section 8 says why the number is published rather
+    ///      than derived, and `RepoVault.penaltyRate` says it again in code.
+    uint256 internal constant PENALTY_RATE = 10;
+
     /// @notice keccak256 of `docs/RULEBOOK.md`, byte for byte.
     /// @dev Recorded here rather than computed, so editing the document without
     ///      republishing fails the build instead of passing silently. The failure
     ///      prints the hash to paste back.
     bytes32 internal constant DOCUMENT =
-        0x5ead5fbb727c213f18e6be6aad36e0e0fc2adece5e654a15ebad147abff6c893;
+        0xd3596823cf96b51ee24b9738823374547f27480650f01029b15499c85fbf6fed;
 
     /// @dev The getters section 8 names. A wrong one cannot survive `setUp`:
     ///      `adopt` reads every sourced line back and refuses a mismatch.
@@ -105,6 +112,7 @@ contract RulebookTest is Test, PolicyFixture {
     bytes4 internal constant CANCEL_FEE_READER = bytes4(keccak256("cancelFee()"));
     bytes4 internal constant AXE_BOND_READER = bytes4(keccak256("axeBond()"));
     bytes4 internal constant PROBE_FEE_READER = bytes4(keccak256("probeFee()"));
+    bytes4 internal constant PENALTY_READER = bytes4(keccak256("penaltyRate()"));
     bytes4 internal constant VALUE_READER = bytes4(keccak256("value()"));
     bytes4 internal constant NO_READER = bytes4(keccak256("notAGetter()"));
 
@@ -122,6 +130,7 @@ contract RulebookTest is Test, PolicyFixture {
             OSR,
             MAX_OUT
         );
+        vault = new RepoVault(new MockHolds(), address(0xE49), params, PENALTY_RATE, 5 days);
         book_ = new Rulebook(regime);
         _publishEdition(DOCUMENT, deployedSchedule());
     }
@@ -130,7 +139,7 @@ contract RulebookTest is Test, PolicyFixture {
 
     /// @notice Section 8 of the document, as code. Keys ascend.
     function deployedSchedule() internal view returns (Rulebook.Charge[] memory s) {
-        s = new Rulebook.Charge[](7);
+        s = new Rulebook.Charge[](8);
         uint256 i = 0;
         s[i++] =
             _c("axe.post.bond", address(axes), AXE_BOND_READER, AXE_BOND, P_PART, P_NONE, true);
@@ -163,6 +172,15 @@ contract RulebookTest is Test, PolicyFixture {
             address(orders),
             COMMIT_BOND_READER,
             COMMIT_BOND,
+            P_PART,
+            P_CPTY,
+            false
+        );
+        s[i++] = _c(
+            "repo.fail.penalty",
+            address(vault),
+            PENALTY_READER,
+            PENALTY_RATE,
             P_PART,
             P_CPTY,
             false
@@ -278,8 +296,39 @@ contract RulebookTest is Test, PolicyFixture {
     }
 
     /// @notice Anyone may open the commitment, and only someone holding it can.
+    /// @notice CSDR Article 7(2): the penalty is not a revenue source.
+    /// @dev The one clause of the regulation this page can check rather than
+    ///      assert. Article 7 says the mechanism "shall not operate as a revenue
+    ///      source", which is a constraint on **who is paid**, and the tariff
+    ///      expresses exactly that: the line names the counterparty, so the
+    ///      operator's net take cannot contain it.
+    ///
+    ///      The second half is what makes the first load-bearing. Move the payee
+    ///      to the operator and the same schedule reports a take, so the
+    ///      assertion is reading the property and not a constant.
+    function test_theFailPenaltyIsNotVenueRevenue() public {
+        (bool found, Rulebook.Charge memory c) = book_.chargeOf("repo.fail.penalty");
+        assertTrue(found, "the penalty is not in the published tariff");
+        assertEq(uint8(c.payer), uint8(P_PART));
+        assertEq(uint8(c.payee), uint8(P_CPTY), "the venue is being paid the penalty");
+        assertEq(book_.netOperatorTake(), 0, "the venue took something");
+
+        Rulebook.Charge[] memory s = deployedSchedule();
+        s[_at(s, "repo.fail.penalty")].payee = P_OPER;
+        _publishEdition(DOCUMENT, s);
+        assertEq(
+            book_.netOperatorTake(),
+            int256(PENALTY_RATE),
+            "redirecting the payee did not change the answer"
+        );
+    }
+
     function test_adoptionIsPermissionlessAndNeedsTheEdition() public {
-        assertEq(book_.chargeCount(), 7, "setUp adopted from a non-operator address");
+        assertEq(
+            book_.chargeCount(),
+            deployedSchedule().length,
+            "setUp adopted from a non-operator address"
+        );
 
         vm.expectRevert(Rulebook.NothingPending.selector);
         book_.adopt(DOCUMENT, deployedSchedule());

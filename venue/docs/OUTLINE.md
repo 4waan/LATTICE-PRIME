@@ -56,6 +56,15 @@ deployment the discretionary half has no caller, because the supervisor seat is
 held by `VolumeCap`; what can fire is the breaker, and the breaker is arithmetic
 on the venue's own clearing price.
 
+A settlement fail, which is not a default. `maturity` was written, published and
+never read: `close` had no maturity check and the only route to `DEFAULTED` ran
+through a margin call, so a borrower who never closed left the repo `OPEN` and
+the lender had no remedy. `FAILING` sits between the two, with a CSDR Article 7
+cash penalty accruing daily from the intended settlement date and a grace before
+default. The penalty runs from maturity rather than from the declaration, so a
+fail nobody recorded still costs. Article 7(2) says the mechanism is not a
+revenue source, and that is the clause the tariff can check rather than assert.
+
 ## Not built
 
 Collateral substitution mid-term. Common in practice, deferred deliberately.

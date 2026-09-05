@@ -30,7 +30,7 @@ bugs, so every node target in the Makefile sets it explicitly.
 |---|---|
 | `src/lattice/` | the disclosure model, executable |
 | `src/kyc/` | the contract ATS calls on every transfer, and the gate that writes to it |
-| `src/repo/` | the repo state machine and its arithmetic |
+| `src/repo/` | the repo state machine, its arithmetic and the fail penalty |
 | `src/market/` | the commit and reveal order book, and the lender axe board |
 | `src/policy/` | parameters, regimes, volume caps and the trading halt |
 | `src/observatory/` | the attachment points, the call graph census, and the published rulebook |

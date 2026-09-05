@@ -71,6 +71,11 @@ contract Holds is IHoldByPartition {
 }
 
 contract MarketAbuseTest is Test, PolicyFixture {
+    /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
+    ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
+    uint256 internal constant PENALTY_RATE = 10;
+    uint64 internal constant FAIL_GRACE = 5 days;
+
     Holds holds;
     RepoVault vault;
 
@@ -93,7 +98,7 @@ contract MarketAbuseTest is Test, PolicyFixture {
     function setUp() public {
         holds = new Holds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, params);
+        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
         vm.warp(1_760_000_000);
         vm.prank(BORROWER);
         vault.open(
