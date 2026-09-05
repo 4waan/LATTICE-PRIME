@@ -26,3 +26,9 @@ upstream/
 
 # Rendered copies of working documents
 privacy-abstraction/disclosure-lattice.html
+
+# Secrets. Never commit a key, testnet or otherwise.
+.env
+.env.*
+!.env.example
+*.key
