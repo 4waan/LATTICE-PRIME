@@ -7,6 +7,7 @@ import {OrderBook} from "../src/market/OrderBook.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {ICompliance} from "../src/interfaces/ICompliance.sol";
 import {VolumeCap} from "../src/policy/VolumeCap.sol";
+import {TradingHalt} from "../src/policy/TradingHalt.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
@@ -163,6 +164,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
     AtsHolds internal ats;
     ComplianceSpy internal seamC;
     VolumeCap internal cap;
+    TradingHalt internal halt;
 
     address internal constant SELLER = address(0x5E11);
     address internal constant BUYER = address(0xB4E7);
@@ -201,6 +203,10 @@ contract MatchingEngineTest is Test, PolicyFixture {
         cap = new VolumeCap(regime, address(engine), 4000, L.point(L.G_EXACT, L.T_IMM));
         regime.bootstrapSupervisor(address(cap));
         engine.attachVolumeCap(cap);
+        // The band is set so wide it cannot fire. Tests that want the breaker
+        // build their own halt; every other test wants the venue never stopped.
+        halt = new TradingHalt(regime, address(engine), 1 hours, 4 hours, 9999, 1 hours);
+        engine.attachTradingHalt(halt);
 
         vm.deal(SELLER, 100 ether);
         vm.deal(BUYER, 100 ether);

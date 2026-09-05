@@ -9,6 +9,7 @@ import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
 import {VolumeCap} from "../policy/VolumeCap.sol";
+import {TradingHalt} from "../policy/TradingHalt.sol";
 
 /// @title MatchingEngine
 /// @notice The half of the book that was named in a comment and not built:
@@ -123,6 +124,13 @@ contract MatchingEngine is OrderBook {
 
     /// @notice Article 5's counter. Attached after construction, once.
     VolumeCap public volumeCap;
+
+    /// @notice Article 48(5)'s halt. Attached after construction, once.
+    /// @dev Required rather than optional, for the reason the cap is: a venue
+    ///      that cannot clear is a better failure than one that clears with no
+    ///      way to stop. It gates this contract and nothing else in the repo.
+    TradingHalt public tradingHalt;
+
     address private immutable _installer;
 
     /// @param holdId The ATS hold standing behind a sell order. Zero for a buy.
@@ -195,6 +203,10 @@ contract MatchingEngine is OrderBook {
     /// @notice The backing moved under a resting order. It is out of the book.
     event VoidedByRebase(bytes32 indexed id, uint256 promised, uint256 found);
     event VolumeCapAttached(address indexed cap);
+    event TradingHaltAttached(address indexed halt);
+
+    /// @dev Carries the deadline so an observer knows when the round may be retried.
+    event CrossRefusedWhileHalted(uint64 indexed round, uint64 until);
     /// @notice The engine tried to hand a retired sell order's lot back. No
     ///         amount: this is housekeeping, not a matrix row.
     event HoldReleaseAttempted(bytes32 indexed id, bool released);
@@ -210,6 +222,9 @@ contract MatchingEngine is OrderBook {
     error OutOfRange(uint128 value);
     error VolumeCapNotAttached();
     error VolumeCapAlreadyAttached();
+    error TradingHaltNotAttached();
+    error TradingHaltAlreadyAttached();
+    error VenueHalted(uint64 until);
     error NotInstaller();
     error CapIsNotOurs(address venue);
 
@@ -262,6 +277,18 @@ contract MatchingEngine is OrderBook {
         if (cap.venue() != address(this)) revert CapIsNotOurs(cap.venue());
         volumeCap = cap;
         emit VolumeCapAttached(address(cap));
+    }
+
+    /// @notice Wire Article 48(5)'s halt. Once, and it verifies itself.
+    /// @dev Same construction cycle and same resolution as the cap above, so
+    ///      `halt.venue() == address(this)` is what stops a borrowed halt whose
+    ///      supervisor is somebody else's from being installed here.
+    function attachTradingHalt(TradingHalt halt) external {
+        if (msg.sender != _installer) revert NotInstaller();
+        if (address(tradingHalt) != address(0)) revert TradingHaltAlreadyAttached();
+        if (halt.venue() != address(this)) revert CapIsNotOurs(halt.venue());
+        tradingHalt = halt;
+        emit TradingHaltAttached(address(halt));
     }
 
     // ------------------------------------------------------------- backing
@@ -357,9 +384,24 @@ contract MatchingEngine is OrderBook {
     ///      decide whether to run it.
     function crossRound(uint64 r) external nonReentrant {
         if (address(volumeCap) == address(0)) revert VolumeCapNotAttached();
+        if (address(tradingHalt) == address(0)) revert TradingHaltNotAttached();
         uint64 now_ = currentRound();
         if (r >= now_) revert RoundStillOpen(r, now_);
         if (crossed[r]) revert AlreadyCrossed(r);
+
+        // Before `crossed[r]` is set, so a halted round is retried and not lost.
+        //
+        // **A halted round crosses later rather than being voided, and the
+        // protection is the limit and not the clock.** Voiding would be the
+        // tidier state machine and it would take orders away from people who
+        // did not ask to leave. Every order here is a sealed *limit*, so a late
+        // cross still executes inside the price its owner named, and an owner
+        // who wants out has `expire`, which this contract cannot reach.
+        if (tradingHalt.haltedNow()) {
+            uint64 until = tradingHalt.haltedUntil();
+            emit CrossRefusedWhileHalted(r, until);
+            revert VenueHalted(until);
+        }
         crossed[r] = true;
 
         (bytes32[] memory ids, CallAuction.Limit[] memory book) = _assemble(r);
@@ -380,6 +422,10 @@ contract MatchingEngine is OrderBook {
         uint256 notional = CallAuction.notional(c.priceTwice, settled);
         // forge-lint: disable-next-line(unsafe-typecast)
         volumeCap.record(uint128(notional), exact ? 0 : uint128(notional));
+
+        // The breaker sees the price this round cleared at, which is the first
+        // moment it exists. It halts the next round, never this one.
+        tradingHalt.observe(c.priceTwice);
     }
 
     /// @dev The round's book. Voids any sell whose backing moved.
