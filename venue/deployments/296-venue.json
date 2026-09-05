@@ -40,7 +40,23 @@
   "note": "Deployed 2026-09-05, see 296-kyc.json. Unchanged; the bond was pointed at it.",
   "KycVerifier": "0x3a8b9577ff3ec7737510c7c327e14c2ea7a6f465",
   "ZkKycRegistry": "0xAa25f5CdCC905a6386a623ee37D3C57D29fA976a",
-  "RegistrationGate": "0x51f5aba39deea24db4a13182ce8b2697bef5b3fb"
+  "RegistrationGate": "0x51f5aba39deea24db4a13182ce8b2697bef5b3fb",
+  "epochCliff": {
+   "epoch": 7,
+   "endsAt": 1789230792,
+   "endsAtUtc": "2026-09-12T16:33:12Z",
+   "what": "ZkKycRegistry compares a stored grant's epoch against the current epoch at read time, so every grant dies at this instant with no transaction from anyone and nothing warns. getKycStatus goes NOT_GRANTED, canTransfer refuses, and every settlement pair emits SettlementRefused while rounds still cross and prints still go out.",
+   "proofsReady": "deployments/proofs-live-epoch8.json, three addresses, each verified locally",
+   "rootForEpoch8": "PUBLISHED",
+   "rootIsEpochIndependent": "A credential leaf is Poseidon(credentialId, secret, jurisdiction, tier, validUntilEpoch) and carries no epoch, so the tree published for epoch 7 is bit for bit the tree for epoch 8. publishRoot is write once per epoch and takes any epoch, so the root can go up before anybody needs it.",
+   "recovery": "script/live/renew-kyc.sh renew 8, after the boundary. Permissionless in msg.sender.",
+   "status": "script/live/renew-kyc.sh status",
+   "publishRootTx": "0xb5d2ba43809a76e8578771e27b98ad0e062cca8b6286d0ccc2ca569825675845",
+   "publishRootGas": 45841,
+   "rootForEpoch8Value": "6169089262182662551765430451869477850822369012194942422016362324771265384099, the same value as epoch 7's, because a credential leaf carries no epoch",
+   "proofsVerifiedAgainstTheLiveGate": "All three epoch 8 proofs agree with every signal the gate pins: passes == 1, credentialRoot == rootForEpoch(8), epoch == 8, registrant == the account, minTier == 3, jurisdictionMask == 255. wouldAccept answers (false, \"wrong epoch\") and nothing else, which is the clock and not the proof. The nullifier moved with the epoch, so the sybil counter is back to zero of five.",
+   "nextGap": "Epoch 9 is unpublished. Epoch 8 runs to 2026-09-19 16:33:12 UTC, well past the submission deadline, so it is not on the critical path. renew-kyc.sh prepare 9 when it is."
+  }
  },
  "policy": {
   "note": "The clock is shared with the superseded stack; the regime and root are not, because Regime.bootstrapSupervisor is single-use and a new engine needs a new cap needs a new regime.",
@@ -49,13 +65,54 @@
   "ParameterRoot": "0xD2ca252Da75D7dfA4784F05e040cc6089e4747E6",
   "epochZero": 1788632088,
   "epochLength": 300,
-  "root": "0xb24633c7d8b306282e8ca5c25685c90ddab8b1764457f0d71fd1461b1d212454",
-  "adoptedInEpoch": 3,
+  "root": "0xa88540d3e7e8e0f8146ea1c30589d789e59d9c0b78c59f1512ca6b31039c8edc",
+  "adoptedInEpoch": 34,
   "rootIsPinnedBy": "test/PolicySets.t.sol::test_theDeployedRootIsTheTestedRoot",
   "contractIds": {
    "EpochClock": "0.0.10381591",
    "Regime": "0.0.10381809",
    "ParameterRoot": "0.0.10381811"
+  },
+  "rootPublishes": "ten row ceilings, three coalition budgets on rows 13, 14 and 15, and the waiver mask. Fourteen entries.",
+  "proposeTx": "see broadcast/AdoptPolicy.s.sol/296/propose-latest.json",
+  "adoptTx": "0xd877cbe61de37d6337c6e3b54ca3997d35c52b5a0afcd00ec644a1e1dac12b58",
+  "adoptGasUsed": 549282,
+  "budgets": {
+   "row13": {
+    "domainBits": 2,
+    "aggBits": 2,
+    "bucketBits": 2,
+    "budgetBits": 1,
+    "derivation": "the four outcome events crossRound encodes"
+   },
+   "row14": {
+    "domainBits": 3,
+    "aggBits": 3,
+    "bucketBits": 3,
+    "budgetBits": 2,
+    "derivation": "RepoVault.State, eight members"
+   },
+   "row15": {
+    "domainBits": 2,
+    "aggBits": 2,
+    "bucketBits": 2,
+    "budgetBits": 1,
+    "derivation": "the three windows OrderBook partitions a commitment's life into"
+   }
+  },
+  "budgetsWhy": "budgetFor(row) answered (0,0,0,0) for every row, which is the unmetered marker, so spentBits was always 0, wouldAfford always true and breakingSize always 0. Three of the five getters DisclosureView exposes were constants and the coalition half of the disclosure model ran in the suite and nowhere else. Rule B is why only three rows can carry a budget; DP-01 is why they did not, and PolicySets.budgetFor is the derivation that answers it.",
+  "supersededRoot": {
+   "root": "0xb24633c7d8b306282e8ca5c25685c90ddab8b1764457f0d71fd1461b1d212454",
+   "published": "ten row ceilings and the waiver mask. No coalition budget on any row.",
+   "adoptedInEpoch": 3,
+   "stillAcceptedUntil": "RootWindow.DEPTH_ONE_BEHIND plus GRACE. ParameterRoot.windowClosesAt()"
+  },
+  "readBackAfterAdopt": {
+   "row13": "budgetFor (2,2,2,1), engine.breakingSize(13, pred) 2, was 0",
+   "row14": "budgetFor (3,3,3,2), engine.breakingSize(14, pred) 3, was 0",
+   "row15": "budgetFor (2,2,2,1), engine.breakingSize(15, pred) 2, was 0",
+   "row5": "budgetFor (0,0,0,0) still. Rule B: an (exact, imm) ceiling admits no budget.",
+   "note": "deployments/client.json disclosure block carries all ten rows, regenerated by `make client`."
   }
  },
  "actors": {
@@ -178,6 +235,22 @@
     "unverifiedArrivals": 0
    },
    "note": "The issue landed in epoch 1 and the cross in epoch 4. unverifiedArrivals is zero on both because each recipient holds a live seam D grant, which is the journal's inference working rather than not firing."
+  },
+  "receiptBeat": {
+   "what": "The receipt beat, run end to end on chain in disclosure epoch 39, 2026-09-06. Two sealed orders committed and both withdrawn. The first withdrawal emitted Cancelled and DisclosureCharged; the second emitted nothing, refunded the same bond and returned status 1.",
+   "why": "DisclosureMeter.spend is Rule A: an exhausted budget withholds the event and never fails the action. Until the budgets were adopted this could not happen on this contract at all, and once they were, it had still only happened in the suite. This is the state no event stream can report, reported: cancelB carries no logs, and spentBits(15, 39) says why.",
+   "bundle": "deployments/receipt-beat.json, written by script/live/receipt-beat.sh, which asserts eleven claims about its own run and exits non-zero if any of them fails. All eleven held.",
+   "epoch": 39,
+   "commitA": "0xa558da5745380f6551588a2c2cfa25fe45974ccaee9bedc9502b98a366b296aa",
+   "cancelA": "0xa7e2287bec0fadcdeccc3c3484acab1d081eae2a6eca219b20b76b80c41950f3",
+   "commitB": "0x86a1bd0e0400d90a18b732fe092748b8f815a740464f9a1534312d72c66797a4",
+   "cancelB": "0x2885d8da867b1cab43863698895a2bf78fb35114743a33849ba5f771cc707594",
+   "theTwoCancels": "cancelA: status 1, 118,154 gas, two logs, DisclosureCharged(row 15, epoch 39, granularity 1, cost 1, spentAfter 1) and Cancelled. cancelB: status 1, 60,090 gas, zero logs. The gas gap is the mechanism rather than noise: the withheld call writes no meter slot and emits no event, so it costs roughly half.",
+   "theThreeReads": "spentBits(15, 39) 0 -> 1 -> 1. wouldAfford(15, pred) true -> false -> false. breakingSize(15, pred) 2 throughout. credit 0 -> 900,000 -> 1,800,000 tinybar, so the silenced cancellation refunded exactly what the audible one did.",
+   "credit": "1,800,000 tinybar left as a credit on the engine for the deployer, claimable with withdraw(). A credit rather than a transfer, following expire: one ledger, one withdraw, no second payout path to audit.",
+   "theWindowThatBitFirst": "cancel closes at committedAt + revealDelay, which is 30 seconds. The first attempt put a six-call receipt read between commit and cancel and the window shut mid-run; cancellableUntil caught it and cost a call rather than a transaction. The run is now commit-and-cancel back to back with the reads outside the pairs.",
+   "theTwoStrandedBonds": "The aborted attempt left two commitments past their cancel window. forfeit is permissionless and pays the bond to whoever calls it, so nothing was lost: 0x4762be6afcec76ce558d15ff7adb4be95100e543824aa6f3828967f704256ade and 0x15743611292c9fc0417eb28b62f08050332b164d04eaebf8f01b335317495128, 36,476 and 36,500 gas. Both emitted BondForfeited and nothing else, and spentBits(15, e) read zero after both, which is the live form of test_aSweptBondDoesNotSpendTheActivityRow: the recovery path must not spend the row the receipt reports, or a trader's first real cancellation of the epoch would be withheld with nothing on screen to explain it.",
+   "reproduce": "make beat            # plan, sends nothing\nmake beat MODE=run   # four transactions, 0.002 HBAR in cancel fees\nbash script/live/receipt-beat.sh sweep 0xID   # recover a stranded bond"
   }
  },
  "sourcify": {
@@ -203,5 +276,12 @@
   "endHbar": 831.4455,
   "totalHbar": 164.8134,
   "note": "Faucet testnet HBAR. The bond alone was 7.7M gas; the venue was redeployed once because of the tinybar finding, which is most of the difference."
+ },
+ "client": {
+  "note": "What a frontend loads. Generated by tools/gen-client.mjs, which only ever sends eth_call and exits non-zero if any of the seven wiring assertions fails.",
+  "bundle": "deployments/client.json",
+  "abi": "deployments/abi/, 15 files, exported from out/ by script/live/export-abis.sh",
+  "regenerate": "make client",
+  "holdRail": "IHoldByPartition carries six entries. getHeldAmountForByPartition was added 2026-09-06 as row 12 of the docs/ats-seams.md call list, and it is the first row on that list no contract of ours calls. balanceOfByPartition excludes held units, so a position needs both numbers: 2,000 free and 1,000 held for the seller, measured."
  }
 }

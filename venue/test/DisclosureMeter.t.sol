@@ -12,6 +12,14 @@ import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 
 contract HoldsStub is IHoldByPartition {
+    /// @dev Row 12 of the call list. No contract calls it; the client does, and
+    ///      nothing in this suite is a client, so it answers zero rather than a
+    ///      plausible number. `AtsHolds` in `MatchingEngine.t.sol` keeps a real
+    ///      sum, which is where the read is exercised.
+    function getHeldAmountForByPartition(bytes32, address) external pure returns (uint256) {
+        return 0;
+    }
+
     /// @dev Row 11 of the call list, added with `MatchingEngine`. This suite does
     ///      not exercise the read, so it answers with a hold that would pass no
     ///      check; a stub that returned something plausible would be a stub
@@ -69,7 +77,7 @@ contract HoldsStub is IHoldByPartition {
 /// say the venue behaves that way. The two disagreements that motivated the
 /// meter are pinned here as tests rather than left as prose, in
 /// `test_theBooksExactRowsAreUnmeterableByConstruction` and
-/// `test_theMeterableSurfaceIsTwoRowsAndOneOfThemCarriesABudget`.
+/// `test_everyMeterableRowCarriesABudgetAndNoOtherRowDoes`.
 contract DisclosureMeterTest is Test, PolicyFixture {
     /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
     ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
@@ -157,8 +165,8 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     ///      So the distinction drawn here is between a row that carries a bound
     ///      and one that could. Collapsing them is how a venue ends up believing
     ///      it is metered on a surface it merely could be.
-    function test_theMeterableSurfaceIsTwoRowsAndOneOfThemCarriesABudget() public view {
-        uint16[8] memory rows = [uint16(3), 4, 5, 7, 14, 15, 16, 17];
+    function test_everyMeterableRowCarriesABudgetAndNoOtherRowDoes() public view {
+        uint16[9] memory rows = [uint16(3), 4, 5, 7, 13, 14, 15, 16, 17];
         uint256 metered;
         uint256 meterable;
         for (uint256 i = 0; i < rows.length; ++i) {
@@ -172,13 +180,11 @@ contract DisclosureMeterTest is Test, PolicyFixture {
             if (hasBudget) metered++;
             if (published && !exactCeiling) meterable++;
         }
-        assertEq(metered, 1, "exactly one row carries a budget today");
-        assertTrue(params.budgetFor(ROW_POSITION).budgetBits != 0, "and it is row 14");
-        assertEq(meterable, 2, "two rows could carry one");
-        assertFalse(
-            L.permits(params.ceilingFor(ROW_ACTIVITY), L.point(L.G_EXACT, L.T_IMM)),
-            "and the second is row 15, the cancel"
-        );
+        assertEq(meterable, 3, "rows 13, 14 and 15 sit below exact");
+        assertEq(metered, meterable, "and the deployed set meters every one of them");
+        assertTrue(params.budgetFor(ROW_POSITION).budgetBits != 0, "row 14, the position");
+        assertTrue(params.budgetFor(ROW_ACTIVITY).budgetBits != 0, "row 15, the cancel");
+        assertTrue(params.budgetFor(13).budgetBits != 0, "row 13, the match predicate");
     }
 
     /// @notice The order book's **exact** rows cannot be metered by any
@@ -194,17 +200,9 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     ///      an oversight and "fixes" it with a budget, which under Rule A would
     ///      silence those rows on every call rather than bounding them.
     function test_theBooksExactRowsAreUnmeterableByConstruction() public {
-        ParameterRoot.Param[] memory set = withBudgets();
         // Attach a budget to row 3, which the book discloses at `exact`.
-        ParameterRoot.Param[] memory bad = new ParameterRoot.Param[](set.length + 1);
-        for (uint256 i = 0; i < set.length - 1; ++i) {
-            bad[i] = set[i];
-        }
-        bad[set.length - 1] =
-            ParameterRoot.Param(bytes32(uint256(36 + 3)), _packBudget(8, 2, 4, 3));
-        bad[set.length] = set[set.length - 1];
-        // Keys must ascend: 39 (row 3 budget) before 50 (row 14 budget).
-        (bad[set.length - 1], bad[set.length - 2]) = (bad[set.length - 2], bad[set.length - 1]);
+        ParameterRoot.Param[] memory bad =
+            _with(withBudgets(), bytes32(uint256(36 + 3)), _packBudget(8, 2, 4, 3));
 
         bytes32 r = params.rootOf(bad);
         vm.prank(OPERATOR);
@@ -221,16 +219,9 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     /// @notice A budget on a row nobody published is a bound on a channel that
     ///         does not exist.
     function test_aBudgetOnAnUnpublishedRowIsUnadoptable() public {
-        ParameterRoot.Param[] memory set = withBudgets();
-        ParameterRoot.Param[] memory bad = new ParameterRoot.Param[](set.length + 1);
-        for (uint256 i = 0; i < set.length - 1; ++i) {
-            bad[i] = set[i];
-        }
-        // Row 9 is in no fixture set, so it has no ceiling. Key 45 sorts before 50.
-        bad[set.length - 2] =
-            ParameterRoot.Param(bytes32(uint256(36 + 9)), _packBudget(8, 2, 4, 3));
-        bad[set.length - 1] = set[set.length - 2];
-        bad[set.length] = set[set.length - 1];
+        // Row 9 is in no set, so it has no ceiling. Key 45 sorts before 49.
+        ParameterRoot.Param[] memory bad =
+            _with(withBudgets(), bytes32(uint256(36 + 9)), _packBudget(8, 2, 4, 3));
 
         bytes32 r = params.rootOf(bad);
         vm.prank(OPERATOR);
@@ -245,9 +236,9 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     /// @notice A budget that is not binding is un-adoptable, because it would
     ///         certify a limit it does not hold.
     function test_aBudgetAtOrAboveTheDomainIsUnadoptable() public {
-        ParameterRoot.Param[] memory set = withBudgets();
         // budgetBits == domainBits. `requireWellFormed` refuses it.
-        set[set.length - 2].value = _packBudget(8, 2, 4, 8);
+        ParameterRoot.Param[] memory set =
+            _with(withBudgets(), bytes32(uint256(36 + 14)), _packBudget(8, 2, 4, 8));
         bytes32 r = params.rootOf(set);
         vm.prank(OPERATOR);
         params.propose(r, "non binding budget");
