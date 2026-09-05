@@ -2,40 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {RootWindow} from "../policy/RootWindow.sol";
-import {Regime, IEpochClock} from "../policy/Regime.sol";
+import {Regime} from "../policy/Regime.sol";
+import {IEpochClock} from "../interfaces/IEpochClock.sol";
 
 /// @title Rulebook
-/// @notice The venue's operating rules and its tariff, as a committed edition.
-///
-/// ## Why a contract and not only a document
-///
-/// Form ATS-N asks an alternative trading system to disclose order types, market
-/// data, fees, priority and segmentation, and MiFIR Article 5's sibling rule on
-/// venue rebates permits them only under an *approved and public* tariff
-/// structure. Both obligations are about a document, and a document alone can
-/// say anything. Two properties make it checkable and neither is prose:
-///
-/// 1. **Every charge names the code that holds it.** A tariff line carries a
-///    `(source, reader)` pair, and `reconcile` reads the live number back. A
-///    venue that charges something it did not publish is visible to anyone.
-/// 2. **Publication precedes effect.** `propose` then `adopt` at the next epoch,
-///    following `ParameterRoot`, with `RootWindow` keeping the superseded
-///    edition checkable for the grace period. A tariff cannot move retroactively
-///    and the operator cannot open its own commitment early.
-///
-/// ## What is not here
-///
-/// The prose claims: one order type, no external market data, price then pro
-/// rata, no venue halt. Those are bound by `document` and tested in
-/// `test/Rulebook.t.sol` against the contracts that would falsify them. Putting
-/// them on chain as booleans would add a second thing to keep true.
-///
-/// ## The zero
-///
-/// The deployed schedule's `netOperatorTake` is zero, and D-22 is why: the venue
-/// prices nothing, and every route to cost recovery reopens a closed decision.
-/// The zero is published rather than assumed, so the day it stops being zero is
-/// an `Adopted` event with a number in it.
+/// @notice Operating rules and tariff as a committed edition.
+/// @dev Each charge names `(source, reader)`; `reconcile` reads the live number.
+///      Propose then adopt next epoch. Document is `keccak256(docs/RULEBOOK.md)`.
 contract Rulebook {
     using RootWindow for RootWindow.Window;
 

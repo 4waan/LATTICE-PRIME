@@ -7,33 +7,13 @@ import {DisclosureBudget as B} from "../lattice/DisclosureBudget.sol";
 import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
 import {DisclosureView} from "../lattice/DisclosureView.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
-
-/// @dev Narrow read of the book so the board does not enlarge `MatchingEngine`.
-interface ISealedOrderBook {
-    function commitBond() external view returns (uint256);
-
-    function commitments(bytes32 id)
-        external
-        view
-        returns (
-            address committer,
-            uint64 committedAt,
-            bool revealed,
-            bool cancelled,
-            uint256 bond
-        );
-}
-
-interface IRespondentRegistry {
-    /// @return FIX 1172: 1 participant, 3 market maker, 4 primary.
-    function respondentType(address who) external view returns (uint8);
-}
+import {ISealedOrderBook} from "../interfaces/ISealedOrderBook.sol";
+import {IRespondentRegistry} from "../interfaces/IRespondentRegistry.sol";
 
 /// @title AxeBoard
 /// @notice Lender posts a sealed grid; borrower learns one bit.
-/// @dev Row 13 is charged at `probe` (Rule C) because the bit is learned from
-///      the opening, not the log. `answer` never re-checks. `discharge` cannot
-///      prove the sealed order sits in the probed cell without a reveal.
+/// @dev Row 13 is charged at `probe` (Rule C): the bit is learned from the
+///      opening, not the log. `answer` never re-checks. Bond floor: `docs/MATH.md`.
 contract AxeBoard is DisclosureView {
     enum Respondent {
         ALL,
@@ -207,11 +187,7 @@ contract AxeBoard is DisclosureView {
         return uint8(r) + 1;
     }
 
-    function axeIdOf(address lender, bytes32 grid, bytes32 salt)
-        public
-        pure
-        returns (bytes32)
-    {
+    function axeIdOf(address lender, bytes32 grid, bytes32 salt) public pure returns (bytes32) {
         return keccak256(abi.encode(DOMAIN_AXE, lender, grid, salt));
     }
 
@@ -347,7 +323,9 @@ contract AxeBoard is DisclosureView {
         uint64 closesAt = p.askedAt + answerWindow;
         if (block.timestamp > closesAt) revert AnswerWindowClosed(closesAt);
 
-        if (!AxeGrid.verify(a.grid, p.cell, covered, salt, proof)) revert OpeningDoesNotMatch();
+        if (!AxeGrid.verify(a.grid, p.cell, covered, salt, proof)) {
+            revert OpeningDoesNotMatch();
+        }
 
         p.answeredAt = uint64(block.timestamp);
         if (covered) {
@@ -429,12 +407,11 @@ contract AxeBoard is DisclosureView {
         require(ok, "withdraw failed");
     }
 
-    function _mayProbe(
-        Axe storage a,
-        address who,
-        bytes32 memberSalt,
-        bytes32[] calldata proof
-    ) private view returns (bool) {
+    function _mayProbe(Axe storage a, address who, bytes32 memberSalt, bytes32[] calldata proof)
+        private
+        view
+        returns (bool)
+    {
         Respondent r = a.respondent;
         if (r == Respondent.ALL) return true;
         if (r == Respondent.SPECIFIED) {
@@ -447,12 +424,11 @@ contract AxeBoard is DisclosureView {
 
     /// @dev Sorted-pair tree over salted members. Bare addresses would enumerate
     ///      at this venue's counterparty count.
-    function _memberOf(
-        bytes32 root,
-        address who,
-        bytes32 memberSalt,
-        bytes32[] calldata proof
-    ) private pure returns (bool) {
+    function _memberOf(bytes32 root, address who, bytes32 memberSalt, bytes32[] calldata proof)
+        private
+        pure
+        returns (bool)
+    {
         if (root == bytes32(0)) return false;
         bytes32 h = keccak256(abi.encode(DOMAIN_MEMBER, who, memberSalt));
         for (uint256 i = 0; i < proof.length; ++i) {
@@ -497,11 +473,7 @@ contract AxeBoard is DisclosureView {
         return (r.budgetBits - spent) / B.bits(r, L.G_PRED);
     }
 
-    function indicationOf(bytes32 probeId)
-        external
-        view
-        returns (Status status, bool covered)
-    {
+    function indicationOf(bytes32 probeId) external view returns (Status status, bool covered) {
         Probe storage p = probes[probeId];
         return (p.status, p.status == Status.INDICATED || p.status == Status.DISCHARGED);
     }

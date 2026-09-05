@@ -2,93 +2,10 @@
 pragma solidity ^0.8.24;
 
 /// @title CallAuction
-/// @notice The clearing rule, pure. No storage, no policy, no settlement.
-///
-/// ## Why this is a library and not four functions inside the engine
-///
-/// The rule is the part of a venue that has to be *right* rather than merely
-/// safe, and rightness here is a claim about every book rather than about the
-/// books a fuzzer happened to draw. Two of the claims below cannot be
-/// established by testing the engine at all, because they are claims about what
-/// the engine does **not** examine:
-///
-/// 1. `clear` scans the submitted prices and nothing between them. That is
-///    complete only if the executable volume can never peak strictly between two
-///    submitted prices. A fuzzer over `clear` can never find that bug, because
-///    `clear` and the fuzzer would share the assumption.
-/// 2. The tie-break takes a midpoint, which presumes the surviving price set is
-///    connected. If it can be disconnected, "the midpoint" names a price that is
-///    not itself a maximiser and two honest implementations disagree.
-///
-/// Both are brute-forced against an independent reference in
-/// `probes/matching-clearing.py`, over 20,000 random books each, 0 violations,
-/// and the vectors that reference produces are replayed against this code in
-/// `test/CallAuction.t.sol`. Separating the rule into a pure library is what
-/// makes that differential test possible: the oracle has to be able to answer
-/// the same question, and the oracle knows nothing about holds or disclosure.
-///
-/// ## The rule
-///
-/// Uniform price. Every buyer pays the same, every seller receives the same, and
-/// nobody's own limit sets their own price.
-///
-/// ```
-///   D(p) = sum of qty over buys  with price >= p     non-increasing in p
-///   S(p) = sum of qty over sells with price <= p     non-decreasing in p
-///   V(p) = min(D(p), S(p))                           executable volume
-/// ```
-///
-/// (a) maximise `V`; (b) among those, minimise the imbalance `|D - S|`; (c) among
-/// those, take the midpoint. (a) then (b) is what call auctions do. (c) is the
-/// only step that invents a number rather than selecting one, and it is the step
-/// section "rounding" below is about.
-///
-/// ## Why there is no time priority
-///
-/// A continuous book sorts by price then by arrival. This venue receives about
-/// 1.6 orders a day (`the results notes` section 4's 50 counterparties at section 3's 12
-/// trades a year), and `probes/matching-clearing.py` section 5 measures a daily
-/// round holding 1.644 orders and yielding 0.36 crossings. **Time priority over a
-/// queue of one is not a priority.** It is also the one thing in a
-/// commit-and-reveal book that is trivially gamed, because the only timestamp the
-/// chain has is the reveal, and a trader chooses when to reveal.
-///
-/// So there is no time priority anywhere in the price determination. It survives
-/// in exactly one place, the remainder of the pro-rata division at the marginal
-/// level in `allocate`, where it moves at most `k - 1` minor units among the `k`
-/// orders sharing that level. That residue is stated rather than removed,
-/// because no allocation of an integer volume across integer lots is both
-/// exactly proportional and exhaustive, and the alternative to a stated
-/// tie-break is a lost unit.
-///
-/// ## Rounding, which is where the money is
-///
-/// The clearing price is the mean of two submitted prices, so it is a
-/// half-integer whenever their sum is odd, and settlement is in integer minor
-/// units. The order of operations is not a detail:
-///
-/// ```
-///   round the price first:     floor((lo + hi) / 2) * qty
-///   carry at twice scale:      floor((lo + hi) * qty / 2)
-/// ```
-///
-/// The first is out by `qty * frac((lo+hi)/2)`, which is `qty / 2` whenever the
-/// sum is odd. The second is out by at most one half, always, whatever `qty` is.
-/// Measured over 11,000 fills at four lot scales:
-///
-/// | max lot | round-first mean err | max | divide-once mean | max |
-/// |---|---|---|---|---|
-/// | 100 | 6.12 | 50.0 | 0.074 | 0.5 |
-/// | 1,000 | 57.58 | 499.0 | 0.071 | 0.5 |
-/// | 10,000 | 609.94 | 5,000.0 | 0.076 | 0.5 |
-/// | 100,000 | 6,188.31 | 49,949.0 | 0.076 | 0.5 |
-///
-/// **The gap is linear in the lot size against a bound of one half**, so quoting
-/// a single improvement factor would be quoting the lot size the benchmark drew.
-/// That is `docs/MATH.md` section 6's "rounding direction is an invariant, not a
-/// detail" arriving at a second site, and the disposition is the same: the price
-/// never exists as a rounded number. `clear` returns `priceTwice = lo + hi` and
-/// `notional` divides once, after `qty` has multiplied in.
+/// @notice Uniform-price clearing. Pure: no storage, no settlement.
+/// @dev Max `V=min(D,S)`; then min `|D-S|`; then midpoint as `priceTwice=lo+hi`.
+///      `notional` divides once after qty. No time priority in the price.
+///      Oracle: `probes/matching-clearing.py`. Formulas: `docs/MATH.md`.
 library CallAuction {
     /// @notice One revealed order, reduced to what the rule needs.
     /// @dev Deliberately not `OrderBook.Order`. The rule must not be able to see

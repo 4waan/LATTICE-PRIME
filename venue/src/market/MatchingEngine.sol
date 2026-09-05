@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {OrderBook} from "./OrderBook.sol";
+import {MatchingEngineBase} from "./MatchingEngineBase.sol";
 import {CallAuction} from "./CallAuction.sol";
 import {IHoldByPartition, IHoldTypes} from "../interfaces/IHoldByPartition.sol";
 import {ICompliance} from "../interfaces/ICompliance.sol";
@@ -12,123 +13,25 @@ import {VolumeCap} from "../policy/VolumeCap.sol";
 import {TradingHalt} from "../policy/TradingHalt.sol";
 
 /// @title MatchingEngine
-/// @notice The half of the book that was named in a comment and not built:
-///         clearing, and settlement against ATS.
-///
-/// ## What was actually missing, which was not "a match function"
-///
-/// `OrderBook` shipped with a comment where `match` would be, naming two open
-/// matrix cells as blockers. The census of what the contract had left undone was
-/// longer than that comment and one entry on it was a security hole rather than
-/// an omission:
-///
-/// | | undelivered | consequence |
-/// |---|---|---|
-/// | 1 | the revealed-id list was appended to and read by nothing but its own length | the book accumulated and never cleared |
-/// | 2 | `Order.filled` was written once, as zero | no partial fill accounting existed |
-/// | 3 | `Order.revealedAt` was written and never read | a priority field with no priority rule |
-/// | 4 | `Side` was stored and never used to segregate | there were not two sides of a book |
-/// | 5 | **the bond was returned at reveal** | **a revealed order was an unfunded promise** |
-/// | 6 | no token address anywhere | the book could not settle anything |
-/// | 7 | `VolumeCap.record` had no production caller | Article 5 counted zero volume forever |
-/// | 8 | a row ceiling but no budget accumulator | MA-04 unfixed at the site where repeated disclosure lives |
-///
-/// Row 5 is the one that mattered. an invariant says a bid that cannot fund cannot
-/// win, and between reveal and cross there was nothing at stake at all. The fix
-/// is in two places: `OrderBook` keeps the bond, and `_bind` below refuses a
-/// reveal that is not backed in the asset or in cash.
-///
-/// ## The shape: a discrete-round uniform-price call auction with resting orders
-///
-/// Not a continuous book. `CallAuction` carries the argument in full; the short
-/// form is that continuous price-time priority over a queue averaging 1.6 orders
-/// a day is theatre, and the only timestamp a commit-and-reveal book has is the
-/// reveal, which the trader chooses. A call auction has no time priority to
-/// manipulate.
-///
-/// `crossRound` is permissionless, following `Regime.adopt`, `ParameterRoot.adopt`
-/// and `VolumeCap.enforce`. **The venue must not choose when to cross**, because
-/// choosing when to cross is choosing the price.
-///
-/// ## Settlement: which ATS rail, and the one that is not obvious
-///
-/// Two rails could move the security, and they fail in opposite places.
-///
-/// | rail | encumbers at reveal | seam C sees the size | seller online at cross |
-/// |---|---|---|---|
-/// | `createHoldByPartition` then `executeHoldByPartition` | yes | **no** | no |
-/// | `authorizeOperatorByPartition` then `operatorTransferByPartition` | no | yes | no |
-///
-/// Holds win, because an order that is not encumbered at reveal is the unfunded
-/// promise this contract exists to remove. `executeHoldByPartition` moves the
-/// balance, and `HoldStorageWrapper._validateExecuteHold` permits any destination
-/// when the recorded `hold.to` is `address(0)`, so the escrow names the buyer at
-/// **execution** time. The counterparty is disclosed at settlement and not at
-/// commit, which is the whole reason a sealed book is worth building.
-///
-/// **The cost of that choice, and it is a real one.** Hold execution reaches seam
-/// C as `canTransfer(address(0), to, 0)`: `mesh/transfer-path.md` F-06, shape 3
-/// of `SeamJournal._judge`, with the amount withheld. So settling through holds
-/// **moves the size policy out of ATS and onto us**. F-06 named that as a design
-/// decision owed; this contract is the first one that has to discharge it, and it
-/// does so by calling `canTransfer(seller, buyer, amount)` itself, with the real
-/// amount, before every execution. See `_permitted`.
-///
-/// ## The hazard nobody had named
-///
-/// `beforeExecuteHold` calls `adjustHoldBalances`, which resynchronises the
-/// holder's balance adjustment factor, and the pending-adjustment sync fires
-/// lazily from entry points all over the facet surface. **So an unrelated third
-/// party's transaction can rebase a resting order's backing between the reveal
-/// that promised it and the cross that delivers it.** A quantity promised is not
-/// a quantity deliverable. A corporate action on the bond is exactly such a
-/// transaction.
-///
-/// The disposition is to snapshot the hold at reveal, read it again at cross, and
-/// **void** the order on a mismatch rather than under-deliver into a settlement.
-/// A corporate action cancels resting orders, which is what real venues do.
-///
-/// ## Disclosure, and the loop that makes Article 5 fire
-///
-/// A cross discloses on four rows: 13 (that a match happened), 5 and 3 (the
-/// print), 12 (the counterparties).
-///
-/// The print **degrades rather than reverts**, which is `SeamJournal`'s Rule A
-/// applied at a third site. If the row 5 ceiling or its remaining budget will not
-/// carry an exact immediate print, the engine publishes an order of magnitude,
-/// and if it will not carry that either it publishes nothing. In every case the
-/// trade still settles: a compliant trade must not fail because the venue has run
-/// out of things it may say.
-///
-/// **And a trade whose price was not printed exactly and immediately is a trade
-/// that used a hiding mechanism**, so it is recorded against `VolumeCap` as
-/// deferred volume. That closes a loop nothing had closed before. Exhaust a row
-/// budget with repeated disclosure and the prints go dark; the dark share rises;
-/// Article 5's cap fires; `Regime.raiseFloor` lifts the row floors; the venue is
-/// compelled to print again. MA-04's repetition attack and MiFIR Article 5 turn
-/// out to be the same mechanism seen from two ends, which is the fourth sighting
-/// of the accumulator pattern `VolumeCap`'s own header predicted.
-contract MatchingEngine is OrderBook {
+/// @notice Uniform-price call auction and ATS hold settlement. Extends `OrderBook`.
+/// @dev Permissionless `crossRound`: choosing when to cross is choosing the price.
+///      Holds, not operator transfer: encumber at reveal. `executeHold` withholds
+///      size at seam C (F-06), so this contract re-checks `canTransfer(seller,
+///      buyer, amount)` itself. Snapshot the hold at reveal; void on rebase.
+///      Print degrades under Rule A; inexact prints count as deferred volume
+///      (`VolumeCap`). Clearing: `CallAuction`. Design: `docs/MATCHING.md`.
+contract MatchingEngine is MatchingEngineBase, OrderBook {
     /// @notice The ATS token. Holds only; this contract never calls a transfer.
     IHoldByPartition public immutable security;
     bytes32 public immutable partition;
 
-    /// @notice Seam C, called by **us** rather than by ATS.
-    /// @dev The F-06 disposition. On the hold rail ATS asks seam C
-    ///      `(0, to, 0)`, so the compliance module cannot see the size and any
-    ///      size-dependent policy is blind exactly where this venue settles.
-    ///      Calling it here with the real triple is the only way the policy runs
-    ///      at all. It does not replace ATS's own call; it is the one that
-    ///      carries the amount.
+    /// @notice Seam C, asked here with the real amount. ATS's own hold-path call is `(0, to, 0)`.
     ICompliance public immutable compliance;
 
     /// @notice Article 5's counter. Attached after construction, once.
     VolumeCap public volumeCap;
 
-    /// @notice Article 48(5)'s halt. Attached after construction, once.
-    /// @dev Required rather than optional, for the reason the cap is: a venue
-    ///      that cannot clear is a better failure than one that clears with no
-    ///      way to stop. It gates this contract and nothing else in the repo.
+    /// @notice Article 48(5) halt. Attached once. Gates `crossRound` only.
     TradingHalt public tradingHalt;
 
     address private immutable _installer;
@@ -146,95 +49,8 @@ contract MatchingEngine is OrderBook {
     mapping(bytes32 => Backing) public backingOf;
     mapping(uint64 => bool) public crossed;
 
-    /// @notice Rows of `the build notes` section 7.2 the cross discloses on.
-    uint16 internal constant ROW_EXEC_PRICE = 5;
-
-    /// @dev **Admitted, and this constant is where the admission lives.**
-    ///      Settlement names both sides inside ATS's own transfer, which the
-    ///      zero-fork ruling puts beyond our reach. The alternative on the table
-    ///      was a netted layer, and `venue/docs/MATCHING.md` section 3 runs the
-    ///      arithmetic that alternative rests on: netting hides a counterparty
-    ///      only when the netting set holds more than one trade, and at 600
-    ///      orders a year a set of five needs a weekly batch while anything worth
-    ///      calling private needs the 30 day epoch an earlier measurement already ruled out on
-    ///      the time axis for row 16. Same mechanism, same arithmetic, opposite
-    ///      row.
-    ///
-    ///      So row 12 is published at `(exact, {pub}, imm)` and named as a stated
-    ///      limit, which is exactly the disposition row 16 already carries. Two
-    ///      consequences follow and both are load bearing. Rule B then forbids a
-    ///      budget on this row, so the meter charges nothing here, which is
-    ///      correct rather than a gap: **our event is not the disclosure, ATS's
-    ///      transfer is**, and a meter that withheld our event while the pair
-    ///      landed on chain anyway would be certifying a bound that does not
-    ///      hold. And row 12 is not in the waived set, so `Regime` cannot narrow
-    ///      it underneath us and turn settlement into a revert.
-    uint16 internal constant ROW_COUNTERPARTY = 12;
-
-    /// @dev Row 13, and it is **not** the dependent sum the matrix marks it as.
-    ///      `dep?` is there because under conditional disclosure the observer set
-    ///      is computed from the hidden value. In a call auction over already
-    ///      revealed orders under a public deterministic rule, nothing is hidden
-    ///      at evaluation time: anyone recomputes the match from the tape. No
-    ///      evaluator, therefore no trusted-evaluator surface, which is
-    ///      `docs/who-gets-privacy.md` DP-03's owed two column list getting its
-    ///      first entry on the column that does not need a proof.
-    ///
-    ///      The cell is `(pred, {pub}, imm)`, strictly below the `(exact, {pub},
-    ///      imm)` already deployed on rows 3 and 4, so **given those rows it
-    ///      costs no new disclosure**. Conditional on them, and stated that way.
-    uint16 internal constant ROW_MATCH_PREDICATE = 13;
-
-    event RoundCrossed(uint64 indexed round, uint256 priceTwice, uint256 volume);
-    /// @notice The print, at whatever granularity the ceiling and the budget
-    ///         allow. Magnitudes are base ten orders of magnitude.
-    event PrintedCoarse(uint64 indexed round, uint256 priceBucket, uint256 volumeBucket);
-    /// @notice Nothing could be printed. The trade still settled.
-    event PrintWithheld(uint64 indexed round);
-    /// @notice No price executed anything this round. The common case.
-    event RoundEmpty(uint64 indexed round);
-    /// @notice Row 12, admitted.
-    event Settled(bytes32 indexed sellId, bytes32 indexed buyId, uint256 amount, uint256 cost);
-    /// @notice Seam C said no to this pair, with the amount it could finally see.
-    /// @dev Not a revert. A refused pair simply does not trade this round, and
-    ///      the orders rest on. Reverting would let one ineligible counterparty
-    ///      stop the venue clearing for everybody.
-    event SettlementRefused(bytes32 indexed sellId, bytes32 indexed buyId);
-    /// @notice The backing moved under a resting order. It is out of the book.
-    event VoidedByRebase(bytes32 indexed id, uint256 promised, uint256 found);
-    event VolumeCapAttached(address indexed cap);
-    event TradingHaltAttached(address indexed halt);
-
-    /// @dev Carries the deadline so an observer knows when the round may be retried.
-    event CrossRefusedWhileHalted(uint64 indexed round, uint64 until);
-    /// @notice The engine tried to hand a retired sell order's lot back. No
-    ///         amount: this is housekeeping, not a matrix row.
-    event HoldReleaseAttempted(bytes32 indexed id, bool released);
-
-    error RoundStillOpen(uint64 round, uint64 current);
-    error AlreadyCrossed(uint64 round);
-    error UnexpectedValue(uint256 sent);
-    error WrongEscrow(uint256 sent, uint256 want);
-    error NotEscrow(address escrow);
-    error HoldNamesADestination(address destination);
-    error HoldTooSmall(uint256 held, uint256 qty);
-    error HoldExpiresTooSoon(uint256 expiry, uint64 needed);
-    error OutOfRange(uint128 value);
-    error VolumeCapNotAttached();
-    error VolumeCapAlreadyAttached();
-    error TradingHaltNotAttached();
-    error TradingHaltAlreadyAttached();
-    error VenueHalted(uint64 until);
-    error NotInstaller();
-    error CapIsNotOurs(address venue);
-
-    /// @dev `cancelFee_` passes straight through. **No cancel override is
-    ///      needed, and that is where the window sits rather than an omission.**
-    ///      `_bind` runs at reveal, so a commitment cancelled before reveal opens
-    ///      has no hold and no escrow: nothing for `_unbind` to release and
-    ///      `backingOf[id]` still zero. A window reaching past `revealDelay`
-    ///      would have needed both, on a path that must not revert.
-    ///      `test_cancellingNeedsNothingFromTheEngine`.
+    /// @dev Cancel needs no override: `_bind` runs at reveal, so a pre-reveal
+    ///      cancel has nothing for `_unbind` to release.
     constructor(
         uint64 revealDelay_,
         uint64 revealWindow_,
@@ -263,14 +79,7 @@ contract MatchingEngine is OrderBook {
         _installer = msg.sender;
     }
 
-    /// @notice Wire Article 5's counter. Once, and it verifies itself.
-    /// @dev `VolumeCap` takes its venue at construction and this contract takes
-    ///      its cap, which is a construction cycle. Rather than break it with a
-    ///      computed address, the cap is attached afterwards and the attachment
-    ///      checks `cap.venue() == address(this)`, so a wrong or borrowed cap
-    ///      cannot be installed. Until it is, `crossRound` refuses: a venue that
-    ///      cannot clear is a better failure than a venue that clears unmetered,
-    ///      which is the state item 7 of the census found.
+    /// @notice Wire Article 5's counter. Once. Checks `cap.venue() == this`.
     function attachVolumeCap(VolumeCap cap) external {
         if (msg.sender != _installer) revert NotInstaller();
         if (address(volumeCap) != address(0)) revert VolumeCapAlreadyAttached();
@@ -279,10 +88,7 @@ contract MatchingEngine is OrderBook {
         emit VolumeCapAttached(address(cap));
     }
 
-    /// @notice Wire Article 48(5)'s halt. Once, and it verifies itself.
-    /// @dev Same construction cycle and same resolution as the cap above, so
-    ///      `halt.venue() == address(this)` is what stops a borrowed halt whose
-    ///      supervisor is somebody else's from being installed here.
+    /// @notice Wire Article 48(5)'s halt. Once. Same venue check as the cap.
     function attachTradingHalt(TradingHalt halt) external {
         if (msg.sender != _installer) revert NotInstaller();
         if (address(tradingHalt) != address(0)) revert TradingHaltAlreadyAttached();
@@ -294,13 +100,8 @@ contract MatchingEngine is OrderBook {
     // ------------------------------------------------------------- backing
 
     /// @inheritdoc OrderBook
-    /// @dev The larger half of the unfunded-promise fix. A sell must be
-    ///      encumbered in ATS and a buy must have paid.
+    /// @dev Sell must be encumbered in ATS; buy must have paid. Bond stays posted.
     function _bind(bytes32 id, Order memory o, uint256 backing) internal override {
-        // The overflow bound, established once per order rather than per round.
-        // `price * qty` is the cash escrow below and `priceTwice * qty` is every
-        // settlement afterwards; both must fit, and `CallAuction` re-checks at
-        // its own boundary so neither file depends on the other's discipline.
         if (uint256(o.price) >= CallAuction.SCALE_LIMIT) revert OutOfRange(o.price);
         if (uint256(o.qty) >= CallAuction.SCALE_LIMIT) revert OutOfRange(o.qty);
 
@@ -311,25 +112,16 @@ contract MatchingEngine is OrderBook {
                     partition: partition, tokenHolder: o.trader, holdId: backing
                 })
             );
-            // Only this contract may move it, or the seller could release the
-            // lot out from under a resting order.
             if (escrow != address(this)) revert NotEscrow(escrow);
-            // A hold that already names a destination cannot be executed to the
-            // buyer the auction finds, and `_validateExecuteHold` would revert
-            // mid-round. It is also the wrong shape: naming the destination at
-            // reveal would disclose the counterparty before the match.
+            // Named destination cannot be executed to the auction's buyer, and
+            // would disclose the counterparty at reveal.
             if (destination != address(0)) revert HoldNamesADestination(destination);
             if (amount < o.qty) revert HoldTooSmall(amount, o.qty);
-            // It has to outlive the resting window, or the last rounds of the
-            // order are unbacked and `HoldExpirationReached` takes the round down.
             uint64 needed = roundEnd(o.lastRound);
             if (expiry < needed) revert HoldExpiresTooSoon(expiry, needed);
 
             backingOf[id] = Backing({holdId: backing, snapshot: amount, escrow: 0});
         } else {
-            // Escrowed at the trader's own bid, paid at the clearing price. The
-            // difference comes back when the order retires, which for a fully
-            // filled order is the same transaction.
             uint256 want = uint256(o.price) * uint256(o.qty);
             if (msg.value != want) revert WrongEscrow(msg.value, want);
             backingOf[id] = Backing({holdId: 0, snapshot: 0, escrow: want});
@@ -337,22 +129,13 @@ contract MatchingEngine is OrderBook {
     }
 
     /// @inheritdoc OrderBook
-    /// @dev Must not revert. See the base declaration.
+    /// @dev Must not revert: runs inside permissionless `crossRound`. Failed
+    ///      release is reported; the hold expires back to the holder anyway.
     function _unbind(bytes32 id, Order memory o, uint8) internal override {
         Backing storage b = backingOf[id];
         if (o.side == Side.SELL) {
             uint256 remaining = o.qty - o.filled;
             if (remaining != 0 && b.holdId != 0) {
-                // Low level, and the failure is reported rather than reverted
-                // on. `_unbind` runs inside `crossRound`, so a release that
-                // could throw is a release one seller could use to stop the
-                // venue clearing. an invariant's fallback covers the failed case: the
-                // hold expires and the lot returns to the holder anyway, so the
-                // worst outcome is a delay the seller can already price.
-                //
-                // The event carries no amount, deliberately. It is housekeeping
-                // rather than a matrix row, and a row would have to go through
-                // `_emitUnder`, which can revert.
                 (bool released,) = address(security)
                     .call(
                         abi.encodeCall(
@@ -378,10 +161,7 @@ contract MatchingEngine is OrderBook {
 
     // --------------------------------------------------------------- the cross
 
-    /// @notice Clear round `r`. Permissionless, once per round.
-    /// @dev The venue does not choose when to cross, and cannot cross a round
-    ///      that is still open, so it cannot see a round's own orders and then
-    ///      decide whether to run it.
+    /// @notice Clear round `r`. Permissionless, once. Cannot cross an open round.
     function crossRound(uint64 r) external nonReentrant {
         if (address(volumeCap) == address(0)) revert VolumeCapNotAttached();
         if (address(tradingHalt) == address(0)) revert TradingHaltNotAttached();
@@ -389,14 +169,8 @@ contract MatchingEngine is OrderBook {
         if (r >= now_) revert RoundStillOpen(r, now_);
         if (crossed[r]) revert AlreadyCrossed(r);
 
-        // Before `crossed[r]` is set, so a halted round is retried and not lost.
-        //
-        // **A halted round crosses later rather than being voided, and the
-        // protection is the limit and not the clock.** Voiding would be the
-        // tidier state machine and it would take orders away from people who
-        // did not ask to leave. Every order here is a sealed *limit*, so a late
-        // cross still executes inside the price its owner named, and an owner
-        // who wants out has `expire`, which this contract cannot reach.
+        // Halted rounds retry; voiding would take orders from people who stayed.
+        // Limits still bind, so a late cross executes inside the named price.
         if (tradingHalt.haltedNow()) {
             uint64 until = tradingHalt.haltedUntil();
             emit CrossRefusedWhileHalted(r, until);
@@ -407,9 +181,6 @@ contract MatchingEngine is OrderBook {
         (bytes32[] memory ids, CallAuction.Limit[] memory book) = _assemble(r);
         CallAuction.Cross memory c = CallAuction.clear(book);
 
-        // Row 13 first, because it is the one disclosure a round always makes:
-        // that it did or did not cross. A predicate, and the cheapest cell the
-        // venue publishes anywhere.
         _emitUnder(bytes32(uint256(r)), ROW_MATCH_PREDICATE, L.G_PRED, L.T_IMM);
         if (!c.crossed) {
             emit RoundEmpty(r);
@@ -435,14 +206,8 @@ contract MatchingEngine is OrderBook {
     {
         uint256 n = revealedCount();
 
-        // **Snapshot first, then walk.** `_voidOnRebase` can retire an order,
-        // and retirement swaps the last live element into the vacated slot, so
-        // the array is being rewritten underneath any loop that indexes it. An
-        // ascending walk would skip the element that got swapped down; a
-        // descending walk looks safe and is not, because once enough orders have
-        // been voided the element swapped down lands *below* the cursor and is
-        // visited a second time, putting one order into the round's book twice.
-        // Copying costs one word per live order and removes the whole class.
+        // Snapshot first: `_voidOnRebase` retires and swap-pops, so walking
+        // `_live` in either direction can skip or double-visit.
         bytes32[] memory snapshot = new bytes32[](n);
         for (uint256 i = 0; i < n; ++i) {
             snapshot[i] = liveAt(i);
@@ -467,18 +232,8 @@ contract MatchingEngine is OrderBook {
         }
     }
 
-    /// @notice The ABAF check. True when the order was voided.
-    /// @dev The promise made at reveal was `snapshot` units held. Each fill has
-    ///      since executed against that hold and reduced it, so the amount that
-    ///      should be there now is `snapshot - filled`. Anything else means the
-    ///      hold was rebased by an adjustment factor that fired from a
-    ///      transaction this venue never saw, and the order is no longer the
-    ///      order that was revealed.
-    ///
-    ///      Voiding rather than scaling. Scaling the order to the new backing
-    ///      would silently change a trader's size after the fact; refusing to
-    ///      trade it is what a venue does when a corporate action lands on an
-    ///      instrument with a resting book.
+    /// @dev Expected remaining is `snapshot - filled`. Anything else is a rebase
+    ///      from a transaction this venue never saw. Void rather than rescale.
     function _voidOnRebase(bytes32 id) private returns (bool) {
         Order storage o = orders[id];
         if (o.side != Side.SELL) return false;
@@ -495,11 +250,8 @@ contract MatchingEngine is OrderBook {
         return true;
     }
 
-    /// @dev Price priority is already in the allocation; this only has to move
-    ///      the totals. Uniform price means there is no correct pairing, only a
-    ///      pairing that moves the right quantity between the right sides, so
-    ///      the walk is the cheapest one that does: at most `n + m - 1`
-    ///      executions for `n` filled sells and `m` filled buys.
+    /// @dev Uniform price: any pairing that moves the cleared quantity is correct.
+    ///      At most `n + m - 1` executions. Retire in a second pass.
     function _settleAll(
         bytes32[] memory ids,
         CallAuction.Limit[] memory book,
@@ -520,8 +272,6 @@ contract MatchingEngine is OrderBook {
 
             if (!_permitted(seller, buyer, amount)) {
                 emit SettlementRefused(ids[si], ids[bi]);
-                // This buyer trades no more this round. The seller tries the
-                // next one; both orders rest on with their unfilled remainder.
                 remaining[bi] = 0;
                 continue;
             }
@@ -531,8 +281,7 @@ contract MatchingEngine is OrderBook {
             remaining[si] -= amount;
             settled += amount;
         }
-        // Retirement is a second pass, because retiring inside the walk would
-        // move the live array under an index the walk is still using.
+        // Retirement is a second pass: retiring inside the walk mutates `_live`.
         for (uint256 i = 0; i < n; ++i) {
             Order storage o = orders[ids[i]];
             if (o.filled >= o.qty) _retire(ids[i], RETIRE_FILLED);
@@ -546,9 +295,6 @@ contract MatchingEngine is OrderBook {
         Order storage bo = orders[buyId];
         uint256 cost = CallAuction.notional(priceTwice, amount);
 
-        // Cash first, and it cannot underflow: the buyer escrowed `bid * qty`,
-        // eligibility guarantees `2 * bid >= priceTwice`, and the total filled
-        // never exceeds `qty`, so the running cost is bounded by the escrow.
         Backing storage bb = backingOf[buyId];
         bb.escrow -= cost;
         credit[so.trader] += cost;
@@ -556,9 +302,7 @@ contract MatchingEngine is OrderBook {
         so.filled += amount;
         bo.filled += amount;
 
-        // The asset. `hold.to` was required to be zero at reveal, so this is
-        // where the buyer is finally named, and this is the disclosure row 12
-        // admits: it happens inside ATS whatever this contract emits.
+        // `hold.to` was zero at reveal; the buyer is named here (row 12 / ATS).
         security.executeHoldByPartition(
             IHoldTypes.HoldIdentifier({
                 partition: partition, tokenHolder: so.trader, holdId: backingOf[sellId].holdId
@@ -572,13 +316,8 @@ contract MatchingEngine is OrderBook {
         }
     }
 
-    /// @notice Seam C, asked the question ATS cannot ask on this rail.
-    /// @dev Defended the way `SeamJournal._granted` defends its own staticcall.
-    ///      `try` alone is not enough: a module returning 64 bytes would decode
-    ///      and be believed. A module that reverts, or answers in the wrong
-    ///      shape, denies rather than permits, because this is the only size
-    ///      gate on the settlement path and failing it open would make the gate
-    ///      decorative.
+    /// @dev Fail closed: wrong-length or reverting module denies. This is the
+    ///      only size gate on the settlement path.
     function _permitted(address from, address to, uint256 amount) internal view returns (bool) {
         (bool ok, bytes memory out) = address(compliance)
             .staticcall(abi.encodeCall(ICompliance.canTransfer, (from, to, amount)));
@@ -588,21 +327,10 @@ contract MatchingEngine is OrderBook {
 
     // ---------------------------------------------------------- the print
 
-    /// @notice Publish the round's price and volume at the finest cell the
-    ///         ceiling and the remaining budget allow.
-    /// @return exact Whether the exact immediate print went out. A round that
-    ///         could not print exactly is a round whose volume used a hiding
-    ///         mechanism, and it is recorded against Article 5 as such.
-    /// @dev Rule A, third site. `SeamJournal._discloseArrival` degrades an
-    ///      arrival record and `RepoVault` withholds a coupon amount; this
-    ///      degrades a print. In every case the state transition completes and
-    ///      only the venue's speech is rationed, because a compliant trade must
-    ///      not fail because the venue has run out of things it may say.
-    ///
-    ///      Two rows, charged separately and never short circuited: the event
-    ///      carries an execution price on row 5 and a volume on row 3, and an
-    ///      `&&` would let the size row escape the meter whenever the price row
-    ///      was already spent.
+    /// @notice Finest printable cell the ceiling and remaining budget allow.
+    /// @return exact True iff the exact immediate print went out (not deferred volume).
+    /// @dev Rule A: two rows, charged separately. Short-circuit would let size
+    ///      escape the meter whenever price was already spent.
     function _print(uint64 r, uint256 priceTwice, uint256 volume) private returns (bool exact) {
         uint32 exactNow = L.point(L.G_EXACT, L.T_IMM);
         uint32 bucketNow = L.point(L.G_BUCKET, L.T_IMM);
@@ -629,9 +357,7 @@ contract MatchingEngine is OrderBook {
         return false;
     }
 
-    /// @dev Order of magnitude, base ten. The same function `SeamJournal` uses,
-    ///      and for the same reason: a bucket has to be a stated function of the
-    ///      value or `bucketBits` is charging for a disclosure nobody defined.
+    /// @dev Base-ten magnitude. Same function `SeamJournal` uses.
     function _bucket(uint256 v) private pure returns (uint256 b) {
         while (v >= 10) {
             v /= 10;

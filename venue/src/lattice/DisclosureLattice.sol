@@ -2,38 +2,11 @@
 pragma solidity ^0.8.24;
 
 /// @title DisclosureLattice
-/// @notice The disclosure lattice, executable.
-///
-/// Background. The research carried the disclosure model as `G x O x T`
-/// (granularity by observers by time) and BP-1 already recorded that it is a
-/// dependent sum rather than a product. What was never settled is what the
-/// *join* is, and the collusion checker in `scripts/collusion-check.py` answered
-/// it with an ad hoc pair rule: take the greatest granularity any observer
-/// reaches, and the earliest time at which that granularity is reached.
-///
-/// That rule is the lexicographic maximum on `G x T^op`. Lex order on two finite
-/// chains is a total order, so it is a lattice and the checker's join is
-/// well defined, associative and commutative. It is also **wrong**, in a
-/// direction that produces false negatives. See `test/DisclosureLattice.t.sol`,
-/// `test_lexJoinUnderReports`, which exhibits a witness.
-///
-/// The correct object is the lattice of order ideals of `G x T^op`, by Birkhoff's
-/// representation theorem. A disclosure cell is not a point, it is the
-/// downward closed set of everything the observer can therefore deduce. Join is
-/// union, meet is intersection, order is inclusion, and the lattice is
-/// distributive because it is a ring of sets.
-///
-/// This is cheap. `|G| = 5` and `|T| = 6`, so an ideal is a subset of a thirty
-/// element poset and fits in a `uint32`. Join is one `OR`. The order test is one
-/// `OR` and one comparison. The whole model runs on chain for a handful of gas,
-/// which is what makes it a mechanism rather than a document.
-///
-/// Axis orientation, stated once because the two axes point opposite ways in the
-/// prose. Granularity ascends with disclosure: `none` reveals least, `exact`
-/// most. Time as modelled ascends with *delay*: `pre`
-/// is seen before the fact and `never` is not seen at all, so time ascends with
-/// secrecy. The poset order used here is disclosure strength throughout, so the
-/// time axis is reversed: `(g, t) <= (g', t')` when `g <= g'` and `t >= t'`.
+/// @notice Order ideals of `G × T^op`, packed in a uint32. Join is OR.
+/// @dev Granularity ascends with disclosure; time as modelled ascends with delay,
+///      so the poset reverses T: `(g,t) ≤ (g',t')` iff `g ≤ g'` and `t ≥ t'`.
+///      Lex join under-reports coalitions (`test_lexJoinUnderReports`). Use
+///      `DisclosureBudget` for composition. Formulas: `docs/MATH.md`.
 library DisclosureLattice {
     // ---------------------------------------------------------------- axes
 

@@ -37,7 +37,7 @@ bugs, so every node target in the Makefile sets it explicitly.
 | `src/market/` | the commit and reveal order book, and the lender axe board |
 | `src/policy/` | parameters, regimes, volume caps and the trading halt |
 | `src/observatory/` | the attachment points, the call graph census, and the published rulebook |
-| `src/interfaces/` | ATS interfaces, Apache 2.0 |
+| `src/interfaces/` | ATS seams and venue interfaces (`IEpochClock`, book, axe) |
 | `circuits/` | the eligibility circuit and its fixture generators |
 | `tools/` | the call graph extractor, the census generators, and the client half of the contracts the pages run on |
 | `docs/` | the outline, the rulebook, and two generated pages: [commit-preview.html](docs/commit-preview.html) before signing and [disclosure-receipt.html](docs/disclosure-receipt.html) after acting |

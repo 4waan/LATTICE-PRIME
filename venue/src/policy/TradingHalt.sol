@@ -1,64 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Regime, IEpochClock} from "./Regime.sol";
+import {Regime} from "./Regime.sol";
+import {IEpochClock} from "../interfaces/IEpochClock.sol";
 
 /// @title TradingHalt
-/// @notice The halt the venue did not have, built as the mirror of the ceiling
-///         rather than as a pause key.
-///
-/// ## Why a pause key is the wrong construction, and why renaming the owner does not fix it
-///
-/// D-19's rule is that no machine gets authority. A `bool paused` flipped by an
-/// owner breaks it, and calling that owner `supervisor` does not repair
-/// anything: the principal is not what makes `Regime` safe, the **asymmetry**
-/// is. Narrowing is immediate because it is the safe direction. Widening waits
-/// for a boundary because it is the direction that leaks.
-///
-/// A halt inverts the sign. Taking away the ability to trade is the deprivation,
-/// so halting is the leaky direction and resuming is the safe one:
-///
-/// | instrument | safe, immediate | leaky, bounded |
-/// |---|---|---|
-/// | ceiling | `narrow` | `relax`, at a boundary |
-/// | floor | `raiseFloor` | `lowerFloor`, at a boundary |
-/// | halt | `resume` | `halt`, capped, budgeted, self-expiring |
-///
-/// Three bounds carry it, and each is one of `Regime`'s read in the mirror.
-///
-/// 1. **A halt is a deadline and never a flag.** There is no state a halt can be
-///    left in and no call is needed to end one. A halt that must be lifted is a
-///    halt whose lifting can be declined.
-/// 2. **`maxHaltSeconds` is immutable.** A supervisor cannot grant itself a
-///    longer halt, for the reason an operator cannot grant itself a wider
-///    waiver. A longer halt is a deployment, which is the correct shape.
-/// 3. **Halted time is budgeted per epoch.** An unlimited number of
-///    maximum-length halts is an unlimited halt. This is the fourth sighting of
-///    the mechanism `DisclosureBudget`, `SeamJournal._spent` and `VolumeCap` are
-///    the other three of: count consumption against a ceiling, reset per window.
-///
-/// ## What a halt may stop, which is exactly one function
-///
-/// It gates `MatchingEngine.crossRound`. `commit`, `reveal`, `cancel`, `expire`,
-/// `forfeit` and `withdraw` stay open, and `RepoVault` does not import this
-/// contract at all, so a halted venue cannot trade and cannot stop anyone
-/// leaving. `OrderBook.expire` already states the principle in its own comment:
-/// a venue that alone could return a bond would have a lever over every open
-/// order. A halt that reached the exits would be that lever.
-///
-/// ## The breaker, and the one thing a sealed book cannot do
-///
-/// MiFID II Article 48(5) asks a venue to be able to halt on significant price
-/// movement. `observe` is that, and it is arithmetic rather than a person: the
-/// venue reports each clearing price and the band decides. Recording is
-/// permissioned and the decision is not, which is `VolumeCap`'s asymmetry
-/// unchanged, so the venue can misreport but cannot decline to act on what it
-/// reported.
-///
-/// **The breaker cannot stop the round that breached it.** A sealed book has no
-/// indicative price to collar, because the price does not exist until the round
-/// clears. So the breaching round prints and the next one is halted, which is a
-/// limit-move halt rather than an auction collar. Stated, not hidden.
+/// @notice Deadline, not a pause flag. Gates `MatchingEngine.crossRound` only.
+/// @dev Halt is the leaky direction: capped (`maxHaltSeconds` immutable), budgeted
+///      per epoch, self-expiring. Resume is immediate. Breaker cannot stop the
+///      round that breached it — a sealed book has no indicative price.
+///      `docs/RULEBOOK.md` §7.
 contract TradingHalt {
     Regime public immutable regime;
     IEpochClock public immutable clock;
