@@ -39,6 +39,14 @@ OTC research already named. The board and the exact-reveal book are two
 parameter regimes: a probe publishes a bucket, and a bucket is the first cell
 on rows 3 and 4 a coalition budget can bind.
 
+A published rulebook and tariff. The document `Rulebook.sol` commits to is
+`docs/RULEBOOK.md`, in the shape Form ATS-N asks for: one order type, no external
+market data, price then pro rata, no halt, and a tariff of seven lines. Each
+sourced line names the getter that holds it and `reconcile` reads it back, so a
+charge the code makes and the page does not is visible to anyone. The venue's own
+take is published as zero, which is the disclosure the fee question owes while it
+stays open.
+
 ## Not built
 
 Collateral substitution mid-term. Common in practice, deferred deliberately.

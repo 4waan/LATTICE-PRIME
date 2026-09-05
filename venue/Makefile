@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures verifier clean report census
+.PHONY: all build test sizes circuit fixtures verifier clean report census rulebook
 
 all: build census circuit verifier fixtures test report
 
@@ -58,7 +58,7 @@ report:
 	@$(NODE) $(SNARK) r1cs info circuits/build/kyc.r1cs 2>/dev/null | grep -E "Constraints|Public|Private" || true
 	@echo
 	@echo "== deployed size vs EIP-170 =="
-	@forge build --sizes 2>/dev/null | grep -E "Contract|KycVerifier|ZkKycRegistry|RegistrationGate|RepoVault|OrderBook|AxeBoard|SeamJournal"
+	@forge build --sizes 2>/dev/null | grep -E "Contract|KycVerifier|ZkKycRegistry|RegistrationGate|RepoVault|OrderBook|AxeBoard|SeamJournal|Rulebook"
 	@echo
 	@echo "== callstack census =="
 	@$(NODE) node -e "const c=require('./docs/callstack.json'); \
@@ -68,6 +68,13 @@ report:
 	  console.log('  reach a seam:         ', es.filter(e=>e.seams.length).length); \
 	  console.log('  move value:           ', mv.length); \
 	  console.log('  move value, no seam D:', mv.filter(e=>!e.seams.includes('D')).length);"
+
+# The published rulebook hash. `Rulebook.sol` commits to it and
+# `test/Rulebook.t.sol` holds it as a constant, so editing the document without
+# republishing fails the suite. This prints the value to paste back.
+rulebook:
+	@$(NODE) node -e "const {keccak_256}=require('js-sha3'); \
+	  console.log('0x'+keccak_256(require('fs').readFileSync('docs/RULEBOOK.md')));"
 
 clean:
 	forge clean
