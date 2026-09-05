@@ -9,7 +9,9 @@ nine node operators before any contract runs.
 
 Start at [docs/OUTLINE.md](docs/OUTLINE.md) for what is built and what is not,
 and [docs/RULEBOOK.md](docs/RULEBOOK.md) for how the venue operates and what it
-charges.
+charges. [docs/disclosure-receipt.html](docs/disclosure-receipt.html) is the
+shortest route to the thesis: act, and read back what the venue published about
+you and what it has left to say.
 
 ## Quick start
 
@@ -17,6 +19,7 @@ charges.
 make all       build, compile the circuit, prove, generate fixtures, test
 make test      the test suite
 make census    measure the ATS lifecycle surface and regenerate SeamMap.sol
+make pages     the trader-facing pages, after checking their vectors
 make rulebook  the hash of docs/RULEBOOK.md, to republish after an edit
 make report    constraint counts, deployed sizes against the contract size limit
 ```
@@ -36,4 +39,5 @@ bugs, so every node target in the Makefile sets it explicitly.
 | `src/observatory/` | the attachment points, the call graph census, and the published rulebook |
 | `src/interfaces/` | ATS interfaces, Apache 2.0 |
 | `circuits/` | the eligibility circuit and its fixture generators |
-| `tools/` | a Solidity call graph extractor and the census generators |
+| `tools/` | the call graph extractor, the census generators, and the client half of the contracts the pages run on |
+| `docs/` | the outline, the rulebook, and two generated pages: [commit-preview.html](docs/commit-preview.html) before signing and [disclosure-receipt.html](docs/disclosure-receipt.html) after acting |

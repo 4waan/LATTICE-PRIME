@@ -5,6 +5,7 @@ import {AxeGrid} from "./AxeGrid.sol";
 import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {DisclosureBudget as B} from "../lattice/DisclosureBudget.sol";
 import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
+import {DisclosureView} from "../lattice/DisclosureView.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 
 /// @dev Narrow read of the book so the board does not enlarge `MatchingEngine`.
@@ -33,7 +34,7 @@ interface IRespondentRegistry {
 /// @dev Row 13 is charged at `probe` (Rule C) because the bit is learned from
 ///      the opening, not the log. `answer` never re-checks. `discharge` cannot
 ///      prove the sealed order sits in the probed cell without a reveal.
-contract AxeBoard {
+contract AxeBoard is DisclosureView {
     enum Respondent {
         ALL,
         SPECIFIED,
@@ -84,7 +85,6 @@ contract AxeBoard {
 
     ISealedOrderBook public immutable book;
     IRespondentRegistry public immutable registry;
-    IDisclosurePolicy public immutable policy;
     uint256 public immutable axeBond;
     uint256 public immutable probeFee;
     uint64 public immutable answerWindow;
@@ -94,8 +94,6 @@ contract AxeBoard {
     mapping(bytes32 => Axe) public axes;
     mapping(bytes32 => Probe) public probes;
     mapping(address => uint256) public credit;
-
-    DisclosureMeter.Meter internal _meter;
 
     uint16 internal constant ROW_ORDER_SIZE = 3;
     uint16 internal constant ROW_ORDER_PRICE = 4;
@@ -131,7 +129,6 @@ contract AxeBoard {
     );
     event Answered(bytes32 indexed probeId, bool covered);
     event Discharged(bytes32 indexed probeId, bytes32 orderId);
-    event DisclosureRefused(bytes32 indexed id, uint16 row, uint32 excess);
     event Withdrawn(address indexed who, uint256 amount);
 
     error WrongBond(uint256 sent, uint256 want);
@@ -170,7 +167,6 @@ contract AxeBoard {
     error AxeBondTooLow(uint256 bond, uint256 minimum);
     error ZeroWindow();
     error PredicateBudgetExhausted(uint16 row, uint32 spent, uint32 budget);
-    error DisclosureExceedsCeiling(uint16 row, uint32 excess);
 
     constructor(
         ISealedOrderBook book_,
@@ -181,7 +177,7 @@ contract AxeBoard {
         uint64 answerWindow_,
         uint64 osrWindow_,
         uint32 maxOutstanding_
-    ) {
+    ) DisclosureView(policy_) {
         if (maxOutstanding_ == 0) revert ZeroOutstandingCap();
         if (answerWindow_ == 0 || osrWindow_ == 0) revert ZeroWindow();
         uint256 floor_ = minimumAxeBond(book_.commitBond(), probeFee_, maxOutstanding_);
@@ -189,7 +185,6 @@ contract AxeBoard {
 
         book = book_;
         registry = registry_;
-        policy = policy_;
         probeFee = probeFee_;
         axeBond = axeBond_;
         answerWindow = answerWindow_;
@@ -479,18 +474,6 @@ contract AxeBoard {
         return uint8(v);
     }
 
-    function _emitUnder(bytes32 id, uint16 row, uint8 g, uint8 t)
-        internal
-        returns (bool afforded)
-    {
-        uint32 over = L.excess(policy.ceilingFor(row), L.point(g, t));
-        if (over != 0) {
-            emit DisclosureRefused(id, row, over);
-            revert DisclosureExceedsCeiling(row, over);
-        }
-        return DisclosureMeter.spend(_meter, policy, row, g);
-    }
-
     function _incurUnder(bytes32 id, uint16 row, uint8 g, uint8 t) internal {
         uint32 over = L.excess(policy.ceilingFor(row), L.point(g, t));
         if (over != 0) {
@@ -563,25 +546,5 @@ contract AxeBoard {
         return AxeGrid.openingOf(
             AxeGrid.bandRect(classId, sizeLo, sizeHi, rateLoBps, rateHiBps), master, cell
         );
-    }
-
-    function spentBits(uint16 row, uint64 epoch) external view returns (uint32) {
-        return DisclosureMeter.spentBits(_meter, row, epoch);
-    }
-
-    function wouldAfford(uint16 row, uint8 g) external view returns (bool) {
-        return DisclosureMeter.wouldAfford(_meter, policy, row, g);
-    }
-
-    function breakingSize(uint16 row, uint8 g) external view returns (uint256) {
-        return DisclosureMeter.breakingSize(policy, row, g);
-    }
-
-    function ceilingFor(uint16 row) external view returns (uint32) {
-        return policy.ceilingFor(row);
-    }
-
-    function wouldDisclose(uint16 row, uint8 g, uint8 t) external view returns (bool) {
-        return L.permits(policy.ceilingFor(row), L.point(g, t));
     }
 }
