@@ -28,7 +28,7 @@ bugs, so every node target in the Makefile sets it explicitly.
 | `src/lattice/` | the disclosure model, executable |
 | `src/kyc/` | the contract ATS calls on every transfer, and the gate that writes to it |
 | `src/repo/` | the repo state machine and its arithmetic |
-| `src/market/` | the commit and reveal order book |
+| `src/market/` | the commit and reveal order book, and the lender axe board |
 | `src/policy/` | parameters, regimes and volume caps |
 | `src/observatory/` | the attachment points, and the call graph census as a table |
 | `src/interfaces/` | ATS interfaces, Apache 2.0 |
