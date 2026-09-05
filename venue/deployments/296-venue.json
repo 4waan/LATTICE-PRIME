@@ -1,0 +1,207 @@
+{
+ "network": "hedera-testnet",
+ "chainId": 296,
+ "deployedAt": "2026-09-06",
+ "deployer": "0xcfc5923def1f25db05fe50754ef0822175afd449",
+ "note": "The venue, trading a real Asset Tokenization Studio bond. Addresses are EVM; Hedera entity ids are alongside where they were read back.",
+ "ats": {
+  "note": "Not ours. Deployed by Hashgraph on 2026-06-12 from tag v8.0.0 (be4f860), the same commit docs/CALLSTACK.md and src/observatory/SeamMap.sol are generated from.",
+  "resolver": "0xBA2D5FC2083A0b8f164c50e65d782087fBA18E0a",
+  "resolverContractId": "0.0.9212226",
+  "factory": "0xd1F118A40f3b02883D35909eF2517e7EDd78379d",
+  "factoryContractId": "0.0.9213391",
+  "facets": 108
+ },
+ "token": {
+  "address": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+  "name": "SeamMe Repo Collateral 2028",
+  "symbol": "SEAMC",
+  "isin": "XS0SEAMME017",
+  "kind": "bond, variable rate",
+  "configId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+  "configVersion": 1,
+  "deployTx": "0x695031ce6a0ac5857f8fb7ceb0211fd5d3e9abfcc76c91746491102e43543b8c",
+  "gasUsed": 7718822,
+  "maxSupply": 1000000,
+  "decimals": 0,
+  "currency": "USD",
+  "nominalValue": "100.00",
+  "regulation": "Reg S, no sub-type",
+  "isMultiPartition": false,
+  "partition": "0x0000000000000000000000000000000000000000000000000000000000000001",
+  "internalKycActivated": false,
+  "identityRegistry": "0x0000000000000000000000000000000000000000",
+  "externalKycLists": [
+   "0xAa25f5CdCC905a6386a623ee37D3C57D29fA976a"
+  ],
+  "contractId": "0.0.10381562"
+ },
+ "kyc": {
+  "note": "Deployed 2026-09-05, see 296-kyc.json. Unchanged; the bond was pointed at it.",
+  "KycVerifier": "0x3a8b9577ff3ec7737510c7c327e14c2ea7a6f465",
+  "ZkKycRegistry": "0xAa25f5CdCC905a6386a623ee37D3C57D29fA976a",
+  "RegistrationGate": "0x51f5aba39deea24db4a13182ce8b2697bef5b3fb"
+ },
+ "policy": {
+  "note": "The clock is shared with the superseded stack; the regime and root are not, because Regime.bootstrapSupervisor is single-use and a new engine needs a new cap needs a new regime.",
+  "EpochClock": "0xc76b61Beb4B9886591C3bf72e7aa5a97C3328798",
+  "Regime": "0xf127c7c90C0B5eA0ce8De038Cd7c1A4Bba31487d",
+  "ParameterRoot": "0xD2ca252Da75D7dfA4784F05e040cc6089e4747E6",
+  "epochZero": 1788632088,
+  "epochLength": 300,
+  "root": "0xb24633c7d8b306282e8ca5c25685c90ddab8b1764457f0d71fd1461b1d212454",
+  "adoptedInEpoch": 3,
+  "rootIsPinnedBy": "test/PolicySets.t.sol::test_theDeployedRootIsTheTestedRoot",
+  "contractIds": {
+   "EpochClock": "0.0.10381591",
+   "Regime": "0.0.10381809",
+   "ParameterRoot": "0.0.10381811"
+  }
+ },
+ "actors": {
+  "note": "Two counterparty accounts, keys generated locally and never committed. They exist because a market with one participant is not a market.",
+  "seller": "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+  "buyer": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+  "registrations": {
+   "0xcfc5923def1f25db05fe50754ef0822175afd449": "0x7d57d1a83315863692872d0f79d80ff74c7286578373c6a6a96e517dfdda4c2b",
+   "0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397": "0x8cb4c070b818a637a43f2f974dabaf48e36e1a0caf4817f4951e53c7cc58802b",
+   "0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d": "0xcf62be085cf216e660db13f76d6cd9024c6d631989ccf2c6f407ceecdb84254c"
+  },
+  "sharedNullifier": "16447344941037884873026555905437244082657456768228522303048724653586442544121",
+  "sybilBound": "ZkKycRegistry.MAX_USES_PER_EPOCH is 5. All three proofs come from one credential, so they share a nullifier and two uses remain in epoch 7."
+ },
+ "venue": {
+  "SeamJournal": "0x0d5BadF7a535C2Cdd2d21068E9273903583D3Ec9",
+  "MatchingEngine": "0x543E3C66d040e6F4FD7D066C6FD1E557D4B11DAe",
+  "VolumeCap": "0x875b9B9F76678DD38D90AB5a400cA17d6E50aBB3",
+  "TradingHalt": "0x79ed68512Cd554f3Ef33A3ECd57aEE643f916177",
+  "RepoVault": "0x216EAdD5F08BEE7a4F79Be7C6e2f85A111F50edd",
+  "MarginWatch": "0xfe13078E2Ff442204AA30754634c8C95b176b60E",
+  "Rulebook": "0x28Bacf68849dcAdFedf8826D20892a0FA1CC555f",
+  "wiring": {
+   "engine.security": "the ATS bond",
+   "engine.compliance": "SeamJournal",
+   "token.compliance": "SeamJournal",
+   "journal.registry": "ZkKycRegistry",
+   "regime.supervisor": "VolumeCap, so suspension is arithmetic rather than a person",
+   "cap.venue": "MatchingEngine, checked by attachVolumeCap"
+  },
+  "market": {
+   "note": "Amounts are in the unit msg.value carries inside the Hedera EVM, which is tinybars: 1 HBAR is 1e8.",
+   "commitBond": 1000000,
+   "cancelFee": 100000,
+   "revealDelay": 30,
+   "revealWindow": 270,
+   "roundLength": 300,
+   "restRounds": 2,
+   "partition": "0x0000000000000000000000000000000000000000000000000000000000000001"
+  },
+  "contractIds": {
+   "MatchingEngine": "0.0.10381839",
+   "SeamJournal": "0.0.10381694",
+   "VolumeCap": "0.0.10381842",
+   "TradingHalt": "0.0.10381850",
+   "RepoVault": "0.0.10381851",
+   "MarginWatch": "0.0.10381852",
+   "Rulebook": "0.0.10381856"
+  }
+ },
+ "superseded": {
+  "why": "The first venue set commitBond to 0.01 ether, meaning 1e16. msg.value inside the Hedera EVM is tinybars, not weibars, so that asked for a hundred million HBAR and every commit reverted WrongBond(1000000, 10000000000000000). The ratio was then measured at two points: 1e18 weibar arrives as 1e8, 5e18 as 5e8. Nothing in src/ was wrong; the deployment parameter was. Regime.bootstrapSupervisor is single-use by design, so the regime, the parameter root and everything seated under them had to be redeployed.",
+  "Regime": "0xad78c2f121d7f25b3553f8addd0ee6bf16c193d8",
+  "ParameterRoot": "0xd218e55f9d745331babfd3b03bec874f67b9994a",
+  "MatchingEngine": "0xaD469a7C38e1B0aE26b3B84659cEcfbc5a362574",
+  "VolumeCap": "0x0FC7665d34CC5b0f536e65b43f9389457C924920",
+  "TradingHalt": "0x8628E78181c4e40e4cA6017D6e60c96851300D69",
+  "RepoVault": "0x354c6b3c605a0ccC188459E166c3B485181657b6",
+  "MarginWatch": "0x44A576680e6f19E307A7c88F49460d5375f15ef2",
+  "Rulebook": "0xdd0D15FaF78AB99959aF5F361610416B18306970",
+  "strandedHold": "Hold id 1 on the bond names the superseded engine as escrow and still encumbers 1,000 of the seller's units. Left in place: releasing it needs the escrow, and the seller holds enough besides."
+ },
+ "evidence": {
+  "note": "One repo trade, end to end, on testnet. Every number below was read back from the chain.",
+  "seamD_refusal": {
+   "what": "issue(0x...dEaD, 1) simulated as the issuer",
+   "result": "reverted InvalidKycStatus() (0xfc855b1b) carrying 0xdEaD",
+   "why": "ZkKycRegistry answers NOT_GRANTED by the zero value rather than by a branch, and ATS turns that into a revert before any balance is written. The call must carry --from: without it the role check fires first and the refusal says nothing about eligibility."
+  },
+  "seamD_admission": {
+   "what": "issue(seller, 4000)",
+   "tx": "0x75bc142148eda3005c4dc02a0749330938476d17ac59521413bcee733513db92",
+   "gasUsed": 515949
+  },
+  "hold": {
+   "what": "seller createHoldByPartition, escrow = MatchingEngine, no named destination",
+   "tx": "0x76c86629b0881394cfd2f4e71f3282fdb37d485d73a42dedf49619a050cfdf13",
+   "holdId": 2,
+   "gasUsed": 325661
+  },
+  "commits": {
+   "sell": "0x392dd42d8d737a62206a2b24b032f914e3a7b8c6726744497c21385ec361de16",
+   "buy": "0x6edf0de66112ed08943486d945b83be0d42dc9067a70c52dc5bd3a664d3ecb23",
+   "note": "Sealed. What reached the consensus nodes was a 32-byte commitment and a bond, carrying no side, no price and no size."
+  },
+  "reveals": {
+   "sell": "0x3c5ab4bb7e704e6495fba62cab32d29cb51628eb0325fe2bb6d48e1522217c62",
+   "buy": "0xfd44264deeef89883104c7417942b339682f275fb084064cd5abd9fbe5754b2e",
+   "quote": "willCross true, priceTwice 200, volume 1000"
+  },
+  "cross": {
+   "tx": "0x82f439ba50b8d575e5207bb3431852679a7b248568cebdd01104113e6081cb68",
+   "gasUsed": 825423,
+   "sellLimit": 95,
+   "buyLimit": 105,
+   "clearingPrice": 100,
+   "note": "Uniform price in the maximiser interval [95, 105]. Neither side got its own limit, which is the same arithmetic test_theRoundCrossesAndSettles asserts in the suite.",
+   "sellerBondBalanceAfter": 2000,
+   "buyerBondBalanceAfter": 1000,
+   "sellerCredit": 1100000,
+   "buyerCredit": 1005000,
+   "creditNote": "Tinybars. Seller: 100 * 1000 proceeds plus the 1,000,000 bond. Buyer: (105 - 100) * 1000 overpayment returned plus the bond."
+  },
+  "seamCW": {
+   "what": "SeamJournal.epochRecord, read after the fact",
+   "epoch1": {
+    "grossIn": 4000,
+    "grossOut": 0,
+    "transfers": 0,
+    "issues": 1,
+    "redemptions": 0,
+    "unverifiedArrivals": 0
+   },
+   "epoch4": {
+    "grossIn": 1000,
+    "grossOut": 1000,
+    "transfers": 1,
+    "issues": 0,
+    "redemptions": 0,
+    "unverifiedArrivals": 0
+   },
+   "note": "The issue landed in epoch 1 and the cross in epoch 4. unverifiedArrivals is zero on both because each recipient holds a live seam D grant, which is the journal's inference working rather than not firing."
+  }
+ },
+ "sourcify": {
+  "server": "https://sourcify.dev/server",
+  "match": "match",
+  "allTenVerified": true,
+  "contracts": [
+   "EpochClock",
+   "Regime",
+   "ParameterRoot",
+   "SeamJournal",
+   "MatchingEngine",
+   "VolumeCap",
+   "TradingHalt",
+   "RepoVault",
+   "MarginWatch",
+   "Rulebook"
+  ],
+  "note": "The verifier URL needs its trailing slash. Forge appends v2 to whatever it is given, so https://sourcify.dev/server becomes https://sourcify.dev/serverv2 and fails with a DNS error that says nothing about the cause. script/live/verify.sh has it right."
+ },
+ "spend": {
+  "startHbar": 996.2589,
+  "endHbar": 831.4455,
+  "totalHbar": 164.8134,
+  "note": "Faucet testnet HBAR. The bond alone was 7.7M gas; the venue was redeployed once because of the tinybar finding, which is most of the difference."
+ }
+}
