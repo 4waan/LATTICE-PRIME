@@ -9,47 +9,26 @@ import {RepoVaultBase} from "./RepoVaultBase.sol";
 import {DisclosureView} from "../lattice/DisclosureView.sol";
 
 /// @title RepoVault
-/// @notice Tokenised collateral for repo. The state machine of `docs/repo-state-machine.md`,
-///         with ATS holds as the custody primitive and nothing reimplemented.
-///
-/// ```
-///                 PROPOSED
-///                    | T1 both parties open
-///                    v
-///   T7 substitution  |                 T2 close leg
-///   (REFUSED)  ----> OPEN ------------------------> CLOSED
-///                    |  ^  |    T9 maturity passes    ^  ^
-///            T3 mark |  |  | T5 coupon falls due      |  |
-///                    v  |  v                          |  |
-///          MARGIN_CALL  |  MANUFACTURED               |  |
-///             |    |    +--- T6 pay through ----------+  |
-///     T4a cure|    | T4b window expires                  |
-///             +--> |            FAILING -- T2 with the --+
-///                  |               |         penalty
-///                  v    T10 grace  v
-///              DEFAULTED <---------+
-///                  |
-///                  +------- T8 auction settles ----------+
-/// ```
-///
-/// @dev It owns the instrument and nothing else. Custody is ATS holds, and eligibility is
-///      ATS's AND-aggregation over the registered seams, so this contract never asks
-///      whether a party is eligible: asking would mean a second answer that could
-///      disagree with the first.
-///
-///      Two disclosure limits shape the storage rather than only the logic. Row 14, so the
-///      mark is stored as a commitment and only the resulting boolean is public, because
-///      the mark with the haircut and the maintenance margin is the borrower's liquidation
-///      price. Row 12 is open and stated as a limit: the close leg settles in the clear
-///      against ATS, and the zero-fork ruling puts that disclosure inside a transfer we do
-///      not modify. Closing it needs a netted order-book-only layer, which is not v1.
+/// @notice Tokenised repo on ATS holds. Instrument only; eligibility is ATS's.
+/// @dev Row 14: mark is a commitment, public event is a boolean. Row 12 is
+///      stated: close settles in the clear inside ATS. HTS and EVM share one
+///      rollback boundary, so both legs move or neither.
 contract RepoVault is RepoVaultBase, DisclosureView {
     using RepoMath for uint256;
 
     /// @dev Here and not in `RepoVaultBase` with the rest: an inherited enum does not
     ///      resolve as `RepoVault.State`, which is how every call site asks for it.
     ///      `WrongState` follows the type it is declared over.
-    enum State {NONE, PROPOSED, OPEN, MARGIN_CALL, MANUFACTURED, FAILING, DEFAULTED, CLOSED}
+    enum State {
+        NONE,
+        PROPOSED,
+        OPEN,
+        MARGIN_CALL,
+        MANUFACTURED,
+        FAILING,
+        DEFAULTED,
+        CLOSED
+    }
 
     error WrongState(State got, State want);
 
@@ -201,14 +180,12 @@ contract RepoVault is RepoVaultBase, DisclosureView {
         // accrues over the fail as well, which is the conservative direction and is stated
         // because freezing the accrual at maturity is also defensible.
         price = RepoMath.repurchasePrice(
-            r.principal, r.repoRateBps, r.openedAt, block.timestamp
-        ) + _penaltyOf(r, block.timestamp);
+                r.principal, r.repoRateBps, r.openedAt, block.timestamp
+            ) + _penaltyOf(r, block.timestamp);
 
         security.executeHoldByPartition(
             IHoldTypes.HoldIdentifier({
-                partition: r.partition,
-                tokenHolder: r.borrower,
-                holdId: r.collateralHoldId
+                partition: r.partition, tokenHolder: r.borrower, holdId: r.collateralHoldId
             }),
             r.borrower,
             r.collateralAmount
@@ -238,9 +215,7 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     ///      An observer learns that a threshold was crossed, which is one bit, and not
     ///      where the threshold sits, which is why the engine's call frequency is itself a
     ///      budgeted disclosure.
-    function postMark(bytes32 id, bytes32 commitment, bool breach, uint64 cureWindow)
-        external
-    {
+    function postMark(bytes32 id, bytes32 commitment, bool breach, uint64 cureWindow) external {
         if (msg.sender != marginEngine) revert NotMarginEngine();
         Repo storage r = repos[id];
         if (r.state != State.OPEN && r.state != State.MARGIN_CALL) {
@@ -387,9 +362,7 @@ contract RepoVault is RepoVaultBase, DisclosureView {
 
         security.executeHoldByPartition(
             IHoldTypes.HoldIdentifier({
-                partition: r.partition,
-                tokenHolder: r.borrower,
-                holdId: r.collateralHoldId
+                partition: r.partition, tokenHolder: r.borrower, holdId: r.collateralHoldId
             }),
             winner,
             r.collateralAmount
@@ -427,8 +400,6 @@ contract RepoVault is RepoVaultBase, DisclosureView {
 
     function repurchasePriceNow(bytes32 id) external view returns (uint256) {
         Repo storage r = repos[id];
-        return RepoMath.repurchasePrice(
-            r.principal, r.repoRateBps, r.openedAt, block.timestamp
-        );
+        return RepoMath.repurchasePrice(r.principal, r.repoRateBps, r.openedAt, block.timestamp);
     }
 }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Regime, IEpochClock} from "../src/policy/Regime.sol";
+import {Regime} from "../src/policy/Regime.sol";
+import {IEpochClock} from "../src/interfaces/IEpochClock.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {DisclosureBudget} from "../src/lattice/DisclosureBudget.sol";

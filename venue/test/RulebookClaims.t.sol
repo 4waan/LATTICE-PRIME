@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {MatchingEngine} from "../src/market/MatchingEngine.sol";
+import {MatchingEngineBase} from "../src/market/MatchingEngineBase.sol";
 import {OrderBook} from "../src/market/OrderBook.sol";
 import {CallAuction} from "../src/market/CallAuction.sol";
 import {VolumeCap} from "../src/policy/VolumeCap.sol";
@@ -168,7 +169,7 @@ contract RulebookClaimsTest is Test, PolicyFixture {
 
         vm.warp(block.timestamp + ROUND);
         vm.prank(PASSERBY);
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.VenueHalted.selector, until));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.VenueHalted.selector, until));
         engine.crossRound(r);
         assertFalse(engine.crossed(r), "the venue traded while halted");
 
@@ -212,7 +213,7 @@ contract RulebookClaimsTest is Test, PolicyFixture {
         // `crossRound(r)` cannot be called until round r has ended anyway.
         uint64 until = halt.halt(2 days, keccak256("pricing failure"));
         vm.warp(block.timestamp + ROUND);
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.VenueHalted.selector, until));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.VenueHalted.selector, until));
         engine.crossRound(r);
 
         vm.warp(until);
@@ -276,7 +277,7 @@ contract RulebookClaimsTest is Test, PolicyFixture {
         vm.warp(block.timestamp + ROUND);
         // Read before arming: an external call consumes the expectation.
         uint64 until = halt.haltedUntil();
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.VenueHalted.selector, until));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.VenueHalted.selector, until));
         engine.crossRound(third);
     }
 

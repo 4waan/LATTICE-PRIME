@@ -2,17 +2,10 @@
 pragma solidity ^0.8.24;
 
 /// @title OrderBookBase
-/// @notice The disclosure rows, retirement reasons, events and errors of `OrderBook`,
-///         held apart so the contract body carries the order lifecycle only.
-/// @dev An abstract contract rather than a library or an interface, following
-///      `RepoVaultBase`: an interface cannot hold the constants, and errors and events
-///      belong to the contract that reverts and emits them. Inheritance does not
-///      re-export any of it under the deriving name, so a call site asks for
-///      `OrderBookBase.TooEarly.selector`.
-///
-///      `Side` and the `Revealed` event that carries it stay in `OrderBook` for the same
-///      reason `State` stays in `RepoVault`: an inherited enum is not reachable as
-///      `OrderBook.Side`, and it is spelled that way at 137 call sites.
+/// @notice Rows, retirement reasons, events and errors of `OrderBook`.
+/// @dev Abstract: interfaces cannot hold constants. Selectors are
+///      `OrderBookBase.TooEarly`. `Side` stays on `OrderBook` so call sites
+///      keep `OrderBook.Side`.
 abstract contract OrderBookBase {
     /// @dev Rows of the venue's disclosure matrix, named beside each `emit` because the
     ///      row is the claim. Row 17 rather than row 1 for trader identity, because

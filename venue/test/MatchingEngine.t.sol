@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {MatchingEngine} from "../src/market/MatchingEngine.sol";
+import {MatchingEngineBase} from "../src/market/MatchingEngineBase.sol";
 import {OrderBook} from "../src/market/OrderBook.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {ICompliance} from "../src/interfaces/ICompliance.sol";
@@ -266,7 +267,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
         _open();
         vm.prank(SELLER);
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.NotEscrow.selector, address(0)));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.NotEscrow.selector, address(0)));
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", 42);
     }
 
@@ -275,7 +276,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(BUYER);
         vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.WrongEscrow.selector, 0, 105 * 1_000)
+            abi.encodeWithSelector(MatchingEngineBase.WrongEscrow.selector, 0, 105 * 1_000)
         );
         engine.reveal(OrderBook.Side.BUY, 105, 1_000, "b", 0);
     }
@@ -296,7 +297,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(SELLER);
         vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.HoldNamesADestination.selector, BUYER)
+            abi.encodeWithSelector(MatchingEngineBase.HoldNamesADestination.selector, BUYER)
         );
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", id);
     }
@@ -307,7 +308,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(SELLER);
         vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.HoldTooSmall.selector, 400, 1_000)
+            abi.encodeWithSelector(MatchingEngineBase.HoldTooSmall.selector, 400, 1_000)
         );
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", holdId);
     }
@@ -350,7 +351,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
         _nextRound();
         vm.expectEmit(true, false, false, true, address(engine));
-        emit MatchingEngine.VoidedByRebase(sell, 1_000, 500);
+        emit MatchingEngineBase.VoidedByRebase(sell, 1_000, 500);
         engine.crossRound(r);
 
         assertEq(ats.delivered(BUYER), 0, "nothing was delivered");
@@ -408,7 +409,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     function test_anOpenRoundCannotBeCrossed() public {
         uint64 r = engine.currentRound();
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.RoundStillOpen.selector, r, r));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.RoundStillOpen.selector, r, r));
         engine.crossRound(r);
     }
 
@@ -416,7 +417,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         uint64 r = engine.currentRound();
         _nextRound();
         engine.crossRound(r);
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.AlreadyCrossed.selector, r));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.AlreadyCrossed.selector, r));
         engine.crossRound(r);
     }
 
@@ -515,7 +516,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         uint64 r = engine.currentRound();
         _nextRound();
         vm.expectEmit(true, false, false, false, address(engine));
-        emit MatchingEngine.RoundEmpty(r);
+        emit MatchingEngineBase.RoundEmpty(r);
         engine.crossRound(r);
     }
 
@@ -595,7 +596,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
             DELAY, WINDOW, BOND, FEE, params, ROUND, REST, ats, PARTITION, seamC
         );
         vm.warp(block.timestamp + ROUND + 1);
-        vm.expectRevert(MatchingEngine.VolumeCapNotAttached.selector);
+        vm.expectRevert(MatchingEngineBase.VolumeCapNotAttached.selector);
         bare.crossRound(0);
     }
 
@@ -603,7 +604,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
     function test_aBorrowedCapCannotBeAttached() public {
         VolumeCap other =
             new VolumeCap(regime, address(0xDEAD), 4000, L.point(L.G_EXACT, L.T_IMM));
-        vm.expectRevert(MatchingEngine.VolumeCapAlreadyAttached.selector);
+        vm.expectRevert(MatchingEngineBase.VolumeCapAlreadyAttached.selector);
         engine.attachVolumeCap(other);
     }
 
@@ -626,7 +627,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         uint64 r = engine.currentRound();
         _nextRound();
         vm.expectEmit(true, true, false, true, address(engine));
-        emit MatchingEngine.Settled(sell, buy, 1_000, 100 * 1_000);
+        emit MatchingEngineBase.Settled(sell, buy, 1_000, 100 * 1_000);
         engine.crossRound(r);
     }
 
@@ -785,11 +786,11 @@ contract MatchingEngineTest is Test, PolicyFixture {
     }
 
     function _sawCoarsePrint(Vm.Log[] memory logs) internal pure returns (bool) {
-        return _saw(logs, MatchingEngine.PrintedCoarse.selector);
+        return _saw(logs, MatchingEngineBase.PrintedCoarse.selector);
     }
 
     function _sawWithheldPrint(Vm.Log[] memory logs) internal pure returns (bool) {
-        return _saw(logs, MatchingEngine.PrintWithheld.selector);
+        return _saw(logs, MatchingEngineBase.PrintWithheld.selector);
     }
 
     function _saw(Vm.Log[] memory logs, bytes32 topic) private pure returns (bool) {

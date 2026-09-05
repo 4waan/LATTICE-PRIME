@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {EpochClock} from "../src/policy/EpochClock.sol";
-import {Regime, IEpochClock} from "../src/policy/Regime.sol";
+import {Regime} from "../src/policy/Regime.sol";
+import {IEpochClock} from "../src/interfaces/IEpochClock.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 
@@ -117,6 +118,8 @@ contract EpochClockTest is Test {
 
         vm.warp(block.timestamp + 1);
         params.adopt(set);
-        assertEq(params.currentEpoch(), 101, "one second of wall clock, one epoch of separation");
+        assertEq(
+            params.currentEpoch(), 101, "one second of wall clock, one epoch of separation"
+        );
     }
 }

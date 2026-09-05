@@ -7,22 +7,11 @@ import {DisclosureView} from "../lattice/DisclosureView.sol";
 import {OrderBookBase} from "./OrderBookBase.sol";
 
 /// @title OrderBook
-/// @notice A commit and reveal order book for ATS issued assets. The Studio has no
-///         secondary market, so this is the part of the venue that is not a
-///         configuration of something existing.
-/// @dev An order arrives as a fixed length commitment because on this network all 29
-///      consensus node operators hold the plaintext transaction body before any
-///      contract runs. A contract that receives a price as a plain argument has already
-///      disclosed it, whatever it does next, so no venue policy is early enough to
-///      help. One `bytes32`, always, which also means calldata length carries no signal
-///      about order size. `docs/MATCHING.md` carries the design; `docs/MATH.md` carries
-///      the bond and cancel fee derivations.
-///
-///      keccak here and Poseidon for auction bids, and the difference is where the
-///      opening is checked. A reveal is re-hashed on chain, where keccak is a precompile
-///      at about 30 gas per word and a Solidity Poseidon costs tens of thousands. A
-///      sealed bid is opened inside a circuit, where keccak costs roughly 150,000
-///      constraints and Poseidon about 240. Same primitive, opposite cost model.
+/// @notice Commit-reveal book for ATS assets. Always one `bytes32`.
+/// @dev Hedera: ~29 consensus operators see plaintext before execution.
+///      Bond stays until retire, not returned at reveal. Cancel fee:
+///      `ceil(B·D/(D+W))`, window closes when reveal opens. keccak on chain,
+///      Poseidon in circuit. `docs/MATCHING.md`, `docs/MATH.md`.
 contract OrderBook is OrderBookBase, DisclosureView {
     enum Side {
         BUY,
