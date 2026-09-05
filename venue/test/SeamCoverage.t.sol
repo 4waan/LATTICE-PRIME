@@ -27,18 +27,18 @@ contract SeamCoverageTest is Test {
 
     function test_tableIsWellFormed() public pure {
         assertEq(SeamMap.TABLE.length, SeamMap.COUNT * SeamMap.STRIDE, "stride");
-        // The last record must decode. `at` reads a full word from an offset
+        // The last record must decode. `recordAt` reads a full word from an offset
         // eleven bytes before the end, which is in bounds only because Solidity
         // pads `bytes memory` up to a word. Asserting the last row proves the
         // padding assumption rather than resting on it.
-        (bytes8 op, uint8 seams,,, uint8 depth) = SeamMap.at(SeamMap.COUNT - 1);
+        (bytes8 op, uint8 seams,,, uint8 depth) = SeamMap.recordAt(SeamMap.COUNT - 1);
         assertTrue(op != bytes8(0), "last op id");
         assertTrue(seams != 0 || depth != 0, "last row decoded");
     }
 
     function test_everyRowHasAnIdentity() public pure {
         for (uint256 i = 0; i < SeamMap.COUNT; ++i) {
-            (bytes8 op,,,,) = SeamMap.at(i);
+            (bytes8 op,,,,) = SeamMap.recordAt(i);
             assertTrue(op != bytes8(0), "zero id");
         }
     }
@@ -173,7 +173,7 @@ contract SeamCoverageTest is Test {
     /// checking.
     function test_everyValueMoveIsObservedBySomeVenueSeam() public pure {
         for (uint256 i = 0; i < SeamMap.COUNT; ++i) {
-            (bytes8 op, uint8 seams, uint8 writes,,) = SeamMap.at(i);
+            (bytes8 op, uint8 seams, uint8 writes,,) = SeamMap.recordAt(i);
             if (writes & SeamMap.W_MOVES == 0) continue;
             assertTrue(
                 seams & SeamMap.VENUE_OBSERVED != 0,
@@ -259,7 +259,7 @@ contract SeamCoverageTest is Test {
         returns (uint256 moves, uint256 unseenByD, uint256 postOnly, uint256 incidentalCount)
     {
         for (uint256 i = 0; i < SeamMap.COUNT; ++i) {
-            (, uint8 seams, uint8 writes, uint8 inc,) = SeamMap.at(i);
+            (, uint8 seams, uint8 writes, uint8 inc,) = SeamMap.recordAt(i);
             if (inc != 0) incidentalCount += 1;
             if (writes & SeamMap.W_MOVES == 0) continue;
             moves += 1;
