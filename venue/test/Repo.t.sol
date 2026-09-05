@@ -4,14 +4,15 @@ pragma solidity ^0.8.24;
 import {Test, Vm} from "forge-std/Test.sol";
 import {RepoMath} from "../src/repo/RepoMath.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
+import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 
 /// @dev Records the ATS calls rather than simulating them. The point of a mock
-///      here is to assert that the vault makes exactly the calls
-///      `docs/ats-seams.md` section 4 permits and no others, not to pretend to be
-///      ATS. Real hold behaviour is verified against testnet, not here.
+///      here is to assert that the vault makes exactly the calls the seam call
+///      list permits and no others, not to pretend to be ATS. Real hold behaviour
+///      is verified against testnet, not here.
 contract MockHolds is IHoldByPartition {
     /// @dev Row 11 of the call list, added with `MatchingEngine`. This suite does
     ///      not exercise the read, so it answers with a hold that would pass no
@@ -197,7 +198,7 @@ contract RepoVaultTest is Test, PolicyFixture {
     function test_onlyTheBorrowerCloses() public {
         _open();
         vm.prank(LENDER);
-        vm.expectRevert(RepoVault.NotParty.selector);
+        vm.expectRevert(RepoVaultBase.NotParty.selector);
         vault.close(ID);
     }
 
@@ -231,7 +232,7 @@ contract RepoVaultTest is Test, PolicyFixture {
 
     function test_onlyTheEngineMarks() public {
         _open();
-        vm.expectRevert(RepoVault.NotMarginEngine.selector);
+        vm.expectRevert(RepoVaultBase.NotMarginEngine.selector);
         vault.postMark(ID, bytes32(0), true, 1 days);
     }
 
@@ -253,7 +254,7 @@ contract RepoVaultTest is Test, PolicyFixture {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                RepoVault.CureWindowOpen.selector, uint64(block.timestamp + 1 days)
+                RepoVaultBase.CureWindowOpen.selector, uint64(block.timestamp + 1 days)
             )
         );
         vault.declareDefault(ID);
@@ -294,7 +295,7 @@ contract RepoVaultTest is Test, PolicyFixture {
         _open();
         vault.noteCoupon(ID, COUPON);
         vm.prank(BORROWER);
-        vm.expectRevert(RepoVault.NotParty.selector);
+        vm.expectRevert(RepoVaultBase.NotParty.selector);
         vault.payThrough(ID);
     }
 
@@ -304,7 +305,7 @@ contract RepoVaultTest is Test, PolicyFixture {
     /// the same in a diff and differently to anyone deciding whether to trust the
     /// instrument.
     function test_substitutionIsRefusedNotMissing() public {
-        vm.expectRevert(RepoVault.SubstitutionRefused.selector);
+        vm.expectRevert(RepoVaultBase.SubstitutionRefused.selector);
         vault.substitute(ID);
     }
 

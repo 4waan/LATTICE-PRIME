@@ -152,7 +152,7 @@ def main():
     print(f"\nRESULT: max calldata = {cap} bytes = {cap/1024:.0f} KiB exactly")
     print(f"        {cap+1} bytes returns TRANSACTION_OVERSIZE")
     print()
-    print("Consequence for SECURITY-MODEL.md 8.2, at ~50,100 gas and 256 bytes")
+    print("Consequence for the security model's section 8.2, at ~50,100 gas and 256 bytes")
     print("per batched Groth16 proof:")
     by_gas = 15_000_000 // 50_100
     by_size = cap // 256

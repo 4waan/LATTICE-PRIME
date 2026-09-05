@@ -2,10 +2,9 @@
 // VENDORED from hashgraph/asset-tokenization-studio, Apache-2.0.
 // Sources: packages/ats/contracts/contracts/facets/hold/IHoldTypes.sol
 //          packages/ats/contracts/contracts/facets/holdByPartition/IHoldByPartition.sol
-// Reduced to the calls on `docs/ats-seams.md` section 4's list, rows 5 to 7 and
-// row 11. Adding a call here without amending that document breaks the zero-fork
-// contract, so row 11 was added to that list in the same change that added
-// `getHoldForByPartition` below.
+// Reduced to the seam call list, rows 5 to 7 and row 11. Adding a call here without
+// amending that list breaks the zero-fork contract, so row 11 was added to it in the
+// same change that added `getHoldForByPartition` below.
 pragma solidity ^0.8.24;
 
 interface IHoldTypes {

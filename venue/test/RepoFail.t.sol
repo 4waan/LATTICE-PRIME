@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test, Vm} from "forge-std/Test.sol";
 import {RepoMath} from "../src/repo/RepoMath.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
+import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {MockHolds} from "./Repo.t.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 
@@ -103,7 +104,7 @@ contract RepoFailTest is Test, PolicyFixture {
     function test_aRepoCannotFailBeforeItMatures() public {
         _open();
         vm.warp(maturity - 1);
-        vm.expectRevert(abi.encodeWithSelector(RepoVault.NotYetMature.selector, maturity));
+        vm.expectRevert(abi.encodeWithSelector(RepoVaultBase.NotYetMature.selector, maturity));
         vault.markFailing(ID);
     }
 
@@ -227,7 +228,7 @@ contract RepoFailTest is Test, PolicyFixture {
         vault.markFailing(ID);
 
         vm.expectRevert(
-            abi.encodeWithSelector(RepoVault.FailGraceOpen.selector, maturity + GRACE)
+            abi.encodeWithSelector(RepoVaultBase.FailGraceOpen.selector, maturity + GRACE)
         );
         vault.declareDefault(ID);
 
@@ -258,7 +259,7 @@ contract RepoFailTest is Test, PolicyFixture {
         vault.postMark(ID, keccak256("mark"), true, 1 days);
 
         uint64 cure = uint64(block.timestamp) + 1 days;
-        vm.expectRevert(abi.encodeWithSelector(RepoVault.CureWindowOpen.selector, cure));
+        vm.expectRevert(abi.encodeWithSelector(RepoVaultBase.CureWindowOpen.selector, cure));
         vault.declareDefault(ID);
     }
 
