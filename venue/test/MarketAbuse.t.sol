@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import {Test, Vm} from "forge-std/Test.sol";
 import {RepoMath} from "../src/repo/RepoMath.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
-import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
@@ -17,17 +17,13 @@ import {ZkKycRegistry} from "../src/kyc/ZkKycRegistry.sol";
 ///
 /// Every other test in this suite asks whether an observer learns something they
 /// should not. This file asks the opposite question: **what can someone DO with
-/// the disclosure policy working exactly as specified.** The security model's
-/// section 6.1 lists eight adversaries and all eight of them are trying to learn.
-/// None of them is trying to trade.
+/// the disclosure policy working exactly as specified.** Every adversary the security
+/// model enumerates is trying to learn. None of them is trying to trade.
 ///
-/// See `docs/manipulation-surface.md` for the reasoning. Each test here is the
-/// executable half of one finding in that file.
+/// The reasoning is in `../../docs/manipulation-surface.md`, at the repository root.
+/// Each test here is the executable half of one finding in it.
 contract Holds is IHoldByPartition {
-    /// @dev Row 11 of the call list, added with `MatchingEngine`. This suite does
-    ///      not exercise the read, so it answers with a hold that would pass no
-    ///      check; a stub that returned something plausible would be a stub
-    ///      asserting the engine's precondition on the engine's behalf.
+
     function getHoldForByPartition(IHoldTypes.HoldIdentifier calldata)
         external
         pure
@@ -72,8 +68,7 @@ contract Holds is IHoldByPartition {
 }
 
 contract MarketAbuseTest is Test, PolicyFixture {
-    /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
-    ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
+
     uint256 internal constant PENALTY_RATE = 10;
     uint64 internal constant FAIL_GRACE = 5 days;
 
@@ -189,26 +184,13 @@ contract MarketAbuseTest is Test, PolicyFixture {
         }
     }
 
-    // ---------------------------------------------------------------- MA-03
-    //
-    // CLOSED. This test used to assert the defect and now asserts the fix, and
-    // both versions are worth reading together: the old one showed the vault's
-    // own oracle answering "not permitted" while the same call emitted under
-    // exactly that cell in the same block, because no `emit` in the file reached
-    // `_emitUnder`. Every disclosing `emit` reaches it now, and the oracle and
-    // the emit are the same expression over the same value.
-
     function test_MA03_theOracleAndTheEmitAgree() public {
-        // Under the deployed set, row 14 admits a predicate at once, and the
-        // margin call goes out.
+
         assertTrue(vault.wouldDisclose(14, L.G_PRED, L.T_IMM), "row 14 admits it");
         vm.prank(ENGINE);
         vault.postMark(ID, keccak256("mark"), true, 1 days);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
 
-        // Move row 14 to `(pred, EOD)`. The oracle changes its answer, and so
-        // does the contract's behaviour, which is the property the old version
-        // of this test proved absent.
         ParameterRoot.Param[] memory set = asDeployed();
         set[_rowAt(set, 14)].value = L.point(L.G_PRED, L.T_EOD);
         _publish(set);
@@ -217,17 +199,13 @@ contract MarketAbuseTest is Test, PolicyFixture {
         vm.prank(BORROWER);
         vm.expectRevert(
             abi.encodeWithSelector(
-                RepoVaultBase.DisclosureExceedsCeiling.selector,
+                DisclosureView.DisclosureExceedsCeiling.selector,
+                uint16(14), // position risk
                 L.excess(L.point(L.G_PRED, L.T_EOD), L.point(L.G_PRED, L.T_IMM))
             )
         );
         vault.cure(ID);
     }
-
-    // ---------------------------------------------------------------- MA-04
-    //
-    // Repeated one-bit disclosures. The lattice cannot see the accumulation and
-    // says so in its own header; the budget can, and is not wired to this path.
 
     function _row14() internal pure returns (B.Row memory) {
         // A gilt mark over a +/- 20 percent band at one basis point of par is
@@ -263,12 +241,6 @@ contract MarketAbuseTest is Test, PolicyFixture {
         emit log_named_uint("MA-04 marks in one 30 day epoch  ", 30);
     }
 
-    // ---------------------------------------------------------------- MA-02
-    //
-    // The mark commitment carries no blinder. an invariant requires one for the bid
-    // commitment and an invariant for the linkage ciphertext. Nothing requires one
-    // here, and the mark is the lowest entropy value in the system.
-
     function test_MA02_unblindedMarkCommitmentFallsToASmallSearch() public {
         uint256 secretMark = 9_431_000; // known only to the margin engine
         bytes32 commitment = keccak256(abi.encode(secretMark));
@@ -295,13 +267,6 @@ contract MarketAbuseTest is Test, PolicyFixture {
         );
         emit log_named_uint("MA-02 candidates tried", tried);
     }
-
-    // ---------------------------------------------------------------- MA-07
-    //
-    // The K = 5 addresses under one nullifier are publicly linked to each other
-    // by the `Granted` event. That is row 11 working, and it is the venue's only
-    // self dealing detector. Recorded here so that a future change which hides
-    // row 11 fails this test rather than passing quietly.
 
     function test_MA07_theOnlySelfDealingDetectorIsRow11AndItIsAnEventField() public {
         ZkKycRegistry reg = new ZkKycRegistry(address(this), uint64(block.timestamp), 30 days);

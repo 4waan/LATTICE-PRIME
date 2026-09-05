@@ -11,8 +11,9 @@ pragma solidity ^0.8.24;
 ///      `RepoVault` for the mirror of that reason: it is spelled `RepoVault.State` at
 ///      twenty one call sites and moving it would buy nothing.
 abstract contract RepoVaultBase {
-    /// @dev Section 7.2 rows, named beside each `emit` because the row is the claim.
-    ///      `ROW_EXEC_PRICE` is declared and never emitted on: see `RepoVault.close`.
+    /// @dev Rows of the venue's disclosure matrix, named beside each `emit` because the
+    ///      row is the claim. `ROW_EXEC_PRICE` is declared and never emitted on: see
+    ///      `RepoVault.close`.
     uint16 internal constant ROW_EXEC_PRICE = 5;
     uint16 internal constant ROW_ASSET = 7;
     uint16 internal constant ROW_POSITION = 14;
@@ -32,7 +33,6 @@ abstract contract RepoVaultBase {
     event Defaulted(bytes32 indexed id);
     /// @dev The predicate and not the price. See `RepoVault.close`.
     event Closed(bytes32 indexed id);
-    event DisclosureRefused(bytes32 indexed id, uint16 row, uint32 excess);
 
     error NotParty();
     error NotMarginEngine();
@@ -41,6 +41,5 @@ abstract contract RepoVaultBase {
     error NotYetMature(uint64 maturity);
     error FailGraceOpen(uint64 until);
     error SubstitutionRefused();
-    error DisclosureExceedsCeiling(uint32 excess);
     error AlreadyExists(bytes32 id);
 }

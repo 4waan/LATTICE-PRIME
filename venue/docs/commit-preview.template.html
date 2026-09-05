@@ -1,0 +1,480 @@
+<title>Commitment Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,500;0,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/*INLINE docs/venue.css*/
+
+/* ---------- the ticket ---------- */
+.ticket{background:var(--surface);border:1px solid var(--rule-hard);border-radius:2px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.field{display:flex;flex-direction:column;gap:.28rem;padding:var(--s3);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.field:last-child{border-right:0}
+.field label{font-family:"IBM Plex Mono",monospace;font-size:.64rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint)}
+.field input,.field select{
+  font-family:"IBM Plex Mono",monospace;font-size:.98rem;color:var(--ink);
+  background:transparent;border:0;border-bottom:1px solid var(--rule-hard);
+  padding:.22rem 0;width:100%;min-width:0;border-radius:0;
+}
+.field input:focus,.field select:focus{outline:0;border-bottom-color:var(--sealed)}
+.field .hint{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--slate);
+  overflow-wrap:anywhere}
+.field .hint.bad{color:var(--exposed)}
+.saltfield{grid-column:1/-1;border-right:0;border-bottom:0}
+.saltrow{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.saltrow input{flex:1 1 34ch}
+
+/* ---------- the six words ---------- */
+.words{display:flex;flex-direction:column;border:1px solid var(--rule-hard);border-radius:2px;background:var(--surface);overflow-x:auto}
+.w{display:grid;grid-template-columns:2.4rem 12.5rem 1fr;gap:var(--s2);align-items:baseline;
+  padding:.62rem var(--s3);border-bottom:1px solid var(--rule);min-width:720px}
+.w:last-child{border-bottom:0}
+.w .wi{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--faint)}
+.w .wn{font-family:"IBM Plex Mono",monospace;font-size:.82rem;color:var(--ink);white-space:nowrap}
+.w .wn i{color:var(--faint);font-style:normal}
+.w .wb{font-family:"IBM Plex Mono",monospace;font-size:.82rem;letter-spacing:.02em;word-break:break-all}
+.w .pad{color:var(--faint);opacity:.55}
+.w .sig{color:var(--ink)}
+.w[data-from="you"] .sig{color:var(--held)}
+.w[data-from="order"] .sig{color:var(--sealed)}
+.w[data-from="wallet"] .sig{color:var(--ink)}
+.w[data-from="constant"] .sig{color:var(--slate)}
+
+.fold{display:grid;grid-template-columns:2.4rem 12.5rem 1fr;gap:var(--s2);padding:.7rem var(--s3);
+  font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:var(--slate);min-width:720px}
+.fold span:last-child{color:var(--ink-2)}
+
+.wlegend{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s3);margin-top:var(--s2)}
+.lk{display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--slate)}
+.lk::before{content:"";width:.62rem;height:.62rem;border-radius:1px;background:currentColor;flex:none}
+.lk-c{color:var(--slate)} .lk-w{color:var(--ink-2)} .lk-o{color:var(--sealed)} .lk-s{color:var(--held)}
+.idbox{margin-top:var(--s3);background:var(--sealed-wash);border:1px solid var(--sealed);border-radius:2px;padding:var(--s3);display:flex;flex-direction:column;gap:.4rem}
+.idbox .k{font-family:"IBM Plex Mono",monospace;font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sealed)}
+.idbox .v{font-family:"IBM Plex Mono",monospace;font-size:clamp(.82rem,2.1vw,1.16rem);
+  color:var(--ink);word-break:break-all;line-height:1.5;font-weight:500}
+
+/* ---------- exits ---------- */
+.exits{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:var(--s3)}
+.exit{border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  padding:var(--s3);display:flex;flex-direction:column;gap:.45rem}
+.exit.walk{border-left:3px solid var(--slate)}
+.exit.perform{border-left:3px solid var(--sealed)}
+.exit.lapse{border-left:3px solid var(--exposed);background:var(--exposed-wash)}
+.exit .amt{font-family:"IBM Plex Mono",monospace;font-size:1.5rem;font-weight:500;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.exit.lapse .amt{color:var(--exposed)}
+.exit .when{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint)}
+.exit p{font-size:.86rem;margin:0;max-width:none}
+
+/* ---------- timeline ---------- */
+.tl{margin-top:var(--s3);border:1px solid var(--rule-hard);border-radius:2px;background:var(--surface);padding:var(--s3);overflow-x:auto}
+.bar{display:flex;height:2.6rem;min-width:600px;border:1px solid var(--rule-hard);border-radius:2px;overflow:hidden}
+.seg{display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;
+  font-size:.72rem;letter-spacing:.04em;white-space:nowrap;padding:0 .5rem;border-right:1px solid var(--rule-hard)}
+.seg:last-child{border-right:0}
+.seg.cancelw{flex:300 0 0;background:var(--sunk);color:var(--slate)}
+.seg.revealw{flex:1800 0 0;background:var(--sealed-wash);color:var(--sealed)}
+.seg.gone{flex:900 0 0;color:var(--exposed);
+  background:repeating-linear-gradient(135deg,var(--exposed-wash) 0 7px,transparent 7px 14px)}
+.ticks{display:flex;min-width:600px;margin-top:.4rem}
+.tick{font-family:"IBM Plex Mono",monospace;font-size:.68rem;color:var(--slate);
+  border-left:1px solid var(--rule-hard);padding-left:.35rem;line-height:1.35}
+.tick b{display:block;color:var(--ink);font-weight:500}
+.tick.t0{flex:300 0 0} .tick.t1{flex:1800 0 0} .tick.t2{flex:900 0 0}
+
+/* ---------- gate ---------- */
+.gate{border:1px solid var(--exposed);border-left:3px solid var(--exposed);background:var(--exposed-wash);
+  border-radius:2px;padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+.gate .saltout{font-family:"IBM Plex Mono",monospace;font-size:.9rem;color:var(--ink);
+  background:var(--surface);border:1px solid var(--rule-hard);border-radius:2px;padding:.6rem .7rem;word-break:break-all}
+.ack{display:flex;gap:.6rem;align-items:flex-start;font-size:.9rem;color:var(--ink);cursor:pointer;max-width:72ch}
+.ack input{margin-top:.34rem;accent-color:var(--exposed);flex:none;width:1rem;height:1rem}
+.signrow{display:flex;gap:var(--s3);align-items:center;flex-wrap:wrap;margin-top:var(--s3)}
+.signnote{font-size:.82rem;color:var(--slate);max-width:44ch}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <span class="eyebrow">Venue · OrderBook · pre-signature</span>
+  <h1>Commitment Preview</h1>
+  <p class="lede">The venue asks you to sign thirty-two bytes of noise and attach money. This page derives those bytes from the fields you chose, using the six-word preimage the contract will re-hash when you open it.</p>
+  <div class="sigline">function <b>commit</b>(bytes32 id) external <b>payable</b></div>
+  <div class="standin"><b>A preview, not a signer.</b> Nothing is submitted and no wallet is connected. The address stands in for the single-use account an order would be sent from.</div>
+</header>
+
+<section>
+  <div class="shead"><span class="snum">01</span><h2>The order you are sealing</h2></div>
+  <p>Four fields. Change any one and all thirty-two bytes change, which is what makes the commitment binding and what makes it unreadable.</p>
+  <div class="ticket">
+    <div class="field">
+      <label for="side">Side</label>
+      <select id="side"><option value="1">SELL</option><option value="0">BUY</option></select>
+      <span class="hint" id="sideHint">enum Side, one byte</span>
+    </div>
+    <div class="field">
+      <label for="price">Price, HBAR per unit</label>
+      <input id="price" inputmode="decimal" value="0.0025">
+      <span class="hint" id="priceHint"></span>
+    </div>
+    <div class="field">
+      <label for="qty">Quantity</label>
+      <input id="qty" inputmode="numeric" value="500">
+      <span class="hint" id="qtyHint"></span>
+    </div>
+    <div class="field">
+      <label for="committer">Committer</label>
+      <input id="committer" value="0x9f2c4e8a1b7d3056fe4a2c8b9d1e7f3a5c604b28" spellcheck="false">
+      <span class="hint" id="cmtHint">single-use, no funding history</span>
+    </div>
+    <div class="field saltfield">
+      <label for="salt">Salt, drawn locally and never sent</label>
+      <div class="saltrow">
+        <input id="salt" spellcheck="false">
+        <button id="reroll" type="button">Draw a new one</button>
+        <button id="copysalt" type="button">Copy</button>
+      </div>
+      <span class="hint" id="saltHint"></span>
+    </div>
+  </div>
+  <div class="note"><b>Notional</b> <span id="notional" class="num"></span>. <span id="backingNote"></span></div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">02</span><h2>What you are committing to</h2></div>
+  <p>The contract computes <code>keccak256(abi.encode(DOMAIN_ORDER, committer, side, price, qty, salt))</code>. All six are static types, so the encoding is six thirty-two byte words, no length prefix. Grey is zero padding; ink is your order.</p>
+  <div class="words" id="words"></div>
+  <div class="wlegend">
+    <span class="lk lk-c">fixed by the contract</span>
+    <span class="lk lk-w">your address</span>
+    <span class="lk lk-o">the order, and the only part the wire never carries</span>
+    <span class="lk lk-s">your salt</span>
+  </div>
+  <div class="idbox">
+    <span class="k">keccak256 of the 192 bytes above &rarr; the id you are signing</span>
+    <span class="v" id="idOut"></span>
+  </div>
+  <div class="note"><b>Word 1 is the anti-theft word.</b> Your address is inside the hash, so a commitment lifted off the wire and submitted first by someone else still verifies against their reveal only if they can produce your address, which they cannot. Drop that word and the stolen commitment is perfectly valid, which is what makes the omission easy to miss.</div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">03</span><h2>What goes on the wire</h2></div>
+  <div class="wire">
+    <div class="wcell"><span class="k">Function</span><span class="v">commit(bytes32)</span><span class="n">selector <span id="selOut" class="mono"></span></span></div>
+    <div class="wcell"><span class="k">Calldata</span><span class="v">36 bytes</span><span class="n">4 selector, 32 argument. The same for every order here, so the length says nothing about size.</span></div>
+    <div class="wcell"><span class="k">Value attached</span><span class="v" id="bondOut"></span><span class="n">The bond. A constant, so it discloses nothing either.</span></div>
+    <div class="wcell"><span class="k">Disclosure charged</span><span class="v">row 17</span><span class="n">Account provenance at (exact, imm). Not row 1, only because the address is single use.</span></div>
+  </div>
+  <div class="calldata">
+    <span class="lbl">the complete transaction input</span><span class="sel" id="cdSel"></span><span class="arg" id="cdArg"></span>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">04</span><h2>What the twenty-nine node operators see</h2></div>
+  <p>Hedera has no public mempool. That is not privacy. A hashgraph event carries transactions rather than hashes, so your body reaches all twenty-nine consensus nodes in full before it is ordered and before any contract runs. No venue policy runs early enough to help. Six of those operators are financial institutions, and at least one trades this asset class on the same network.</p>
+  <div class="vs">
+    <div class="pane sealedp">
+      <div class="top"><span class="tag">what they get</span><h3>This venue, commit(bytes32)</h3></div>
+      <div class="body" id="sealedBytes"></div>
+      <ul class="readout" id="sealedRead"></ul>
+    </div>
+    <div class="pane clearp">
+      <div class="top"><span class="tag">what a plain book gives them</span><h3>limitOrder(uint8,uint128,uint128)</h3></div>
+      <div class="body" id="clearBytes"></div>
+      <ul class="readout" id="clearRead"></ul>
+    </div>
+  </div>
+  <div class="note"><b>The right-hand column is the counterfactual, not something this venue ever sends.</b> It is the same order encoded the ordinary way, decoded by anyone holding the body. That is a structural statement about who is in the room before consensus, not an accusation about anyone's conduct: the property a regulated participant needs is that the question cannot arise.</div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">05</span><h2>What the bond costs</h2></div>
+  <p>A free commitment is a free phantom order: flood the book with sealed orders you never open, move the reference price, pay nothing. The bond prices that. It is posted now and held for the order's whole life. Three ways out.</p>
+  <div class="exits">
+    <div class="exit walk">
+      <span class="when">walk away, first 5 minutes</span>
+      <span class="amt" id="exitCancel"></span>
+      <p>Returned if you cancel before the reveal window opens. The rest is the cancel fee, <span class="num" id="feeOut"></span>, which nobody receives. It is retained, because every candidate recipient would gain a reason to want cancellations.</p>
+    </div>
+    <div class="exit perform">
+      <span class="when">reveal and rest</span>
+      <span class="amt" id="exitReveal"></span>
+      <p>Not returned at reveal. It becomes a performance bond, held while the order rests for up to eight daily rounds, then credited back when the order retires.</p>
+    </div>
+    <div class="exit lapse">
+      <span class="when">never reveal</span>
+      <span class="amt" id="exitLapse"></span>
+      <p>Gone. Once the reveal window closes anyone may call <code>forfeit(id)</code> and take it. It goes to the sweeper, not the venue, so sweeping is somebody's job and the venue gains nothing from a failed reveal.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">06</span><h2>What happens if you never reveal</h2></div>
+  <p>The two windows are disjoint. Cancel closes exactly when reveal opens: overlap them and a committer who dislikes the market pays the fee instead of the bond, so cancelling beats lapsing at every parameter and the bond stops pricing non-reveal.</p>
+  <div class="tl">
+    <div class="bar">
+      <div class="seg cancelw">cancel only &middot; 5 min</div>
+      <div class="seg revealw">reveal window &middot; 30 min</div>
+      <div class="seg gone">forfeitable by anyone, forever</div>
+    </div>
+    <div class="ticks">
+      <div class="tick t0"><b id="tCommit"></b>commit lands, bond posted</div>
+      <div class="tick t1"><b id="tOpen"></b>reveal opens, cancel closes</div>
+      <div class="tick t2"><b id="tClose"></b>reveal closes, bond sweepable</div>
+    </div>
+  </div>
+  <div class="note"><b>Miss the window and there is no appeal path.</b> The commitment stays on chain as a tombstone, the order never existed as far as the book is concerned, and the bond is claimed by whoever runs a sweeper. The venue cannot return it to you, and that is deliberate rather than an oversight.</div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">07</span><h2>Before you sign</h2></div>
+  <div class="gate">
+    <span class="eyebrow">the one thing this transaction does not contain</span>
+    <div class="saltout" id="saltEcho"></div>
+    <p>Your salt is not in the calldata, not in storage, not recoverable from the id. It exists only where you put it. Without it you cannot reveal, and a commitment you cannot reveal is <span class="num" id="lossOut"></span> handed to a stranger <span id="lossWhen"></span>. Save it before you sign.</p>
+    <label class="ack"><input type="checkbox" id="ack"><span>I have saved the salt somewhere I will still have it in five minutes.</span></label>
+  </div>
+  <div class="signrow">
+    <button class="primary" id="sign" type="button" disabled>Sign and submit the commitment</button>
+    <span class="signnote">Nothing is submitted. Pressing it shows the call you would authorise and the reveal you would owe.</span>
+  </div>
+  <div class="receipt" id="receipt" hidden></div>
+</section>
+
+<footer>
+  <p><b>How this page knows.</b> It runs <code>tools/keccak.mjs</code> and <code>tools/commitment.mjs</code>, inlined unmodified by <code>tools/gen-preview.mjs</code>. <code>tools/commitment.test.mjs</code> pins their output to fixed vectors, and <code>test/CommitmentVectors.t.sol</code> asserts the same literals against <code>OrderBook.commitmentOf</code> on a deployed instance. The two halves are checked against each other rather than asserted to agree.</p>
+  <div class="srcs">
+    <span>src/market/OrderBook.sol &middot; commit, reveal, cancel, forfeit</span>
+    <span>src/market/MatchingEngine.sol &middot; _bind, escrow and holds</span>
+    <span>mesh/consensus-visibility.md &middot; the node set measurement</span>
+    <span>AUDIT-BOX.md AB-034 &middot; the operator composition finding</span>
+  </div>
+</footer>
+
+</div>
+
+<script>
+/*INLINE tools/keccak.mjs*/
+/*INLINE tools/commitment.mjs*/
+
+// ---- the venue's deployed constants, as the suite deploys them ------------
+const BOND = 10n ** 17n;          // 0.1 HBAR
+const DELAY = 300;                // 5 minutes to the reveal window
+const WINDOW = 1800;              // 30 minutes of reveal
+const REST = 7;                   // rounds an unfilled order rests, plus its own
+const WEI = 10n ** 18n;
+const SCALE_LIMIT = 1n << 96n;    // CallAuction, checked at reveal not at commit
+const FEE = minimumCancelFee(BOND, DELAY, WINDOW);
+
+const $ = (id) => document.getElementById(id);
+const els = {};
+for (const id of ["side","price","qty","committer","salt","words","idOut","selOut","bondOut",
+    "cdSel","cdArg","sealedBytes","sealedRead","clearBytes","clearRead","notional","backingNote",
+    "exitCancel","exitReveal","exitLapse","feeOut","tCommit","tOpen","tClose","saltEcho",
+    "lossOut","lossWhen","ack","sign","receipt","priceHint","qtyHint","cmtHint","saltHint",
+    "sideHint"]) els[id] = $(id);
+
+// Exact, trailing zeros trimmed. A signing screen that rounds the number it asks
+// you to authorise is not a signing screen.
+function hbar(wei) {
+    const neg = wei < 0n;
+    const v = neg ? -wei : wei;
+    const whole = v / WEI;
+    let frac = (v % WEI).toString().padStart(18, "0").replace(/0+$/, "");
+    const s = whole.toLocaleString("en-US") + (frac ? "." + frac : "");
+    return (neg ? "-" : "") + s + " HBAR";
+}
+
+/// Decimal HBAR to weibar, exactly, without touching a float.
+function toWei(text) {
+    const m = /^(\d*)(?:\.(\d*))?$/.exec(text.trim());
+    if (!m || (!m[1] && !m[2])) return null;
+    const frac = (m[2] || "").slice(0, 18).padEnd(18, "0");
+    if ((m[2] || "").length > 18) return null;
+    return BigInt(m[1] || "0") * WEI + BigInt(frac);
+}
+
+const bytesRow = (w) => {
+    const h = [...w.bytes].map((x) => x.toString(16).padStart(2, "0"));
+    const padTo = 32 - w.sig;
+    const pad = h.slice(0, padTo).join("");
+    const sig = h.slice(padTo).join("");
+    return (pad ? '<span class="pad">' + pad + "</span>" : "") + '<span class="sig">' + sig + "</span>";
+};
+
+function readState() {
+    // The bounds quoted bite at reveal, not at commit: `commit` takes any 32
+    // bytes, so a price the auction will refuse still seals and only fails
+    // later, with the bond already at risk. Better said early.
+    const s = {msgs: {}, bad: {}};
+    const fail = (f, why) => { s.bad[f] = true; s.msgs[f] = why; };
+    s.side = Number(els.side.value);
+
+    const pw = toWei(els.price.value);
+    s.priceWei = pw === null ? 0n : pw;
+    if (pw === null) fail("price", "not a decimal amount");
+    else if (pw >= SCALE_LIMIT) fail("price", "at or past 2^96, reveal reverts OutOfRange");
+    else s.msgs.price = pw.toString() + " weibar";
+
+    const qt = els.qty.value.trim();
+    s.qty = /^\d+$/.test(qt) ? BigInt(qt) : 0n;
+    if (!/^\d+$/.test(qt)) fail("qty", "whole units only");
+    else if (s.qty === 0n) fail("qty", "zero quantity, reveal reverts ZeroQuantity");
+    else if (s.qty >= SCALE_LIMIT) fail("qty", "at or past 2^96, reveal reverts OutOfRange");
+    else s.msgs.qty = "uint128, low 16 bytes of word 4";
+
+    const c = els.committer.value.trim();
+    s.committer = /^0x[0-9a-fA-F]{40}$/.test(c) ? c : "0x" + "0".repeat(40);
+    if (s.committer === c) s.msgs.cmt = "single-use, no funding history";
+    else fail("cmt", "not a 20 byte address");
+
+    const sa = els.salt.value.trim();
+    s.salt = /^0x[0-9a-fA-F]{64}$/.test(sa) ? sa : "0x" + "0".repeat(64);
+    if (s.salt === sa) s.msgs.salt = "256 bits of local randomness, held only by you";
+    else fail("salt", "not 32 bytes");
+
+    s.ok = Object.keys(s.bad).length === 0;
+    return s;
+}
+
+function render() {
+    const s = readState();
+    const id = commitmentOf(s.committer, s.side, s.priceWei, s.qty, s.salt);
+    const sel = selector("commit(bytes32)");
+    const notional = s.priceWei * s.qty;
+
+    els.priceHint.textContent = s.msgs.price;
+    els.qtyHint.textContent = s.msgs.qty;
+    els.cmtHint.textContent = s.msgs.cmt;
+    els.saltHint.textContent = s.msgs.salt;
+    els.priceHint.classList.toggle("bad", !!s.bad.price);
+    els.qtyHint.classList.toggle("bad", !!s.bad.qty);
+    els.cmtHint.classList.toggle("bad", !!s.bad.cmt);
+    els.saltHint.classList.toggle("bad", !!s.bad.salt);
+    els.sideHint.textContent = s.side === 1 ? "SELL, enum value 1" : "BUY, enum value 0";
+
+    // ---- the six words
+    const words = preimageWords(s.committer, s.side, s.priceWei, s.qty, s.salt);
+    els.words.innerHTML = words.map((w, i) =>
+        '<div class="w" data-from="' + w.from + '"><span class="wi">' + i + '</span>' +
+        '<span class="wn">' + w.name + ' <i>' + w.type + '</i></span>' +
+        '<span class="wb">' + bytesRow(w) + "</span></div>"
+    ).join("") +
+    '<div class="fold"><span></span><span>192 bytes</span><span>fed to keccak256 whole, never in pieces</span></div>';
+    els.idOut.textContent = id;
+
+    // ---- the wire
+    els.selOut.textContent = sel;
+    els.bondOut.textContent = hbar(BOND);
+    els.cdSel.textContent = sel;
+    els.cdArg.textContent = id.slice(2);
+
+    // ---- notional and what backs it
+    els.notional.textContent = hbar(notional);
+    els.backingNote.innerHTML = s.side === 1
+        ? "A sell reveals against an ATS hold this contract escrows, not cash. The hold must cover the quantity and outlive the resting window, or the reveal reverts."
+        : "A buy must send exactly <span class='num'>" + hbar(notional) + "</span> as cash escrow <em>at reveal</em>, on top of the bond you are posting now.";
+
+    // ---- the comparison
+    els.sealedBytes.innerHTML = '<span class="sel">' + sel + '</span><span class="arg">' + id.slice(2) + "</span>";
+    els.sealedRead.innerHTML = [
+        ["sender", '<span class="v">' + s.committer.slice(0, 10) + "…" + s.committer.slice(-6) + "</span>"],
+        ["value", '<span class="v">' + hbar(BOND) + "</span>"],
+        ["side", '<span class="v hid">not in the body</span>'],
+        ["price", '<span class="v hid">not in the body</span>'],
+        ["quantity", '<span class="v hid">not in the body</span>'],
+        ["notional", '<span class="v hid">not derivable</span>'],
+    ].map(([k, v]) => '<li><span class="k">' + k + "</span>" + v + "</li>").join("");
+
+    const clearSel = selector("limitOrder(uint8,uint128,uint128)");
+    const w32 = (v) => [...word(v)].map((x) => x.toString(16).padStart(2, "0")).join("");
+    els.clearBytes.innerHTML = '<span class="sel">' + clearSel + '</span><span class="leakarg">' +
+        w32(s.side) + w32(s.priceWei) + w32(s.qty) + "</span>";
+    els.clearRead.innerHTML = [
+        ["sender", '<span class="v">' + s.committer.slice(0, 10) + "…" + s.committer.slice(-6) + "</span>"],
+        ["value", '<span class="v">' + hbar(0n) + "</span>"],
+        ["side", '<span class="v leak">' + (s.side === 1 ? "SELL" : "BUY") + "</span>"],
+        ["price", '<span class="v leak">' + hbar(s.priceWei) + " per unit</span>"],
+        ["quantity", '<span class="v leak">' + s.qty.toLocaleString("en-US") + "</span>"],
+        ["notional", '<span class="v leak">' + hbar(notional) + "</span>"],
+    ].map(([k, v]) => '<li><span class="k">' + k + "</span>" + v + "</li>").join("");
+
+    // ---- the bond
+    els.exitCancel.textContent = hbar(BOND - FEE);
+    els.exitReveal.textContent = hbar(BOND);
+    els.exitLapse.textContent = "−" + hbar(BOND);
+    els.feeOut.textContent = hbar(FEE);
+    els.lossOut.textContent = hbar(BOND);
+
+    // ---- the clock
+    const now = new Date();
+    const at = (secs) => new Date(now.getTime() + secs * 1000)
+        .toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+    els.tCommit.textContent = at(0);
+    els.tOpen.textContent = at(DELAY);
+    els.tClose.textContent = at(DELAY + WINDOW);
+    els.lossWhen.textContent = "from " + at(DELAY + WINDOW) + " onward";
+
+    // ---- the gate
+    els.saltEcho.textContent = s.salt;
+    els.sign.disabled = !(s.ok && els.ack.checked);
+
+    return {s, id, sel, notional};
+}
+
+function reroll() {
+    const b = new Uint8Array(32);
+    crypto.getRandomValues(b);
+    els.salt.value = "0x" + [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+    els.ack.checked = false;
+    els.receipt.hidden = true;
+    render();
+}
+
+for (const el of [els.side, els.price, els.qty, els.committer, els.salt]) {
+    el.addEventListener("input", () => { els.receipt.hidden = true; render(); });
+    el.addEventListener("change", () => { els.receipt.hidden = true; render(); });
+}
+els.ack.addEventListener("change", render);
+$("reroll").addEventListener("click", reroll);
+$("copysalt").addEventListener("click", async () => {
+    const btn = $("copysalt");
+    try { await navigator.clipboard.writeText(els.salt.value); btn.textContent = "Copied"; }
+    catch { btn.textContent = "Select it by hand"; }
+    setTimeout(() => { btn.textContent = "Copy"; }, 1600);
+});
+
+els.sign.addEventListener("click", () => {
+    const {s, id, sel} = render();
+    const t = (secs) => new Date(Date.now() + secs * 1000)
+        .toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+    const escrow = s.side === 0 ? s.priceWei * s.qty : 0n;
+    els.receipt.innerHTML =
+        "<b>Now, the commitment</b>\n" +
+        "  commit(" + id + ")\n" +
+        "  value    " + hbar(BOND) + "\n" +
+        "  calldata " + sel + id.slice(2) + "\n" +
+        "  from     " + s.committer + "\n\n" +
+        "<b>Between " + t(DELAY) + " and " + t(DELAY + WINDOW) + ", the reveal you owe</b>\n" +
+        "  reveal(\n" +
+        "    side    " + s.side + "   " + (s.side === 1 ? "SELL" : "BUY") + "\n" +
+        "    price   " + s.priceWei + "\n" +
+        "    qty     " + s.qty + "\n" +
+        "    salt    " + s.salt + "\n" +
+        "    backing " + (s.side === 1 ? "your ATS hold id" : "0, unused on a buy") + "\n" +
+        "  )\n" +
+        "  value    " + hbar(escrow) + (s.side === 0 ? "   cash escrow, price x qty" : "   a sell sends none") + "\n\n" +
+        "<b>After " + t(DELAY + WINDOW) + "</b>\n" +
+        "  forfeit(" + id.slice(0, 18) + "…) is open to anyone, and pays them " + hbar(BOND) + ".\n" +
+        "  Nothing you can do at that point returns it.";
+    els.receipt.hidden = false;
+    els.receipt.scrollIntoView({behavior: "smooth", block: "nearest"});
+});
+
+reroll();
+</script>

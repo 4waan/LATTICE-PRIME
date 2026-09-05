@@ -3,9 +3,11 @@ pragma solidity ^0.8.24;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {OrderBook} from "../src/market/OrderBook.sol";
+import {OrderBookBase} from "../src/market/OrderBookBase.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
 
 /// @title CancelHandler
@@ -216,20 +218,6 @@ contract CancelHandler is Test {
     }
 }
 
-/// @title OrderCancelTest
-/// @notice The cancel, its bond policy, and the disclosure row it opened. Four
-///         parts, four questions.
-///
-/// - **The mechanism.** Does the exit work and close every door it opened.
-///   `test_aCancelledCommitmentCannotBeOpened` is the regression.
-/// - **The windows.** Cancel is legal on `[commit, reveal)` and nowhere else,
-///   and why the boundary is there rather than a second later is the whole
-///   security argument.
-/// - **The arithmetic.** The fee is derived from a rate inequality, checked as
-///   that inequality over random inputs rather than as the formula it produced.
-/// - **The disclosure.** One bit on row 15: the only cell in the book a
-///   coalition budget can bind, and the venue's first divergence from section
-///   7.2 that is incomparable to the matrix rather than looser or tighter.
 contract OrderCancelTest is Test, PolicyFixture {
     OrderBook internal book;
 
@@ -277,7 +265,7 @@ contract OrderCancelTest is Test, PolicyFixture {
         assertEq(ALICE.balance, 10 ether - BOND, "bond posted");
 
         vm.expectEmit(true, false, false, true, address(book));
-        emit OrderBook.Cancelled(id);
+        emit OrderBookBase.Cancelled(id);
         vm.prank(ALICE);
         book.cancel(id);
 
@@ -301,11 +289,11 @@ contract OrderCancelTest is Test, PolicyFixture {
     }
 
     /// @notice Cancelling is a choice, so it is the one call here that is not
-    ///         permissionless. See `OrderBook.NotCommitter`.
+    ///         permissionless. See `OrderBookBase.NotCommitter`.
     function test_onlyTheCommitterCanCancel() public {
         bytes32 id = _commit(ALICE, "s1");
         vm.prank(MALLORY);
-        vm.expectRevert(abi.encodeWithSelector(OrderBook.NotCommitter.selector, ALICE));
+        vm.expectRevert(abi.encodeWithSelector(OrderBookBase.NotCommitter.selector, ALICE));
         book.cancel(id);
         assertEq(_bondOf(id), BOND, "Mallory could not pull Alice's quote");
     }
@@ -316,7 +304,7 @@ contract OrderCancelTest is Test, PolicyFixture {
         vm.prank(ALICE);
         book.cancel(id);
         vm.prank(ALICE);
-        vm.expectRevert(abi.encodeWithSelector(OrderBook.AlreadyCancelled.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(OrderBookBase.AlreadyCancelled.selector, id));
         book.cancel(id);
         assertEq(book.credit(ALICE), BOND - FEE, "credited once");
     }
@@ -324,20 +312,10 @@ contract OrderCancelTest is Test, PolicyFixture {
     function test_anUnknownCommitmentCannotBeCancelled() public {
         bytes32 id = keccak256("never committed");
         vm.prank(ALICE);
-        vm.expectRevert(abi.encodeWithSelector(OrderBook.UnknownCommitment.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(OrderBookBase.UnknownCommitment.selector, id));
         book.cancel(id);
     }
 
-    /// @notice **The regression, and the one thing this feature could plausibly
-    ///         have broken.**
-    ///
-    /// A cancelled commitment still has a committer and `revealed == false`, and
-    /// cancel closes at the instant reveal opens. So a trader who cancels one
-    /// second before the boundary is inside the reveal window one second later,
-    /// holding a commitment whose bond is already refunded. Without the
-    /// `cancelled` guard in `reveal` they open it and stand on the live book with
-    /// nothing at stake, which is the unfunded promise that keeping the bond past
-    /// reveal exists to prevent. The refund would re-create the hole.
     function test_aCancelledCommitmentCannotBeOpened() public {
         bytes32 id = _commit(ALICE, "s1");
         vm.warp(block.timestamp + DELAY - 1);
@@ -346,7 +324,7 @@ contract OrderCancelTest is Test, PolicyFixture {
 
         vm.warp(block.timestamp + 2); // now inside the reveal window
         vm.prank(ALICE);
-        vm.expectRevert(abi.encodeWithSelector(OrderBook.AlreadyCancelled.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(OrderBookBase.AlreadyCancelled.selector, id));
         book.reveal(OrderBook.Side.BUY, 101, 5_000, "s1", 0);
 
         assertEq(book.revealedCount(), 0, "and no unbonded order reached the book");
@@ -365,38 +343,22 @@ contract OrderCancelTest is Test, PolicyFixture {
         vm.warp(block.timestamp + DELAY + WINDOW + 1);
         uint256 before = MALLORY.balance;
         vm.prank(MALLORY);
-        vm.expectRevert(abi.encodeWithSelector(OrderBook.AlreadyCancelled.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(OrderBookBase.AlreadyCancelled.selector, id));
         book.forfeit(id);
         assertEq(MALLORY.balance, before, "no phantom sweep");
     }
 
-    /// @notice And the reverse: a swept commitment cannot then be cancelled, and
-    ///         the error names the state rather than the clock.
-    /// @dev Two guards refuse this and the informative one fires.
-    ///      `CancelWindowClosed` is also true and useless, because the commitment
-    ///      is gone and reopening the window would not bring it back.
-    ///
-    ///      **This is why the `revealed` check in `cancel` is not dead code**: it
-    ///      is unreachable through a reveal, which the clock forbids, and
-    ///      reachable through a sweep, which the clock requires.
     function test_aSweptCommitmentCannotBeCancelled() public {
         bytes32 id = _commit(ALICE, "s1");
         vm.warp(block.timestamp + DELAY + WINDOW + 1);
         book.forfeit(id);
         vm.prank(ALICE);
-        vm.expectRevert(abi.encodeWithSelector(OrderBook.AlreadyRevealed.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(OrderBookBase.AlreadyRevealed.selector, id));
         book.cancel(id);
     }
 
     // ====================================================== part 2, the windows
 
-    /// @notice The boundary, checked on both sides of the same second.
-    ///
-    /// @dev The security argument for the whole feature, checked at the
-    ///      granularity the contract compares at. The bond prices an option to
-    ///      decline, and lapsing costs `commitBond`. One second later and that
-    ///      price becomes `cancelFee`, cancel dominates lapse at every parameter,
-    ///      and **the feature quietly repeals an existing property.**
     function test_cancelClosesAtTheInstantRevealOpens() public {
         uint64 opensAt = uint64(block.timestamp) + DELAY;
 
@@ -413,7 +375,7 @@ contract OrderCancelTest is Test, PolicyFixture {
         vm.warp(lateOpensAt);
         vm.prank(ALICE);
         vm.expectRevert(
-            abi.encodeWithSelector(OrderBook.CancelWindowClosed.selector, lateOpensAt)
+            abi.encodeWithSelector(OrderBookBase.CancelWindowClosed.selector, lateOpensAt)
         );
         book.cancel(late);
 
@@ -423,14 +385,6 @@ contract OrderCancelTest is Test, PolicyFixture {
         assertTrue(book.isLive(late), "reveal is legal at the instant cancel is not");
     }
 
-    /// @notice The three exits tile the commitment's lifetime: at every instant
-    ///         exactly one of cancel, reveal and forfeit is legal.
-    ///
-    /// @dev The two illegal probes come first and are `expectRevert`ed, leaving
-    ///      no state behind, so one commitment answers all three questions at a
-    ///      single instant. No gap and no overlap is what makes the bond policy
-    ///      readable: a committer always has exactly one way out, and which one
-    ///      depends only on the clock.
     function testFuzz_theWindowsPartitionTheCommitmentLifetime(uint64 offset) public {
         offset = uint64(bound(offset, 0, uint256(DELAY) + WINDOW + 2 days));
         uint64 committedAt = uint64(block.timestamp);
@@ -440,12 +394,12 @@ contract OrderCancelTest is Test, PolicyFixture {
         if (offset < DELAY) {
             vm.prank(ALICE);
             vm.expectRevert(
-                abi.encodeWithSelector(OrderBook.TooEarly.selector, committedAt + DELAY)
+                abi.encodeWithSelector(OrderBookBase.TooEarly.selector, committedAt + DELAY)
             );
             book.reveal(OrderBook.Side.BUY, 101, 5_000, "partition", 0);
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    OrderBook.StillRevealable.selector, committedAt + DELAY + WINDOW
+                    OrderBookBase.StillRevealable.selector, committedAt + DELAY + WINDOW
                 )
             );
             book.forfeit(id);
@@ -456,13 +410,13 @@ contract OrderCancelTest is Test, PolicyFixture {
             vm.prank(ALICE);
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    OrderBook.CancelWindowClosed.selector, committedAt + DELAY
+                    OrderBookBase.CancelWindowClosed.selector, committedAt + DELAY
                 )
             );
             book.cancel(id);
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    OrderBook.StillRevealable.selector, committedAt + DELAY + WINDOW
+                    OrderBookBase.StillRevealable.selector, committedAt + DELAY + WINDOW
                 )
             );
             book.forfeit(id);
@@ -473,13 +427,15 @@ contract OrderCancelTest is Test, PolicyFixture {
             vm.prank(ALICE);
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    OrderBook.CancelWindowClosed.selector, committedAt + DELAY
+                    OrderBookBase.CancelWindowClosed.selector, committedAt + DELAY
                 )
             );
             book.cancel(id);
             vm.prank(ALICE);
             vm.expectRevert(
-                abi.encodeWithSelector(OrderBook.TooLate.selector, committedAt + DELAY + WINDOW)
+                abi.encodeWithSelector(
+                    OrderBookBase.TooLate.selector, committedAt + DELAY + WINDOW
+                )
             );
             book.reveal(OrderBook.Side.BUY, 101, 5_000, "partition", 0);
             book.forfeit(id);
@@ -487,8 +443,6 @@ contract OrderCancelTest is Test, PolicyFixture {
         }
     }
 
-    /// @notice The view and the guard agree about which side of the boundary is
-    ///         which.
     function test_cancellableUntilIsTheBoundaryTheContractUses() public {
         uint64 committedAt = uint64(block.timestamp);
         bytes32 id = _commit(ALICE, "s1");
@@ -500,11 +454,6 @@ contract OrderCancelTest is Test, PolicyFixture {
         assertEq(book.cancellableUntil(keccak256("nothing")), 0, "nor is an unknown one");
     }
 
-    /// @notice A book with no reveal delay has no cancel window, and that is
-    ///         coherent rather than a hole.
-    /// @dev Without a delay there is no moment at which a committer holds
-    ///      something they cannot yet act on, so nothing for a cancel to release.
-    ///      Such a book is already broken for the reason `revealDelay` documents.
     function test_aBookWithNoRevealDelayHasNoCancelWindow() public {
         OrderBook instant = new OrderBook(0, WINDOW, BOND, 0, params, ROUND, REST);
         bytes32 id = instant.commitmentOf(ALICE, OrderBook.Side.BUY, 101, 5_000, "s1");
@@ -513,7 +462,7 @@ contract OrderCancelTest is Test, PolicyFixture {
         vm.prank(ALICE);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrderBook.CancelWindowClosed.selector, uint64(block.timestamp)
+                OrderBookBase.CancelWindowClosed.selector, uint64(block.timestamp)
             )
         );
         instant.cancel(id);
@@ -521,8 +470,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     // =================================================== part 3, the arithmetic
 
-    /// @notice The deployed fee is the derived floor and not a round number
-    ///         somebody liked.
     function test_theDeployedFeeIsTheDerivedMinimum() public view {
         assertEq(book.cancelFee(), FEE, "the constant and the contract agree");
         assertEq(
@@ -544,7 +491,7 @@ contract OrderCancelTest is Test, PolicyFixture {
     function test_aFeeBelowTheFloorCannotBeDeployed() public {
         uint256 floor_ = book.minimumCancelFee(BOND, DELAY, WINDOW);
         vm.expectRevert(
-            abi.encodeWithSelector(OrderBook.CancelFeeTooLow.selector, floor_ - 1, floor_)
+            abi.encodeWithSelector(OrderBookBase.CancelFeeTooLow.selector, floor_ - 1, floor_)
         );
         new OrderBook(DELAY, WINDOW, BOND, floor_ - 1, params, ROUND, REST);
 
@@ -558,7 +505,7 @@ contract OrderCancelTest is Test, PolicyFixture {
     ///         more than was ever posted.
     function test_aFeeAboveTheBondCannotBeDeployed() public {
         vm.expectRevert(
-            abi.encodeWithSelector(OrderBook.CancelFeeExceedsBond.selector, BOND + 1, BOND)
+            abi.encodeWithSelector(OrderBookBase.CancelFeeExceedsBond.selector, BOND + 1, BOND)
         );
         new OrderBook(DELAY, WINDOW, BOND, BOND + 1, params, ROUND, REST);
     }
@@ -579,15 +526,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice **The theorem the fee is derived from, checked as the inequality
     ///         rather than as the formula.**
-    ///
-    /// @dev Two ways to buy phantom order book: lapse, costing `bond` for
-    ///      `delay + window` seconds, or cancel at `t < delay`, costing `fee` for
-    ///      `t`. Neither may be cheaper per second, which is
-    ///      `fee * (delay + window) >= bond * t` for every reachable `t`. This
-    ///      asserts that, at the floor fee, over random parameters and instants.
-    ///      It never mentions the closed form, so it still fails if
-    ///      `minimumCancelFee` is rewritten to agree with the old formula rather
-    ///      than with the requirement.
     function testFuzz_cancellingIsNeverTheCheaperPhantom(
         uint256 bond_,
         uint64 delay,
@@ -631,14 +569,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice **The cost the feature does have, stated as a number rather than
     ///         argued away.**
-    ///
-    /// @dev A refundable cancel makes flooding cheaper in absolute terms and no
-    ///      framing removes it: `n` phantoms cost `n * bond` lapsed and
-    ///      `n * cancelFee` cancelled, a discount of `bond / cancelFee`. What the
-    ///      rate bound buys is that the cheaper attack is proportionally
-    ///      shorter-lived, so the discount is on phantom count, never on
-    ///      phantom-seconds. Pinned because an unstated discount found later is a
-    ///      finding and a stated one is a parameter.
     function test_theFloodDiscountIsExactlyStatedAndNotHidden() public {
         uint256 n = 5;
         uint256 spentCancelling;
@@ -653,14 +583,6 @@ contract OrderCancelTest is Test, PolicyFixture {
         // The same n phantoms bought the other way, by letting them lapse.
         uint256 spentLapsing = BOND * n;
 
-        // **The bound, and it is an inequality rather than the round number it
-        // looks like.** The discount on phantom *count* is `bond / cancelFee`,
-        // and the derivation caps that at the ratio of the lives,
-        // `(delay + window) / delay`, which here is seven. It does not reach
-        // seven, because the floor fee is a ceiling division and so is a few wei
-        // above the exact seventh. The assertion is written as the cap it came
-        // from; the integer ratio below records what that costs an attacker in
-        // practice, which is one phantom out of every seven they hoped for.
         assertLe(
             spentLapsing * uint256(DELAY),
             spentCancelling * (uint256(DELAY) + WINDOW),
@@ -674,10 +596,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice Section 7.2 as written refuses the cancel, exactly as it refuses
     ///         the reveal, and for a different reason.
-    /// @dev Rows 3 and 4 are refused because the venue publishes more than the
-    ///      matrix allows. Row 15 is refused because it publishes *sooner*:
-    ///      `(pred, imm)` against `(agg, EOD)`, granularity under the cell and
-    ///      time not, and on that axis being under does not help.
     function test_theMatrixAsWrittenRefusesTheCancel() public {
         _publish(sevenTwoAsWritten());
         bytes32 id = _commit(ALICE, "s1");
@@ -686,7 +604,7 @@ contract OrderCancelTest is Test, PolicyFixture {
         vm.prank(ALICE);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrderBook.DisclosureExceedsCeiling.selector,
+                DisclosureView.DisclosureExceedsCeiling.selector,
                 ROW_ACTIVITY,
                 L.excess(L.point(L.G_AGG, L.T_EOD), L.point(L.G_PRED, L.T_IMM))
             )
@@ -697,16 +615,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice **The deployed cell is incomparable to the matrix cell.** Not
     ///         looser, not tighter.
-    ///
-    /// @dev Every previous divergence moved one way along one axis: rows 3, 4
-    ///      and 5 all landed strictly above section 7.2 because a public ledger
-    ///      has no `{ven}` distinct from `{pub}`. Row 15 discloses **less** per
-    ///      event than the matrix allows and **sooner**, and neither ideal
-    ///      contains the other.
-    ///
-    ///      The first place the venue needs the lattice to be a lattice rather
-    ///      than a chain. A model ranking disclosures on one scale must call this
-    ///      pair ordered, and either ordering is wrong about one of the axes.
     function test_theCancelCellIsIncomparableToTheMatrix() public pure {
         uint32 deployed = L.point(L.G_PRED, L.T_IMM);
         uint32 matrix = L.point(L.G_AGG, L.T_EOD);
@@ -726,17 +634,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice The lex rule the Python checker uses calls this pair ordered and
     ///         safe, which is a false negative on a live venue row.
-    ///
-    /// @dev `DisclosureLattice`'s header records that
-    ///      `scripts/collusion-check.py` computes a lex maximum on `G x T^op` and
-    ///      that it under-reports, with a constructed witness. This one is not
-    ///      constructed: it is the cell the venue publishes on row 15 against the
-    ///      cell the study wrote. The lex summary ranks the deployed cell
-    ///      strictly **below** the matrix, reporting the venue as disclosing less
-    ///      than allowed, while the ideal order says the two are incomparable and
-    ///      the venue is outside the cell on the time axis. A checker answering
-    ///      "under the ceiling" here clears a disclosure the contract needs a
-    ///      parameter change to make.
     function test_theLexRuleCallsTheIncomparablePairSafe() public pure {
         uint32 deployed = L.point(L.G_PRED, L.T_IMM);
         uint32 matrix = L.point(L.G_AGG, L.T_EOD);
@@ -758,9 +655,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice With row 15 unpublished the feature does not exist, and the
     ///         failure mode is the behaviour that shipped before it.
-    /// @dev Fail closed and gracefully: the commitment, the bond and both other
-    ///      exits survive, so an ungranted venue leaves its traders exactly as
-    ///      locked in as they already were.
     function test_anUnpublishedRowMeansNoCancelFeature() public {
         _publish(_withoutRow15());
         assertEq(book.ceilingFor(15), L.BOTTOM, "row 15 is un-granted");
@@ -769,7 +663,7 @@ contract OrderCancelTest is Test, PolicyFixture {
         vm.prank(ALICE);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrderBook.DisclosureExceedsCeiling.selector,
+                DisclosureView.DisclosureExceedsCeiling.selector,
                 ROW_ACTIVITY,
                 L.point(L.G_PRED, L.T_IMM)
             )
@@ -787,12 +681,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice **The cancel is the only cell in the order book a coalition
     ///         budget can bind.**
-    ///
-    /// @dev `DisclosureMeter`'s header records the book as unmeterable by
-    ///      construction, rows 3, 4 and 17 all publishing at `exact` against a
-    ///      budget that must sit below `domainBits`, and says the lever that
-    ///      leaves is a coarser disclosure. This is the lever taken, tested as
-    ///      the pair: row 3's budget still refused and row 15's adopted.
     function test_cancellationIsTheBooksOnlyMeterableRow() public {
         // The refusal, unchanged.
         assertTrue(
@@ -811,14 +699,6 @@ contract OrderCancelTest is Test, PolicyFixture {
         assertEq(book.breakingSize(3, L.G_EXACT), 0, "row 3 is still unmetered");
     }
 
-    /// @notice Rule A at the new site: the budget silences the venue, never the
-    ///         trader.
-    ///
-    /// @dev Three cancels are announced and the fourth is not, but the fourth
-    ///      still completes and still refunds. A trader must not lose the ability
-    ///      to pull a quote because the venue ran out of things it may say. Third
-    ///      site where that rule is the difference between a disclosure budget
-    ///      and a denial of service.
     function test_theFourthCancellationOfAnEpochIsSilentAndStillRefunds() public {
         _publish(meteredCancellations());
         uint64 epoch = params.currentEpoch();
@@ -832,7 +712,7 @@ contract OrderCancelTest is Test, PolicyFixture {
 
             bool announced;
             for (uint256 j = 0; j < logs.length; ++j) {
-                if (logs[j].topics[0] == OrderBook.Cancelled.selector) announced = true;
+                if (logs[j].topics[0] == OrderBookBase.Cancelled.selector) announced = true;
             }
             if (i < 3) {
                 assertTrue(announced, "inside the budget, the cancel is announced");
@@ -850,9 +730,6 @@ contract OrderCancelTest is Test, PolicyFixture {
 
     /// @notice A cancel costs one bit, which is what makes the budget arithmetic
     ///         exact instead of rounded.
-    /// @dev `bits` returns a literal 1 for `pred`, independent of the row's
-    ///      other three numbers, so `breakingSize` at `pred` is `budgetBits + 1`
-    ///      with no division to argue about.
     function test_aCancelCostsExactlyOneBit() public {
         _publish(meteredCancellations());
         B.Row memory r = params.budgetFor(15);
@@ -886,18 +763,6 @@ contract OrderCancelInvariantTest is Test, PolicyFixture {
     uint64 internal constant DELAY = 5 minutes;
     uint64 internal constant WINDOW = 30 minutes;
     uint256 internal constant BOND = 0.1 ether;
-    /// @dev **A fast clock, chosen for reachability.** At the venue's real
-    ///      numbers an order becomes expirable eight simulated days after its
-    ///      reveal, which the fuzzer must string together from hour-scale steps
-    ///      and then pick the same id again out of two dozen. Measured,
-    ///      `afterInvariant` reported zero expiries per run and refused to
-    ///      certify the law over a path never taken.
-    ///
-    ///      Nothing in the law reads `roundLength` or `restRounds`; they decide
-    ///      only *when* `_retire` runs, and the invariant is about what it does
-    ///      to the balance. The resting numbers are argued in
-    ///      `OrderBook.restRounds` and tested at the real values in
-    ///      `OrderBookTest`.
     uint64 internal constant ROUND = 1 hours;
     uint64 internal constant REST = 1;
     uint256 internal constant FEE = (BOND * DELAY + (DELAY + WINDOW) - 1) / (DELAY + WINDOW);
