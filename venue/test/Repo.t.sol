@@ -127,6 +127,11 @@ contract RepoMathTest is Test {
 }
 
 contract RepoVaultTest is Test, PolicyFixture {
+    /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
+    ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
+    uint256 internal constant PENALTY_RATE = 10;
+    uint64 internal constant FAIL_GRACE = 5 days;
+
     MockHolds holds;
     RepoVault vault;
 
@@ -141,7 +146,7 @@ contract RepoVaultTest is Test, PolicyFixture {
     function setUp() public {
         holds = new MockHolds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, params);
+        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
     }
 
     function _open() internal returns (uint256 principal) {

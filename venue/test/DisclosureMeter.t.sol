@@ -71,6 +71,11 @@ contract HoldsStub is IHoldByPartition {
 /// `test_theBooksExactRowsAreUnmeterableByConstruction` and
 /// `test_theMeterableSurfaceIsTwoRowsAndOneOfThemCarriesABudget`.
 contract DisclosureMeterTest is Test, PolicyFixture {
+    /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
+    ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
+    uint256 internal constant PENALTY_RATE = 10;
+    uint64 internal constant FAIL_GRACE = 5 days;
+
     RepoVault internal vault;
     OrderBook internal book;
     HoldsStub internal holds;
@@ -89,7 +94,7 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     function setUp() public {
         _deployPolicy(withBudgets());
         holds = new HoldsStub();
-        vault = new RepoVault(holds, ENGINE, params);
+        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
         // A zero bond, so the derived cancel-fee floor is zero too and this
         // deployment says nothing about the fee policy. `OrderCancelTest` owns
         // that; this suite only needs a book that discloses.

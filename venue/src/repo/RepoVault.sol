@@ -17,15 +17,18 @@ import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
 ///                    v
 ///   T7 substitution  |                 T2 close leg
 ///   (REFUSED)  ----> OPEN ------------------------> CLOSED
-///                    |  ^  |                          ^
-///            T3 mark |  |  | T5 coupon falls due      |
-///                    v  |  v                          |
-///          MARGIN_CALL  |  MANUFACTURED               |
-///             |    |    +--- T6 pay through ----------+
-///     T4a cure|    | T4b window expires               |
-///             +--> |                                  |
-///                  v                                  |
-///              DEFAULTED ---- T8 auction settles -----+
+///                    |  ^  |    T9 maturity passes    ^  ^
+///            T3 mark |  |  | T5 coupon falls due      |  |
+///                    v  |  v                          |  |
+///          MARGIN_CALL  |  MANUFACTURED               |  |
+///             |    |    +--- T6 pay through ----------+  |
+///     T4a cure|    | T4b window expires                  |
+///             +--> |            FAILING -- T2 with the --+
+///                  |               |         penalty
+///                  v    T10 grace  v
+///              DEFAULTED <---------+
+///                  |
+///                  +------- T8 auction settles ----------+
 /// ```
 ///
 /// ## What this contract does and does not own
@@ -61,7 +64,7 @@ import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
 contract RepoVault {
     using RepoMath for uint256;
 
-    enum State {NONE, PROPOSED, OPEN, MARGIN_CALL, MANUFACTURED, DEFAULTED, CLOSED}
+    enum State {NONE, PROPOSED, OPEN, MARGIN_CALL, MANUFACTURED, FAILING, DEFAULTED, CLOSED}
 
     /// @notice The economic terms, agreed off chain at `PROPOSED` and fixed at T1.
     /// @dev Grouped into a struct rather than passed flat, because flat it does not
@@ -113,6 +116,27 @@ contract RepoVault {
     IHoldByPartition public immutable security;
     address public immutable marginEngine;
 
+    /// @notice CSDR Article 7 cash penalty, hundredths of a basis point per day.
+    /// @dev `[DOC]`, and the disposition is `VolumeCap.capBps`'s unchanged: a
+    ///      published constant with the derivation named as owed. A close leg
+    ///      fails on the **cash** side, and Article 7 prices a cash fail at the
+    ///      overnight credit rate of the central bank of issue, floored at zero.
+    ///      That is a rate this contract has no oracle for, so it is configured
+    ///      and emitted rather than derived. The security-side table, which the
+    ///      same field would carry if the failing leg were the collateral, is in
+    ///      `RepoMath.BP_HUNDREDTHS`.
+    ///
+    ///      Zero is a legal setting and means the venue publishes no penalty,
+    ///      which the rulebook then has to say.
+    uint256 public immutable penaltyRate;
+
+    /// @notice How long a fail runs before default becomes available.
+    /// @dev Article 7's escalation is the buy-in, which happens after the
+    ///      penalty has run for a period rather than instead of it. This is that
+    ///      period. It is why `FAILING` is a state and not a flag: a fail that
+    ///      went straight to default would price nothing.
+    uint64 public immutable failGrace;
+
     /// @notice The governed disclosure policy, asked per row.
     /// @dev This replaced `uint32 public immutable ceiling`, and the replacement
     ///      is not a generalisation for its own sake. One ceiling for a contract
@@ -154,6 +178,12 @@ contract RepoVault {
     event Cured(bytes32 indexed id);
     event CouponObserved(bytes32 indexed id, bytes32 commitment);
     event ManufacturedPaid(bytes32 indexed id);
+    /// @dev No amount, for `manufacturedCommitment`'s reason. The penalty is
+    ///      `value * rate * days`, and rate and days are both public, so an
+    ///      amount here divides out to the position. Row 14 gives position
+    ///      `(none, {}, never)`. The date is a term of the instrument and was
+    ///      already published by `Opened`.
+    event Failing(bytes32 indexed id, uint64 intendedAt);
     event Defaulted(bytes32 indexed id);
     /// @dev The predicate and not the price. See `close`.
     event Closed(bytes32 indexed id);
@@ -166,6 +196,8 @@ contract RepoVault {
     error NotMarginEngine();
     error CureWindowOpen(uint64 until);
     error NothingOwed();
+    error NotYetMature(uint64 maturity);
+    error FailGraceOpen(uint64 until);
     error SubstitutionRefused();
     error DisclosureExceedsCeiling(uint32 excess);
     error AlreadyExists(bytes32 id);
@@ -173,11 +205,18 @@ contract RepoVault {
     constructor(
         IHoldByPartition security_,
         address marginEngine_,
-        IDisclosurePolicy policy_
+        IDisclosurePolicy policy_,
+        uint256 penaltyRate_,
+        uint64 failGrace_
     ) {
+        if (penaltyRate_ > RepoMath.BP_HUNDREDTHS) {
+            revert RepoMath.PenaltyRateTooLarge(penaltyRate_);
+        }
         security = security_;
         marginEngine = marginEngine_;
         policy = policy_;
+        penaltyRate = penaltyRate_;
+        failGrace = failGrace_;
     }
 
     // ------------------------------------------------------------ T1: open
@@ -247,13 +286,24 @@ contract RepoVault {
     ///      treats T2 as infallible is wrong about the instrument.
     function close(bytes32 id) external returns (uint256 price) {
         Repo storage r = repos[id];
-        _require(r.state == State.OPEN, r.state, State.OPEN);
+        if (r.state != State.OPEN && r.state != State.FAILING) {
+            revert WrongState(r.state, State.OPEN);
+        }
         if (msg.sender != r.borrower) revert NotParty();
         if (r.manufacturedCommitment != bytes32(0)) revert NothingOwed();
 
+        // **The penalty runs from maturity and not from the declaration.** If it
+        // keyed off `FAILING` the borrower would simply close late without ever
+        // being marked, and a charge nobody triggers is not a charge. It also
+        // covers the one path `markFailing` cannot reach, a repo sitting in
+        // `MANUFACTURED` when maturity passes.
+        //
+        // Interest accrues over the fail as well. A failing borrower pays both,
+        // which is the conservative direction and is stated because the
+        // alternative, freezing the accrual at maturity, is also defensible.
         price = RepoMath.repurchasePrice(
             r.principal, r.repoRateBps, r.openedAt, block.timestamp
-        );
+        ) + _penaltyOf(r, block.timestamp);
 
         security.executeHoldByPartition(
             IHoldTypes.HoldIdentifier({
@@ -360,14 +410,67 @@ contract RepoVault {
         }
     }
 
-    /// @notice `MARGIN_CALL -> DEFAULTED` once the window has passed.
+    /// @notice `OPEN -> FAILING`. Maturity passed and the close leg did not.
+    /// @dev **The transition the state machine did not have.** `maturity` was
+    ///      written, emitted by `Opened`, and never read again: `close` had no
+    ///      maturity check, and the only route to `DEFAULTED` ran through
+    ///      `MARGIN_CALL`, which needs the margin engine to post a breaching
+    ///      mark. So a borrower who simply never closed left the repo `OPEN`
+    ///      indefinitely and the lender had no remedy unless the collateral
+    ///      happened to move. The comment on `close` asserting the venue reaches
+    ///      `DEFAULTED` through T4b was describing a path that did not exist
+    ///      from here.
+    ///
+    ///      Permissionless, and the reason is sharper than `declareDefault`'s.
+    ///      The party who would decline to record a fail is the one whose fail
+    ///      it is, because the grace clock that ends in default starts here.
+    function markFailing(bytes32 id) external {
+        Repo storage r = repos[id];
+        _require(r.state == State.OPEN, r.state, State.OPEN);
+        if (block.timestamp < r.maturity) revert NotYetMature(r.maturity);
+        r.state = State.FAILING;
+        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            emit Failing(id, r.maturity);
+        }
+    }
+
+    /// @notice The Article 7 penalty owed on `id` right now.
+    /// @dev A view and never an event. `repurchasePriceNow` already hands over
+    ///      the settlement price, so this discloses nothing the ledger does not
+    ///      hold, and the event stream is the surface `_emitUnder` governs.
+    function settlementPenaltyNow(bytes32 id) external view returns (uint256) {
+        return _penaltyOf(repos[id], block.timestamp);
+    }
+
+    /// @dev Reference value is what was owed **at maturity**, the cash that
+    ///      failed to arrive. It does not grow with the fail; the accrual does
+    ///      that, separately.
+    function _penaltyOf(Repo storage r, uint256 at) private view returns (uint256) {
+        if (r.maturity == 0 || at <= r.maturity) return 0;
+        uint256 owed =
+            RepoMath.repurchasePrice(r.principal, r.repoRateBps, r.openedAt, r.maturity);
+        return RepoMath.settlementPenalty(owed, penaltyRate, r.maturity, at);
+    }
+
+    /// @notice `MARGIN_CALL -> DEFAULTED`, or `FAILING -> DEFAULTED`.
     /// @dev Permissionless, so the lender is not the sole trigger. A default that
     ///      only the lender can declare is a default the lender can decline to
     ///      declare, and the borrower has no way to force resolution.
+    ///
+    ///      Two entries and two clocks. Article 7's escalation is the buy-in,
+    ///      which follows the penalty rather than replacing it, so the fail runs
+    ///      for `failGrace` while the charge accrues and only then becomes a
+    ///      default. That is the whole reason `FAILING` is a state: a fail sent
+    ///      straight to `DEFAULTED` prices nothing.
     function declareDefault(bytes32 id) external {
         Repo storage r = repos[id];
-        _require(r.state == State.MARGIN_CALL, r.state, State.MARGIN_CALL);
-        if (block.timestamp < r.cureDeadline) revert CureWindowOpen(r.cureDeadline);
+        if (r.state == State.FAILING) {
+            uint64 until = r.maturity + failGrace;
+            if (block.timestamp < until) revert FailGraceOpen(until);
+        } else {
+            _require(r.state == State.MARGIN_CALL, r.state, State.MARGIN_CALL);
+            if (block.timestamp < r.cureDeadline) revert CureWindowOpen(r.cureDeadline);
+        }
         r.state = State.DEFAULTED;
         if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Defaulted(id);

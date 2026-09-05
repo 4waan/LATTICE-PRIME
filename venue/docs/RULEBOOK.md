@@ -151,9 +151,16 @@ of *nobody* is retained by the contract and no path pays it out.
 | `axe.post.bond` | posting an axe | participant | nobody | yes | `AxeBoard.axeBond` |
 | `axe.probe.fee` | probing a cell | participant | counterparty | no | `AxeBoard.probeFee` |
 | `axe.probe.slash` | failing to answer a probe | participant | counterparty | no | `AxeBoard.axeBond` |
+| `repo.fail.penalty` | a close leg that did not settle | participant | counterparty | no | `RepoVault.penaltyRate` |
 | `venue.take` | nothing | participant | operator | no | none, and zero |
 
-Three derivations, because a charge without one is a constant nobody can check:
+`repo.fail.penalty` is a **rate** and not an amount: hundredths of a basis
+point per day, charged on the cash that failed to arrive, from the intended
+settlement date through to actual settlement. The unit is forced by the
+regulation, which writes its rates to one decimal place of a basis point, so in
+basis points the two bond rates would both be zero.
+
+Four derivations, because a charge without one is a constant nobody can check:
 
 - **`book.commit.cancel`** is `ceil(B * D / (D + W))` where `B` is the commit
   bond, `D` the reveal delay and `W` the reveal window. A phantom order can be
@@ -170,6 +177,22 @@ Three derivations, because a charge without one is a constant nobody can check:
 - **`book.commit.forfeit`** pays the sweeper because sweeping is work. A cancel
   creates none, so the cancel fee is retained instead: every candidate recipient
   of a cancel fee invents an incentive to want cancellations.
+
+- **`repo.fail.penalty`** is CSDR Article 7, and the derivation is partly owed.
+  The shape is derived: daily accrual from the intended settlement date, days
+  rounded up so a fail of any length costs one, charged on the cash that failed
+  rather than on the collateral, because a close leg fails on the cash side. The
+  **rate** is not derived. Article 7 prices a cash fail at the overnight credit
+  rate of the central bank of issue, floored at zero, and this contract has no
+  oracle for that rate, so it is published and named as owed, which is the same
+  disposition the Article 5 cap's own threshold carries. The security-side table
+  the same field would take is 0.10 bp a day for sovereign debt, 0.20 for other
+  bonds, 1.00 for a liquid share.
+
+  Article 7(2) says the mechanism "shall not operate as a revenue source". That
+  is a constraint on who is paid, and it is the one clause of the regulation
+  this page can check rather than assert: the line names the counterparty as
+  payee, so `netOperatorTake` cannot include it. `test_theFailPenaltyIsNotVenueRevenue`.
 
 ## 9. Venue revenue, and the open question that makes it zero
 
@@ -224,6 +247,11 @@ cannot be published truthfully.
 - The discretionary halt exists and has no caller in this deployment, because
   the supervisor seat is held by a contract. Section 7.
 - No venue revenue, and no derivation for one. Section 9.
+- The settlement-fail penalty rate is published, not derived. The shape of the
+  charge is derived; the number is owed. Section 8.
+- A settlement day is 24 hours here and business days in the regulation, because
+  the contract has no calendar. It over-counts across a weekend, in the
+  direction that favours the party that was failed against.
 - Rows 3, 4 and 5 are published at exact and immediate rather than deferred,
   because a public ledger has no observer set that holds a value the public does
   not. Commit and reveal moves *when*; it does not narrow *who*.
