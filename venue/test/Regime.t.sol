@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {Regime, IEpochClock} from "../src/policy/Regime.sol";
+import {Regime} from "../src/policy/Regime.sol";
+import {IEpochClock} from "../src/interfaces/IEpochClock.sol";
 import {VolumeCap} from "../src/policy/VolumeCap.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 
@@ -69,11 +70,7 @@ contract RegimeTest is Test {
 
     /// The one invariant the whole construction rests on, over arbitrary
     /// sequences: nothing reachable ever exceeds the grant.
-    function testFuzz_nothingReachableEverExceedsTheGrant(
-        uint32 a,
-        uint32 b,
-        uint32 c
-    ) public {
+    function testFuzz_nothingReachableEverExceedsTheGrant(uint32 a, uint32 b, uint32 c) public {
         uint32[3] memory tries = [L.close(a), L.close(b), L.close(c)];
         for (uint256 i; i < 3; ++i) {
             vm.prank(OPERATOR);
@@ -87,7 +84,9 @@ contract RegimeTest is Test {
             try regime.adoptRelax() {} catch {}
 
             assertTrue(L.permits(regime.ideal(), regime.ceiling()), "ceiling escaped the grant");
-            assertTrue(L.permits(regime.ceiling(), regime.current()), "current escaped the ceiling");
+            assertTrue(
+                L.permits(regime.ceiling(), regime.current()), "current escaped the ceiling"
+            );
         }
     }
 
@@ -96,11 +95,9 @@ contract RegimeTest is Test {
     /// fuzz above, same arbitrary sequences, opposite direction, and it exercises
     /// the floor calls alongside the ceiling ones so the two can contradict each
     /// other if the reconciliation is wrong.
-    function testFuzz_nothingReachableEverFallsBelowTheObligation(
-        uint32 a,
-        uint32 b,
-        uint32 c
-    ) public {
+    function testFuzz_nothingReachableEverFallsBelowTheObligation(uint32 a, uint32 b, uint32 c)
+        public
+    {
         uint32[3] memory tries = [L.close(a), L.close(b), L.close(c)];
         for (uint256 i; i < 3; ++i) {
             vm.prank(OPERATOR);
@@ -119,9 +116,15 @@ contract RegimeTest is Test {
             try regime.adoptLowerFloor() {} catch {}
 
             // an invariant, whole: `mandate <= floor <= current <= ceiling <= ideal`.
-            assertTrue(L.permits(regime.floor(), regime.mandate()), "floor fell below the grant");
-            assertTrue(L.permits(regime.current(), regime.floor()), "current fell below the floor");
-            assertTrue(L.permits(regime.ceiling(), regime.current()), "current escaped the ceiling");
+            assertTrue(
+                L.permits(regime.floor(), regime.mandate()), "floor fell below the grant"
+            );
+            assertTrue(
+                L.permits(regime.current(), regime.floor()), "current fell below the floor"
+            );
+            assertTrue(
+                L.permits(regime.ceiling(), regime.current()), "current escaped the ceiling"
+            );
             assertTrue(L.permits(regime.ideal(), regime.ceiling()), "ceiling escaped the grant");
         }
     }
@@ -208,7 +211,9 @@ contract RegimeTest is Test {
 
         // And lowering the floor does not lower `current`. Two visible
         // governance actions, never one silent one. `adoptRelax`'s rule.
-        assertTrue(L.permits(regime.current(), obliged), "the restoration moved the live policy");
+        assertTrue(
+            L.permits(regime.current(), obliged), "the restoration moved the live policy"
+        );
     }
 
     /// The supervisor cannot waive an obligation the grant fixed, which is the
@@ -240,7 +245,9 @@ contract RegimeTest is Test {
         clock.tick();
         vm.expectRevert(Regime.NothingPending.selector);
         regime.adoptLowerFloor();
-        assertEq(regime.floor(), L.point(L.G_BUCKET, L.T_EOD), "the second suspension was undone");
+        assertEq(
+            regime.floor(), L.point(L.G_BUCKET, L.T_EOD), "the second suspension was undone"
+        );
     }
 
     /// A scheduled relax that the floor has since overtaken must not wedge
@@ -273,7 +280,9 @@ contract RegimeTest is Test {
         uint32 tight = L.point(L.G_PRED, L.T_EPOCH);
         vm.prank(SUPERVISOR);
         regime.narrow(tight, "art5");
-        assertEq(regime.ceiling(), L.meet(IDEAL, tight), "ceiling did not move in the same block");
+        assertEq(
+            regime.ceiling(), L.meet(IDEAL, tight), "ceiling did not move in the same block"
+        );
         assertTrue(L.permits(regime.ceiling(), regime.current()), "live config was not clamped");
     }
 
@@ -394,7 +403,9 @@ contract VolumeCapTest is Test {
         // ceiling forbids disclosure and cannot compel it. The property is the
         // obligation, and the thing that has to have moved is the live policy.
         assertEq(r2.floor(), OBLIGED, "the obligation did not rise");
-        assertTrue(L.permits(r2.current(), OBLIGED), "the venue may still hide what it must publish");
+        assertTrue(
+            L.permits(r2.current(), OBLIGED), "the venue may still hide what it must publish"
+        );
     }
 
     /// The finding, stated as the test that would have caught it. This is the

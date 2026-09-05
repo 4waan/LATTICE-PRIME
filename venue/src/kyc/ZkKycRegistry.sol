@@ -5,36 +5,9 @@ import {IExternalKycList} from "../interfaces/IExternalKycList.sol";
 import {IKyc} from "../interfaces/IKyc.sol";
 
 /// @title ZkKycRegistry
-/// @notice Seam D. The contract ATS calls on every transfer.
-///
-/// ## The contract this file has with the rest of the system
-///
-/// `getKycStatus` sits on the ATS transfer critical path and is `view`. It
-/// therefore cannot verify a proof, cannot write a nullifier and cannot emit an
-/// event. All of that happens in a prior transaction, in `RegistrationGate`, and
-/// this contract only reads the result. That is the two transaction structure
-/// every flow in the design accounts for.
-///
-/// Three invariants live here and nowhere else.
-///
-/// **an invariant, this function never reverts and never consumes unbounded gas.** A
-/// revert here does not fail one transfer, it bricks the token, because ATS
-/// aggregates every registered external list with an unconditional AND and a
-/// reverting member takes the whole conjunction down. So there are no external
-/// calls, no loops, no unchecked subtraction on a value that can go negative,
-/// and no `require`. Every path returns.
-///
-/// **an invariant, no path grants eligibility from an empty or unset state.** ATS fails
-/// **open** when its external list is empty, which is the one place the
-/// platform's default runs against this design. The defence cannot be "do not
-/// forget to register", it has to be that the registry itself denies by default.
-/// `KycStatus.NOT_GRANTED` is enum value zero, so an address this contract has
-/// never seen is denied by the zero value rather than by a branch.
-///
-/// **an invariant, a grant in epoch `e` grants nothing in epoch `e+1`.** The comparison
-/// is at read time. Writing the expiry at write time would make the registry
-/// unreadable across a rollover, because every stored grant would have to be
-/// rewritten by someone at the boundary and nobody is on the hook to do it.
+/// @notice Seam D. ATS calls `getKycStatus` on every transfer.
+/// @dev Never reverts, never unbounded gas: a revert here bricks the token.
+///      Deny by default (`NOT_GRANTED == 0`). A grant in epoch `e` is dead in `e+1`.
 contract ZkKycRegistry is IExternalKycList {
     // ------------------------------------------------------------- storage
 
@@ -47,9 +20,7 @@ contract ZkKycRegistry is IExternalKycList {
     ///      zero without anyone clearing it.
     mapping(bytes32 => uint256) private _nullifierUse;
 
-    /// @notice K in an invariant. Registrations per nullifier per epoch.
-    /// @dev Provisional at 5, from a design decision. It is the sybil bound, and it is the
-    ///      number the relay's cheap refusal in an invariant reads before it pays.
+    /// @notice Registrations per nullifier per epoch (sybil bound). Relay reads this first.
     uint16 public constant MAX_USES_PER_EPOCH = 5;
 
     uint64 public immutable epochZero;
@@ -89,8 +60,7 @@ contract ZkKycRegistry is IExternalKycList {
     // ------------------------------------------------------- the seam call
 
     /// @inheritdoc IExternalKycList
-    /// @dev an invariant. Read the class comment before touching this function. It has
-    ///      no revert path by construction and that is a property, not a habit.
+    /// @dev Never reverts. A revert here bricks the token (ATS ANDs every list).
     function getKycStatus(address account) external view returns (IKyc.KycStatus) {
         uint64 stored = _grantEpochPlusOne[account];
         if (stored == 0) return IKyc.KycStatus.NOT_GRANTED;
@@ -104,10 +74,7 @@ contract ZkKycRegistry is IExternalKycList {
         return _epochAt(block.timestamp);
     }
 
-    /// @dev Total. Before `epochZero` the epoch is zero rather than a revert,
-    ///      because this is reachable from `getKycStatus` and an invariant admits no
-    ///      revert. A grant can never be read as live before epoch zero anyway:
-    ///      nothing can have been written yet.
+    /// @dev Total: before `epochZero` returns 0 (reachable from `getKycStatus`).
     function _epochAt(uint256 ts) internal view returns (uint64) {
         if (ts < epochZero) return 0;
         return uint64((ts - epochZero) / epochLength);
@@ -115,11 +82,8 @@ contract ZkKycRegistry is IExternalKycList {
 
     // ------------------------------------------------------- the write side
 
-    /// @notice Called by `RegistrationGate` after, and only after, a proof has
-    ///         verified and its `passes` output has been checked.
-    /// @dev The counter is incremented here rather than in the gate so that the
-    ///      state an invariant bounds and the state an invariant reads live in one contract
-    ///      and cannot drift apart across a gate swap.
+    /// @notice Called by `RegistrationGate` after `passes == 1` and a valid proof.
+    /// @dev Counter lives here so a gate swap cannot split the sybil bound from the grant.
     function grant(address account, bytes32 nullifier) external {
         if (msg.sender != gate) revert NotGate();
         uint64 e = _epochAt(block.timestamp);
@@ -132,10 +96,7 @@ contract ZkKycRegistry is IExternalKycList {
         emit Granted(account, e, nullifier);
     }
 
-    /// @notice Uses of `nullifier` in the current epoch.
-    /// @dev Public because an invariant requires the relay to be able to read the sybil
-    ///      counter *before* it pays for a sponsored registration. Proof validity
-    ///      does not carry that bound, so the relay has to check it itself.
+    /// @notice Uses of `nullifier` this epoch. Public so the relay can refuse before it pays.
     function usesThisEpoch(bytes32 nullifier) external view returns (uint16) {
         return _usesIn(nullifier, _epochAt(block.timestamp));
     }
@@ -149,15 +110,7 @@ contract ZkKycRegistry is IExternalKycList {
         return uint16(packed);
     }
 
-    // -------------------------------------------- governance, an invariant / Rule 2
-
-    /// @notice Propose a new gate. Takes effect at the next epoch boundary.
-    /// @dev Governance rule: governance actions land only at epoch
-    ///      boundaries. The reason is disclosure rather than safety. A gate that
-    ///      can be swapped on demand makes the swap itself an observable event
-    ///      correlated with whatever prompted it, and that observation is not in
-    ///      any matrix cell. Deferring to a boundary puts it in row 10 with every
-    ///      other governance action.
+    /// @notice Propose a new gate. Effective next epoch.
     function proposeGate(address next) external {
         if (msg.sender != admin) revert NotAdmin();
         pendingGate = next;

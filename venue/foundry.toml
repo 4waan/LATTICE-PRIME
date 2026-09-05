@@ -8,13 +8,10 @@ solc         = "0.8.24"
 optimizer    = true
 optimizer_runs = 200
 via_ir       = false
-# an earlier measurement: ATS facets sit at 97 percent of EIP-170 and the ATS hardhat config hides
-# it with allowUnlimitedContractSize. We do the opposite. Size is measured every
-# build, never at deploy.
+# ATS facets sit at ~97% of EIP-170; we measure size every build instead of
+# allowUnlimitedContractSize.
 bytecode_hash = "none"
-# The proof fixtures are read by the seam D integration test, and `docs/RULEBOOK.md`
-# by the rulebook suite, which hashes it and compares against the published
-# edition. Read only, and the narrowest grants that work.
+# Proof fixtures (seam D) and docs/RULEBOOK.md (rulebook hash).
 fs_permissions = [
     {access = "read", path = "./test/fixtures"},
     {access = "read", path = "./docs/RULEBOOK.md"},

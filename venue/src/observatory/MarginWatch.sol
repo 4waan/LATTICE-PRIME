@@ -7,19 +7,7 @@ import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 
 /// @title MarginWatch
-/// @notice Position and margin alerts, read from state rather than from events.
-///
-/// `RepoVault.postMark` moves to `MARGIN_CALL` and starts the cure clock
-/// unconditionally, then emits `MarginCalled` only if the disclosure meter can still
-/// afford it. An exhausted budget withholds the event and lets the transition stand, so a
-/// log subscriber can miss a live margin call. A state read cannot.
-///
-/// `unmarkedFail` needs no event at all: `markFailing` is permissionless, so a repo past
-/// maturity sits in `OPEN` until somebody calls it.
-///
-/// No events, no storage, no access control. An event here would publish the position
-/// predicate without passing the vault's meter, which is the thing the meter rations.
-/// Everything returned is already public through `RepoVault.repo`.
+/// @notice Position alerts from state, not events. A withheld `MarginCalled` still happened.
 contract MarginWatch {
     /// @dev The position-risk disclosure the vault charges margin calls against.
     uint16 internal constant ROW_POSITION = 14;
@@ -68,14 +56,12 @@ contract MarginWatch {
         a.cureExpired = a.called && block.timestamp >= r.cureDeadline;
 
         // `maturity == 0` is a position that never opened, not one that is overdue.
-        a.unmarkedFail = r.state == RepoVault.State.OPEN && r.maturity != 0
-            && block.timestamp >= r.maturity;
+        a.unmarkedFail =
+            r.state == RepoVault.State.OPEN && r.maturity != 0 && block.timestamp >= r.maturity;
 
         a.defaultable = a.cureExpired
-            || (
-                r.state == RepoVault.State.FAILING
-                    && block.timestamp >= uint256(r.maturity) + vault.failGrace()
-            );
+            || (r.state == RepoVault.State.FAILING
+                && block.timestamp >= uint256(r.maturity) + vault.failGrace());
     }
 
     function alertsOf(bytes32[] calldata ids) public view returns (Alert[] memory out) {

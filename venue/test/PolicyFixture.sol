@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Regime, IEpochClock} from "../src/policy/Regime.sol";
+import {Regime} from "../src/policy/Regime.sol";
+import {IEpochClock} from "../src/interfaces/IEpochClock.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {DisclosureBudget} from "../src/lattice/DisclosureBudget.sol";
@@ -87,17 +88,78 @@ abstract contract PolicyFixture {
     ///      so the set is adoptable: the point under test is the relation between
     ///      the two bounds, not either number.
     function withFloors() internal pure returns (ParameterRoot.Param[] memory set) {
-        ParameterRoot.Param[] memory base = asDeployed();
-        set = new ParameterRoot.Param[](base.length + 2);
-        for (uint256 i = 0; i < base.length - 1; ++i) {
-            set[i] = base[i];
+        uint256 obliged = L.point(L.G_AGG, L.T_EOD);
+        set = _with(
+            _with(asDeployed(), bytes32(uint256(18 + 3)), obliged),
+            bytes32(uint256(18 + 5)),
+            obliged
+        );
+    }
+
+    /// @notice `set` with `key` written, keeping keys strictly ascending.
+    /// @dev **Every derived set in this fixture used to splice by index**, which
+    ///      worked only while `asDeployed` ended in exactly one `keccak256` key
+    ///      and carried nothing between the rows and it. `asDeployed` now
+    ///      publishes three budgets, so a hand-spliced floor landed after a
+    ///      budget and `rootOf` refused the whole set with `KeysNotAscending`.
+    ///      An insert that knows the ordering rule cannot make that mistake, and
+    ///      it replaces rather than duplicates, which is what lets a fixture
+    ///      override a published budget with its own.
+    function _with(ParameterRoot.Param[] memory set, bytes32 key, uint256 value)
+        internal
+        pure
+        returns (ParameterRoot.Param[] memory out)
+    {
+        for (uint256 i = 0; i < set.length; ++i) {
+            if (set[i].key == key) {
+                out = set;
+                out[i].value = value;
+                return out;
+            }
         }
-        // Keys must strictly ascend and `KEY_WAIVED_ROWS` is a `keccak256`, so
-        // the floors at 18 + row go between the rows and it.
-        uint32 obliged = L.point(L.G_AGG, L.T_EOD);
-        set[base.length - 1] = ParameterRoot.Param(bytes32(uint256(18 + 3)), obliged);
-        set[base.length] = ParameterRoot.Param(bytes32(uint256(18 + 5)), obliged);
-        set[base.length + 1] = base[base.length - 1];
+        out = new ParameterRoot.Param[](set.length + 1);
+        uint256 k;
+        bool placed;
+        for (uint256 i = 0; i < set.length; ++i) {
+            if (!placed && uint256(set[i].key) > uint256(key)) {
+                out[k++] = ParameterRoot.Param(key, value);
+                placed = true;
+            }
+            out[k++] = set[i];
+        }
+        if (!placed) out[k] = ParameterRoot.Param(key, value);
+    }
+
+    /// @notice `set` with `key` removed. A no-op when it is not there.
+    function _without(ParameterRoot.Param[] memory set, bytes32 key)
+        internal
+        pure
+        returns (ParameterRoot.Param[] memory out)
+    {
+        uint256 n;
+        for (uint256 i = 0; i < set.length; ++i) {
+            if (set[i].key != key) ++n;
+        }
+        out = new ParameterRoot.Param[](n);
+        uint256 k;
+        for (uint256 i = 0; i < set.length; ++i) {
+            if (set[i].key != key) out[k++] = set[i];
+        }
+    }
+
+    /// @notice A row and the budget published under it, dropped together.
+    /// @dev `ParameterRoot.adopt` refuses `BudgetOnUnpublishedRow`, so a test
+    ///      that un-publishes a metered row has to take both or the set will not
+    ///      adopt at all. That refusal is the mechanism working; taking both is
+    ///      how a test asks the question it meant to ask.
+    function _withoutRowAndItsBudget(uint16 row)
+        internal
+        pure
+        returns (ParameterRoot.Param[] memory out)
+    {
+        out = _without(
+            _without(asDeployed(), bytes32(uint256(row))), bytes32(uint256(row) + 36)
+        );
     }
 
     /// @notice `asDeployed`, plus a coalition budget on row 14.
@@ -118,16 +180,7 @@ abstract contract PolicyFixture {
     ///        `test_breakingSizeIsTheNumberObserved` checks the arithmetic
     ///        against the behaviour rather than against itself.
     function withBudgets() internal pure returns (ParameterRoot.Param[] memory set) {
-        ParameterRoot.Param[] memory base = asDeployed();
-        set = new ParameterRoot.Param[](base.length + 1);
-        for (uint256 i = 0; i < base.length - 1; ++i) {
-            set[i] = base[i];
-        }
-        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then the keccak
-        // keys. Row 14's budget is key 50.
-        set[base.length - 1] =
-            ParameterRoot.Param(bytes32(uint256(36 + 14)), _packBudget(8, 2, 4, 3));
-        set[base.length] = base[base.length - 1];
+        set = _with(asDeployed(), bytes32(uint256(36 + 14)), _packBudget(8, 2, 4, 3));
     }
 
     /// @notice `asDeployed`, plus a coalition budget on row 15.
@@ -145,30 +198,31 @@ abstract contract PolicyFixture {
     ///      why this is a fixture set and `asDeployed` publishes the ceiling with
     ///      no budget under it.
     function meteredCancellations() internal pure returns (ParameterRoot.Param[] memory set) {
-        ParameterRoot.Param[] memory base = asDeployed();
-        set = new ParameterRoot.Param[](base.length + 1);
-        for (uint256 i = 0; i < base.length - 1; ++i) {
-            set[i] = base[i];
-        }
-        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then keccak keys.
-        // Row 15's budget is key 51.
-        set[base.length - 1] =
-            ParameterRoot.Param(bytes32(uint256(36 + 15)), _packBudget(8, 2, 4, 3));
-        set[base.length] = base[base.length - 1];
+        set = _with(asDeployed(), bytes32(uint256(36 + 15)), _packBudget(8, 2, 4, 3));
+    }
+
+    /// @notice The set an `AxeBoard` deployment would publish: row 13 rederived
+    ///         against the board's own domain.
+    /// @dev **One row, two encodings, and the deployed set can only carry one.**
+    ///      `PolicySets` derives row 13 from `MatchingEngine`, which encodes a
+    ///      round's outcome in four events, so `domainBits` is 2 and the largest
+    ///      binding budget is 1 bit. A probe here ranges over an `AxeGrid`
+    ///      rectangle, `RECTANGLE_BITS` = 18. The board is not deployed and has
+    ///      no address, so `asDeployed` answers to the engine; this is what the
+    ///      operator would have to propose before the board could take a second
+    ///      probe in an epoch.
+    ///
+    ///      The three rules are `PolicySets.budgetFor`'s unchanged: `domainBits`
+    ///      read off the encoding, `budgetBits` the largest bound the model
+    ///      admits, `aggBits` and `bucketBits` at the domain because the board
+    ///      defines no coarsening on this row either.
+    function boardRectangle() internal pure returns (ParameterRoot.Param[] memory set) {
+        set = _with(asDeployed(), bytes32(uint256(36 + 13)), _packBudget(18, 18, 18, 17));
     }
 
     /// @notice Row 13 budget: 18-bit rectangular domain, 3 bits (fourth probe reverts).
     function meteredAxePredicate() internal pure returns (ParameterRoot.Param[] memory set) {
-        ParameterRoot.Param[] memory base = asDeployed();
-        set = new ParameterRoot.Param[](base.length + 1);
-        for (uint256 i = 0; i < base.length - 1; ++i) {
-            set[i] = base[i];
-        }
-        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then keccak keys.
-        // Row 13's budget is key 49.
-        set[base.length - 1] =
-            ParameterRoot.Param(bytes32(uint256(36 + 13)), _packBudget(18, 2, 4, 3));
-        set[base.length] = base[base.length - 1];
+        set = _with(asDeployed(), bytes32(uint256(36 + 13)), _packBudget(18, 2, 4, 3));
     }
 
     /// @notice Rows 3 and 4 at bucket: a probe may speak; an exact reveal may not.
@@ -180,17 +234,20 @@ abstract contract PolicyFixture {
 
     /// @notice `bandedDiscovery` plus row 3/4 budgets (two probes announce, third is silent).
     function meteredAxeBands() internal pure returns (ParameterRoot.Param[] memory set) {
-        ParameterRoot.Param[] memory base = bandedDiscovery();
-        set = new ParameterRoot.Param[](base.length + 2);
-        for (uint256 i = 0; i < base.length - 1; ++i) {
-            set[i] = base[i];
-        }
-        // Keys 39 and 40 sit between the rows and the keccak key.
-        set[base.length - 1] =
-            ParameterRoot.Param(bytes32(uint256(36 + 3)), _packBudget(16, 2, 4, 8));
-        set[base.length] =
-            ParameterRoot.Param(bytes32(uint256(36 + 4)), _packBudget(16, 2, 4, 8));
-        set[base.length + 1] = base[base.length - 1];
+        // Row 13 widened to the board's domain first, for `boardRectangle`'s
+        // reason: without it the engine's one-bit budget stops the second probe
+        // and the test never reaches the bands it is about.
+        set = _with(
+            _with(
+                _with(
+                    bandedDiscovery(), bytes32(uint256(36 + 13)), _packBudget(18, 18, 18, 17)
+                ),
+                bytes32(uint256(36 + 3)),
+                _packBudget(16, 2, 4, 8)
+            ),
+            bytes32(uint256(36 + 4)),
+            _packBudget(16, 2, 4, 8)
+        );
     }
 
     /// @dev The packing `ParameterRoot.packBudget` performs, repeated here so the
@@ -228,15 +285,7 @@ abstract contract PolicyFixture {
     ///      point of the fixture: it is small enough that a test can reach the
     ///      exhaustion in three rounds rather than by simulating a month.
     function meteredExecutionPrice() internal pure returns (ParameterRoot.Param[] memory set) {
-        ParameterRoot.Param[] memory base = coarseExecutionPrice();
-        set = new ParameterRoot.Param[](base.length + 1);
-        for (uint256 i = 0; i < base.length - 1; ++i) {
-            set[i] = base[i];
-        }
-        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then keccak keys.
-        set[base.length - 1] =
-            ParameterRoot.Param(bytes32(uint256(36 + 5)), _packBudget(16, 2, 4, 8));
-        set[base.length] = base[base.length - 1];
+        set = _with(coarseExecutionPrice(), bytes32(uint256(36 + 5)), _packBudget(16, 2, 4, 8));
     }
 
     function _deployPolicy(ParameterRoot.Param[] memory set) internal {

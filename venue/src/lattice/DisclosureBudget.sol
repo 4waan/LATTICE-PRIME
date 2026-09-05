@@ -2,62 +2,10 @@
 pragma solidity ^0.8.24;
 
 /// @title DisclosureBudget
-/// @notice The composable half of the disclosure model. Bits, not levels.
-///
-/// ## Why this file exists
-///
-/// `DisclosureLattice` orders disclosures and computes what a coalition holds.
-/// It cannot detect emergent collusion, and the reason is structural rather than
-/// a bug: a coalition's knowledge is the union of ideals, a ceiling is an ideal,
-/// and the union of two subsets of a set is a subset of that set. So if every
-/// observer is individually under the ceiling, the coalition is too, always. Any
-/// monotone map into any lattice has this property.
-///
-/// That matters because the whole collusion argument the research rests on is
-/// the opposite claim. Landauer and Redmond: the combined knowledge of a set of
-/// observers is the common refinement of their partitions, and refinement can be
-/// strictly finer than either. The concrete form already written down is
-///
-///     k disclosures of one bit each, over a domain of 2^k, individually pass
-///     any cell by cell review and jointly determine the value exactly.
-///
-/// Under the lattice, k observers each holding `point(pred, imm)` join to
-/// `point(pred, imm)`, which passes a `pred` ceiling k times over. The attack is
-/// invisible at that resolution.
-///
-/// ## The mathematics
-///
-/// Knowledge of a row is a partition of the row's value domain `V`, ordered by
-/// refinement. Coalition knowledge is the **common refinement**, the join in the
-/// partition lattice. Granularity is a five point chain, so the map
-///
-///     partition  ->  granularity level
-///
-/// is a **rank**, monotone, and it is *not* a join homomorphism. Ranks do not
-/// add and the level chain has no arithmetic, which is exactly why the level
-/// ceiling cannot see the attack.
-///
-/// The quantity that does compose is information, measured in bits. Writing
-/// `I(A)` for the bits observer `A` learns about a row whose domain carries `d`
-/// bits, the partition join gives
-///
-///     I(A join B)  <=  min(d, I(A) + I(B))
-///
-/// with equality when the two disclosures are independent. Sub additivity is the
-/// enforceable direction: a budget on the **sum** is always at least as strict
-/// as the truth, so a coalition that passes the sum test cannot have learned
-/// more than the budget. That is a sound over approximation, unlike the level
-/// ceiling which is an unsound one.
-///
-/// So the model is two layered, and the layers answer different questions.
-///
-/// | | question | operation | detects emergence |
-/// |---|---|---|---|
-/// | `DisclosureLattice` | may this observer see this, and when | union of ideals | no, and cannot |
-/// | `DisclosureBudget`  | how much may a coalition learn in total | addition, saturating | yes |
-///
-/// Neither replaces the other. The lattice carries the time axis, which bits
-/// cannot express, and the budget carries composition, which the lattice cannot.
+/// @notice Coalition bound in bits. The lattice cannot see emergence.
+/// @dev `I(A ∨ B) ≤ min(d, I(A)+I(B))`. A budget on the sum is sound; a level
+///      ceiling is not (union of subsets of an ideal stays inside it).
+///      Rule B: `budgetBits < domainBits`. `docs/MATH.md`.
 library DisclosureBudget {
     /// @notice Per row parameters. One of these per matrix row.
     /// @param domainBits `d`, the entropy of the row's value domain. `exact`
@@ -91,9 +39,7 @@ library DisclosureBudget {
     ///      is the wrong order for that row and the matrix is mis-stated. Failing
     ///      loudly here is how that gets found before it reaches a cell.
     function requireWellFormed(Row memory r) internal pure {
-        if (
-            !(1 <= r.aggBits && r.aggBits <= r.bucketBits && r.bucketBits <= r.domainBits)
-        ) {
+        if (!(1 <= r.aggBits && r.aggBits <= r.bucketBits && r.bucketBits <= r.domainBits)) {
             revert NotMonotone(r);
         }
         if (r.budgetBits >= r.domainBits) {

@@ -9,31 +9,10 @@ import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {DisclosureBudget as B} from "../lattice/DisclosureBudget.sol";
 
 /// @title SeamJournal
-/// @notice Seam C and seam C-prime: the check ATS staticcalls before a transfer,
-///         and the notification it calls after the balance has moved.
-///
-/// `SeamMap` measures what seam D, the eligibility gate, sees: 16 of 393 entry
-/// points. Three of the gaps matter for a repo venue.
-///
-/// - **Controller rail.** `controllerTransferByPartition` and `forcedTransfer`
-///   move a balance without `onlyCanTransferFromByPartition`, the modifier that
-///   carries the ordinary rail into seams B, C, D and E.
-/// - **Maturity rail.** `redeemAtMaturityByPartition` reaches A, B, D and
-///   C-prime but not C, so size is invisible where a bond pays out.
-/// - **Hold creation.** `createHoldByPartition` reaches A alone. Only execution
-///   is gated.
-///
-/// None of the three can be re-gated: ATS does not call us before those writes.
-/// This contract notices instead. An arrival at an address holding no live grant
-/// did not pass seam D, because seam D denies by default, so `UnverifiedArrival`
-/// records the bypass without case analysis over rails, including rails a later
-/// ATS version adds.
-///
-/// Invariants. `canTransfer` never reverts: ATS re-reverts anything but 32 bytes
-/// of bool, so a revert bricks the token rather than failing open. The write side
-/// reverts only on a forged caller, never on policy, because it runs after the
-/// balance has moved. A disclosure the ceiling or the budget will not carry is
-/// withheld rather than reverted.
+/// @notice Seam C / C′: ATS staticcalls before transfer, notifies after.
+/// @dev `canTransfer` never reverts (a revert bricks the token). Write side
+///      reverts only on a forged caller. Unverified arrivals are inferred from
+///      seam D denial-by-default, not enumerated over rails.
 contract SeamJournal is ICompliance, ISeamJournal {
     // -------------------------------------------------------------- wiring
 
@@ -133,16 +112,12 @@ contract SeamJournal is ICompliance, ISeamJournal {
         // Shape 1: the operator probe.
         if (to == address(0) && amount == 0) {
             if (from == address(0)) return (true, Reason.OK);
-            return _granted(from)
-                ? (true, Reason.OK)
-                : (false, Reason.SENDER_NOT_GRANTED);
+            return _granted(from) ? (true, Reason.OK) : (false, Reason.SENDER_NOT_GRANTED);
         }
         // Shape 3: the hold execution probe. Judge the recipient and say nothing
         // about size, because nothing about size was asked.
         if (from == address(0)) {
-            return _granted(to)
-                ? (true, Reason.OK)
-                : (false, Reason.RECIPIENT_NOT_GRANTED);
+            return _granted(to) ? (true, Reason.OK) : (false, Reason.RECIPIENT_NOT_GRANTED);
         }
         // Shape 2: the real transfer.
         if (!_granted(to)) return (false, Reason.RECIPIENT_NOT_GRANTED);
@@ -154,9 +129,8 @@ contract SeamJournal is ICompliance, ISeamJournal {
     ///      a registry that reverts or answers in the wrong shape. `try` alone is
     ///      not enough: a registry returning 64 bytes would decode and be believed.
     function _granted(address account) internal view returns (bool) {
-        (bool ok, bytes memory out) = address(registry).staticcall(
-            abi.encodeWithSelector(IExternalKycList.getKycStatus.selector, account)
-        );
+        (bool ok, bytes memory out) = address(registry)
+            .staticcall(abi.encodeWithSelector(IExternalKycList.getKycStatus.selector, account));
         if (!ok || out.length != 32) return false;
         return abi.decode(out, (uint256)) == uint256(IKyc.KycStatus.GRANTED);
     }
@@ -197,12 +171,9 @@ contract SeamJournal is ICompliance, ISeamJournal {
     }
 
     /// @dev The inference. One direction, and it does not name a rail.
-    function _flagIfUnverified(
-        EpochRecord storage r,
-        address to,
-        uint256 amount,
-        uint64 e
-    ) internal {
+    function _flagIfUnverified(EpochRecord storage r, address to, uint256 amount, uint64 e)
+        internal
+    {
         if (_granted(to)) return;
         r.unverifiedArrivals += 1;
         _discloseArrival(to, amount, e);
@@ -228,8 +199,7 @@ contract SeamJournal is ICompliance, ISeamJournal {
             _spent[e] = spent + bucketCost;
             emit UnverifiedArrival(to, _magnitude(_clamp(amount)), e);
         } else if (
-            L.permits(ceiling, L.point(L.G_PRED, L.T_IMM))
-                && spent + predCost <= row.budgetBits
+            L.permits(ceiling, L.point(L.G_PRED, L.T_IMM)) && spent + predCost <= row.budgetBits
         ) {
             _spent[e] = spent + predCost;
             emit UnverifiedArrivalWithheld(to, e);
@@ -249,8 +219,7 @@ contract SeamJournal is ICompliance, ISeamJournal {
         uint32 bucketCost = B.bits(row, B.G_BUCKET);
 
         if (
-            L.permits(ceiling, L.point(L.G_AGG, L.T_EPOCH))
-                && spent + aggCost <= row.budgetBits
+            L.permits(ceiling, L.point(L.G_AGG, L.T_EPOCH)) && spent + aggCost <= row.budgetBits
         ) {
             _spent[e] = spent + aggCost;
             emit EpochDisclosed(e, B.G_AGG, uint256(r.grossIn));

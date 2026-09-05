@@ -6,22 +6,9 @@ import {DisclosureMeter} from "./DisclosureMeter.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 
 /// @title DisclosureView
-/// @notice The disclosing half of a venue contract: the policy it answers to, the meter
-///         it spends from, the one path its events pass through, and the five questions
-///         anyone may ask about what it just said.
-/// @dev `OrderBook`, `AxeBoard` and `RepoVault` each held their own copy, and the copies
-///      had drifted: `RepoVault` reverted without naming the row that broke, and the
-///      getters carried three different doc comments, two of them empty. Drift in a copy
-///      of an access check is how a venue enforces three policies and describes one.
-///
-///      The five getters are a product surface rather than a debug aid. Together they let
-///      a client show a trader, after the fact, exactly what the venue published about
-///      them: what was permitted and how soon, how much of the row's epoch budget is
-///      gone, whether the next disclosure will be heard at all, and how many more it
-///      takes to exhaust the row. `docs/disclosure-receipt.html` is that client and
-///      `MarginWatch.stream` is the same read made on chain for one row. Each is a `view`
-///      over at most two `SLOAD`s, which is what makes a receipt after every action
-///      affordable rather than a nice idea.
+/// @notice Policy + meter + the one path disclosing events pass through.
+/// @dev Ceiling breach reverts (misconfig). Exhausted budget withholds (Rule A)
+///      and the tx completes. Five getters are the receipt surface.
 abstract contract DisclosureView {
     /// @notice The governed disclosure policy, asked per row.
     IDisclosurePolicy public immutable policy;

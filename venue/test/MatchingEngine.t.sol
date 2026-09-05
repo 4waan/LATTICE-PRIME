@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {MatchingEngine} from "../src/market/MatchingEngine.sol";
+import {MatchingEngineBase} from "../src/market/MatchingEngineBase.sol";
 import {OrderBook} from "../src/market/OrderBook.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {ICompliance} from "../src/interfaces/ICompliance.sol";
@@ -36,12 +37,23 @@ contract AtsHolds is IHoldByPartition {
     }
 
     mapping(bytes32 => H) private _holds;
+    /// @dev Row 12 of the call list, kept as a running sum rather than derived,
+    ///      because that is how ATS keeps it: `getHeldAmountForByPartition` is a
+    ///      stored total per (partition, holder) and not a walk over hold ids.
+    ///      Every path that moves a hold's amount moves this too, including
+    ///      `rebase`, or the mock would answer a number the holds no longer add
+    ///      up to.
+    mapping(bytes32 => uint256) private _held;
     mapping(address => uint256) public delivered;
     uint256 public nextId = 1;
     uint256 public executions;
 
     function _key(bytes32 p, address holder, uint256 id) private pure returns (bytes32) {
         return keccak256(abi.encode(p, holder, id));
+    }
+
+    function _holderKey(bytes32 p, address holder) private pure returns (bytes32) {
+        return keccak256(abi.encode(p, holder));
     }
 
     function createHoldByPartition(bytes32 partition, IHoldTypes.Hold calldata hold)
@@ -56,6 +68,7 @@ contract AtsHolds is IHoldByPartition {
             to: hold.to,
             exists: true
         });
+        _held[_holderKey(partition, msg.sender)] += hold.amount;
         return (true, id);
     }
 
@@ -73,6 +86,7 @@ contract AtsHolds is IHoldByPartition {
             to: hold.to,
             exists: true
         });
+        _held[_holderKey(partition, from)] += hold.amount;
         return (true, id);
     }
 
@@ -89,6 +103,7 @@ contract AtsHolds is IHoldByPartition {
         require(block.timestamp <= h.expiry, "HoldExpirationReached");
         require(h.amount >= amount, "amount");
         h.amount -= amount;
+        _held[_holderKey(id.partition, id.tokenHolder)] -= amount;
         delivered[to] += amount;
         executions++;
         return (true, id.partition);
@@ -102,6 +117,7 @@ contract AtsHolds is IHoldByPartition {
         require(h.exists && h.escrow == msg.sender, "release");
         require(h.amount >= amount, "amount");
         h.amount -= amount;
+        _held[_holderKey(id.partition, id.tokenHolder)] -= amount;
         return true;
     }
 
@@ -114,10 +130,23 @@ contract AtsHolds is IHoldByPartition {
         return (h.amount, h.expiry, h.escrow, h.to, "", "", 0);
     }
 
+    /// @notice Row 12 of the call list. The encumbered half of a position, which
+    ///         `balanceOfByPartition` excludes.
+    function getHeldAmountForByPartition(bytes32 partition, address tokenHolder)
+        external
+        view
+        returns (uint256)
+    {
+        return _held[_holderKey(partition, tokenHolder)];
+    }
+
     /// @notice A corporate action, or any of the 40-odd entry points that fire a
     ///         pending adjustment, seen from outside.
     function rebase(bytes32 partition, address holder, uint256 id, uint256 to) external {
-        _holds[_key(partition, holder, id)].amount = to;
+        H storage h = _holds[_key(partition, holder, id)];
+        bytes32 hk = _holderKey(partition, holder);
+        _held[hk] = _held[hk] - h.amount + to;
+        h.amount = to;
     }
 }
 
@@ -214,6 +243,122 @@ contract MatchingEngineTest is Test, PolicyFixture {
         vm.deal(BUYER2, 100 ether);
     }
 
+    // --------------------------------------------- the encumbered half, row 12
+
+    /// @notice `getHeldAmountForByPartition` follows the holds, so a position
+    ///         screen can show free and held as two numbers.
+    ///
+    /// @dev **The read was live on the diamond and absent from the exported
+    ///      ABI**, so a client compiling against `deployments/abi/` could not
+    ///      encode it and had no way to show a seller their encumbered balance.
+    ///      `balanceOfByPartition` excludes held units, so a page printing that
+    ///      alone tells a seller they hold units they have already pledged, and
+    ///      the hold they then try to create fails at reveal rather than at the
+    ///      moment they asked for it.
+    ///
+    ///      Asserted against the mock rather than against ATS because ATS is not
+    ///      in this suite. What it pins is that the vendored interface and the
+    ///      holds agree: creating moves units in, executing moves them out, and a
+    ///      rebase moves the total with the hold it rebased.
+    function test_theHeldAmountFollowsTheHolds() public {
+        assertEq(ats.getHeldAmountForByPartition(PARTITION, SELLER), 0, "nothing pledged yet");
+
+        uint256 holdId = _hold(SELLER, 1_000);
+        assertEq(
+            ats.getHeldAmountForByPartition(PARTITION, SELLER), 1_000, "creating encumbers"
+        );
+
+        // A second hold adds rather than replaces: held is a sum, not a hold.
+        uint256 second = _hold(SELLER, 250);
+        assertEq(ats.getHeldAmountForByPartition(PARTITION, SELLER), 1_250, "and it is a sum");
+
+        _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
+        _commit(BUYER, OrderBook.Side.BUY, 105, 1_000, "b");
+        _open();
+        _reveal(SELLER, OrderBook.Side.SELL, 95, 1_000, "s", holdId, 0);
+        _reveal(BUYER, OrderBook.Side.BUY, 105, 1_000, "b", 0, 105 * 1_000);
+        uint64 r = engine.currentRound();
+        _nextRound();
+        engine.crossRound(r);
+
+        assertEq(ats.delivered(BUYER), 1_000, "the lot moved");
+        assertEq(
+            ats.getHeldAmountForByPartition(PARTITION, SELLER),
+            250,
+            "and settling released the encumbrance it delivered"
+        );
+
+        // The ABAF hazard moves the total too, which is the property a client
+        // reading a stale held figure would get wrong.
+        ats.rebase(PARTITION, SELLER, second, 100);
+        assertEq(ats.getHeldAmountForByPartition(PARTITION, SELLER), 100, "a rebase moves it");
+    }
+
+    // ------------------------------------------- the match predicate, metered
+
+    /// @notice Row 13 carries a budget on the deployed venue, so the receipt's
+    ///         affordability half moves on the engine rather than only on the
+    ///         journal.
+    ///
+    /// @dev **This is the finding that blocked the receipt screen, closed.**
+    ///      `PolicySets.asDeployed` published ten ceilings and no budget, so
+    ///      `spentBits(row, epoch)` was zero, `wouldAfford(row, g)` was true and
+    ///      `breakingSize(row, g)` was zero for every row this contract touches,
+    ///      at every epoch, forever. A client had three constants where it
+    ///      expected three readings.
+    ///
+    ///      `domainBits(13)` is 2, the four outcomes `crossRound` encodes
+    ///      (`RoundEmpty`, `RoundCrossed`, `PrintedCoarse`, `PrintWithheld`), so
+    ///      the budget is one bit and one cross spends the row for the epoch.
+    ///      The round clock and the disclosure clock both run at 300 seconds on
+    ///      the deployment, so that is one cross an epoch, which is the venue's
+    ///      own cadence: the row goes quiet exactly when somebody crosses a
+    ///      backlog.
+    function test_theMatchPredicateIsMeteredOnTheDeployedSet() public {
+        uint64 epoch = params.currentEpoch();
+        assertTrue(params.budgetFor(13).budgetBits != 0, "row 13 carries a budget");
+        assertEq(engine.breakingSize(13, L.G_PRED), 2, "the second cross of an epoch");
+        assertTrue(engine.wouldAfford(13, L.G_PRED), "nothing spent yet");
+        assertEq(engine.spentBits(13, epoch), 0);
+
+        uint64 first = engine.currentRound();
+        _nextRound();
+        uint64 second = engine.currentRound();
+        _nextRound();
+
+        engine.crossRound(first);
+        assertEq(engine.spentBits(13, epoch), 1, "one bit for the round's outcome");
+        assertFalse(engine.wouldAfford(13, L.G_PRED), "and the row is out for the epoch");
+
+        // Rule A: the second cross still crosses. Only the charge is refused,
+        // and `crossRound` never reads the answer, so nothing about the round
+        // changes.
+        engine.crossRound(second);
+        assertTrue(engine.crossed(second), "the round crossed regardless");
+        assertEq(engine.spentBits(13, epoch), 1, "and the meter did not move");
+    }
+
+    /// @notice The three getters a receipt is built on all carry information now.
+    /// @dev Asserted together because the finding was about the trio rather than
+    ///      any one of them: a client reading all three off the deployed venue
+    ///      used to get `(0, true, 0)` on every row it asked about.
+    function test_theReceiptGettersAreNotConstantsOnTheDeployedSet() public {
+        uint64 epoch = params.currentEpoch();
+        uint64 r = engine.currentRound();
+        _nextRound();
+        engine.crossRound(r);
+
+        assertEq(engine.spentBits(13, epoch), 1, "spentBits moved");
+        assertFalse(engine.wouldAfford(13, L.G_PRED), "wouldAfford moved");
+        assertEq(engine.breakingSize(13, L.G_PRED), 2, "breakingSize is not zero");
+
+        // And the unmetered rows still read as unmetered, which is the published
+        // ceiling restated rather than a hole. Rule B, from the client's side.
+        assertEq(engine.spentBits(5, epoch), 0, "row 5 publishes exactly");
+        assertTrue(engine.wouldAfford(5, L.G_EXACT));
+        assertEq(engine.breakingSize(5, L.G_EXACT), 0);
+    }
+
     // ---------------------------------------------------------- the happy path
 
     function test_theRoundCrossesAndSettles() public {
@@ -266,7 +411,9 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
         _open();
         vm.prank(SELLER);
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.NotEscrow.selector, address(0)));
+        vm.expectRevert(
+            abi.encodeWithSelector(MatchingEngineBase.NotEscrow.selector, address(0))
+        );
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", 42);
     }
 
@@ -275,7 +422,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(BUYER);
         vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.WrongEscrow.selector, 0, 105 * 1_000)
+            abi.encodeWithSelector(MatchingEngineBase.WrongEscrow.selector, 0, 105 * 1_000)
         );
         engine.reveal(OrderBook.Side.BUY, 105, 1_000, "b", 0);
     }
@@ -296,7 +443,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(SELLER);
         vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.HoldNamesADestination.selector, BUYER)
+            abi.encodeWithSelector(MatchingEngineBase.HoldNamesADestination.selector, BUYER)
         );
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", id);
     }
@@ -307,7 +454,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(SELLER);
         vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.HoldTooSmall.selector, 400, 1_000)
+            abi.encodeWithSelector(MatchingEngineBase.HoldTooSmall.selector, 400, 1_000)
         );
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", holdId);
     }
@@ -350,7 +497,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
         _nextRound();
         vm.expectEmit(true, false, false, true, address(engine));
-        emit MatchingEngine.VoidedByRebase(sell, 1_000, 500);
+        emit MatchingEngineBase.VoidedByRebase(sell, 1_000, 500);
         engine.crossRound(r);
 
         assertEq(ats.delivered(BUYER), 0, "nothing was delivered");
@@ -408,7 +555,9 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     function test_anOpenRoundCannotBeCrossed() public {
         uint64 r = engine.currentRound();
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.RoundStillOpen.selector, r, r));
+        vm.expectRevert(
+            abi.encodeWithSelector(MatchingEngineBase.RoundStillOpen.selector, r, r)
+        );
         engine.crossRound(r);
     }
 
@@ -416,7 +565,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         uint64 r = engine.currentRound();
         _nextRound();
         engine.crossRound(r);
-        vm.expectRevert(abi.encodeWithSelector(MatchingEngine.AlreadyCrossed.selector, r));
+        vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.AlreadyCrossed.selector, r));
         engine.crossRound(r);
     }
 
@@ -515,7 +664,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         uint64 r = engine.currentRound();
         _nextRound();
         vm.expectEmit(true, false, false, false, address(engine));
-        emit MatchingEngine.RoundEmpty(r);
+        emit MatchingEngineBase.RoundEmpty(r);
         engine.crossRound(r);
     }
 
@@ -595,7 +744,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
             DELAY, WINDOW, BOND, FEE, params, ROUND, REST, ats, PARTITION, seamC
         );
         vm.warp(block.timestamp + ROUND + 1);
-        vm.expectRevert(MatchingEngine.VolumeCapNotAttached.selector);
+        vm.expectRevert(MatchingEngineBase.VolumeCapNotAttached.selector);
         bare.crossRound(0);
     }
 
@@ -603,7 +752,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
     function test_aBorrowedCapCannotBeAttached() public {
         VolumeCap other =
             new VolumeCap(regime, address(0xDEAD), 4000, L.point(L.G_EXACT, L.T_IMM));
-        vm.expectRevert(MatchingEngine.VolumeCapAlreadyAttached.selector);
+        vm.expectRevert(MatchingEngineBase.VolumeCapAlreadyAttached.selector);
         engine.attachVolumeCap(other);
     }
 
@@ -626,7 +775,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         uint64 r = engine.currentRound();
         _nextRound();
         vm.expectEmit(true, true, false, true, address(engine));
-        emit MatchingEngine.Settled(sell, buy, 1_000, 100 * 1_000);
+        emit MatchingEngineBase.Settled(sell, buy, 1_000, 100 * 1_000);
         engine.crossRound(r);
     }
 
@@ -785,11 +934,11 @@ contract MatchingEngineTest is Test, PolicyFixture {
     }
 
     function _sawCoarsePrint(Vm.Log[] memory logs) internal pure returns (bool) {
-        return _saw(logs, MatchingEngine.PrintedCoarse.selector);
+        return _saw(logs, MatchingEngineBase.PrintedCoarse.selector);
     }
 
     function _sawWithheldPrint(Vm.Log[] memory logs) internal pure returns (bool) {
-        return _saw(logs, MatchingEngine.PrintWithheld.selector);
+        return _saw(logs, MatchingEngineBase.PrintWithheld.selector);
     }
 
     function _saw(Vm.Log[] memory logs, bytes32 topic) private pure returns (bool) {

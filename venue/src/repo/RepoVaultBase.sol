@@ -2,14 +2,8 @@
 pragma solidity ^0.8.24;
 
 /// @title RepoVaultBase
-/// @notice The state enum, disclosure rows, events and errors of `RepoVault`, held apart
-///         so the contract body carries transitions and arithmetic only.
-/// @dev An abstract contract rather than a library or an interface: an interface cannot
-///      hold the row constants, and errors and events belong to the contract that reverts
-///      and emits them. Inheritance does not re-export any of this under the deriving
-///      name, so a call site asks for `RepoVaultBase.NotParty.selector`. `State` stays in
-///      `RepoVault` for the mirror of that reason: it is spelled `RepoVault.State` at
-///      twenty one call sites and moving it would buy nothing.
+/// @notice Rows, events and errors of `RepoVault`.
+/// @dev Selectors are `RepoVaultBase.NotParty`. `State` stays on `RepoVault`.
 abstract contract RepoVaultBase {
     /// @dev Rows of the venue's disclosure matrix, named beside each `emit` because the
     ///      row is the claim. `ROW_EXEC_PRICE` is declared and never emitted on: see
