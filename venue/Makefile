@@ -9,9 +9,9 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures verifier clean report census rulebook preview
+.PHONY: all build test sizes circuit fixtures verifier clean report census rulebook pages
 
-all: build census circuit verifier fixtures preview test report
+all: build census circuit verifier fixtures pages test report
 
 build:
 	forge build
@@ -52,12 +52,18 @@ census:
 	$(NODE) node tools/callstack.mjs --json docs/callstack.json --md docs/CALLSTACK.md
 	$(NODE) node tools/gen-seammap.mjs docs/callstack.json src/observatory/SeamMap.sol
 
-# The preview a trader sees before signing `commit(bytes32)`. Its id comes from
-# `tools/commitment.mjs`, pinned to `OrderBook.commitmentOf` by
-# `test/CommitmentVectors.t.sol`, so the vectors run before the page is built.
-preview:
+# The two pages a trader reads: the commitment before signing `commit(bytes32)`,
+# and the disclosure receipt after acting. Each carries a client-side copy of
+# arithmetic the contract also performs, and each copy is pinned to the contract
+# by a vector suite, so the vectors run before the pages are built.
+#
+#   commitment.mjs -> OrderBook.commitmentOf     test/CommitmentVectors.t.sol
+#   lattice.mjs    -> the five DisclosureView getters  test/ReceiptVectors.t.sol
+pages:
 	$(NODE) node tools/commitment.test.mjs
+	$(NODE) node tools/lattice.test.mjs
 	$(NODE) node tools/gen-preview.mjs
+	$(NODE) node tools/gen-receipt.mjs
 
 report:
 	@echo

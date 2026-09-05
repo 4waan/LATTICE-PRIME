@@ -1,0 +1,362 @@
+<title>Disclosure Receipt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,500;0,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/*INLINE docs/venue.css*/
+
+/* ---------- the row table ---------- */
+.rows{border:1px solid var(--rule-hard);border-radius:2px;background:var(--surface);overflow-x:auto}
+.rowline{display:grid;grid-template-columns:3.6rem 1fr 8.5rem 9rem 7.5rem;gap:var(--s2);
+  align-items:baseline;padding:.72rem var(--s3);border-bottom:1px solid var(--rule);min-width:760px}
+.rowline:last-child{border-bottom:0}
+.rowline.head{background:var(--sunk);font-family:"IBM Plex Mono",monospace;font-size:.64rem;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.rowline .rn{font-family:"IBM Plex Mono",monospace;font-size:.82rem;color:var(--faint)}
+.rowline .rname{color:var(--ink);font-size:.92rem}
+.rowline .rcell,.rowline .rbud{font-family:"IBM Plex Mono",monospace;font-size:.82rem;color:var(--ink-2)}
+.rowline .rbud.metered{color:var(--sealed);font-weight:500}
+.rowline .rbud.open{color:var(--exposed)}
+.rowline .rwhy{font-size:.76rem;color:var(--slate);line-height:1.4}
+
+/* ---------- the console ---------- */
+.acts{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin-bottom:var(--s3)}
+.acts .spacer{flex:1 1 2rem}
+.tape{display:flex;flex-direction:column;gap:var(--s3)}
+.empty{border:1px dashed var(--rule-hard);border-radius:2px;padding:var(--s4) var(--s3);
+  text-align:center;color:var(--faint);font-size:.88rem}
+
+/* ---------- one receipt ---------- */
+.rcpt{border:1px solid var(--rule-hard);border-radius:2px;background:var(--surface);
+  border-top:3px solid var(--sealed)}
+.rcpt.silent{border-top-color:var(--held)}
+.rcpt>.top{display:flex;gap:var(--s2) var(--s3);align-items:baseline;flex-wrap:wrap;
+  padding:var(--s3);border-bottom:1px solid var(--rule)}
+.rcpt .seq{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.1em;color:var(--faint)}
+.rcpt .call{font-family:"IBM Plex Mono",monospace;font-size:.95rem;color:var(--ink);font-weight:500}
+.rcpt .verdict{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:.68rem;
+  letter-spacing:.12em;text-transform:uppercase;padding:.22rem .5rem;border-radius:2px;white-space:nowrap}
+.rcpt .verdict.said{background:var(--sealed-wash);color:var(--sealed)}
+.rcpt .verdict.held{background:var(--held-wash);color:var(--held)}
+.lines{list-style:none;margin:0;padding:0}
+.lines li{display:grid;grid-template-columns:11rem 1fr;gap:var(--s2) var(--s3);margin:0;
+  padding:.6rem var(--s3);border-bottom:1px solid var(--rule);align-items:baseline}
+.lines li:last-child{border-bottom:0}
+.lines .k{font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--faint)}
+.lines .v{color:var(--ink);font-size:.92rem}
+.lines .v .mono{font-size:.86rem}
+.lines .v em{font-style:normal;color:var(--slate)}
+.lines .v .held{color:var(--held);font-weight:500}
+.lines .v .open{color:var(--exposed);font-weight:500}
+.lines .getter{display:block;font-family:"IBM Plex Mono",monospace;font-size:.72rem;
+  color:var(--faint);margin-top:.22rem}
+
+/* ---------- the budget bar ---------- */
+.meter{display:flex;height:1.5rem;border:1px solid var(--rule-hard);border-radius:2px;
+  overflow:hidden;background:var(--sunk);max-width:26rem;margin:.3rem 0 .35rem}
+.meter .bit{flex:1 1 0;border-right:1px solid var(--rule-hard)}
+.meter .bit:last-child{border-right:0}
+.meter .bit.spent{background:var(--sealed)}
+.meter .bit.just{background:var(--sealed);opacity:.55}
+.meter .bit.free{background:transparent}
+.meter.dry .bit.spent{background:var(--held)}
+
+/* ---------- the counterfactual ---------- */
+.cf{width:100%;border-collapse:collapse;font-size:.86rem;min-width:640px}
+.cfwrap{overflow-x:auto;border:1px solid var(--rule-hard);border-radius:2px;background:var(--surface)}
+.cf th,.cf td{text-align:left;padding:.55rem var(--s3);border-bottom:1px solid var(--rule);vertical-align:top}
+.cf thead th{background:var(--sunk);font-family:"IBM Plex Mono",monospace;font-size:.64rem;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.cf tbody tr:last-child td{border-bottom:0}
+.cf .full{color:var(--exposed);font-weight:500;font-family:"IBM Plex Mono",monospace;font-size:.82rem}
+.cf .bit1{color:var(--sealed);font-family:"IBM Plex Mono",monospace;font-size:.82rem}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <span class="eyebrow">Venue · OrderBook · after the fact</span>
+  <h1>Disclosure Receipt</h1>
+  <p class="lede">Every venue will tell you what it did with your money. This one tells you what it did with your information: what it published, how precisely, to whom, from when, and how much of that row's budget your action just spent.</p>
+  <div class="sigline">ceilingFor · wouldDisclose · spentBits · wouldAfford · breakingSize</div>
+  <div class="standin"><b>Five getters, no new machinery.</b> Every figure below is one of those five reads, each a <code>view</code> over at most two storage slots. The receipt is not a feature bolted onto the venue. It is the venue's own enforcement, printed.</div>
+</header>
+
+<section>
+  <div class="shead"><span class="snum">01</span><h2>What this contract is allowed to say about you</h2></div>
+  <p>Four rows of the disclosure matrix, which is all an order book touches. The ceiling is a governed parameter under a committed root, so this table is readable off the chain rather than off a prospectus.</p>
+  <div class="rows" id="rowTable"></div>
+  <div class="note"><b>Three of the four carry no budget, and that is the published ceiling restated rather than a hole.</b> A budget must satisfy <code>budgetBits &lt; domainBits</code>, and an exact disclosure costs the whole domain, so a single one exceeds any well formed budget on its own. Attaching one to a row the venue publishes exactly would not refuse anything; it would silence that row permanently, on every call, forever. So the venue refuses to publish such a budget at all. The lever against an exact row is a coarser disclosure, not a tighter bound.</div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">02</span><h2>Act, and read the receipt</h2></div>
+  <p>Three actions, in the order a sealed order lives them. Each one issues a receipt below, newest first. Nothing here reaches a chain: the arithmetic is the venue's own, inlined from the module the test suite pins to the deployed contract.</p>
+  <div class="acts">
+    <button id="doCommit" type="button">commit(bytes32)</button>
+    <button id="doReveal" type="button">reveal(&hellip;)</button>
+    <button id="doCancel" type="button">cancel(bytes32)</button>
+    <span class="spacer"></span>
+    <button id="doEpoch" type="button">Next epoch</button>
+    <button id="doReset" type="button">Start over</button>
+  </div>
+  <div class="tape" id="tape"></div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">03</span><h2>The row that can run out</h2></div>
+  <p>Row 15 is the only cell in this book below <code>exact</code>, and so the only one a coalition budget can bind. A cancellation announces one bit. The published budget is three bits per epoch, which means the first three cancellations of an epoch are announced and the fourth is not.</p>
+  <div class="wire">
+    <div class="wcell"><span class="k">Published cell</span><span class="v" id="r15cell"></span><span class="n">Section 7.2 says <code>(agg, EOD)</code>. Neither ideal contains the other, which makes this the venue's only incomparable divergence: less per event than the matrix allows, and sooner.</span></div>
+    <div class="wcell"><span class="k">Budget this epoch</span><span class="v" id="r15budget"></span><span class="n"><code>spentBits(15, epoch)</code> against <code>budgetFor(15).budgetBits</code>.</span></div>
+    <div class="wcell"><span class="k">Breaking size</span><span class="v" id="r15break"></span><span class="n"><code>breakingSize(15, pred)</code>. How many observations before the row is gone, which is the number a supervisor asks for.</span></div>
+  </div>
+  <div class="note"><b>The fourth cancellation still happens.</b> An exhausted budget withholds the venue's speech; it never fails the action. The alternative was tried and discarded during this build: charge at emission and revert, and an attacker exhausts a row with cheap disclosing actions until margin calls cannot be recorded and open positions cannot be closed. So the state transition always completes and only the speech is rationed, which produces the one thing an event stream structurally cannot report: an action that occurred and was not announced. A receipt can report it, because the receipt is a read of state rather than a subscription to a log.</div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">04</span><h2>What the receipt does not cover</h2></div>
+  <p>Printed here because a receipt that overstates its own scope is worse than none: it reconciles against nothing.</p>
+  <div class="vs">
+    <div class="pane sealedp">
+      <div class="top"><span class="tag">bounded</span><h3>The event stream</h3></div>
+      <ul class="readout">
+        <li><span class="k">rows</span><span class="v">3, 4, 15, 17</span></li>
+        <li><span class="k">bound</span><span class="v">ceiling, then budget</span></li>
+        <li><span class="k">unit</span><span class="v">bits per row per epoch</span></li>
+        <li><span class="k">who reads it</span><span class="v">indexers, supervisors</span></li>
+      </ul>
+    </div>
+    <div class="pane clearp">
+      <div class="top"><span class="tag">not bounded</span><h3>Storage, and the transaction body</h3></div>
+      <ul class="readout">
+        <li><span class="k">orders(id)</span><span class="v leak">readable by anyone</span></li>
+        <li><span class="k">reveal calldata</span><span class="v leak">side, price, quantity</span></li>
+        <li><span class="k">row 16 cadence</span><span class="v leak">no site charges it</span></li>
+        <li><span class="k">bound</span><span class="v hid">none, and none possible</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><b>On a public ledger a contract that can read a number is a contract whose storage anyone can read.</b> That is the same collapse that moved rows 3, 4 and 5 to <code>(exact, imm)</code> in the deployed parameter set: the matrix reached their public cells through a stage where the venue held the value and the public did not, and no such stage exists here. Commit and reveal still moves <em>when</em> the value becomes legible, which is what it buys against the node set before consensus. It does not narrow <em>who</em>. The receipt says so on every line rather than in a footnote.</div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">05</span><h2>The same receipt, from a venue that cannot print one</h2></div>
+  <p>Turquoise Plato Block Discovery hides a block order better than this venue hides one, and by a mechanism this venue does not have: an operator who reads every field in the clear and releases a single predicate to a single counterparty. The pre-trade privacy is real, measured from the venue rulebook rather than asserted.</p>
+  <div class="cfwrap">
+    <table class="cf">
+      <thead><tr><th>Field</th><th>To the operator</th><th>To a matched counterparty</th><th>To everyone else</th></tr></thead>
+      <tbody>
+        <tr><td>Trader identity</td><td class="full">full</td><td>nothing</td><td>nothing</td></tr>
+        <tr><td>Order size</td><td class="full">full</td><td class="bit1">one bit: at least your own MES</td><td>nothing</td></tr>
+        <tr><td>Order price</td><td class="full">full</td><td>nothing</td><td>nothing</td></tr>
+        <tr><td>Asset</td><td class="full">full</td><td>full</td><td>nothing pre-trade</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note"><b>Read the first column as a receipt and it has one line: everything, immediately, permanently.</b> There is no arithmetic to print because there is no bound to print it against, and no getter to read because the quantity was never counted. This is not a criticism of the mechanism. Conditional disclosure is the thing cryptography implements without an operator, and the two produce the same disclosure to the counterparty; they differ only in who must be trusted to compute the predicate honestly. What the operator's column costs is the ability to answer the question afterwards. A venue that removes the operator inherits the obligation to answer it, which is what this page is.</div>
+</section>
+
+<footer>
+  <p><b>How this page knows.</b> It runs <code>tools/lattice.mjs</code>, the client half of <code>DisclosureLattice</code>, <code>DisclosureBudget</code> and the meter's spend rule, inlined unmodified by <code>tools/gen-receipt.mjs</code>. <code>tools/lattice.test.mjs</code> pins its output to fixed vectors and <code>test/ReceiptVectors.t.sol</code> asserts the same literals against a deployed <code>OrderBook</code> under the published parameter set, including the four-cancellation sequence above. The two halves are checked against each other rather than asserted to agree, so a page that quoted a budget the venue does not charge would fail the suite.</p>
+  <div class="srcs">
+    <span>src/lattice/DisclosureView.sol &middot; the five getters</span>
+    <span>src/lattice/DisclosureMeter.sol &middot; Rule A and Rule B</span>
+    <span>test/PolicyFixture.sol &middot; asDeployed, meteredCancellations</span>
+    <span>marketplace/research/venues/03-dark-pools.md &middot; the operator column</span>
+  </div>
+</footer>
+
+</div>
+
+<script>
+/*INLINE tools/lattice.mjs*/
+
+// ---- the venue's published parameters, as `PolicyFixture` adopts them -------
+// `meteredCancellations()`: `asDeployed` plus the row 15 budget that makes the
+// meter bind. `ReceiptVectors.t.sol` reads all of it back off the committed root
+// rather than off this object.
+const NO_BUDGET = {domainBits: 0, aggBits: 0, bucketBits: 0, budgetBits: 0};
+const POLICY = {
+    3:  {name: "Order size", ceiling: point(G.EXACT, T.IMM), budget: NO_BUDGET},
+    4:  {name: "Order price", ceiling: point(G.EXACT, T.IMM), budget: NO_BUDGET},
+    15: {name: "Activity fingerprint", ceiling: point(G.PRED, T.IMM),
+         budget: {domainBits: 8, aggBits: 2, bucketBits: 4, budgetBits: 3}},
+    17: {name: "Account provenance", ceiling: point(G.EXACT, T.IMM), budget: NO_BUDGET},
+};
+
+const G_NAME = ["none", "predicate", "aggregate", "bucket", "exact"];
+const T_NAME = ["before the fact", "immediately", "after 15 minutes",
+                "at end of day", "at end of epoch", "never"];
+
+// The three disclosing entry points, with the rows each charges. `reveal` charges
+// two rows for one event, and both are charged rather than short-circuited: a
+// spent price row must not let the size row escape the meter.
+const ACTIONS = {
+    commit: {
+        call: "commit(bytes32)",
+        emits: (n) => `Committed(0x${n}…, 0x9f2c…)`,
+        charges: [{row: 17, g: G.EXACT, t: T.IMM, what: "that this account placed an order"}],
+    },
+    reveal: {
+        call: "reveal(side, price, qty, salt, backing)",
+        emits: () => "Revealed(id, SELL, 2500000000000000, 500)",
+        charges: [
+            {row: 4, g: G.EXACT, t: T.IMM, what: "the limit price, to the weibar"},
+            {row: 3, g: G.EXACT, t: T.IMM, what: "the quantity, to the unit"},
+        ],
+    },
+    cancel: {
+        call: "cancel(bytes32)",
+        emits: (n) => `Cancelled(0x${n}…)`,
+        charges: [{row: 15, g: G.PRED, t: T.IMM,
+                   what: "one bit: that an order you sealed was withdrawn unopened"}],
+    },
+};
+
+const $ = (id) => document.getElementById(id);
+const hex = (n) => "0x" + (n >>> 0).toString(16).padStart(8, "0");
+
+let epoch = 0;
+let seq = 0;
+let spent = {};       // row -> bits spent this epoch
+let tape = [];
+
+const spentOn = (row) => spent[row] || 0;
+
+/// One charged disclosure, and everything a receipt has to say about it.
+function chargeOne(c) {
+    const p = POLICY[c.row];
+    const r = receiptFor(p.ceiling, p.budget, spentOn(c.row), c.g, c.t);
+    const before = spentOn(c.row);
+    const outcome = spend(p.budget, before, c.g);
+    if (outcome.afforded) spent[c.row] = outcome.spentAfter;
+    const after = spentOn(c.row);
+    // Read after the charge, not before it. A receipt is issued once the action
+    // has happened, so `wouldAfford` on it has to answer for the next one.
+    return {...c, ...r, name: p.name, afforded: outcome.afforded, before, after,
+            wouldAfford: receiptFor(p.ceiling, p.budget, after, c.g, c.t).wouldAfford};
+}
+
+function act(kind) {
+    const a = ACTIONS[kind];
+    const nonce = (seq + 1).toString(16).padStart(4, "0");
+    const charges = a.charges.map(chargeOne);
+    tape.unshift({
+        seq: ++seq, epoch, kind,
+        call: a.call,
+        emitted: charges.every((c) => c.afforded) ? a.emits(nonce) : null,
+        charges,
+    });
+    render();
+}
+
+/// The budget bar: one segment per bit of the row's epoch budget, so the reader
+/// counts rather than estimates a percentage.
+function meterBar(budgetBits, before, after, dry) {
+    if (budgetBits === 0) return "";
+    const seg = [];
+    for (let i = 0; i < budgetBits; i++) {
+        seg.push('<span class="bit ' + (i < before ? "spent" : i < after ? "just" : "free") + '"></span>');
+    }
+    return '<span class="meter' + (dry ? " dry" : "") + '">' + seg.join("") + "</span>";
+}
+
+function budgetLine(c) {
+    if (!c.metered) {
+        return '<span class="v"><em>No bound published for this row.</em>' +
+            '<span class="getter">breakingSize(' + c.row + ', ' + G_NAME[c.g] + ') = 0 &middot; ' +
+            'a budget on a row published exactly could never bind, so adopting one is refused</span></span>';
+    }
+    const left = c.budgetBits - c.after;
+    const body = c.afforded
+        ? meterBar(c.budgetBits, c.before, c.after, false) +
+          "<br>" + c.after + " of " + c.budgetBits + " bits spent this epoch, " +
+          (left === 0 ? "<span class='held'>nothing left</span>"
+                      : left + " left, so " + left + " more cancellation" + (left === 1 ? "" : "s") + " will be announced")
+        : meterBar(c.budgetBits, c.before, c.after, true) +
+          "<br><span class='held'>" + c.budgetBits + " of " + c.budgetBits +
+          " bits spent. This disclosure cost nothing because it was never made.</span>";
+    return '<span class="v">' + body +
+        '<span class="getter">spentBits(' + c.row + ', ' + c.epochShown + ') &middot; ' +
+        'wouldAfford(' + c.row + ', ' + G_NAME[c.g] + ') = ' + (c.wouldAfford ? "true" : "false") +
+        ' &middot; breakingSize = ' + c.breakingSize + "</span></span>";
+}
+
+function receiptCard(r) {
+    const c = r.charges[0];
+    const said = r.emitted !== null;
+    const rows = r.charges.map((x) => "row " + x.row + ", " + x.name.toLowerCase()).join(" and ");
+    const gran = r.charges.map((x) =>
+        G_NAME[x.g] + " <em>(cell " + hex(x.asked) + ")</em>").join(" and ");
+    const t = T_NAME[c.t];
+
+    const li = (k, v) => '<li><span class="k">' + k + "</span>" + v + "</li>";
+    return '<article class="rcpt' + (said ? "" : " silent") + '">' +
+        '<div class="top"><span class="seq">#' + String(r.seq).padStart(3, "0") +
+        " &middot; epoch " + r.epoch + '</span><span class="call">' + r.call + "</span>" +
+        '<span class="verdict ' + (said ? "said" : "held") + '">' +
+        (said ? "published" : "withheld") + "</span></div>" +
+        '<ul class="lines">' +
+        li("Published", said
+            ? '<span class="v"><span class="mono">' + r.emitted + "</span><span class=\"getter\">" +
+              r.charges.map((x) => x.what).join("; ") + "</span></span>"
+            : '<span class="v"><span class="held">Nothing. The action completed and the venue said none of it.</span>' +
+              '<span class="getter">' + r.charges.map((x) => x.what).join("; ") +
+              ", charged to no observer</span></span>")
+        + li("Granularity", '<span class="v">' + gran +
+            '<span class="getter">' + rows + "</span></span>")
+        + li("To whom", '<span class="v">Everyone. <em>Twenty-nine consensus node operators hold the transaction body before ordering, and the log afterwards is public.</em>' +
+            '<span class="getter">the observer axis has no {ven} distinct from {pub} on a public ledger</span></span>')
+        + li("From when", '<span class="v">' + t[0].toUpperCase() + t.slice(1) +
+            ', and permanently thereafter.<span class="getter">ceilingFor(' + c.row + ') = ' +
+            hex(c.ceiling) + " &middot; wouldDisclose = " + (c.permitted ? "true" : "false") +
+            "</span></span>")
+        + r.charges.map((x) =>
+            li(r.charges.length > 1 ? "Budget, row " + x.row : "Budget",
+               budgetLine({...x, epochShown: r.epoch}))).join("")
+        + "</ul></article>";
+}
+
+function renderRowTable() {
+    const head = '<div class="rowline head"><span>Row</span><span>What it is</span>' +
+        "<span>Ceiling</span><span>Budget</span><span>Why</span></div>";
+    const body = Object.keys(POLICY).map((k) => {
+        const row = Number(k), p = POLICY[row];
+        const g = G_NAME[[G.NONE, G.PRED, G.AGG, G.BUCKET, G.EXACT]
+            .filter((gi) => permits(p.ceiling, point(gi, T.IMM))).pop()];
+        const metered = isMetered(p.budget);
+        return '<div class="rowline"><span class="rn">' + row + '</span>' +
+            '<span class="rname">' + p.name + "</span>" +
+            '<span class="rcell">' + g + ", imm</span>" +
+            '<span class="rbud ' + (metered ? "metered" : "open") + '">' +
+            (metered ? p.budget.budgetBits + " bits / epoch" : "none published") + "</span>" +
+            '<span class="rwhy">' + (metered
+                ? "Below exact, so a budget binds"
+                : "Published exactly, so no budget can") + "</span></div>";
+    }).join("");
+    $("rowTable").innerHTML = head + body;
+}
+
+function render() {
+    const p15 = POLICY[15];
+    $("r15cell").textContent = "(pred, imm) " + hex(p15.ceiling);
+    $("r15budget").textContent = spentOn(15) + " of " + p15.budget.budgetBits + " bits";
+    $("r15break").textContent = breakingSize(p15.budget, G.PRED) + " cancellations";
+
+    $("tape").innerHTML = tape.length
+        ? tape.map(receiptCard).join("")
+        : '<div class="empty">No action taken yet. Press <b>commit(bytes32)</b> to seal an order, then <b>cancel(bytes32)</b> four times.</div>';
+}
+
+$("doCommit").addEventListener("click", () => act("commit"));
+$("doReveal").addEventListener("click", () => act("reveal"));
+$("doCancel").addEventListener("click", () => act("cancel"));
+$("doEpoch").addEventListener("click", () => { epoch += 1; spent = {}; render(); });
+$("doReset").addEventListener("click", () => { epoch = 0; seq = 0; spent = {}; tape = []; render(); });
+
+renderRowTable();
+render();
+</script>

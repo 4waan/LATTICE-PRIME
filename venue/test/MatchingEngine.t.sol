@@ -9,6 +9,7 @@ import {ICompliance} from "../src/interfaces/ICompliance.sol";
 import {VolumeCap} from "../src/policy/VolumeCap.sol";
 import {TradingHalt} from "../src/policy/TradingHalt.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 
@@ -215,11 +216,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     // ---------------------------------------------------------- the happy path
 
-    /// @notice One round, one crossing, and the four things that have to move.
-    /// @dev The asset moves through ATS, the cash lands as a credit, both orders
-    ///      retire because both filled out, and the bond comes back. Before this
-    ///      contract existed the book could do none of it: `Order.filled` was
-    ///      written once as zero and there was no token address anywhere.
     function test_theRoundCrossesAndSettles() public {
         uint256 holdId = _hold(SELLER, 1_000);
         bytes32 sell = _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
@@ -244,11 +240,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         assertFalse(engine.isLive(buy));
     }
 
-    /// @notice The clearing price is the venue's, not the aggressor's.
-    /// @dev A continuous book would fill at the resting order's limit and hand
-    ///      the whole spread to whoever arrived second. A uniform price call
-    ///      auction gives both sides the same number, which at 1.6 orders a day
-    ///      is the difference between a venue and a negotiation.
     function test_theClearingPriceIsUniformAndNotEitherLimit() public {
         uint256 holdId = _hold(SELLER, 500);
         _commit(SELLER, OrderBook.Side.SELL, 90, 500, "s");
@@ -271,11 +262,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     // ------------------------------------------------- the unfunded promise
 
-    /// @notice **A reveal that cannot fund is refused.** The census item that
-    ///         was a security hole rather than an omission.
-    /// @dev an invariant. Both sides, because the failure is symmetric: a sell with no
-    ///      hold behind it and a buy with no cash behind it are the same free
-    ///      option written on the counterparty.
     function test_anUnbackedSellIsRefused() public {
         _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
         _open();
@@ -294,13 +280,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         engine.reveal(OrderBook.Side.BUY, 105, 1_000, "b", 0);
     }
 
-    /// @notice A hold that already names its destination cannot be used.
-    /// @dev Two separate reasons and both are disqualifying. Mechanically,
-    ///      `_validateExecuteHold` would revert when the auction found a
-    ///      different buyer, and it would revert *mid-round*, taking every other
-    ///      settlement in that round with it. And in policy terms, naming the
-    ///      destination at reveal discloses the counterparty before the match,
-    ///      which is the disclosure a sealed book exists to defer.
     function test_aHoldThatNamesADestinationIsRefused() public {
         vm.prank(SELLER);
         (, uint256 id) = ats.createHoldByPartition(
@@ -357,19 +336,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     // ------------------------------------------------------------ the ABAF hazard
 
-    /// @notice **A resting order whose backing was rebased is voided, not
-    ///         under-delivered.**
-    ///
-    /// `HoldStorageWrapper.beforeExecuteHold` calls `adjustHoldBalances`, which
-    /// resynchronises the holder's balance adjustment factor, and the pending
-    /// adjustment sync fires lazily from entry points across the facet surface.
-    /// So a third party's unrelated transaction can move the quantity standing
-    /// behind an order that was revealed days earlier. The quantity promised at
-    /// reveal is not the quantity deliverable at cross.
-    ///
-    /// Scaling the order to the new backing would silently change a trader's
-    /// size after the fact. Refusing to trade it is what a venue does when a
-    /// corporate action lands on an instrument with a resting book.
     function test_aRebasedBackingVoidsTheOrderRatherThanUnderDelivering() public {
         uint256 holdId = _hold(SELLER, 1_000);
         bytes32 sell = _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
@@ -394,18 +360,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     // -------------------------------------------------------------- seam C
 
-    /// @notice **The engine asks seam C the question ATS cannot ask on this rail.**
-    ///
-    /// `mesh/transfer-path.md` F-06: hold execution reaches the compliance module
-    /// as `canTransfer(address(0), to, 0)`, with the amount withheld. That is
-    /// shape 3 of `SeamJournal._judge`. So a size-dependent policy is blind
-    /// exactly on the rail this venue settles through, and F-06 recorded the
-    /// consequence as a design decision owed: the size gate has to live in the
-    /// contract that owns the hold.
-    ///
-    /// This is that contract discharging it. The engine calls
-    /// `canTransfer(seller, buyer, amount)` itself, with the real triple, before
-    /// every execution.
     function test_seamCIsAskedTheQuestionAtsCannotAskOnTheHoldRail() public {
         uint256 holdId = _hold(SELLER, 1_000);
         _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
@@ -485,11 +439,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         assertEq(ats.delivered(BUYER), 1_000);
     }
 
-    /// @notice The measured reason resting exists: a lone order finds nobody in
-    ///         its own round and trades in a later one.
-    /// @dev `probes/matching-clearing.py` section 5: resting seven rounds takes
-    ///      crossings from 130.0 a year to 277.8, at the cost of one extra
-    ///      per-round predicate rather than a fresh exact disclosure per round.
     function test_aRestingOrderCrossesInALaterRound() public {
         uint256 holdId = _hold(SELLER, 1_000);
         _commit(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
@@ -547,12 +496,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
 
     // ------------------------------------------------- disclosure at the cross
 
-    /// @notice Section 7.2 as written does not merely refuse the print. **There
-    ///         is no crossing to print, because there is no reveal.**
-    /// @dev Rows 3 and 4 refuse an exact immediate disclosure, so an order never
-    ///      reaches the book at all and the round is empty. The blocker the old
-    ///      `match` comment named as "two open matrix cells" turns out to sit one
-    ///      step earlier than the cross.
     function test_theMatrixAsWrittenRefusesTheCrossing() public {
         _publish(sevenTwoAsWritten());
         uint256 holdId = _hold(SELLER, 1_000);
@@ -562,7 +505,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         vm.prank(SELLER);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrderBook.DisclosureExceedsCeiling.selector,
+                DisclosureView.DisclosureExceedsCeiling.selector,
                 uint16(4),
                 L.excess(L.point(L.G_EXACT, L.T_15M), L.point(L.G_EXACT, L.T_IMM))
             )
@@ -576,15 +519,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         engine.crossRound(r);
     }
 
-    /// @notice **A price the venue may not print exactly is dark volume, and
-    ///         Article 5 is the thing that notices.**
-    ///
-    /// This closes a loop nothing had closed. `VolumeCap.record` had no
-    /// production caller, so the cap counted zero volume forever and `enforce`
-    /// could never fire. Wiring it to the print rather than to the trade is what
-    /// makes it mean something: a trade whose execution price went out at an
-    /// order of magnitude instead of a number is a trade that used a hiding
-    /// mechanism, which is what Article 5 caps.
     function test_aPriceThatCannotBePrintedExactlyIsDarkVolume() public {
         _publish(coarseExecutionPrice());
         uint256 holdId = _hold(SELLER, 1_000);
@@ -625,19 +559,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         assertFalse(cap.enforce(), "so there is nothing to suspend");
     }
 
-    /// @notice **The repetition attack and Article 5 turn out to be one
-    ///         mechanism seen from two ends.**
-    ///
-    /// `docs/manipulation-surface.md` MA-04 is iceberg probing by repetition:
-    /// the level ceiling is join-idempotent, so repeating a disclosure is free
-    /// and only a budget sees it. Narrow row 5 so a budget can attach to it at
-    /// all (Rule B forbids one on a row admitting exact), give it eight bits
-    /// against four-bit buckets, and the third print in an epoch is withheld.
-    ///
-    /// That withheld print is dark volume, so the dark share rises and Article 5
-    /// fires. Exhausting the venue's speech budget is therefore not a way to
-    /// trade quietly: it is a way to get the waiver suspended and the obligation
-    /// raised, which compels the printing again.
     function test_anExhaustedBudgetSilencesThePrintAndArticleFiveNotices() public {
         _publish(meteredExecutionPrice());
 
@@ -686,23 +607,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         engine.attachVolumeCap(other);
     }
 
-    // ------------------------------------------------------- row 12, admitted
-
-    /// @notice **The counterparty is named at settlement and nowhere earlier.**
-    ///
-    /// Row 12 is admitted rather than solved, and this is what admitting it
-    /// means in practice, stated as something a reviewer can check rather than
-    /// as a sentence in a document. The commitment discloses one `bytes32` and
-    /// the committer's address; the reveal discloses a side, a price and a size;
-    /// only the settlement names a pair. So the venue defers *when* the
-    /// relationship is disclosed, which is worth something against the
-    /// pre-consensus observers an earlier measurement measured, and it does not narrow *who*
-    /// eventually learns it.
-    ///
-    /// The disclosure is ATS's transfer, not our event. `Settled` is the audit
-    /// record of a fact that lands on chain regardless, which is exactly why
-    /// Rule B leaves this row unmetered: a budget that withheld our event while
-    /// the pair went out anyway would certify a bound that does not hold.
     function test_theCounterpartyIsNamedAtSettlementAndNotBefore() public {
         uint256 holdId = _hold(SELLER, 1_000);
         bytes32 sell = _idOf(SELLER, OrderBook.Side.SELL, 95, 1_000, "s");
@@ -714,11 +618,7 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         _reveal(SELLER, OrderBook.Side.SELL, 95, 1_000, "s", holdId, 0);
         _reveal(BUYER, OrderBook.Side.BUY, 105, 1_000, "b", 0, 105 * 1_000);
-        // The claim is about the *relationship*, not about either address.
-        // `Committed` names its own committer under row 17, account provenance,
-        // and that is a disclosure the matrix already grants. What row 12 is
-        // about is the pair, so the check is that no single event carries both
-        // before a trade exists.
+
         _assertNoLogNamesBoth(
             vm.getRecordedLogs(), SELLER, BUYER, "a pre-trade event named both sides"
         );
@@ -730,27 +630,11 @@ contract MatchingEngineTest is Test, PolicyFixture {
         engine.crossRound(r);
     }
 
-    /// @notice Row 12 carries no budget, and that is Rule B rather than a gap.
-    /// @dev `DisclosureBudget.requireWellFormed` demands `budgetBits <
-    ///      domainBits` and an exact disclosure costs `domainBits`, so a budget
-    ///      on a row published at `(exact, imm)` could never bind;
-    ///      `ParameterRoot.adopt` refuses to publish one. The consequence here is
-    ///      the right one: metering a disclosure the venue cannot withhold would
-    ///      be worse than not metering it.
     function test_rowTwelveIsUnmeterableByConstruction() public view {
         assertTrue(engine.wouldDisclose(12, L.G_EXACT, L.T_IMM), "row 12 is admitted");
         assertEq(engine.breakingSize(12, L.G_EXACT), 0, "and carries no budget at all");
     }
 
-    // ----------------------------------------------------------------- cost
-
-    /// @notice What a round costs, measured rather than asserted.
-    /// @dev The clearing scan is `O(n^2)` over the live book and the allocation
-    ///      is another `O(n^2)`, which is only defensible because `n` is the
-    ///      resting window and not the venue's history. At 600 orders a year with
-    ///      a daily round and seven rounds of resting, the measured live book is
-    ///      about a dozen orders. This logs the shape so a future change that
-    ///      makes it quadratic in something unbounded is visible in a diff.
     function test_theCostOfARound() public {
         for (uint256 k = 1; k <= 3; ++k) {
             _deploy(asDeployed());
@@ -840,8 +724,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         assertEq(engine.credit(SELLER), BOND - FEE, "the refund is the base contract's");
         assertEq(engine.feesRetained(), FEE);
 
-        // The hold is untouched and still usable, which is the property a seller
-        // cares about: pulling a quote must not cost them their lot.
         (uint256 amount,,,,,,) = ats.getHoldForByPartition(
             IHoldTypes.HoldIdentifier({
                 partition: PARTITION, tokenHolder: SELLER, holdId: holdId
@@ -881,10 +763,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         engine.commit{value: BOND}(id);
     }
 
-    /// @dev The reveal window opens `DELAY` after the commit. Warping is a
-    ///      separate step so a test can commit several orders at one timestamp
-    ///      and open them all in the same round, which is what a call auction
-    ///      round actually looks like.
     function _open() internal {
         vm.warp(block.timestamp + DELAY + 1);
     }
