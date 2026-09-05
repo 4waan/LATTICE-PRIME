@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {SeamJournal} from "../src/observatory/SeamJournal.sol";
+import {ISeamJournal} from "../src/interfaces/ISeamJournal.sol";
 import {ZkKycRegistry} from "../src/kyc/ZkKycRegistry.sol";
 import {DisclosureLattice} from "../src/lattice/DisclosureLattice.sol";
 import {DisclosureBudget} from "../src/lattice/DisclosureBudget.sol";
@@ -104,9 +105,13 @@ contract SeamJournalTest is Test {
     }
 
     function test_explainNamesTheSideThatFailed() public view {
-        (bool ok, uint8 why) = journal.explain(ALICE, MALLORY, 1e18);
+        (bool ok, ISeamJournal.Reason why) = journal.explain(ALICE, MALLORY, 1e18);
         assertFalse(ok);
-        assertEq(why, 1, "recipient not granted");
+        assertEq(
+            uint8(why),
+            uint8(ISeamJournal.Reason.RECIPIENT_NOT_GRANTED),
+            "recipient not granted"
+        );
     }
 
     // -------------------------------------------------------- an invariant'
@@ -149,11 +154,11 @@ contract SeamJournalTest is Test {
         // 500e18 is 5 * 10^20, so twenty decades. The magnitude goes out, the
         // figure does not.
         vm.expectEmit(true, true, true, true);
-        emit SeamJournal.UnverifiedArrival(MALLORY, 20, e);
+        emit ISeamJournal.UnverifiedArrival(MALLORY, 20, e);
         vm.prank(TOKEN);
         journal.transferred(ALICE, MALLORY, 500e18);
 
-        SeamJournal.EpochRecord memory r = journal.epochRecord(e);
+        ISeamJournal.EpochRecord memory r = journal.epochRecord(e);
         assertEq(r.unverifiedArrivals, 1, "flagged");
         assertEq(r.transfers, 1, "counted");
     }
@@ -164,7 +169,7 @@ contract SeamJournalTest is Test {
         uint64 e = journal.currentEpoch();
         vm.prank(TOKEN);
         journal.transferred(MALLORY, ALICE, 1e18);
-        SeamJournal.EpochRecord memory r = journal.epochRecord(e);
+        ISeamJournal.EpochRecord memory r = journal.epochRecord(e);
         assertEq(r.unverifiedArrivals, 0, "not flagged");
         assertEq(r.transfers, 1, "still counted");
     }
@@ -184,7 +189,7 @@ contract SeamJournalTest is Test {
         uint64 e = journal.currentEpoch();
         vm.prank(TOKEN);
         journal.created(MALLORY, 10e18);
-        SeamJournal.EpochRecord memory r = journal.epochRecord(e);
+        ISeamJournal.EpochRecord memory r = journal.epochRecord(e);
         assertEq(r.issues, 1);
         assertEq(r.unverifiedArrivals, 1);
     }
@@ -196,7 +201,7 @@ contract SeamJournalTest is Test {
         uint64 e = journal.currentEpoch();
         vm.prank(TOKEN);
         journal.destroyed(ALICE, 7e18);
-        SeamJournal.EpochRecord memory r = journal.epochRecord(e);
+        ISeamJournal.EpochRecord memory r = journal.epochRecord(e);
         assertEq(r.redemptions, 1);
         assertEq(r.grossOut, 7e18);
         assertEq(r.unverifiedArrivals, 0);
@@ -206,11 +211,11 @@ contract SeamJournalTest is Test {
     /// forged notification is a forged audit record, and the audit record is the
     /// product, so this is the one place the journal reverts.
     function test_onlyTheTokenMayWriteTheJournal() public {
-        vm.expectRevert(SeamJournal.NotToken.selector);
+        vm.expectRevert(ISeamJournal.NotToken.selector);
         journal.transferred(ALICE, MALLORY, 1);
-        vm.expectRevert(SeamJournal.NotToken.selector);
+        vm.expectRevert(ISeamJournal.NotToken.selector);
         journal.created(MALLORY, 1);
-        vm.expectRevert(SeamJournal.NotToken.selector);
+        vm.expectRevert(ISeamJournal.NotToken.selector);
         journal.destroyed(ALICE, 1);
     }
 
@@ -249,7 +254,7 @@ contract SeamJournalTest is Test {
         );
         uint64 e = j.currentEpoch();
         vm.expectEmit(true, true, true, true);
-        emit SeamJournal.UnverifiedArrivalWithheld(MALLORY, e);
+        emit ISeamJournal.UnverifiedArrivalWithheld(MALLORY, e);
         vm.prank(TOKEN);
         j.transferred(ALICE, MALLORY, 500e18);
         assertEq(j.spentBits(e), 1, "one bit, the predicate");
@@ -259,7 +264,7 @@ contract SeamJournalTest is Test {
     /// `budgetBits < domainBits`, and an exact disclosure costs exactly
     /// `domainBits`. So no well formed row can ever afford one, whatever the
     /// ceiling says, and a public event carrying an exact figure would be
-    /// unreachable code. That is why `UnverifiedArrival` carries a bucket.
+    /// unreachable code. That is why `UnverifiedArrival` carries a magnitude.
     ///
     /// Asserted over a fuzzed row rather than an example, because the claim is
     /// universal and an example would not be evidence for it.
@@ -318,7 +323,7 @@ contract SeamJournalTest is Test {
     }
 
     /// A row whose bucket count cannot name every decade of a `uint128` is
-    /// refused, because `_bucket` would then disclose more than the budget is
+    /// refused, because `_magnitude` would then disclose more than the budget is
     /// charging for and the bound would be certified without holding.
     function test_aBucketScaleTooCoarseForTheDomainIsRefused() public {
         vm.expectRevert();

@@ -4,63 +4,13 @@ pragma solidity ^0.8.24;
 /// @title SeamMap
 /// @notice GENERATED. Do not edit. `make census` rewrites this file.
 ///
-/// The ATS lifecycle surface, measured. One record per entry point that either
-/// reaches a seam or moves a balance, across the twenty two facets named in the
-/// brief plus the `ByPartition` rails they actually sit on.
+/// One record per ATS entry point that reaches a seam or moves a balance.
+/// `test/SeamCoverage.t.sol` asserts the findings over it, so an upgrade that
+/// opens, closes or reorders a rail breaks a test.
 ///
 /// Source: hashgraph/asset-tokenization-studio v8.0.0 be4f860
 /// Tool:   tools/callstack.mjs, then tools/gen-seammap.mjs
-/// Census:
 /// Rows:   102 of 393 entry points
-///
-/// The point of putting a measurement on chain is that `test/SeamCoverage.t.sol`
-/// can then assert properties of it. The properties are the findings: which
-/// rails our seam D registry can see before the fact, which it can only see
-/// after, and which it cannot see at all. An ATS upgrade that changes any of
-/// those breaks a test instead of silently widening the hole.
-///
-/// Names, by facet:
-///   adjustBalances: adjustBalances, triggerAndSyncAll
-///   amortization: cancelAmortization, forceCancelAmortization, releaseAmortizationHold, setAmortization, setAmortizationHold
-///   batchFreeze: batchFreezePartialTokens, batchSetAddressFrozen, batchUnfreezePartialTokens
-///   batchTransfer: batchTransfer
-///   burnByPartition: redeemByPartition
-///   clearing: activateClearing, deactivateClearing
-///   clearingByPartition: approveClearingOperationByPartition, cancelClearingOperationByPartition, clearingRedeemByPartition, clearingRedeemFromByPartition, clearingTransferByPartition, clearingTransferFromByPartition, reclaimClearingOperationByPartition
-///   clearingHoldByPartition: clearingCreateHoldByPartition, clearingCreateHoldFromByPartition
-///   compliance: canTransfer, canTransferFrom, setCompliance
-///   complianceByPartition: canRedeemByPartition, canTransferByPartition
-///   controller: addAgent, controllerRedeem, controllerTransfer, forcedTransfer, removeAgent
-///   controllerByPartition: controllerRedeemByPartition, controllerTransferByPartition
-///   controllerHoldByPartition: controllerCreateHoldByPartition
-///   controlList: addToControlList, removeFromControlList
-///   coupon: cancelCoupon, forceCancelCoupon, setCoupon
-///   dividend: cancelDividend, forceCancelDividend, setDividend
-///   externalControlListManagement: addExternalControlList, removeExternalControlList, updateExternalControlLists
-///   externalKycListManagement: addExternalKycList, isExternallyGranted, removeExternalKycList, updateExternalKycLists
-///   externalPauseManagement: addExternalPause, updateExternalPauses
-///   fixedRate: setRate
-///   freeze: freezePartialTokens, setAddressFrozen, unfreezePartialTokens
-///   holdByPartition: createHoldByPartition, createHoldFromByPartition, executeHoldByPartition, reclaimHoldByPartition, releaseHoldByPartition
-///   interestRate: initializeInterestRateType
-///   kpiLinkedRate: initializeKpiLinkedRate, setKpiLinkedRateImpactData, setKpiLinkedRateInterestRate
-///   kyc: activateInternalKyc, deactivateInternalKyc, grantKyc, revokeKyc
-///   lockByPartition: lockByPartition, releaseByPartition, updateLockExpirationByPartition
-///   maturity: fullRedeemAtMaturity, updateMaturityDate
-///   maturityByPartition: redeemAtMaturityByPartition
-///   mintByPartition: issueByPartition
-///   operatorClearingByPartition: operatorClearingRedeemByPartition, operatorClearingTransferByPartition
-///   operatorHoldByPartition: operatorCreateHoldByPartition
-///   pause: pause, unpause, pause, unpause, paused
-///   protectedClearingByPartition: protectedClearingRedeemByPartition, protectedClearingTransferByPartition
-///   protectedHoldByPartition: protectedCreateHoldByPartition
-///   recovery: recoveryAddress
-///   scheduledBalanceAdjustment: cancelScheduledBalanceAdjustment, forceCancelScheduledBalanceAdjustment, setScheduledBalanceAdjustment
-///   scheduledCrossOrderedTask: triggerPendingScheduledCrossOrderedTasks, triggerScheduledCrossOrderedTasks
-///   snapshot: takeSnapshot
-///   ssiManagement: addIssuer, removeIssuer, setRevocationRegistryAddress
-///   transferByPartition: transferByPartition
-///   voting: cancelVoting, forceCancelVoting, setVoting
 library SeamMap {
     // ------------------------------------------------------------ seam bits
 
@@ -77,30 +27,25 @@ library SeamMap {
     /// `IIdentityRegistry.isVerified`. STATICCALL, one address.
     uint8 internal constant E = 1 << 5;
 
-    /// The seams the venue implements today: D is `ZkKycRegistry`, C and CW
-    /// are `SeamJournal`. A, B and E are ATS-side or unimplemented.
+    /// D is `ZkKycRegistry`, C and CW are `SeamJournal`.
     uint8 internal constant VENUE_OBSERVED = C | CW | D;
-    /// The seams that run *before* the balance moves. CW does not.
+    /// Runs before the balance moves. CW does not.
     uint8 internal constant PRE_STATE = A | B | C | D | E;
 
     // ----------------------------------------------------------- write bits
 
-    /// A balance leaves one holder and arrives at another.
     uint8 internal constant W_TRANSFER = 1 << 0;
     uint8 internal constant W_ISSUE = 1 << 1;
     uint8 internal constant W_REDEEM = 1 << 2;
-    /// The supply factor changes. Every holder's balance is rescaled at once.
+    /// Every holder rescaled at once.
     uint8 internal constant W_ADJUST = 1 << 3;
-    /// A hold is created. Tokens are encumbered, not moved.
     uint8 internal constant W_HOLD = 1 << 4;
-    /// A hold is executed. This one does move the balance.
     uint8 internal constant W_HOLDMOVE = 1 << 5;
-    /// A lock is created. Encumbrance again.
     uint8 internal constant W_LOCK = 1 << 6;
 
-    /// Value changes hands. This is the set ATS gates.
+    /// Value changes hands. The set ATS gates.
     uint8 internal constant W_MOVES = W_TRANSFER | W_ISSUE | W_REDEEM | W_HOLDMOVE;
-    /// Value is immobilised or rescaled in place. This is the set it does not.
+    /// Immobilised or rescaled in place. The set it does not.
     uint8 internal constant W_ENCUMBERS = W_HOLD | W_LOCK | W_ADJUST;
     uint8 internal constant W_ANY = W_MOVES | W_ENCUMBERS;
 
@@ -114,16 +59,15 @@ library SeamMap {
 
     error NoSuchOp(bytes8 op);
 
-    /// @notice The identity of an entry point, as `keccak256("Contract.fn")`
-    ///         truncated to eight bytes. The generator proves no collision.
+    /// @notice `keccak256("Contract.fn")` truncated to eight bytes. The
+    ///         generator proves no collision.
     function id(string memory qualifiedName) internal pure returns (bytes8) {
         return bytes8(keccak256(bytes(qualifiedName)));
     }
 
-    /// @notice One record. `incidental` is the set of balance sinks this entry
-    ///         point reaches **only** through the lazy scheduled task
-    ///         dispatcher, that is, effects it may fire without being asked to.
-    function at(uint256 i)
+    /// @notice One record. `incidental` is the set of balance sinks the entry
+    ///         point reaches only through the lazy scheduled task dispatcher.
+    function recordAt(uint256 i)
         internal
         pure
         returns (bytes8 op, uint8 seams, uint8 writes, uint8 incidental, uint8 depth)
@@ -140,38 +84,34 @@ library SeamMap {
         }
     }
 
-    /// @notice Look one entry point up by name. Reverts if it is not measured,
-    ///         because a silent zero would read as "reaches no seam", which is
-    ///         the most dangerous wrong answer this table can give.
-    function seamsOf(string memory qualifiedName) internal pure returns (uint8) {
+    /// @notice Look one entry point up by name. Reverts if it is not measured:
+    ///         a silent zero would read as "reaches no seam".
+    function recordOf(string memory qualifiedName)
+        internal
+        pure
+        returns (bytes8 op, uint8 seams, uint8 writes, uint8 incidental, uint8 depth)
+    {
         bytes8 want = id(qualifiedName);
         for (uint256 i = 0; i < COUNT; ++i) {
-            (bytes8 op, uint8 seams,,,) = at(i);
-            if (op == want) return seams;
+            (op, seams, writes, incidental, depth) = recordAt(i);
+            if (op == want) return (op, seams, writes, incidental, depth);
         }
         revert NoSuchOp(want);
+    }
+
+    function seamsOf(string memory qualifiedName) internal pure returns (uint8) {
+        (, uint8 seams,,,) = recordOf(qualifiedName);
+        return seams;
     }
 
     function writesOf(string memory qualifiedName) internal pure returns (uint8) {
-        bytes8 want = id(qualifiedName);
-        for (uint256 i = 0; i < COUNT; ++i) {
-            (bytes8 op,, uint8 writes,,) = at(i);
-            if (op == want) return writes;
-        }
-        revert NoSuchOp(want);
+        (,, uint8 writes,,) = recordOf(qualifiedName);
+        return writes;
     }
 
-    /// @notice The balance sinks this entry point reaches only by firing a due
-    ///         scheduled task. Measured because ATS dispatches those lazily from
-    ///         inside unrelated calls: a freeze, a snapshot or a clearing submit
-    ///         can apply a pending supply factor change on the way past.
     function incidentalOf(string memory qualifiedName) internal pure returns (uint8) {
-        bytes8 want = id(qualifiedName);
-        for (uint256 i = 0; i < COUNT; ++i) {
-            (bytes8 op,,, uint8 inc,) = at(i);
-            if (op == want) return inc;
-        }
-        revert NoSuchOp(want);
+        (,,, uint8 incidental,) = recordOf(qualifiedName);
+        return incidental;
     }
 
     function has(uint8 set, uint8 bit) internal pure returns (bool) {
