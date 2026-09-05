@@ -5,3 +5,7 @@ circuits/build/
 *.zkey
 *.ptau
 node_modules
+
+# Raw cast output from script/live/receipt-beat.sh. The assembled evidence is
+# deployments/receipt-beat.json, which is committed; this is the scaffolding.
+deployments/.receipt-beat/

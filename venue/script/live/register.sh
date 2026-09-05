@@ -23,7 +23,10 @@ set -a; . "$ROOT/.env"; set +a
 : "${REGISTRATION_GATE:?set REGISTRATION_GATE}"
 : "${ZK_KYC_REGISTRY:?set ZK_KYC_REGISTRY}"
 
-PROOFS=deployments/proofs-live.json
+# Overridable so `renew-kyc.sh` can point this at an epoch's own proof file. A
+# proof is only good for the epoch its signal 3 names, so the files are per
+# epoch and this script is told which one rather than guessing.
+PROOFS="${PROOFS:-deployments/proofs-live.json}"
 [ -f "$PROOFS" ] || { echo "no $PROOFS; run circuits/prove-live.mjs first" >&2; exit 1; }
 
 for addr in $(python3 -c "import json;print(' '.join(json.load(open('$PROOFS'))))"); do

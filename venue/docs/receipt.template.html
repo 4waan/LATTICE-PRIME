@@ -88,7 +88,7 @@
   <div class="shead"><span class="snum">01</span><h2>What this contract is allowed to say about you</h2></div>
   <p>Four rows of the disclosure matrix, which is all an order book touches. The ceiling is a governed parameter under a committed root, so this table is readable off the chain rather than off a prospectus.</p>
   <div class="rows" id="rowTable"></div>
-  <div class="note"><b>Three of the four carry no budget, and that is the published ceiling restated rather than a hole.</b> A budget must satisfy <code>budgetBits &lt; domainBits</code>, and an exact disclosure costs the whole domain, so a single one exceeds any well formed budget on its own. Attaching one to a row the venue publishes exactly would not refuse anything; it would silence that row permanently, on every call, forever. So the venue refuses to publish such a budget at all. The lever against an exact row is a coarser disclosure, not a tighter bound.</div>
+  <div class="note"><b>Three of the four carry no budget, and that is the published ceiling restated rather than a hole.</b> A budget must satisfy <code>budgetBits &lt; domainBits</code>, and an exact disclosure costs the whole domain, so a single one exceeds any well formed budget on its own. Attaching one to a row the venue publishes exactly would not refuse anything; it would silence that row permanently, on every call, forever. So the venue refuses to publish such a budget at all. The lever against an exact row is a coarser disclosure, not a tighter bound.<br><br><b>The fourth row's two bits are derived, not chosen.</b> Row 15's value domain is the three disjoint windows the book partitions a commitment's life into: cancel, reveal, forfeit. Two bits, so the largest bound the model admits is one, and one cancellation spends the row. See <code>PolicySets.budgetFor</code>.</div>
 </section>
 
 <section>
@@ -175,15 +175,17 @@
 /*INLINE tools/lattice.mjs*/
 
 // ---- the venue's published parameters, as `PolicyFixture` adopts them -------
-// `meteredCancellations()`: `asDeployed` plus the row 15 budget that makes the
-// meter bind. `ReceiptVectors.t.sol` reads all of it back off the committed root
+// `PolicySets.asDeployed()`, the set the venue publishes. Row 15's budget used to
+// be `PolicyFixture.meteredCancellations()`'s, because the deployed set carried no
+// budget on any row and a page has to print something; it prints the deployed
+// numbers now. `ReceiptVectors.t.sol` reads all of it back off the committed root
 // rather than off this object.
 const NO_BUDGET = {domainBits: 0, aggBits: 0, bucketBits: 0, budgetBits: 0};
 const POLICY = {
     3:  {name: "Order size", ceiling: point(G.EXACT, T.IMM), budget: NO_BUDGET},
     4:  {name: "Order price", ceiling: point(G.EXACT, T.IMM), budget: NO_BUDGET},
     15: {name: "Activity fingerprint", ceiling: point(G.PRED, T.IMM),
-         budget: {domainBits: 8, aggBits: 2, bucketBits: 4, budgetBits: 3}},
+         budget: {domainBits: 2, aggBits: 2, bucketBits: 2, budgetBits: 1}},
     17: {name: "Account provenance", ceiling: point(G.EXACT, T.IMM), budget: NO_BUDGET},
 };
 
