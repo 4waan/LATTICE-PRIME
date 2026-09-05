@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook pages
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook pages client prove-live-epoch beat
 
 all: build census circuit verifier fixtures pages test report
 
@@ -50,6 +50,22 @@ prove-live:
 	@test -n "$(ADDRS)" || { echo 'usage: make prove-live ADDRS="0x... 0x..."'; exit 1; }
 	$(NODE) node circuits/prove-live.mjs $(ADDRS)
 
+# The same proofs for a future KYC epoch, generated before it arrives.
+#
+# A grant dies at the epoch boundary with no transaction from anyone, and
+# `RegistrationGate.register` pins public signal 3 to the registry's current
+# epoch, so the recovery needs a fresh proof per actor and each one takes about
+# twenty-three seconds. Generating them at the boundary is the outage; generating
+# them now is a file. `register` refuses a proof for an epoch that has not
+# arrived, which is what makes holding one safe.
+#
+#   make prove-live-epoch EPOCH=8 ADDRS="0x... 0x..."
+#   script/live/renew-kyc.sh renew 8    # once the clock rolls
+prove-live-epoch:
+	@test -n "$(ADDRS)" || { echo 'usage: make prove-live-epoch EPOCH=8 ADDRS="0x... 0x..."'; exit 1; }
+	@test -n "$(EPOCH)" || { echo 'usage: make prove-live-epoch EPOCH=8 ADDRS="0x... 0x..."'; exit 1; }
+	$(NODE) node circuits/prove-live.mjs --epoch $(EPOCH) $(ADDRS)
+
 # The callstack census over the ATS lifecycle surface. Reads the vendored clone
 # at v8.0.0, writes the markdown a reviewer reads and the Solidity the test suite
 # asserts against. Generated, never hand edited: `SeamMap.sol` is the census and
@@ -67,11 +83,36 @@ census:
 #
 #   commitment.mjs -> OrderBook.commitmentOf     test/CommitmentVectors.t.sol
 #   lattice.mjs    -> the five DisclosureView getters  test/ReceiptVectors.t.sol
+#   units.mjs      -> CallAuction.notional and the market parameters
+#                                                test/UnitVectors.t.sol
 pages:
 	$(NODE) node tools/commitment.test.mjs
 	$(NODE) node tools/lattice.test.mjs
+	$(NODE) node tools/units.test.mjs
 	$(NODE) node tools/gen-preview.mjs
 	$(NODE) node tools/gen-receipt.mjs
+
+# The receipt beat, on chain: two sealed orders committed and both withdrawn
+# inside one disclosure epoch, with the second withdrawal going through in
+# silence. Not part of `all`, and never will be: it sends four transactions and
+# spends 0.002 HBAR in cancel fees.
+#
+# `plan` reads the chain and says whether the window is open; `run` sends.
+# `sweep` forfeits a commitment whose thirty-second cancel window shut before the
+# cancel landed, which recovers the bond and, deliberately, charges nothing
+# against row 15. `test_aSweptBondDoesNotSpendTheActivityRow` is that claim.
+#
+#   make beat            # plan only, sends nothing
+#   make beat MODE=run
+beat:
+	bash script/live/receipt-beat.sh $(or $(MODE),plan)
+
+# What a frontend compiles against: the ABIs out of `out/`, the addresses out of
+# the deployment records, and the immutables read back off chain 296. One file,
+# generated, so a client cannot be holding an address book that drifted.
+client:
+	bash script/live/export-abis.sh
+	$(NODE) node tools/gen-client.mjs
 
 report:
 	@echo

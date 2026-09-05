@@ -16,6 +16,13 @@
 import {buildPoseidon} from "circomlibjs";
 
 export const DEPTH = 16;
+
+/// The epoch the **fixtures** are built for, and the default everywhere else.
+///
+/// `test/fixtures/proofs.json` is pinned to it, and `deployments/296-kyc.json`
+/// records it as `proofEpoch`, so moving this constant would silently invalidate
+/// every committed fixture. It is a default rather than the only value: pass an
+/// epoch to `buildTree` for a live proof against a later one.
 export const EPOCH = 7n;
 export const MIN_TIER = 3n;
 export const JUR_MASK = 0xffn; // jurisdictions 0..7 admitted
@@ -33,7 +40,22 @@ export const creds = {
 };
 export const names = Object.keys(creds);
 
-export async function buildTree() {
+/// **The root does not depend on the epoch.** A leaf is
+/// `Poseidon(credentialId, secret, jurisdiction, tier, validUntilEpoch)` and the
+/// epoch is in none of those, so the tree the issuer published for epoch 7 is
+/// bit for bit the tree for epoch 8. That is what makes an expiring grant
+/// recoverable at all: `RegistrationGate.publishRoot` is write once per epoch and
+/// takes any epoch, so the issuer can publish the *same* root for a future epoch
+/// today, before anybody needs it.
+///
+/// The epoch does two things and neither is the root. It enters the nullifier,
+/// `Poseidon(secret, DOMAIN_KYC, epoch)`, so the sybil counter resets each epoch
+/// and last epoch's proofs cannot be replayed. And it is checked against
+/// `validUntilEpoch`, which is where a credential actually expires. The `valid`
+/// credential runs to epoch 40.
+export async function buildTree(epoch = EPOCH) {
+    const e = BigInt(epoch);
+    if (e < 0n) throw new RangeError(`epoch must not be negative: ${epoch}`);
     const poseidon = await buildPoseidon();
     const F = poseidon.F;
     const H = (xs) => F.toObject(poseidon(xs));
@@ -87,7 +109,7 @@ export async function buildTree() {
             pathElements: pathElements.map(String),
             pathIndices: pathIndices.map(String),
             credentialRoot: (rootOverride ?? root).toString(),
-            epoch: EPOCH.toString(),
+            epoch: e.toString(),
             registrant: registrant.toString(),
             minTier: MIN_TIER.toString(),
             jurisdictionMask: JUR_MASK.toString(),
@@ -114,7 +136,7 @@ export async function buildTree() {
                 jurisdiction: mine.jurisdiction.toString(), tier: mine.tier.toString(),
                 validUntilEpoch: mine.validUntilEpoch.toString(),
                 pathElements: pathElements.map(String), pathIndices: pathIndices.map(String),
-                credentialRoot: cur.toString(), epoch: EPOCH.toString(),
+                credentialRoot: cur.toString(), epoch: e.toString(),
                 registrant: registrant.toString(), minTier: MIN_TIER.toString(),
                 jurisdictionMask: JUR_MASK.toString(),
             },
@@ -122,5 +144,5 @@ export async function buildTree() {
         };
     }
 
-    return {root, inputFor, forgedRootInput};
+    return {root, epoch: e, inputFor, forgedRootInput};
 }
