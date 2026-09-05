@@ -1,0 +1,306 @@
+[
+ {
+  "type": "function",
+  "name": "createHoldByPartition",
+  "inputs": [
+   {
+    "name": "partition",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "hold",
+    "type": "tuple",
+    "internalType": "struct IHoldTypes.Hold",
+    "components": [
+     {
+      "name": "amount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "expirationTimestamp",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "escrow",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "to",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "data",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ]
+   }
+  ],
+  "outputs": [
+   {
+    "name": "success",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "holdId",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "createHoldFromByPartition",
+  "inputs": [
+   {
+    "name": "partition",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "from",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "hold",
+    "type": "tuple",
+    "internalType": "struct IHoldTypes.Hold",
+    "components": [
+     {
+      "name": "amount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "expirationTimestamp",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "escrow",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "to",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "data",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ]
+   },
+   {
+    "name": "operatorData",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "success",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "holdId",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "executeHoldByPartition",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "tuple",
+    "internalType": "struct IHoldTypes.HoldIdentifier",
+    "components": [
+     {
+      "name": "partition",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "tokenHolder",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "holdId",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   },
+   {
+    "name": "to",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "success",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "partition",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "getHeldAmountForByPartition",
+  "inputs": [
+   {
+    "name": "partition",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "tokenHolder",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "amount_",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "getHoldForByPartition",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "tuple",
+    "internalType": "struct IHoldTypes.HoldIdentifier",
+    "components": [
+     {
+      "name": "partition",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "tokenHolder",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "holdId",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   }
+  ],
+  "outputs": [
+   {
+    "name": "amount_",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "expirationTimestamp_",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "escrow_",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "destination_",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "data_",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "operatorData_",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "thirdPartyType_",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "releaseHoldByPartition",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "tuple",
+    "internalType": "struct IHoldTypes.HoldIdentifier",
+    "components": [
+     {
+      "name": "partition",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "tokenHolder",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "holdId",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "success",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ }
+]

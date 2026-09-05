@@ -14,6 +14,14 @@ import {PolicyFixture} from "./PolicyFixture.sol";
 ///      list permits and no others, not to pretend to be ATS. Real hold behaviour
 ///      is verified against testnet, not here.
 contract MockHolds is IHoldByPartition {
+    /// @dev Row 12 of the call list. No contract calls it; the client does, and
+    ///      nothing in this suite is a client, so it answers zero rather than a
+    ///      plausible number. `AtsHolds` in `MatchingEngine.t.sol` keeps a real
+    ///      sum, which is where the read is exercised.
+    function getHeldAmountForByPartition(bytes32, address) external pure returns (uint256) {
+        return 0;
+    }
+
     /// @dev Row 11 of the call list, added with `MatchingEngine`. This suite does
     ///      not exercise the read, so it answers with a hold that would pass no
     ///      check; a stub that returned something plausible would be a stub

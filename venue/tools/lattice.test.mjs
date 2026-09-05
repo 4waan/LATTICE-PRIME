@@ -32,32 +32,38 @@ eq("row15 reverse excess", excess(asDeployed, asWritten), 229376);
 eq("earliest(AGG,EOD)", earliest(asWritten), T.EOD);
 eq("earliest(EXACT,IMM)", earliest(asDeployed), T.IMM);
 
-// `PolicyFixture.meteredCancellations`: domain 8, agg 2, bucket 4, budget 3.
-const row15 = {domainBits: 8, aggBits: 2, bucketBits: 4, budgetBits: 3};
+// `PolicySets.asDeployed()`: domain 2, agg 2, bucket 2, budget 1. Every one of
+// the four is derived rather than chosen. The domain is the three disjoint
+// windows `OrderBook` partitions a commitment's life into, which is two bits.
+// The budget is `domainBits - 1`, the largest `requireWellFormed` admits. The
+// agg and bucket sit at the domain because the book defines no coarsening on
+// this row and an undefined level has to cost everything.
+const row15 = {domainBits: 2, aggBits: 2, bucketBits: 2, budgetBits: 1};
 eq("bits(pred)", bits(row15, G.PRED), 1);
 eq("bits(agg)", bits(row15, G.AGG), 2);
-eq("bits(bucket)", bits(row15, G.BUCKET), 4);
-eq("bits(exact)", bits(row15, G.EXACT), 8);
-eq("breakingSize(pred)", breakingSize(row15, G.PRED), 4);
+eq("bits(bucket)", bits(row15, G.BUCKET), 2);
+eq("bits(exact)", bits(row15, G.EXACT), 2);
+eq("breakingSize(pred)", breakingSize(row15, G.PRED), 2);
 
-// Rule A: the fourth cancellation of an epoch is withheld and still succeeds.
-let spent = 0;
-for (let i = 1; i <= 3; i++) {
-    const r = spend(row15, spent, G.PRED);
-    eq(`cancel ${i} afforded`, r.afforded, true);
-    spent = r.spentAfter;
-}
-eq("three cancels spend three bits", spent, 3);
-const fourth = spend(row15, spent, G.PRED);
-eq("cancel 4 withheld", fourth.afforded, false);
-eq("a withheld disclosure spends nothing", fourth.spentAfter, 3);
+// Rule A: the second cancellation of an epoch is withheld and still succeeds.
+const first = spend(row15, 0, G.PRED);
+eq("cancel 1 afforded", first.afforded, true);
+eq("one cancel spends one bit", first.spentAfter, 1);
+const second = spend(row15, first.spentAfter, G.PRED);
+eq("cancel 2 withheld", second.afforded, false);
+eq("a withheld disclosure spends nothing", second.spentAfter, 1);
 
-// The receipt itself, at the cell the fourth cancel sits on.
-const r = receiptFor(asDeployed, row15, 3, G.PRED, T.IMM);
+// An agg or a bucket costs the whole domain here, so neither is ever afforded.
+// That is the same statement as "the book does not make one".
+eq("agg unaffordable by construction", spend(row15, 0, G.AGG).afforded, false);
+eq("bucket likewise", spend(row15, 0, G.BUCKET).afforded, false);
+
+// The receipt itself, at the cell the second cancel sits on.
+const r = receiptFor(asDeployed, row15, 1, G.PRED, T.IMM);
 eq("receipt permitted", r.permitted, true);
 eq("receipt wouldAfford", r.wouldAfford, false);
-eq("receipt spent/budget", `${r.spentBits}/${r.budgetBits}`, "3/3");
-eq("receipt breakingSize", r.breakingSize, 4);
+eq("receipt spent/budget", `${r.spentBits}/${r.budgetBits}`, "1/1");
+eq("receipt breakingSize", r.breakingSize, 2);
 
 // An unmetered row: rows 3, 4, 7, 16 and 17 all publish at exact, and Rule B
 // refuses a budget on each. Unmetered affords forever and costs nothing.
@@ -66,5 +72,5 @@ eq("unmetered breakingSize", breakingSize(unmetered, G.EXACT), 0);
 eq("unmetered always affords", spend(unmetered, 999, G.EXACT).afforded, true);
 eq("unmetered costs nothing", spend(unmetered, 999, G.EXACT).cost, 0);
 
-console.log(bad ? `lattice: ${bad} FAILED` : "lattice: 27 vectors ok");
+console.log(bad ? `lattice: ${bad} FAILED` : "lattice: 28 vectors ok");
 process.exit(bad ? 1 : 0);

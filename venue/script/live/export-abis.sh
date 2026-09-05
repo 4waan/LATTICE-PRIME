@@ -45,5 +45,10 @@ emit RegistrationGate.sol RegistrationGate
 
 echo "the ATS surface a client touches"
 emit IAtsFactory.sol      IAtsToken
+# The hold rail. A seller cannot reveal without `createHoldByPartition`, and the
+# engine reads the hold back at reveal and again at every cross, so a client that
+# cannot encode these cannot trade. Exported for the same reason as the token
+# subset above: so the UI does not vendor 108 facets to create one hold.
+emit IHoldByPartition.sol IHoldByPartition
 
 echo "wrote $OUT"
