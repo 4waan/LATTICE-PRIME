@@ -1,0 +1,4 @@
+{
+  "name": "SeamMe venue",
+  "install": "bash .cursor/install.sh"
+}
