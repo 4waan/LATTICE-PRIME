@@ -72,6 +72,42 @@ direction that under-protects the lender.
 Rounding is fixed to favour the party bearing the risk at each point, and the
 direction is asserted in tests rather than left to the reader.
 
+## The axe grid
+
+A lender's indication is a rectangle in `(class, size, rate)`. It is committed
+as a 2,048-cell bitmap, one bit per cell, in a fixed-depth Merkle tree. A probe
+opens exactly one leaf. The borrower learns one bit; every other cell stays
+sealed; and the lender cannot answer twice differently, because the root was
+fixed before the probe existed.
+
+Size bands are the venue's own base-ten magnitude, capped at 15 so the axis is
+finite. Rate bands are 25 basis points wide, top band open. Coverage is band
+intersection, which is an interval because the band functions are monotone:
+`band b meets [lo, hi]` if and only if `band(lo) <= b <= band(hi)`. That is
+exhausted in `probes/axe-grid.py` and replayed in `test/AxeGrid.t.sol`, not
+assumed.
+
+An arbitrary grid is 2,048 bits. A rectangular one is 18. There are
+`T(16) = 136` intervals on a 16-point axis, so `8 × 136 × 136 = 147,968`
+rectangles, and `2^17 < 147,968 <= 2^18`. The row 13 budget is set against
+that number. The readable shape is the weak one, by a factor of 113; a lender
+who wants the other 2,030 bits posts a set that is not a rectangle, and the
+mechanism already supports it.
+
+## The axe bond
+
+A lender who is genuinely axed where they were asked cannot answer "no": the
+grid binds. The remaining moves are answer "yes" and firm up, or go silent.
+Honesty dominates silence for every reachable number of concurrent obligations
+when the axe bond covers the worst case,
+
+    B_a  >  M × (B_c − f)
+
+with one wei of slack, where `B_c` is the book's commit bond, `f` is the probe
+fee and `M` is the outstanding cap. When the fee already covers the commit
+bond the constraint is vacuous and any positive bond will do. Derived, not
+chosen, in the shape the cancellation charge already has.
+
 ## Corrections to the initial design
 
 Three pieces of arithmetic in the original design were wrong and were found by
