@@ -20,6 +20,9 @@ fs_permissions = [
     {access = "read", path = "./docs/RULEBOOK.md"},
 ]
 
+[rpc_endpoints]
+hedera_testnet = "${HEDERA_TESTNET_RPC}"
+
 [profile.default.fuzz]
 runs = 512
 
