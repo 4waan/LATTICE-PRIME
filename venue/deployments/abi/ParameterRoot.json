@@ -1,0 +1,893 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "regime_",
+    "type": "address",
+    "internalType": "contract Regime"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "BUDGET_BASE",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "DEPTH",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "DOMAIN_LEAF",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "DOMAIN_NODE",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "GRACE",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "KEY_CARD",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "KEY_WAIVED_ROWS",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "PARAM_CARD",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "ROW_CARD",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "accepts",
+  "inputs": [
+   {
+    "name": "r",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "adopt",
+  "inputs": [
+   {
+    "name": "set",
+    "type": "tuple[]",
+    "internalType": "struct ParameterRoot.Param[]",
+    "components": [
+     {
+      "name": "key",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "value",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "budgetFor",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "tuple",
+    "internalType": "struct DisclosureBudget.Row",
+    "components": [
+     {
+      "name": "domainBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "aggBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "bucketBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "budgetBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "ceilingFor",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "clock",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IEpochClock"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "currentEpoch",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "floorFor",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "isWaived",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "keyAt",
+  "inputs": [
+   {
+    "name": "i",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "keyCount",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "keyOfRow",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "keyOfRowBudget",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "keyOfRowFloor",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "packBudget",
+  "inputs": [
+   {
+    "name": "r",
+    "type": "tuple",
+    "internalType": "struct DisclosureBudget.Row",
+    "components": [
+     {
+      "name": "domainBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "aggBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "bucketBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "budgetBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     }
+    ]
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "pendingEpoch",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingRoot",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "previousRoot",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "propose",
+  "inputs": [
+   {
+    "name": "nextRoot",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "rationale",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "regime",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract Regime"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "root",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "rootOf",
+  "inputs": [
+   {
+    "name": "set",
+    "type": "tuple[]",
+    "internalType": "struct ParameterRoot.Param[]",
+    "components": [
+     {
+      "name": "key",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "value",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "unpackBudget",
+  "inputs": [
+   {
+    "name": "v",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "tuple",
+    "internalType": "struct DisclosureBudget.Row",
+    "components": [
+     {
+      "name": "domainBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "aggBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "bucketBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "budgetBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "valueOf",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "windowClosesAt",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "event",
+  "name": "Adopted",
+  "inputs": [
+   {
+    "name": "root",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": false,
+    "internalType": "uint64"
+   },
+   {
+    "name": "count",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "ParameterSet",
+  "inputs": [
+   {
+    "name": "key",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "Proposed",
+  "inputs": [
+   {
+    "name": "root",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "effectiveEpoch",
+    "type": "uint64",
+    "indexed": false,
+    "internalType": "uint64"
+   },
+   {
+    "name": "rationale",
+    "type": "bytes32",
+    "indexed": false,
+    "internalType": "bytes32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "error",
+  "name": "BadGranularity",
+  "inputs": [
+   {
+    "name": "g",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "BadTime",
+  "inputs": [
+   {
+    "name": "t",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "BudgetCannotBindRow",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "ceiling_",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "BudgetNotBinding",
+  "inputs": [
+   {
+    "name": "budgetBits",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "domainBits",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "BudgetOnUnpublishedRow",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "EmptySet",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "KeysNotAscending",
+  "inputs": [
+   {
+    "name": "previous",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "next",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NotMonotone",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "tuple",
+    "internalType": "struct DisclosureBudget.Row",
+    "components": [
+     {
+      "name": "domainBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "aggBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "bucketBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "budgetBits",
+      "type": "uint16",
+      "internalType": "uint16"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NotOperator",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NotYetEffective",
+  "inputs": [
+   {
+    "name": "want",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "have",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NothingPending",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "RootMismatch",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "want",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RootUnchanged",
+  "inputs": [
+   {
+    "name": "root",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RowFloorAboveCeiling",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "ceiling_",
+    "type": "uint32",
+    "internalType": "uint32"
+   },
+   {
+    "name": "floor_",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RowValueIsNotAnIdeal",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ }
+]
