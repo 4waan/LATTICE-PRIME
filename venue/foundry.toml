@@ -12,9 +12,13 @@ via_ir       = false
 # it with allowUnlimitedContractSize. We do the opposite. Size is measured every
 # build, never at deploy.
 bytecode_hash = "none"
-# The proof fixtures are read by the seam D integration test. Read only, and the
-# narrowest grant that works, so a test cannot reach anything else on disk.
-fs_permissions = [{access = "read", path = "./test/fixtures"}]
+# The proof fixtures are read by the seam D integration test, and `docs/RULEBOOK.md`
+# by the rulebook suite, which hashes it and compares against the published
+# edition. Read only, and the narrowest grants that work.
+fs_permissions = [
+    {access = "read", path = "./test/fixtures"},
+    {access = "read", path = "./docs/RULEBOOK.md"},
+]
 
 [profile.default.fuzz]
 runs = 512
