@@ -96,15 +96,41 @@ whatever it leads to is a commitment in the same undivided book.
 
 ## 7. Halts and suspensions
 
-**The venue has no halt.** There is no circuit breaker, no trading pause, no kill
-switch, and no address that can stop a round from crossing. `crossRound` takes no
-privileged caller and the operator has no path to prevent it.
+**The venue has one halt, and it stops exactly one function.** `TradingHalt`
+gates `crossRound`. Commit, reveal, cancel, expire, forfeit and withdraw stay
+open, and the repo contracts do not reference it at all, so a halted venue
+cannot trade and cannot stop anyone leaving. That is the property, and it is
+tested: `test_aHaltStopsTheVenueTradingAndNeverStopsAnyoneLeaving`.
 
-**This is a stated limit and not a feature.** A real venue halts on a corporate
-action, a pricing failure or a market-wide event, and this one cannot. What it
-has instead is narrower and automatic: a resting sell whose ATS backing moved
-between reveal and cross is voided rather than under-delivered, so a corporate
-action cancels resting orders instead of halting the market.
+**A halt is a deadline and never a flag.** It expires by itself, and no call is
+needed to end one. A halt that must be lifted is a halt whose lifting can be
+declined.
+
+Three bounds, and each is one of the disclosure regime's read in the mirror.
+Narrowing what may be disclosed is the safe direction, so it is immediate and
+unbounded. Halting is the deprivation, so it is the bounded one.
+
+| | who | bound |
+|---|---|---|
+| halt | supervisor | at most `maxHaltSeconds`, which is immutable, and at most `budgetSeconds` granted per epoch |
+| resume | supervisor | immediate, unbounded, and never required |
+| breaker | nobody | arithmetic on the venue's own clearing price |
+
+**In this deployment nobody can call the discretionary halt.** The supervisor
+seat is held by `VolumeCap`, a contract with no path to `halt`, so the only
+thing that can stop a round here is the breaker, and the breaker is arithmetic.
+`test_inTheShippedDeploymentTheDiscretionaryHaltHasNoCaller` drives that
+contract through everything it can be made to do and the venue stays open.
+
+**The breaker cannot stop the round that breached it.** A sealed book has no
+indicative price to collar, because the price does not exist until the round
+clears. So the breaching round prints and the next one is halted. That is a
+limit-move halt rather than an auction collar, and it is a stated limit.
+
+A halted round is refused and not voided, so it crosses once the halt lifts.
+The protection against a stale print is the limit and not the clock: every order
+here is a sealed limit, so a late cross still executes inside the price its
+owner named, and an owner who wants out has `expire`, which no halt can reach.
 
 One suspension exists and it is not a halt. When the venue's deferred share of
 volume exceeds the published cap, MiFIR Article 5's waiver suspension fires,
@@ -192,7 +218,11 @@ cannot be published truthfully.
 
 ## 11. Stated limits
 
-- No halt. Section 7.
+- The breaker halts the round after the one that breached the band, not the
+  round that breached it. A sealed book has no price to collar until it clears.
+  Section 7.
+- The discretionary halt exists and has no caller in this deployment, because
+  the supervisor seat is held by a contract. Section 7.
 - No venue revenue, and no derivation for one. Section 9.
 - Rows 3, 4 and 5 are published at exact and immediate rather than deferred,
   because a public ledger has no observer set that holds a value the public does

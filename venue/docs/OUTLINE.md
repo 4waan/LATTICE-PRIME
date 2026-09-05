@@ -47,6 +47,15 @@ charge the code makes and the page does not is visible to anyone. The venue's ow
 take is published as zero, which is the disclosure the fee question owes while it
 stays open.
 
+A halt, held as the mirror of the disclosure ceiling rather than as a pause key.
+Narrowing what may be disclosed is the safe direction, so it is immediate and
+unbounded; halting is the deprivation, so it is capped by an immutable grant,
+budgeted per epoch, and expires by itself. It gates one function, `crossRound`,
+so a halted venue cannot trade and cannot stop anyone leaving. In this
+deployment the discretionary half has no caller, because the supervisor seat is
+held by `VolumeCap`; what can fire is the breaker, and the breaker is arithmetic
+on the venue's own clearing price.
+
 ## Not built
 
 Collateral substitution mid-term. Common in practice, deferred deliberately.

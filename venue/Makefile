@@ -58,7 +58,7 @@ report:
 	@$(NODE) $(SNARK) r1cs info circuits/build/kyc.r1cs 2>/dev/null | grep -E "Constraints|Public|Private" || true
 	@echo
 	@echo "== deployed size vs EIP-170 =="
-	@forge build --sizes 2>/dev/null | grep -E "Contract|KycVerifier|ZkKycRegistry|RegistrationGate|RepoVault|OrderBook|AxeBoard|SeamJournal|Rulebook"
+	@forge build --sizes 2>/dev/null | grep -E "Contract|KycVerifier|ZkKycRegistry|RegistrationGate|RepoVault|OrderBook|AxeBoard|SeamJournal|Rulebook|TradingHalt"
 	@echo
 	@echo "== callstack census =="
 	@$(NODE) node -e "const c=require('./docs/callstack.json'); \
