@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Check DEMO-SCRIPT.md's narration against its own labels and the 300 second cap.
+"""Check the demo script's narration against its own labels and the 300 second cap.
 
 Every beat labels itself `**Narration (N).**` and is followed by one blockquote.
 This counts the blockquote and fails if the label lies, because the whole file is
 a budget and a budget nobody checks is a wish.
 
-    python3 scripts/wordcount.py [path]   # default DEMO-SCRIPT.md
+    python3 scripts/wordcount.py [path]   # the demo script is untracked, so pass it
 """
 import re
 import sys

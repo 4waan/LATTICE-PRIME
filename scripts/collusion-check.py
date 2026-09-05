@@ -48,9 +48,9 @@ T = {t: i for i, t in enumerate(TIME)}
 #
 # section 7.1 lists six: iss, ven, cp, reg, nodes, pub. `relay` is added here and the
 # addition is a finding rather than a convenience: J4 in section 7.3 is the subset
-# {iss} join {relay}, and SECURITY-MODEL.md section 6.1 carries the relay as adversary
-# A5, so the pitch's headline collusion example names a party the observer axis
-# does not contain. An axis that cannot express a subset cannot check it.
+# {iss} join {relay}, and the security model's section 6.1 carries the relay as
+# adversary A5, so the pitch's headline collusion example names a party the observer
+# axis does not contain. An axis that cannot express a subset cannot check it.
 PARTIES = ["iss", "ven", "cp", "reg", "nodes", "pub", "relay"]
 SPEC_PARTIES = ["iss", "ven", "cp", "reg", "nodes", "pub"]
 
@@ -342,7 +342,7 @@ def main():
         for p in missing:
             print(f"  `{p}` ({PARTY_NAME[p]}) is used by this check and is NOT in")
             print(f"  the observer axis. J4 is a subset containing it")
-            print(f"  and SECURITY-MODEL.md section 6.1 carries it as adversary A5.")
+            print(f"  and the security model's section 6.1 carries it as adversary A5.")
         print()
 
     # -- per-row joins -----------------------------------------------------

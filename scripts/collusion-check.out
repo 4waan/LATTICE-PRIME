@@ -18,7 +18,7 @@ AXIS FINDING
 --------------------------------------------------------------------------
   `relay` (the sponsoring relay) is used by this check and is NOT in
   the observer axis. J4 is a subset containing it
-  and SECURITY-MODEL.md section 6.1 carries it as adversary A5.
+  and the security model's section 6.1 carries it as adversary A5.
 
 PART 1 - PER-ROW JOINS AGAINST CEILING
 --------------------------------------------------------------------------

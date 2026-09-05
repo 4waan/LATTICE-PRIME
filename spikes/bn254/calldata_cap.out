@@ -39,7 +39,7 @@ CONTROL 2: is the gas field even honoured on this path?
 RESULT: max calldata = 131072 bytes = 128 KiB exactly
         131073 bytes returns TRANSACTION_OVERSIZE
 
-Consequence for SECURITY-MODEL.md 8.2, at ~50,100 gas and 256 bytes
+Consequence for the security model's section 8.2, at ~50,100 gas and 256 bytes
 per batched Groth16 proof:
    gas ceiling  allows ~299 proofs
    calldata cap allows ~512 proofs

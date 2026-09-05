@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test, Vm} from "forge-std/Test.sol";
 import {RepoMath} from "../src/repo/RepoMath.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
+import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
@@ -16,9 +17,9 @@ import {ZkKycRegistry} from "../src/kyc/ZkKycRegistry.sol";
 ///
 /// Every other test in this suite asks whether an observer learns something they
 /// should not. This file asks the opposite question: **what can someone DO with
-/// the disclosure policy working exactly as specified.** `SECURITY-MODEL.md` 6.1
-/// lists eight adversaries and all eight of them are trying to learn. None of
-/// them is trying to trade.
+/// the disclosure policy working exactly as specified.** The security model's
+/// section 6.1 lists eight adversaries and all eight of them are trying to learn.
+/// None of them is trying to trade.
 ///
 /// See `docs/manipulation-surface.md` for the reasoning. Each test here is the
 /// executable half of one finding in that file.
@@ -216,7 +217,7 @@ contract MarketAbuseTest is Test, PolicyFixture {
         vm.prank(BORROWER);
         vm.expectRevert(
             abi.encodeWithSelector(
-                RepoVault.DisclosureExceedsCeiling.selector,
+                RepoVaultBase.DisclosureExceedsCeiling.selector,
                 L.excess(L.point(L.G_PRED, L.T_EOD), L.point(L.G_PRED, L.T_IMM))
             )
         );
