@@ -9,9 +9,9 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures verifier clean report census rulebook
+.PHONY: all build test sizes circuit fixtures verifier clean report census rulebook preview
 
-all: build census circuit verifier fixtures test report
+all: build census circuit verifier fixtures preview test report
 
 build:
 	forge build
@@ -51,6 +51,13 @@ census:
 	$(NODE) node tools/keccak.test.mjs
 	$(NODE) node tools/callstack.mjs --json docs/callstack.json --md docs/CALLSTACK.md
 	$(NODE) node tools/gen-seammap.mjs docs/callstack.json src/observatory/SeamMap.sol
+
+# The preview a trader sees before signing `commit(bytes32)`. Its id comes from
+# `tools/commitment.mjs`, pinned to `OrderBook.commitmentOf` by
+# `test/CommitmentVectors.t.sol`, so the vectors run before the page is built.
+preview:
+	$(NODE) node tools/commitment.test.mjs
+	$(NODE) node tools/gen-preview.mjs
 
 report:
 	@echo
