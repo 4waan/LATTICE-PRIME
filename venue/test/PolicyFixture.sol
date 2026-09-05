@@ -229,6 +229,42 @@ abstract contract PolicyFixture {
         set[base.length] = base[base.length - 1];
     }
 
+    /// @notice Row 13 budget: 18-bit rectangular domain, 3 bits (fourth probe reverts).
+    function meteredAxePredicate() internal pure returns (ParameterRoot.Param[] memory set) {
+        ParameterRoot.Param[] memory base = asDeployed();
+        set = new ParameterRoot.Param[](base.length + 1);
+        for (uint256 i = 0; i < base.length - 1; ++i) {
+            set[i] = base[i];
+        }
+        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then keccak keys.
+        // Row 13's budget is key 49.
+        set[base.length - 1] =
+            ParameterRoot.Param(bytes32(uint256(36 + 13)), _packBudget(18, 2, 4, 3));
+        set[base.length] = base[base.length - 1];
+    }
+
+    /// @notice Rows 3 and 4 at bucket: a probe may speak; an exact reveal may not.
+    function bandedDiscovery() internal pure returns (ParameterRoot.Param[] memory set) {
+        set = asDeployed();
+        set[_rowAt(set, 3)].value = L.point(L.G_BUCKET, L.T_IMM);
+        set[_rowAt(set, 4)].value = L.point(L.G_BUCKET, L.T_IMM);
+    }
+
+    /// @notice `bandedDiscovery` plus row 3/4 budgets (two probes announce, third is silent).
+    function meteredAxeBands() internal pure returns (ParameterRoot.Param[] memory set) {
+        ParameterRoot.Param[] memory base = bandedDiscovery();
+        set = new ParameterRoot.Param[](base.length + 2);
+        for (uint256 i = 0; i < base.length - 1; ++i) {
+            set[i] = base[i];
+        }
+        // Keys 39 and 40 sit between the rows and the keccak key.
+        set[base.length - 1] =
+            ParameterRoot.Param(bytes32(uint256(36 + 3)), _packBudget(16, 2, 4, 8));
+        set[base.length] =
+            ParameterRoot.Param(bytes32(uint256(36 + 4)), _packBudget(16, 2, 4, 8));
+        set[base.length + 1] = base[base.length - 1];
+    }
+
     /// @dev The packing `ParameterRoot.packBudget` performs, repeated here so the
     ///      fixture does not need a deployed contract to build a set. If the two
     ///      ever disagree, `test_theFixturePacksWhatTheContractUnpacks` fails.

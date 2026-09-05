@@ -31,6 +31,14 @@ a root so that a change is a single visible event.
 The call graph census, generated from source rather than maintained by hand, so
 the claim about what each lifecycle path can reach is checkable.
 
+A lender axe board. A lender posts a sealed coverage grid over collateral
+class, size band and rate band; a borrower probes one cell and learns one bit,
+the Turquoise Block Indication predicate, proved by a Merkle opening instead of
+scored by an operator. The pre-trade privacy dial is the three FIX fields the
+OTC research already named. The board and the exact-reveal book are two
+parameter regimes: a probe publishes a bucket, and a bucket is the first cell
+on rows 3 and 4 a coalition budget can bind.
+
 ## Not built
 
 Collateral substitution mid-term. Common in practice, deferred deliberately.
