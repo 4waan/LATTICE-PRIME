@@ -1,0 +1,45 @@
+{
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "deployedAt": "2026-09-05",
+  "deployer": "0xcfc5923def1f25db05fe50754ef0822175afd449",
+  "deployerAccountId": "0.0.10301312",
+  "contracts": {
+    "KycVerifier": "0x3a8b9577ff3ec7737510c7c327e14c2ea7a6f465",
+    "ZkKycRegistry": "0xaa25f5cdcc905a6386a623ee37d3c57d29fa976a",
+    "RegistrationGate": "0x51f5aba39deea24db4a13182ce8b2697bef5b3fb"
+  },
+  "config": {
+    "epochZero": 1784392392,
+    "epochLength": 604800,
+    "proofEpoch": 7,
+    "minTier": 3,
+    "jurisdictionMask": 255,
+    "credentialRoot": "6169089262182662551765430451869477850822369012194942422016362324771265384099"
+  },
+  "evidence": {
+    "note": "The proofs in test/fixtures/proofs.json verify against this deployment unchanged.",
+    "registration": {
+      "holder": "0xd30DE9C5aEF8079B4718B4988E8FD1D1A96F3115",
+      "txHash": "0x93aa278fe234b1ed3c4ee430db016cf31dd62bc557bc443d8bcb9c21425dc543",
+      "gasUsed": 368066,
+      "status": "success"
+    },
+    "refusals": {
+      "forged_root": "RootMismatch(7611142786501304429922825364145714245341053521273085805899057624258210665189, 6169089262182662551765430451869477850822369012194942422016362324771265384099)",
+      "fail_tier": "PolicyNotSatisfied()",
+      "fail_jurisdiction": "PolicyNotSatisfied()",
+      "fail_epoch": "PolicyNotSatisfied()"
+    }
+  },
+  "contractIds": {
+    "KycVerifier": "0.0.10380608",
+    "ZkKycRegistry": "0.0.10380610",
+    "RegistrationGate": "0.0.10380613"
+  },
+  "sourcify": {
+    "server": "https://sourcify.dev/server",
+    "match": "match",
+    "allThreeVerified": true
+  }
+}

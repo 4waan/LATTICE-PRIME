@@ -1,0 +1,473 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "verifier_",
+    "type": "address",
+    "internalType": "contract IPlonkVerifier"
+   },
+   {
+    "name": "registry_",
+    "type": "address",
+    "internalType": "contract ZkKycRegistry"
+   },
+   {
+    "name": "issuer_",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "minTier_",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "jurisdictionMask_",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "adoptPolicy",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "issuer",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "jurisdictionMask",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "minTier",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingJurisdictionMask",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingMinTier",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingPolicyEpoch",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "proposePolicy",
+  "inputs": [
+   {
+    "name": "minTier_",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "mask_",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "publishRoot",
+  "inputs": [
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "root",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "register",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "proof",
+    "type": "uint256[24]",
+    "internalType": "uint256[24]"
+   },
+   {
+    "name": "pub",
+    "type": "uint256[7]",
+    "internalType": "uint256[7]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "registry",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract ZkKycRegistry"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "rootForEpoch",
+  "inputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "verifier",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IPlonkVerifier"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "wouldAccept",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "pub",
+    "type": "uint256[7]",
+    "internalType": "uint256[7]"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "ok",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "reason",
+    "type": "string",
+    "internalType": "string"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "event",
+  "name": "PolicyAdopted",
+  "inputs": [
+   {
+    "name": "minTier",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "mask",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": false,
+    "internalType": "uint64"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "PolicyProposed",
+  "inputs": [
+   {
+    "name": "minTier",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "mask",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "effectiveEpoch",
+    "type": "uint64",
+    "indexed": false,
+    "internalType": "uint64"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "Registered",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "nullifier",
+    "type": "bytes32",
+    "indexed": false,
+    "internalType": "bytes32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "RootPublished",
+  "inputs": [
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "root",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "error",
+  "name": "EpochMismatch",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "want",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NotIssuer",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NullifierExhausted",
+  "inputs": [
+   {
+    "name": "nullifier",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "PolicyMismatch",
+  "inputs": [
+   {
+    "name": "gotTier",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "gotMask",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "PolicyNotSatisfied",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "PolicyNotYetEffective",
+  "inputs": [
+   {
+    "name": "effectiveEpoch",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "current",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "ProofInvalid",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "RegistrantMismatch",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "want",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RootAlreadySet",
+  "inputs": [
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RootMismatch",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "want",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RootNotPublished",
+  "inputs": [
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ }
+]

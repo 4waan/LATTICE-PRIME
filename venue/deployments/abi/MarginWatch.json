@@ -1,0 +1,305 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "vault_",
+    "type": "address",
+    "internalType": "contract RepoVault"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "alertOf",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "a",
+    "type": "tuple",
+    "internalType": "struct MarginWatch.Alert",
+    "components": [
+     {
+      "name": "state",
+      "type": "uint8",
+      "internalType": "enum RepoVault.State"
+     },
+     {
+      "name": "called",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cureDeadline",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "maturity",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "cureExpired",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "unmarkedFail",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "defaultable",
+      "type": "bool",
+      "internalType": "bool"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "alertsOf",
+  "inputs": [
+   {
+    "name": "ids",
+    "type": "bytes32[]",
+    "internalType": "bytes32[]"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "out",
+    "type": "tuple[]",
+    "internalType": "struct MarginWatch.Alert[]",
+    "components": [
+     {
+      "name": "state",
+      "type": "uint8",
+      "internalType": "enum RepoVault.State"
+     },
+     {
+      "name": "called",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cureDeadline",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "maturity",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "cureExpired",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "unmarkedFail",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "defaultable",
+      "type": "bool",
+      "internalType": "bool"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "calledAmong",
+  "inputs": [
+   {
+    "name": "ids",
+    "type": "bytes32[]",
+    "internalType": "bytes32[]"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "out",
+    "type": "bytes32[]",
+    "internalType": "bytes32[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "stream",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "s",
+    "type": "tuple",
+    "internalType": "struct MarginWatch.Stream",
+    "components": [
+     {
+      "name": "epoch",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "metered",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "budgetBits",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "spentBits",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "permitted",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "audible",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "breakingSize",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "vault",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract RepoVault"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "watch",
+  "inputs": [
+   {
+    "name": "ids",
+    "type": "bytes32[]",
+    "internalType": "bytes32[]"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "alerts",
+    "type": "tuple[]",
+    "internalType": "struct MarginWatch.Alert[]",
+    "components": [
+     {
+      "name": "state",
+      "type": "uint8",
+      "internalType": "enum RepoVault.State"
+     },
+     {
+      "name": "called",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cureDeadline",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "maturity",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "cureExpired",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "unmarkedFail",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "defaultable",
+      "type": "bool",
+      "internalType": "bool"
+     }
+    ]
+   },
+   {
+    "name": "s",
+    "type": "tuple",
+    "internalType": "struct MarginWatch.Stream",
+    "components": [
+     {
+      "name": "epoch",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "metered",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "budgetBits",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "spentBits",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "permitted",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "audible",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "breakingSize",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ }
+]
