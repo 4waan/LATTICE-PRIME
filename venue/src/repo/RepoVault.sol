@@ -5,8 +5,8 @@ import {IHoldByPartition, IHoldTypes} from "../interfaces/IHoldByPartition.sol";
 import {RepoMath} from "./RepoMath.sol";
 import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
-import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
 import {RepoVaultBase} from "./RepoVaultBase.sol";
+import {DisclosureView} from "../lattice/DisclosureView.sol";
 
 /// @title RepoVault
 /// @notice Tokenised collateral for repo. The state machine of `docs/repo-state-machine.md`,
@@ -43,7 +43,7 @@ import {RepoVaultBase} from "./RepoVaultBase.sol";
 ///      price. Row 12 is open and stated as a limit: the close leg settles in the clear
 ///      against ATS, and the zero-fork ruling puts that disclosure inside a transfer we do
 ///      not modify. Closing it needs a netted order-book-only layer, which is not v1.
-contract RepoVault is RepoVaultBase {
+contract RepoVault is RepoVaultBase, DisclosureView {
     using RepoMath for uint256;
 
     /// @dev Here and not in `RepoVaultBase` with the rest: an inherited enum does not
@@ -106,16 +106,6 @@ contract RepoVault is RepoVaultBase {
     ///      replacing it. This is that period, and it is why `FAILING` is a state.
     uint64 public immutable failGrace;
 
-    /// @notice The governed disclosure policy, asked per row.
-    /// @dev Per row rather than one ceiling for the contract: a single ceiling has to be
-    ///      set to the most permissive row it touches, so it cannot refuse anything that
-    ///      row allows.
-    IDisclosurePolicy public immutable policy;
-
-    /// @notice Bits spent per row per epoch against the governed coalition budget. Storage
-    ///         rather than an immutable, because a budget is a thing you spend.
-    DisclosureMeter.Meter private _meter;
-
     /// @dev Internal, with an explicit accessor below. The generated getter for a fourteen
     ///      field struct does not compile without `via_ir`, and returning the struct in
     ///      memory keeps the ABI stable if a field is added.
@@ -127,13 +117,12 @@ contract RepoVault is RepoVaultBase {
         IDisclosurePolicy policy_,
         uint256 penaltyRate_,
         uint64 failGrace_
-    ) {
+    ) DisclosureView(policy_) {
         if (penaltyRate_ > RepoMath.BP_HUNDREDTHS) {
             revert RepoMath.PenaltyRateTooLarge(penaltyRate_);
         }
         security = security_;
         marginEngine = marginEngine_;
-        policy = policy_;
         penaltyRate = penaltyRate_;
         failGrace = failGrace_;
     }
@@ -233,7 +222,7 @@ contract RepoVault is RepoVaultBase {
         // calldata`, so the ledger holds every input whatever this contract exposes.
         // Deferring a number the public already computes is theatre. Row 5 is unreachable
         // for this leg on this ledger, as a stated limit rather than a pending change, and
-        // MA-01 and the row 5 deferral are one defect and not two.
+        // The storage gap and the row 5 deferral are one defect and not two.
         if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Closed(id);
         }
@@ -262,7 +251,7 @@ contract RepoVault is RepoVaultBase {
         // Row 16, at `(exact, imm)`, and the unsolved row rather than a convenient one.
         // The commitment discloses nothing about the mark; the timing discloses that this
         // repo was marked, now, and marking is daily, so the sequence is a cadence
-        // fingerprint. Carried as an open limit in section 7.2 and incurred here.
+        // fingerprint. Carried as an open limit in the disclosure matrix and incurred here.
         if (_emitUnder(id, ROW_CADENCE, L.G_EXACT, L.T_IMM)) {
             emit MarkPosted(id, commitment);
         }
@@ -416,61 +405,13 @@ contract RepoVault is RepoVaultBase {
 
     // ------------------------------------------------------------- helpers
 
-    /// @notice Every event this contract emits passes through here. MA-03 is closed by
-    ///         this function being called, which an earlier version of it was not.
-    /// @dev Scope is events. It does not cover storage, and `repo(id)` returns fourteen
-    ///      fields in the clear, so MA-01 lives in that gap and no accessor change reaches
-    ///      it: `open` takes its terms as `Terms calldata`, so the inputs to the
-    ///      liquidation threshold sit in a transaction body too.
-    ///
-    ///      The ceiling asks whether the venue may say this and the meter asks whether it
-    ///      can still afford to, and the two failure modes differ on purpose. A ceiling
-    ///      breach is a configuration error and reverts. An exhausted budget is the
-    ///      mechanism working, so the disclosure is withheld and the transition completes:
-    ///      a repurchase must not fail because the venue has run out of things it may say.
-    /// @return afforded Whether the caller should emit. False means the row's epoch budget
-    ///         is spent and the event is withheld.
-    function _emitUnder(bytes32 id, uint16 row, uint8 g, uint8 t)
-        internal
-        returns (bool afforded)
-    {
-        uint32 actual = L.point(g, t);
-        uint32 over = L.excess(policy.ceilingFor(row), actual);
-        if (over != 0) {
-            emit DisclosureRefused(id, row, over);
-            revert DisclosureExceedsCeiling(over);
-        }
-        return DisclosureMeter.spend(_meter, policy, row, g);
-    }
-
-    /// @notice Bits spent against a row's coalition budget in an epoch.
-    /// @dev The supervisor's read. A row silenced by an exhausted budget and a row nobody
-    ///      disclosed on look identical in the event stream, so the difference has to be a
-    ///      view.
-    function spentBits(uint16 row, uint64 epoch) external view returns (uint32) {
-        return DisclosureMeter.spentBits(_meter, row, epoch);
-    }
-
-    /// @notice Whether a disclosure at `g` on `row` would still be afforded.
-    function wouldAfford(uint16 row, uint8 g) external view returns (bool) {
-        return DisclosureMeter.wouldAfford(_meter, policy, row, g);
-    }
-
-    /// @notice How many disclosures at `g` exhaust `row`. Zero when unmetered.
-    function breakingSize(uint16 row, uint8 g) external view returns (uint256) {
-        return DisclosureMeter.breakingSize(policy, row, g);
-    }
-
-    /// @notice Public so tests and the deploy script can ask the same question the
-    ///         contract asks itself.
-    function wouldDisclose(uint16 row, uint8 g, uint8 t) external view returns (bool) {
-        return L.permits(policy.ceilingFor(row), L.point(g, t));
-    }
-
-    /// @notice The ceiling in force for one row, after the regime's narrowing.
-    function ceilingFor(uint16 row) external view returns (uint32) {
-        return policy.ceilingFor(row);
-    }
+    /// @dev **The scope of `DisclosureView._emitUnder`, here, because this is the
+    ///      contract where the gap is widest.** It governs events. It does not govern
+    ///      storage, and `repo(id)` returns fourteen fields in the clear. No accessor
+    ///      change reaches that: `open` takes its terms as `Terms calldata`, so the inputs
+    ///      to the liquidation threshold sit in a transaction body too. What the helper
+    ///      does close is the emission path, by every `emit` above routing through it,
+    ///      which an earlier version of this contract did not do.
 
     function _require(bool ok, State got, State want) private pure {
         if (!ok) revert WrongState(got, want);

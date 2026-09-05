@@ -65,6 +65,20 @@ default. The penalty runs from maturity rather than from the declaration, so a
 fail nobody recorded still costs. Article 7(2) says the mechanism is not a
 revenue source, and that is the clause the tariff can check rather than assert.
 
+Two client pages, generated from the contracts rather than written beside them.
+`commit-preview.html` derives the thirty-two bytes a trader is asked to sign from
+the fields they chose, using the six-word preimage the contract will re-hash.
+`disclosure-receipt.html` is the other end: after an action it prints what the
+venue published, at what granularity, to whom, from when, and how much of that
+row's epoch budget the action spent. Both are the five `DisclosureView` getters
+and one hash, so the pages cost no new machinery. Each carries a client-side copy
+of arithmetic the contract also performs, and each copy is pinned to the contract
+by a vector suite that runs before the page is built.
+
+The receipt is the part a competing venue cannot copy. A venue whose operator
+reads the cleartext knows what it learned only as "everything it was sent", so it
+has no quantity to print and no bound to print it against.
+
 ## Not built
 
 Collateral substitution mid-term. Common in practice, deferred deliberately.
