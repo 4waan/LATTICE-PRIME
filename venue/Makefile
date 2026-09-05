@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures verifier clean report census rulebook pages
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook pages
 
 all: build census circuit verifier fixtures pages test report
 
@@ -41,6 +41,14 @@ verifier: setup
 fixtures:
 	$(NODE) node circuits/gen-input.mjs
 	$(NODE) node circuits/mk-fixtures.mjs
+
+# Proofs for real addresses, against the root already published on chain for
+# epoch 7. Not part of `all`: it needs addresses, and it writes evidence rather
+# than fixtures. ADDRS is a space separated list.
+#   make prove-live ADDRS="0xabc... 0xdef..."
+prove-live:
+	@test -n "$(ADDRS)" || { echo 'usage: make prove-live ADDRS="0x... 0x..."'; exit 1; }
+	$(NODE) node circuits/prove-live.mjs $(ADDRS)
 
 # The callstack census over the ATS lifecycle surface. Reads the vendored clone
 # at v8.0.0, writes the markdown a reviewer reads and the Solidity the test suite
