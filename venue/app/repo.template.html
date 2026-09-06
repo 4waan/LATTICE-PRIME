@@ -1,0 +1,111 @@
+<title>Repo · SeamMe</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The repo vault: state, the price to repurchase now, the settlement penalty now, and whether the margin log can be believed.">
+<script>/* Stored choice wins; with nothing stored, follow the operating system.
+   Inline and before the stylesheet so the page never paints the wrong theme. */
+document.documentElement.setAttribute("data-theme",
+  localStorage.getItem("seamme.theme")
+  || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
+<style>
+/*INLINE docs/venue.css*/
+/*INLINE app/app.css*/
+</style>
+
+<div id="block" class="blocked" hidden>
+  <h1>This is not the live venue.</h1>
+  <p></p>
+</div>
+
+<div id="app">
+<header class="mast">
+  <div class="mast-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html">SeamMe</a>
+      <span class="net-chip">TESTNET</span>
+    </div>
+    <nav class="nav" aria-label="Screens">
+      <a href="prove.html">Prove</a>
+      <a href="trade.html">Trade</a>
+      <a href="position.html">Position</a>
+      <a href="repo.html" aria-current="page">Repo</a>
+      <a href="venue.html">Venue</a>
+    </nav>
+    <div class="mast-end">
+      <div class="clocks" aria-label="Venue clocks">
+        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+      </div>
+      <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap page">
+  <h1>Repo</h1>
+  <p class="lede">The collateral side of the venue. A repo is opened against a hold on the same
+    bond the engine trades, marked while it is open, and repurchased or defaulted at the end.
+    This screen reads it; the vault's writes are an operator path and are not offered here.</p>
+
+  <div class="wire" style="margin-bottom:1rem">
+    <div class="wcell"><span class="k">Fail grace</span><span class="v num" id="rv-grace">—</span><span class="n">failGrace</span></div>
+    <div class="wcell"><span class="k">Penalty</span><span class="v num" id="rv-penalty">—</span><span class="n">penaltyRate</span></div>
+    <div class="wcell"><span class="k">Margin engine</span><span class="v" id="rv-engine">—</span><span class="n">marginEngine</span></div>
+    <div class="wcell"><span class="k">Watcher points at</span><span class="v" id="rv-watchvault">—</span><span class="n">MarginWatch.vault</span></div>
+  </div>
+
+  <div class="wire" style="margin-bottom:1.4rem">
+    <div class="wcell"><span class="k">Security</span><span class="v" id="rv-security">—</span><span class="n">vault.security</span></div>
+    <div class="wcell"><span class="k">Policy</span><span class="v" id="rv-policy">—</span><span class="n">vault.policy</span></div>
+    <div class="wcell" style="grid-column:span 2"><span class="k">Disclosure stream</span><span class="v" id="rv-stream">—</span><span class="n">MarginWatch.stream</span></div>
+  </div>
+
+  <section>
+    <div class="shead"><h2>Repos this vault has touched</h2><span class="src">mirror node · calledAmong</span></div>
+    <p>Repo ids are not enumerable on chain. Every vault event carries the id as its first
+      indexed topic, so the history is the index. <span id="repo-called" class="note"></span></p>
+    <div class="rowbtns" style="margin-bottom:1rem">
+      <button type="button" id="repo-discover">Re-read the vault history</button>
+    </div>
+    <div class="picks" id="repo-known"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>One repo</h2><span class="src">RepoVault.repo · MarginWatch.alertOf</span></div>
+    <p><code>repurchasePriceNow</code> and <code>settlementPenaltyNow</code> move with the clock,
+      so they are read at the moment you ask and never derived from <code>openedAt</code> here.</p>
+    <div class="field" style="padding:0 0 .65rem">
+      <label for="repo-id">Repo id</label>
+      <input id="repo-id" spellcheck="false" placeholder="0x… thirty-two bytes">
+    </div>
+    <div class="rowbtns"><button type="button" class="primary" id="repo-go">Read it</button></div>
+    <div id="repo-out" style="margin-top:1rem">
+      <div class="empty">Pick one above, or paste an id.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>What happened to it</h2><span class="src">Hedera mirror node</span></div>
+    <div class="tape" id="repo-tape"><div class="empty">Read a repo above and its history lands here.</div></div>
+  </section>
+</main>
+</div>
+
+<button type="button" class="theme" id="theme">Dark</button>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<script>
+/*INLINE tools/keccak.mjs*/
+/*INLINE tools/units.mjs*/
+/*INLINE tools/commitment.mjs*/
+/*INLINE tools/lattice.mjs*/
+/*INLINE tools/client-bundle.mjs*/
+/*INLINE tools/venue-app.mjs*/
+/*INLINE tools/venue-obs.mjs*/
+Venue.boot("repo");
+</script>

@@ -214,6 +214,17 @@ Venue.contracts = function (runner) {
         watch: new ethers.Contract(A.MarginWatch, ABI.MarginWatch, runner),
         policy: new ethers.Contract(A.ParameterRoot, ABI.ParameterRoot, runner),
         halt: new ethers.Contract(A.TradingHalt, ABI.TradingHalt, runner),
+        // The rest of the deployed venue. Nothing below is optional to the
+        // venue's behaviour, so nothing below is optional to a client that
+        // claims to show it: the cap can suspend trading, the regime sets the
+        // floor the cap suspends against, the rulebook is what the fees are
+        // reconciled to, and the journal is the contract that answers no.
+        journal: new ethers.Contract(A.SeamJournal, ABI.SeamJournal, runner),
+        vault: new ethers.Contract(A.RepoVault, ABI.RepoVault, runner),
+        rulebook: new ethers.Contract(A.Rulebook, ABI.Rulebook, runner),
+        regime: new ethers.Contract(A.Regime, ABI.Regime, runner),
+        cap: new ethers.Contract(A.VolumeCap, ABI.VolumeCap, runner),
+        clock: new ethers.Contract(A.EpochClock, ABI.EpochClock, runner),
     };
 };
 
@@ -286,6 +297,8 @@ Venue.boot = async function (page) {
         prove: Venue.mountProve,
         trade: Venue.mountTrade,
         position: Venue.mountPosition,
+        venue: Venue.mountVenue,
+        repo: Venue.mountRepo,
     }[page];
     if (mount) await mount();
     Venue.startPolling();
@@ -734,6 +747,24 @@ Venue.tick = async function () {
         if (Venue.page === "prove" && Venue.viewer()) await Venue.refreshProve({quiet: true});
         if (Venue.page === "trade" && Venue.viewer()) await Venue.refreshTrade({quiet: true});
         if (Venue.page === "position" && Venue.viewer()) await Venue.refreshPosition({quiet: true});
+        // The venue screen answers for the whole venue, so it has no viewer to
+        // wait for. The book is the same: what is resting in this round is not
+        // a fact about whoever happens to be connected.
+        if (Venue.page === "trade") await Venue.refreshBook();
+        if (Venue.page === "position") await Venue.refreshInstrument();
+        if (Venue.page === "prove") await Venue.refreshGateGov();
+        // The venue screen is about sixty reads and nothing on it moves faster
+        // than an epoch. Redraw it once a minute, and immediately whenever the
+        // disclosure epoch it is scoped to actually turns over.
+        if (Venue.page === "venue") {
+            const now = Date.now();
+            const epoch = String(Venue.snap.discEpoch);
+            if (epoch !== Venue._venueEpoch || now - (Venue._venueAt || 0) > 60000) {
+                Venue._venueEpoch = epoch;
+                Venue._venueAt = now;
+                await Venue.refreshVenue();
+            }
+        }
         Venue.pollMs = 5000;
         clearInterval(Venue.timer);
         Venue.timer = setInterval(() => Venue.tick().catch(() => {}), Venue.pollMs);
@@ -885,6 +916,7 @@ Venue.mountProve = async function () {
     $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => Venue.fail(e)));
     $("register")?.addEventListener("click", () => Venue.doRegister().catch((e) => Venue.fail(e)));
     await Venue.refreshProve();
+    await Venue.refreshGateGov().catch(() => {});
 };
 
 Venue.refreshProve = async function () {
@@ -1038,9 +1070,13 @@ Venue.mountTrade = async function () {
     $("load-ticket")?.addEventListener("change", (e) => Venue.importTicket(e.target.files[0]));
     $("cross")?.addEventListener("click", () => Venue.doCross().catch((e) => Venue.fail(e)));
     $("withdraw")?.addEventListener("click", () => Venue.doWithdraw().catch((e) => Venue.fail(e)));
+    $("market-reload")?.addEventListener("click", () => Venue.refreshMarketTape().catch((e) => Venue.fail(e)));
     if (!$("salt").value) Venue.reroll();
     else Venue.paintTicket();
     await Venue.refreshTrade();
+    // The book does not need a connected wallet. Someone deciding whether to
+    // commit is exactly the person who has not connected one yet.
+    await Venue.refreshBook().catch(() => {});
 };
 
 Venue.reroll = function () {
@@ -1427,6 +1463,7 @@ Venue.mountPosition = async function () {
     $("withdraw")?.addEventListener("click", () => Venue.doWithdraw().catch((e) => Venue.fail(e)));
     $("disclose")?.addEventListener("click", () => Venue.refreshDisclosure().catch((e) => Venue.fail(e)));
     await Venue.refreshPosition();
+    await Venue.refreshInstrument().catch(() => {});
 };
 
 Venue.refreshPosition = async function () {
@@ -1443,12 +1480,24 @@ Venue.refreshPosition = async function () {
 
 Venue.refreshDisclosure = async function () {
     const engine = Venue.c.engine;
-    const epoch = Venue.snap.discEpoch ?? asBig(await Venue.c.policy.currentEpoch());
+    const policy = Venue.c.policy;
+    const epoch = Venue.snap.discEpoch ?? asBig(await policy.currentEpoch());
     const rows = Object.keys(CLIENT.disclosure).filter((k) => k.startsWith("row")).map((k) => Number(k.slice(3)));
+
+    // The budget and the waiver come off ParameterRoot, not off the bundle.
+    // client.json records what these were when it was generated; a governance
+    // window exists so they can change without it, and docs/UI-INTEGRATION-MAP.md
+    // says in as many words not to hardcode a number from that file.
+    const live = await Promise.all(rows.map(async (row) => {
+        const [budget, waived] = await Promise.all([
+            policy.budgetFor(row), policy.isWaived(row),
+        ]);
+        return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
+    }));
+
     const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
-    const calls = rows.flatMap((row) => {
-        const meta = CLIENT.disclosure["row" + row];
-        const g = meta.metered ? G.PRED : G.EXACT;
+    const calls = rows.flatMap((row, i) => {
+        const g = live[i].metered ? G.PRED : G.EXACT;
         return [
             engine.ceilingFor(row),
             engine.wouldDisclose(row, g, T.IMM),
@@ -1459,12 +1508,16 @@ Venue.refreshDisclosure = async function () {
     });
     const got = await Promise.all(calls);
     const lines = rows.map((row, i) => {
-        const meta = CLIENT.disclosure["row" + row];
+        const meta = live[i];
         const off = i * 5;
         const ceiling = got[off], would = got[off + 1], spent = got[off + 2], afford = got[off + 3], br = got[off + 4];
+        const bundled = CLIENT.disclosure["row" + row];
+        const drifted = bundled && String(bundled.ceiling) !== String(ceiling);
         return '<div class="rowline"><span class="mono">' + row + "</span><span>" +
-            esc(ROW_NAMES[row] || "") + '</span><span class="mono">' +
-            "0x" + Number(ceiling).toString(16) + '</span><span class="mono">' +
+            esc(ROW_NAMES[row] || "") + (meta.waived ? ' <i class="hint">waived</i>' : "") +
+            '</span><span class="mono">' +
+            "0x" + Number(ceiling).toString(16) +
+            (drifted ? ' <b class="bad">≠ bundle</b>' : "") + '</span><span class="mono">' +
             (would ? "true" : "false") + '</span><span class="mono">' +
             spent.toString() + (meta.metered ? " / " + meta.budgetBits : "") +
             '</span><span class="mono">' + (afford ? "true" : "false") +
