@@ -1,0 +1,631 @@
+/* SeamMe live client — Hedera scaffold-hbar-ui tokens, light first.
+   Styrene A is licensed; Montserrat is Hedera's public replacement.
+   Primary light #4f46e5, dark #8259ef. Accent #2d84eb. Smoke #9b9b9d.
+   Loaded after venue.css so these tokens and chrome win. */
+
+:root{
+  --font:"Montserrat",ui-sans-serif,system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --paper:#f7f7f8; --surface:#ffffff; --sunk:#e8e8ec;
+  --ink:#11151d; --ink-2:#4b5563; --slate:#6b7280; --faint:#9b9b9d;
+  --rule:#e8e8ec; --rule-hard:#d4d4d8;
+  --primary:#4f46e5; --primary-hover:#4338ca; --on-primary:#ffffff;
+  --accent:#2d84eb;
+  --indigo:#4f46e5; --claret:#ff8863;
+  --sealed:#4f46e5; --sealed-wash:#eef0ff;
+  --exposed:#ff8863; --exposed-wash:#fff1eb;
+  --held:#b45309; --held-wash:#fff6e5;
+  --success:#059669; --success-fill:#34eeb6;
+  --radius:16px; --radius-sm:12px; --pill:999px;
+  --ease:cubic-bezier(.2,0,0,1);
+}
+:root[data-theme="dark"]{
+  --paper:#11151d; --surface:#181c27; --sunk:#0a0d14;
+  --ink:#f0f0f2; --ink-2:#c4c4c8; --slate:#9b9b9d; --faint:#9b9b9d;
+  --rule:#2a3040; --rule-hard:#2a3040;
+  --primary:#8259ef; --primary-hover:#9470f3; --on-primary:#ffffff;
+  --indigo:#8259ef;
+  --sealed:#8259ef; --sealed-wash:#2a2150;
+  --exposed:#ff8863; --exposed-wash:#3a2218;
+  --held:#ffcf72; --held-wash:#2a2210;
+}
+
+html{min-height:100%;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+body{
+  margin:0;
+  background:var(--paper); color:var(--ink);
+  font-family:var(--font);
+  font-size:16px; line-height:1.5; font-weight:400;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 clamp(1.1rem,4vw,2.5rem)}
+p,li{color:var(--ink-2)}
+p{margin:0 0 .85rem;max-width:40rem}
+strong{color:var(--ink);font-weight:600}
+a{color:var(--accent)}
+h1,h2,h3{font-family:var(--font);font-weight:700;color:var(--ink);text-wrap:balance;margin:0;letter-spacing:-.03em}
+h2{font-size:1.05rem;font-weight:600;letter-spacing:-.015em}
+.eyebrow{display:none}
+.mono,code{font-family:var(--mono)}
+code{font-size:.86em;background:var(--sunk);padding:.12em .4em;border-radius:8px;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+
+.mast{
+  position:sticky;top:0;z-index:20;
+  background:color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter:saturate(1.4) blur(14px);
+  border-bottom:1px solid var(--rule);
+}
+@supports not (backdrop-filter:blur(14px)){.mast{background:var(--paper)}}
+.mast-inner{
+  max-width:1120px;margin:0 auto;
+  padding:.75rem clamp(1.1rem,4vw,2.5rem);
+  display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:center;
+}
+.brand-row{display:flex;align-items:center;gap:.55rem;min-width:0}
+.brand{
+  display:flex;align-items:center;text-decoration:none;color:var(--ink);
+  font-weight:700;font-size:1.2rem;letter-spacing:-.04em;
+}
+.net-chip{
+  font-size:.68rem;font-weight:600;letter-spacing:.06em;
+  padding:.28rem .6rem;border-radius:var(--pill);
+  background:var(--sealed-wash);color:var(--primary);border:1px solid transparent;
+}
+
+.nav{display:flex;gap:.25rem;justify-content:center;flex-wrap:wrap}
+.nav a{
+  font-size:.9rem;font-weight:600;text-decoration:none;color:var(--slate);
+  padding:.45rem 1rem;border-radius:var(--pill);min-height:40px;
+  display:inline-flex;align-items:center;
+}
+.nav a:hover{color:var(--ink);background:var(--sunk)}
+.nav a[aria-current="page"]{color:var(--on-primary);background:var(--primary)}
+
+.mast-end{display:flex;align-items:center;gap:.65rem;justify-content:flex-end;flex-wrap:wrap}
+.clocks{display:flex;gap:.4rem}
+.clk{
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--pill);
+  padding:.35rem .75rem;min-width:auto;white-space:nowrap;flex:0 0 auto;
+}
+.clk .k{font-size:.62rem;font-weight:600;color:var(--faint);letter-spacing:.04em;display:block;text-transform:none}
+.clk .v{font-family:var(--mono);font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
+.clk.warn .v,.clk.warn .k{color:var(--exposed)}
+
+button, .file-btn{
+  font-family:var(--font);font-size:.875rem;font-weight:600;color:var(--ink);
+  background:var(--sunk);border:0;border-radius:var(--pill);
+  padding:0 1.15rem;cursor:pointer;min-height:44px;white-space:nowrap;
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+}
+button:hover,.file-btn:hover{filter:brightness(.97)}
+button.primary{background:var(--primary);color:var(--on-primary)}
+button.primary:hover{background:var(--primary-hover);filter:none}
+button.primary:disabled,button:disabled{
+  background:var(--sunk);color:var(--faint);cursor:not-allowed;filter:none;transform:none;
+}
+button.danger{background:var(--exposed-wash);color:var(--exposed)}
+button.quiet{background:transparent;color:var(--slate)}
+button.wallet-btn{
+  background:var(--ink);border:0;color:var(--paper);
+  min-height:44px;
+}
+button.wallet-btn:hover{filter:brightness(1.12)}
+button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
+@media(prefers-reduced-motion:no-preference){
+  button:not(:disabled):active,.file-btn:active{transform:scale(.96)}
+  button,.file-btn,input,select,a.door,.nav a,.wallet-btn{
+    transition-property:transform,background-color,color,border-color,filter;
+    transition-duration:.15s;transition-timing-function:var(--ease);
+  }
+}
+
+.page{padding:1.75rem 0 4rem}
+.page h1{font-size:clamp(1.85rem,4vw,2.6rem);line-height:1.08;margin:0 0 .5rem;letter-spacing:-.04em}
+.page > p.lede{font-family:var(--font);font-size:1.05rem;line-height:1.45;color:var(--ink-2);max-width:36rem;margin:0 0 1.5rem;font-weight:400}
+
+.doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:1.5rem}
+.door{
+  padding:1.35rem 1.2rem;border-radius:var(--radius);background:var(--surface);
+  border:1px solid var(--rule);text-decoration:none;color:inherit;
+  display:flex;flex-direction:column;gap:.45rem;min-height:10.5rem;
+  box-shadow:0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.door:hover{border-color:var(--primary);box-shadow:0 8px 24px color-mix(in srgb, var(--primary) 10%, transparent)}
+.door .n{
+  font-size:.72rem;font-weight:700;color:var(--primary);background:var(--sealed-wash);
+  padding:.2rem .55rem;border-radius:var(--pill);align-self:flex-start;
+}
+.door h2{font-size:1.35rem}
+.door p{margin:0;font-size:.9rem;max-width:none}
+
+.panel{
+  border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);
+  margin:0 0 1rem;overflow:hidden;
+  box-shadow:0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.panel > .top{padding:1rem 1.15rem;border-bottom:1px solid var(--rule);display:flex;gap:.75rem;align-items:center}
+.panel > .body{padding:1.15rem}
+.panel h2{font-size:1rem;font-weight:600}
+
+.ticket{
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:hidden;
+}
+@media(max-width:820px){.ticket{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.ticket{grid-template-columns:1fr}}
+.field.span2{grid-column:span 2}
+@media(max-width:520px){.field.span2{grid-column:1/-1}}
+.field{display:flex;flex-direction:column;gap:.35rem;padding:1rem 1.1rem;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.field:last-child{border-right:0}
+.field label{font-size:.72rem;font-weight:600;color:var(--faint);letter-spacing:.02em}
+.field input,.field select,textarea.mono,#repo-ids{
+  font-family:var(--mono);font-size:.95rem;color:var(--ink);
+  background:var(--paper);border:1px solid var(--rule);border-radius:var(--radius-sm);
+  padding:.55rem .7rem;width:100%;min-width:0;min-height:44px;
+}
+.field input:focus,.field select:focus,#repo-ids:focus{
+  outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary);
+}
+.field .hint{font-family:var(--mono);font-size:.72rem;color:var(--slate);overflow-wrap:anywhere}
+.field .hint.bad{color:var(--exposed)}
+.saltfield{grid-column:1/-1;border-right:0;border-bottom:0}
+.saltrow{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
+.saltrow input{flex:1 1 34ch}
+
+.rowbtns{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;margin-top:1rem}
+.drop{
+  border:1.5px dashed var(--rule-hard);border-radius:var(--radius);padding:1.6rem 1rem;
+  text-align:center;color:var(--slate);background:var(--paper);cursor:pointer;display:block;
+}
+.drop:hover,.drop.over{border-color:var(--primary);color:var(--ink);background:var(--sealed-wash)}
+.drop input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.pins{border:1px solid var(--rule);border-radius:var(--radius-sm);overflow:hidden;background:var(--paper)}
+.pin{display:grid;grid-template-columns:2.2rem 10rem 1fr 1fr auto;gap:.75rem;align-items:baseline;
+  padding:.55rem 1rem;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:.78rem}
+.pin:last-child{border-bottom:0}
+.pin.head{background:var(--sunk);font-family:var(--font);font-size:.68rem;font-weight:600;color:var(--faint);letter-spacing:.02em;text-transform:none}
+.pin .ok{color:var(--success);font-weight:600}
+.pin .no{color:var(--exposed);font-weight:600}
+.pin .v{word-break:break-all}
+
+.banner{
+  border:1px solid var(--rule);border-radius:var(--radius);background:var(--sealed-wash);
+  padding:1rem 1.15rem;margin:0 0 1rem;max-width:none;
+  display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+}
+.banner p{flex:1 1 22rem}
+.banner button{flex:0 0 auto;min-height:38px;font-size:.82rem}
+.banner.warn{background:var(--exposed-wash);border-color:color-mix(in srgb, var(--exposed) 35%, var(--rule))}
+.banner.held{background:var(--held-wash)}
+.banner p{margin:0;max-width:none}
+
+.blocked{max-width:36rem;margin:4rem auto;padding:0 clamp(1.1rem,4vw,2.5rem)}
+.blocked h1{font-size:1.8rem}
+
+.list{display:flex;flex-direction:column;gap:.75rem}
+.card{
+  border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);
+  padding:1.05rem 1.15rem;display:flex;flex-direction:column;gap:.4rem;
+}
+.card.sealed{box-shadow:inset 4px 0 0 var(--primary)}
+.card.open{box-shadow:inset 4px 0 0 var(--success-fill)}
+.card.dead{box-shadow:inset 4px 0 0 var(--exposed);opacity:.88}
+.card .id{font-family:var(--mono);font-size:.82rem;word-break:break-all}
+.card .meta{font-size:.84rem;color:var(--slate)}
+.phase{
+  font-size:.68rem;font-weight:700;padding:.2rem .55rem;border-radius:var(--pill);align-self:flex-start;
+}
+.phase.cancel{background:var(--sunk);color:var(--slate)}
+.phase.reveal{background:var(--sealed-wash);color:var(--primary)}
+.phase.done{background:color-mix(in srgb, var(--success-fill) 28%, var(--surface));color:var(--success)}
+.phase.lost{background:var(--exposed-wash);color:var(--exposed)}
+
+.tlbar{display:flex;height:2.1rem;border-radius:var(--pill);overflow:hidden;margin-top:.45rem;background:var(--paper)}
+.tlbar .seg{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+  font-size:.65rem;padding:0 .4rem;white-space:nowrap}
+.tlbar .cancelw{flex:30 0 0;background:var(--sunk);color:var(--slate)}
+.tlbar .revealw{flex:270 0 0;background:var(--sealed-wash);color:var(--primary)}
+.tlbar .gone{flex:90 0 0;color:var(--exposed);background:var(--exposed-wash)}
+.needle{position:relative;height:0}
+.needle i{position:absolute;top:-2.1rem;width:2px;height:2.1rem;background:var(--ink);border-radius:1px;transform:translateX(-1px)}
+
+.status{font-size:.85rem;font-weight:500;color:var(--ink-2);min-height:1.3em;margin-top:.65rem}
+.status.bad{color:var(--exposed)}
+.status.ok{color:var(--success)}
+
+.toast{
+  position:fixed;bottom:1.25rem;right:1.25rem;z-index:40;max-width:28rem;
+  background:var(--ink);color:var(--paper);padding:.9rem 1.1rem;border-radius:var(--radius-sm);
+  font-size:.88rem;font-weight:500;
+  box-shadow:0 12px 32px color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.toast a{color:var(--success-fill)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.words{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);overflow-x:auto}
+.w{display:grid;grid-template-columns:2.4rem 11rem 1fr;gap:.75rem;align-items:baseline;
+  padding:.55rem 1.05rem;border-bottom:1px solid var(--rule);min-width:640px}
+.w:last-child{border-bottom:0}
+.w .wi{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
+.w .wn{font-family:var(--mono);font-size:.8rem;color:var(--ink)}
+.w .wn i{color:var(--faint);font-style:normal}
+.w .wb{font-family:var(--mono);font-size:.8rem;word-break:break-all}
+.w .pad{color:var(--faint);opacity:.5}
+.w .sig{color:var(--ink)}
+.w[data-from="you"] .sig{color:var(--held)}
+.w[data-from="order"] .sig{color:var(--primary)}
+.idbox{
+  margin-top:1rem;background:color-mix(in srgb, var(--primary) 6%, var(--surface));
+  border:1px solid var(--rule);border-left:3px solid var(--primary);
+  border-radius:var(--radius);padding:1rem 1.15rem;display:flex;flex-direction:column;gap:.35rem;
+}
+.idbox .k{font-size:.72rem;font-weight:600;color:var(--primary)}
+.idbox .v{font-family:var(--mono);font-size:clamp(.8rem,2vw,1rem);color:var(--ink);word-break:break-all;font-weight:500}
+
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:.75rem;border:0;background:transparent;min-width:0}
+.wcell{
+  padding:1rem 1.1rem;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);
+  display:flex;flex-direction:column;gap:.2rem;min-width:0;
+}
+.wcell .k{font-size:.68rem;font-weight:600;color:var(--faint);letter-spacing:.03em}
+.wcell .v{font-family:var(--mono);font-size:1.15rem;color:var(--ink);font-weight:600;
+  /* break-all split "ParameterRoot.currentEpoch()" mid-identifier. anywhere
+     still breaks a long hash, but takes a word boundary when one is offered. */
+  overflow-wrap:anywhere;word-break:normal}
+.wcell .n{font-size:.75rem;color:var(--slate);line-height:1.35;
+  /* "balanceOfByPartition," is one unbreakable token, and its width was setting
+     the min-content width of the whole cell. anywhere lets the caption break,
+     which is what lets the track shrink on a phone. */
+  overflow-wrap:anywhere}
+
+.readout{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.readout li{display:grid;grid-template-columns:9rem 1fr;gap:.75rem;margin:0;
+  padding:.5rem 0;border-bottom:1px solid var(--rule);font-size:.88rem;align-items:baseline}
+.readout li:last-child{border-bottom:0}
+.readout .k{font-size:.72rem;font-weight:600;color:var(--faint)}
+.readout .v{font-family:var(--mono);color:var(--ink);word-break:break-all}
+
+.rows{border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);overflow-x:auto}
+.rowline{display:grid;grid-template-columns:3.2rem 1fr 6rem 6rem 6rem 6rem;gap:.75rem;
+  align-items:baseline;padding:.6rem 1.05rem;border-bottom:1px solid var(--rule);min-width:720px;font-size:.86rem}
+.rowline.head{background:var(--paper);font-size:.68rem;font-weight:600;color:var(--faint)}
+.rowline .mono{font-size:.8rem}
+
+.shead{
+  display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap;
+  margin:2.1rem 0 .85rem;padding-bottom:.55rem;border-bottom:1px solid var(--rule);
+}
+.shead h2{font-size:1.22rem;font-weight:700;letter-spacing:-.028em}
+/* What the section is read from, named where the reader can check it. */
+.shead .src,.panel > .top .src{margin-left:auto;font-family:var(--mono);font-size:.72rem;color:var(--faint)}
+.panel > .top h2{font-size:1.08rem;font-weight:700;letter-spacing:-.025em}
+.snum{display:none}
+.note{border:0;padding:0;font-size:.88rem;color:var(--slate);max-width:42rem;margin-top:.75rem}
+.note b{color:var(--ink);font-weight:600}
+
+.hero{border:0;padding:0}
+.hero h1{font-size:clamp(1.85rem,4vw,2.6rem)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:1rem;align-items:start}
+/* The reference column follows the reader down the ticket rather than scrolling
+   off the top of it. Below 840 the grid is one column and sticky would trap it. */
+.cols > aside{position:sticky;top:5.25rem}
+@media(max-width:840px){.cols > aside{position:static}}
+/* Under 840 the masthead becomes three short rows rather than four tall ones.
+   `display:contents` on .mast-end lets the clocks, the theme control and the
+   connect button be placed individually without a second wrapper. */
+@media(max-width:840px){
+  .mast-inner{grid-template-columns:1fr auto;row-gap:.5rem;align-items:center;padding-block:.6rem}
+  .mast-end{display:contents}
+  .brand-row{grid-column:1;grid-row:1}
+  .wallet-btn{grid-column:2;grid-row:1;justify-self:end}
+  .nav{grid-column:1;grid-row:2;justify-self:start;gap:.15rem}
+  .nav a{padding:.4rem .7rem}
+  .theme.docked{grid-column:2;grid-row:2;justify-self:end}
+  .clocks{grid-column:1/-1;grid-row:3;overflow-x:auto;max-width:100%;padding-bottom:.1rem;gap:.3rem}
+  .clk{padding:.24rem .55rem}
+  .clk .k{font-size:.58rem}
+  .clk .v{font-size:.72rem}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .pin{grid-template-columns:2rem 1fr}
+}
+/* A phone masthead has room for a brand, a nav, the clocks and one action.
+   The theme control is the thing that gives way: with nothing stored, the page
+   already follows the operating system, so nothing is lost by dropping it. */
+@media(max-width:560px){
+  .theme.docked{display:none}
+  .nav{grid-column:1/-1;grid-row:2}
+}
+@media(max-width:400px){
+  .brand{font-size:1.05rem}
+  .wallet-btn{padding:0 .85rem;font-size:.8rem}
+}
+
+.theme{
+  position:fixed;bottom:1rem;left:clamp(1.1rem,4vw,2.5rem);z-index:10;
+  font-size:.75rem;min-height:36px;padding:0 .85rem;opacity:.75;background:var(--surface);border:1px solid var(--rule);
+}
+.theme:hover{opacity:1}
+/* Once docked into the masthead it is ordinary chrome, not an overlay. */
+.theme.docked{
+  position:static;opacity:1;min-height:36px;font-size:.78rem;
+  background:var(--sunk);border:1px solid transparent;color:var(--slate);
+}
+.theme.docked:hover{background:var(--rule-hard);color:var(--ink)}
+.foot{padding:1.5rem 0 3rem;color:var(--faint);font-size:.82rem;border-top:1px solid var(--rule);margin-top:2rem}
+.foot p{color:var(--faint);max-width:42rem}
+
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.file-btn input{display:none}
+
+/* ============================================================
+   Gradient actions, the wallet sheet, and the connect button.
+   Shared by every screen, so it lives here and not in landing.css.
+   ============================================================ */
+
+:root{
+  --grad:linear-gradient(105deg,#6d5efc 0%,#8b5cf6 38%,#2d84eb 100%);
+  --grad-glow:rgba(109,94,252,.34);
+  --scrim:rgba(17,21,29,.46);
+}
+:root[data-theme="dark"]{
+  --grad:linear-gradient(105deg,#8259ef 0%,#a06bf6 40%,#3c9bff 100%);
+  --grad-glow:rgba(130,89,239,.42);
+  --scrim:rgba(4,6,10,.66);
+}
+
+/* The one inviting control on the page. Two stops of movement on hover:
+   the gradient slides, and the glow under it grows. */
+.btn-grad{
+  position:relative;
+  font-family:var(--font);font-weight:600;font-size:.95rem;
+  color:#fff;border:0;border-radius:var(--pill);cursor:pointer;
+  padding:0 1.35rem;min-height:46px;
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  text-decoration:none;white-space:nowrap;
+  background:var(--grad);background-size:210% 100%;background-position:0 0;
+  box-shadow:0 4px 16px var(--grad-glow);
+  isolation:isolate;
+}
+/* A hairline of light along the top edge, the way a physical key catches it. */
+.btn-grad::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 46%);
+  mix-blend-mode:overlay;
+}
+.btn-grad:hover{background-position:100% 0;box-shadow:0 10px 30px var(--grad-glow)}
+.btn-grad.lg{min-height:56px;padding:0 1.9rem;font-size:1.05rem;border-radius:var(--pill)}
+.btn-grad:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+@media(prefers-reduced-motion:no-preference){
+  .btn-grad{transition:background-position .5s var(--ease),box-shadow .25s var(--ease),transform .15s var(--ease)}
+  .btn-grad:active{transform:scale(.975)}
+}
+
+.btn-ghost{
+  font-family:var(--font);font-weight:600;font-size:.95rem;
+  color:var(--ink);background:transparent;
+  border:1px solid var(--rule-hard);border-radius:var(--pill);
+  padding:0 1.35rem;min-height:46px;
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  text-decoration:none;white-space:nowrap;cursor:pointer;
+}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary);background:var(--sealed-wash)}
+.btn-ghost.lg{min-height:56px;padding:0 1.6rem;font-size:1.02rem}
+
+/* The connect button carries the gradient too, so the single most important
+   action on the venue looks like the single most important action. */
+button.wallet-btn{
+  background:var(--grad);background-size:210% 100%;color:#fff;
+  box-shadow:0 4px 16px var(--grad-glow);font-weight:600;
+}
+button.wallet-btn:hover{background-position:100% 0;box-shadow:0 8px 24px var(--grad-glow);filter:none}
+/* Connected is a state, not an invitation. It drops the gradient and the glow. */
+button.wallet-btn.connected,button.wallet-btn.watching{
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--rule-hard);box-shadow:none;font-family:var(--mono);font-size:.82rem;
+}
+button.wallet-btn.connected:hover,button.wallet-btn.watching:hover{border-color:var(--primary);background:var(--sunk)}
+.wallet-btn .dot{width:7px;height:7px;border-radius:50%;background:var(--success-fill);flex:0 0 auto}
+.wallet-btn.watching .dot{background:var(--faint)}
+
+/* ---------- the wallet sheet ---------- */
+.modal[hidden]{display:none}
+.modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:1rem}
+.modal-scrim{position:absolute;inset:0;background:var(--scrim);backdrop-filter:blur(3px)}
+.modal-card{
+  position:relative;width:min(27rem,100%);max-height:min(92vh,44rem);overflow-y:auto;
+  background:var(--surface);border:1px solid var(--rule);border-radius:22px;
+  padding:1.5rem 1.4rem 1.3rem;
+  box-shadow:0 28px 70px rgba(0,0,0,.24);
+}
+@media(prefers-reduced-motion:no-preference){
+  .modal-card{animation:sheet-in .24s var(--ease) both}
+  @keyframes sheet-in{from{opacity:0;transform:translateY(14px) scale(.985)}}
+}
+.modal-card h2{font-size:1.3rem;font-weight:700;letter-spacing:-.03em;margin:0 0 .3rem}
+.modal-card .sub{font-size:.84rem;color:var(--slate);margin:0 0 1.1rem;max-width:none}
+.modal-x{
+  position:absolute;top:.85rem;right:.85rem;
+  width:34px;height:34px;min-height:34px;padding:0;border-radius:50%;
+  background:var(--sunk);color:var(--slate);font-size:1.1rem;line-height:1;
+}
+.modal-x:hover{background:var(--rule-hard);color:var(--ink)}
+
+.wallet-list{display:flex;flex-direction:column;gap:.5rem}
+.wallet-row{
+  display:flex;align-items:center;gap:.8rem;width:100%;
+  padding:.7rem .85rem;min-height:60px;
+  background:var(--paper);border:1px solid var(--rule);border-radius:14px;
+  cursor:pointer;text-align:left;font-family:var(--font);
+}
+.wallet-row:hover{border-color:var(--primary);background:var(--sealed-wash);filter:none}
+.wallet-row .ic{
+  width:34px;height:34px;flex:0 0 auto;border-radius:9px;overflow:hidden;
+  display:grid;place-items:center;background:var(--surface);border:1px solid var(--rule);
+}
+.wallet-row .ic img,.wallet-row .ic svg{width:100%;height:100%;object-fit:contain;display:block}
+.wallet-row .tx{display:flex;flex-direction:column;gap:.08rem;min-width:0;flex:1 1 auto}
+.wallet-row .nm{font-size:.94rem;font-weight:600;color:var(--ink)}
+.wallet-row .sb{font-size:.75rem;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wallet-row .chev{color:var(--faint);flex:0 0 auto;font-size:1.05rem}
+.wallet-row.installed .sb{color:var(--success)}
+
+.wm-or{display:flex;align-items:center;gap:.75rem;margin:1.1rem 0 .9rem;color:var(--faint);font-size:.74rem;font-weight:600;letter-spacing:.08em}
+.wm-or::before,.wm-or::after{content:"";height:1px;background:var(--rule);flex:1 1 auto}
+
+.watch-form{display:flex;flex-direction:column;gap:.55rem}
+.watch-form label{font-size:.8rem;font-weight:600;color:var(--ink)}
+.watch-form input{
+  font-family:var(--mono);font-size:.9rem;color:var(--ink);
+  background:var(--paper);border:1px solid var(--rule);border-radius:12px;
+  padding:.6rem .75rem;min-height:46px;width:100%;
+}
+.watch-form input:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary)}
+.wm-note{font-size:.76rem;color:var(--slate);margin:.15rem 0 0;max-width:none;line-height:1.45}
+.wm-note.bad{color:var(--exposed)}
+
+/* The read-only ribbon. A watcher must never be able to mistake this for a
+   connected wallet, so it says so on every screen until it is dismissed. */
+.watch-bar{
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+  background:var(--held-wash);border-top:1px solid color-mix(in srgb,var(--held) 30%,var(--rule));
+  color:var(--held);font-size:.82rem;font-weight:600;
+  padding:.5rem clamp(1.1rem,4vw,2.5rem);
+}
+.watch-bar .mono{font-weight:400}
+.watch-bar button{background:transparent;color:inherit;min-height:30px;padding:0 .6rem;font-size:.78rem;text-decoration:underline}
+
+/* ---------- the flow rail, and the colour each screen answers to ---------- */
+
+/* The front door sells Prove, Trade and Position as one ordered move. On the
+   screens themselves nothing said which of the three you were standing in, so
+   each one carries the rail and takes its accent from its own step. The
+   attribute is set on <body> by Venue.boot, which is why the masthead can read
+   it too. */
+:root{--screen:var(--primary)}
+body[data-screen="trade"]{--screen:var(--accent)}
+body[data-screen="position"]{--screen:var(--success)}
+:root[data-theme="dark"] body[data-screen="position"]{--screen:var(--success-fill)}
+.nav a[aria-current="page"]{background:var(--screen)}
+
+.flow{
+  list-style:none;margin:0 0 1.5rem;padding:0;
+  display:flex;align-items:center;flex-wrap:wrap;row-gap:.4rem;
+}
+.flow li{display:flex;align-items:center;min-width:0}
+.flow li + li::before{
+  content:"";flex:0 0 auto;height:1px;background:var(--rule-hard);
+  width:clamp(.7rem,2.6vw,2rem);margin:0 .12rem;
+}
+.flow a,.flow > li > span{
+  display:inline-flex;align-items:center;gap:.5rem;white-space:nowrap;
+  padding:.38rem .85rem;border-radius:var(--pill);
+  border:1px solid var(--rule);background:var(--surface);
+  text-decoration:none;color:var(--slate);font-size:.82rem;font-weight:600;
+}
+.flow a:hover{color:var(--ink);border-color:var(--rule-hard)}
+.flow b{font-family:var(--mono);font-size:.68rem;font-weight:600;color:var(--faint)}
+.flow .here > span{
+  background:color-mix(in srgb,var(--screen) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--screen) 45%,var(--rule));
+  color:var(--screen);
+}
+.flow .here b{color:var(--screen)}
+
+/* ---------- empty states ---------- */
+
+/* A table header with no rows under it reads as broken rather than as waiting.
+   Every container that fills in later says what will fill it. */
+.empty{
+  border:1.5px dashed var(--rule-hard);border-radius:var(--radius);
+  padding:1.6rem 1.25rem;text-align:center;background:transparent;
+  color:var(--slate);font-size:.88rem;line-height:1.5;max-width:none;margin:0;
+}
+.empty b{color:var(--ink);font-weight:600}
+.empty code{background:var(--sunk)}
+
+/* ---------- trade, three areas in two columns ---------- */
+
+/* The ticket is far taller than the engine panel beside it, which left a third
+   of the right column empty. The balances belong next to the order they
+   constrain anyway, so they take that space on a wide screen and go back above
+   the ticket on a narrow one, where reading them first is what matters. */
+.trade-cols{
+  grid-template-areas:"ticket wire" "ticket engine";
+  grid-template-rows:auto auto;
+}
+.trade-cols > .ticket-col{grid-area:ticket;min-width:0;align-self:start}
+/* First heading in a column starts level with the column beside it. */
+.cols > * > .shead:first-child{margin-top:0}
+.trade-cols > .wire{grid-area:wire;grid-template-columns:repeat(2,minmax(0,1fr))}
+.trade-cols > aside{grid-area:engine}
+@media(max-width:840px){
+  .trade-cols{grid-template-areas:"wire" "ticket" "engine"}
+  .trade-cols > .wire{grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))}
+}
+
+/* ---------- sections on a working screen ---------- */
+
+/* venue.css gives a document section 3.5rem of air top and bottom and a rule
+   underneath. That is right for prose and far too much here: it was pushing
+   every heading half a screen from the thing above it, and drawing a second
+   line under sheads that already carry one. The shead margin is the spacing
+   on these three pages. */
+.page section{padding:0;border-bottom:0}
+
+/* ---------- the tape, the book, the schedule ----------
+   Added for the venue and repo screens. A tape line is four columns on a wide
+   screen and a stack on a narrow one, because the argument list is the part
+   that has no fixed width and truncating it is how a tape stops being evidence. */
+
+.tape{display:flex;flex-direction:column;border:1px solid var(--rule);
+  border-radius:var(--radius);background:var(--surface);overflow:hidden}
+.tape .empty{padding:1.15rem}
+.tape .note{margin:0;padding:.8rem 1.15rem;border-top:1px solid var(--rule);
+  font-size:.78rem;color:var(--faint);background:var(--paper)}
+.tline{display:grid;grid-template-columns:8.5rem 11rem 1fr 13rem;gap:.75rem;
+  align-items:baseline;padding:.7rem 1.15rem;border-bottom:1px solid var(--rule);font-size:.82rem}
+.tline:last-of-type{border-bottom:0}
+.tline .tsrc{font-family:var(--mono);font-size:.7rem;color:var(--faint);
+  text-transform:uppercase;letter-spacing:.04em}
+.tline .tname{font-weight:600;color:var(--ink)}
+.tline .targs{display:flex;flex-wrap:wrap;gap:.4rem;min-width:0}
+.tline .targ{font-family:var(--mono);font-size:.74rem;color:var(--ink-2);
+  background:var(--sunk);border-radius:8px;padding:.1rem .45rem;word-break:break-all}
+.tline .targ i{font-style:normal;color:var(--faint);margin-right:.35rem}
+.tline .tat{font-family:var(--mono);font-size:.72rem;color:var(--faint);text-align:right}
+.tline.unknown .tname{color:var(--exposed)}
+@media (max-width:820px){
+  .tline{grid-template-columns:1fr;gap:.35rem}
+  .tline .tat{text-align:left}
+}
+
+/* The rulebook schedule and the live book reuse .rowline, which is fixed at the
+   six columns the disclosure table needs. Both want their own count. */
+.rowline.chg{grid-template-columns:7rem 5rem 5.5rem 7rem 5rem 5rem 4rem}
+.rowline.pset{grid-template-columns:9rem 1fr 14rem}
+.rowline.pset.drift{background:var(--exposed-wash)}
+.rowline b.bad{color:var(--exposed)}
+.rowline.book{grid-template-columns:9rem 4rem 5.5rem 4.5rem 4.5rem 5.5rem 8rem 5rem;align-items:center}
+.rowline.book button{padding:.2rem .55rem;font-size:.72rem}
+.rowline.book.mine{background:var(--sealed-wash)}
+.rowline.book.mine .mono{color:var(--ink)}
+@media (max-width:900px){
+  .rowline.chg,.rowline.book,.rowline.pset{grid-template-columns:1fr 1fr;row-gap:.3rem}
+  .rowline.chg.head,.rowline.book.head,.rowline.pset.head{display:none}
+}
+
+/* Repo ids are picked, not typed, once the vault has a history. */
+.picks{display:flex;flex-wrap:wrap;gap:.55rem}
+.repo-pick{font-family:var(--mono);font-size:.8rem;text-align:left}
+.repo-pick .meta{color:var(--faint);font-size:.72rem;margin-left:.4rem}
+.repo-pick.called{box-shadow:inset 0 0 0 2px var(--exposed)}
+
+/* A readout value that is itself a verdict. Used where the getter answers a
+   yes-or-no the trader has to act on: suspended, halted, reconciled. */
+.readout .v.ok{color:var(--success)}
+.readout .v.bad{color:var(--exposed);font-weight:600}
+.readout .v b.bad{color:var(--exposed)}

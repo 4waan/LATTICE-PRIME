@@ -1,0 +1,385 @@
+<title>SeamMe</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sealed order flow for tokenised repo collateral. Prove eligibility with a zero-knowledge proof, commit an order nobody can read, and settle on Hedera.">
+<script>/* Stored choice wins; with nothing stored, follow the operating system.
+   Inline and before the stylesheet so the page never paints the wrong theme. */
+document.documentElement.setAttribute("data-theme",
+  localStorage.getItem("seamme.theme")
+  || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<!-- The runtime is a local file now, so start it during parse rather than at the
+     closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
+<link rel="prefetch" href="prove.html">
+<link rel="prefetch" href="trade.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
+<style>
+/*INLINE docs/venue.css*/
+/*INLINE app/app.css*/
+/*INLINE app/landing.css*/
+</style>
+
+<div id="block" class="blocked" hidden>
+  <h1>This is not the live venue.</h1>
+  <p></p>
+</div>
+
+<div id="aura" class="aura" aria-hidden="true"></div>
+
+<div id="app">
+<header class="mast solid">
+  <div class="mast-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 22 28" width="22" height="28" aria-hidden="true">
+          <defs>
+            <linearGradient id="seam-brand-grad" x1="2" y1="26" x2="20" y2="2" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#2f9f90"/>
+              <stop offset="55%" stop-color="#5eead4"/>
+              <stop offset="100%" stop-color="#9ef6e8"/>
+            </linearGradient>
+          </defs>
+          <path fill="none" stroke="url(#seam-brand-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+            d="M4.2 22.2c.2 2.4 3.2 3.6 7 3.6 4.6 0 7.3-2.2 7.3-5.2 0-3.6-3.8-4.6-7.2-5.6C7.6 14 3.5 12.8 3.5 8.4c0-3.2 2.8-5.6 7.4-5.6 3.6 0 6.4 1.5 6.8 4.4"/>
+        </svg>
+        SeamMe
+      </a>
+      <span class="net-chip">TESTNET</span>
+    </div>
+    <nav class="nav" aria-label="Screens">
+      <a href="prove.html">Prove</a>
+      <a href="trade.html">Trade</a>
+      <a href="position.html">Position</a>
+      <a href="repo.html">Repo</a>
+      <a href="venue.html">Venue</a>
+    </nav>
+    <div class="mast-end">
+      <div class="clocks" aria-label="Venue clocks">
+        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+      </div>
+      <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
+    </div>
+  </div>
+</header>
+<div id="glass-root" class="glass-root" aria-hidden="true"></div>
+
+<!-- ============ 1 · the claim ============ -->
+<section class="frame hero-frame">
+  <span class="glass-anchor" id="ga-seam"></span>
+  <div class="wrap hero-inner">
+    <p class="kicker">Sealed order flow for tokenised collateral</p>
+
+    <h1 class="hero-h">Trade size <span class="hi">without showing it.</span></h1>
+
+    <p class="hero-lead">
+      Institutions cannot trade size on a public order book, because every
+      resting order leaks the position it is building.
+    </p>
+
+    <p class="hero-sub">
+      SeamMe seals the order and proves the trader instead. Hedera settles it
+      with fair ordering and fixed fees.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn-grad lg" href="prove.html">
+        Get started now
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn-ghost lg" href="#how">See how it works</a>
+    </div>
+
+    <div class="hero-facts">
+      <span class="fact"><i class="live"></i> Live on <b>chain 296</b></span>
+      <span class="fact">Bond <b id="bond-name">SEAMC</b></span>
+      <span class="fact">Round <b id="fact-round">—</b></span>
+      <span class="fact">Reads via <b id="net-rpc">hashio</b></span>
+    </div>
+
+    <!-- Held open for the agent, not faked. The band reserves its own width and
+         height now so that shipping the conversation later moves nothing above it. -->
+    <div class="agent-band">
+      <div class="agent-bar">
+        <svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
+        <span class="ph">Ask the SeamMe agent about eligibility, sealed orders, or settlement</span>
+        <span class="soon">Soon</span>
+      </div>
+    </div>
+  </div>
+
+  <a class="scroll-cue" id="cue" href="#how">
+    <span class="lbl">How it works</span>
+    <span class="rail"><i></i></span>
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </a>
+</section>
+
+<!-- ============ 2 · how it works, which is also the way in ============ -->
+<section class="frame" id="how">
+  <div class="wrap">
+    <div class="frame-head rise">
+      <p class="kicker">How SeamMe works</p>
+      <h2>Three moves, in order. Each one is a screen you can open now.</h2>
+      <p>Nothing here is a mock. Every card below is the live contract call it names, running against Hedera testnet.</p>
+    </div>
+
+    <div class="steps">
+      <a class="step step-1 pop" style="--i:0" href="prove.html">
+        <span class="n">01 / PROVE</span>
+        <span class="mark-slot" id="ga-path"></span>
+        <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
+          <path d="M17 24l5 5 10-11"/>
+        </svg>
+        <h3>Prove you are allowed</h3>
+        <p>A PLONK proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
+        <span class="verb">gate.register(account, proof, signals)</span>
+        <span class="go">Open Prove
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+      <a class="step step-2 pop" style="--i:1" href="trade.html">
+        <span class="n">02 / TRADE</span>
+        <span class="mark-slot" id="ga-market"></span>
+        <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="21" width="30" height="20" rx="4"/>
+          <path d="M16 21v-6a8 8 0 0116 0v6"/>
+          <path d="M24 28v6"/>
+        </svg>
+        <h3>Send an order nobody can read</h3>
+        <p>Your order becomes thirty-two bytes. It stays sealed through the cancel window and opens only when you reveal it, once the round has stopped taking bids.</p>
+        <span class="verb">engine.commit(id) then engine.reveal(…)</span>
+        <span class="go">Open Trade
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+      <a class="step step-3 pop" style="--i:2" href="position.html">
+        <span class="n">03 / POSITION</span>
+        <span class="mark-slot" id="ga-vault"></span>
+        <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 40h36"/>
+          <path d="M13 40V27M23 40V15M33 40V22"/>
+          <circle cx="33" cy="14" r="5"/>
+          <path d="M37 10l5-5"/>
+        </svg>
+        <h3>See what the venue knows</h3>
+        <p>Credit, margin, and the five disclosure getters. Each row says whether it is permitted and, separately, whether the log behind it can be believed.</p>
+        <span class="verb">watch.watch(ids) · engine.spentBits(epoch)</span>
+        <span class="go">Open Position
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · the deck ============ -->
+<section class="frame" id="features">
+  <div class="wrap">
+    <div class="frame-head rise">
+      <p class="kicker">What makes it different</p>
+      <h2>Six things a normal order book cannot do.</h2>
+      <p>Each one is enforced by a contract, not by a policy document.
+        <span class="on-hover">Point at a card to read it.</span><span class="on-touch">Swipe through them.</span></p>
+    </div>
+  </div>
+
+  <div class="deck-shell rise">
+    <div class="deck-wrap">
+      <div class="deck" id="deck">
+        <article class="fcard" tabindex="0">
+          <span class="fnum">01</span>
+          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+          <h3>Orders are sealed, not merely hidden</h3>
+          <p>A commitment is a keccak of your order. Side, price and size are never on the wire until you choose to open them.</p>
+          <span class="src">MatchingEngine.commit</span>
+        </article>
+
+        <article class="fcard" tabindex="0">
+          <span class="fnum">02</span>
+          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/><path d="M17 4.5l2.5 2.5L23 3"/></svg>
+          <h3>Eligibility without identity</h3>
+          <p>A zero-knowledge proof of tier and jurisdiction, checked against an issuer root that rolls at every KYC epoch boundary.</p>
+          <span class="src">ZkKycRegistry · PLONK</span>
+        </article>
+
+        <article class="fcard" tabindex="0">
+          <span class="fnum">03</span>
+          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 019-9v9z"/><circle cx="12" cy="12" r="9"/></svg>
+          <h3>A disclosure budget the chain enforces</h3>
+          <p>Every read that leaks something spends bits from a per-epoch budget. When the budget is gone the venue stops answering.</p>
+          <span class="src">SeamJournal.spentBits</span>
+        </article>
+
+        <article class="fcard" tabindex="0">
+          <span class="fnum">04</span>
+          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+          <h3>Cancel and reveal never overlap</h3>
+          <p>Two disjoint windows off one timestamp. There is no instant where you can watch a reveal land and still pull your own order.</p>
+          <span class="src">cancellableUntil(id)</span>
+        </article>
+
+        <article class="fcard" tabindex="0">
+          <span class="fnum">05</span>
+          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>
+          <h3>Margin you can believe, or told that you cannot</h3>
+          <p>The watcher returns the position and, separately, whether the log behind it was audible. A row can be permitted and unreliable at once.</p>
+          <span class="src">MarginWatch.watch</span>
+        </article>
+
+        <article class="fcard" tabindex="0">
+          <span class="fnum">06</span>
+          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg>
+          <h3>Fair ordering, and a fee you can predict</h3>
+          <p>Hedera orders transactions by consensus timestamp. There is no mempool to front-run you in and no gas auction to lose.</p>
+          <span class="src">Hedera consensus</span>
+        </article>
+      </div>
+      <p class="deck-hint">Hover a card to bring it forward. Tab works too.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · what is underneath ============ -->
+<section class="frame" id="powered">
+  <div class="wrap">
+    <div class="frame-head rise">
+      <p class="kicker">What powers it</p>
+      <h2>Four pieces of industry infrastructure, used as intended.</h2>
+      <p>None of this is reimplemented. The venue is the part that did not exist yet.</p>
+    </div>
+
+    <div class="powered rise">
+      <div class="pcard">
+        <span class="role">Settlement</span>
+        <span class="who">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 8v8M16 8v8M8 12h8"/></svg>
+          Hedera
+        </span>
+        <p>Consensus timestamps give fair ordering with no mempool, and the EVM gives the venue somewhere to live. Fees are quoted, not auctioned.</p>
+      </div>
+
+      <div class="pcard">
+        <span class="role">The instrument</span>
+        <span class="who">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
+          Asset Tokenization Studio
+        </span>
+        <p>The bond is a real ATS security token: partitions, holds and an external compliance hook. The venue escrows through the hold, never by taking custody.</p>
+      </div>
+
+      <div class="pcard pcard-proof">
+        <span class="mark-slot" id="ga-proof"></span>
+        <span class="role">The proof</span>
+        <span class="who">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+          Circom and snarkjs
+        </span>
+        <p>The eligibility circuit compiles to PLONK over a universal ceremony, so this project ran no trusted setup of its own. Proving happens on the holder&rsquo;s machine; the private inputs never leave it.</p>
+      </div>
+
+      <div class="pcard">
+        <span class="role">The contracts</span>
+        <span class="who">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 8L4 12l5 4M15 8l5 4-5 4"/></svg>
+          Foundry and Solidity
+        </span>
+        <p>Every claim on this page is a getter somebody can call. The invariants above are covered by the test suite in the repository, not by prose.</p>
+      </div>
+    </div>
+
+    <div class="wrap" style="padding:0">
+      <p class="kicker rise" style="margin-top:2.4rem">And what makes it pleasant</p>
+      <div class="also rise">
+        <span>ethers v6</span>
+        <span>HashIO JSON-RPC</span>
+        <span>Hedera mirror node</span>
+        <span>HashScan receipts</span>
+        <span>EIP-6963 wallet discovery</span>
+        <span>read-only watch mode</span>
+        <span>no bundler, no backend</span>
+        <span>one file per screen</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · in plain terms, and the way in ============ -->
+<section class="frame closing" id="start">
+  <div class="wrap">
+    <div class="frame-head rise">
+      <p class="kicker">In plain terms</p>
+      <h2>What SeamMe actually does.</h2>
+    </div>
+
+    <p class="plain rise">
+      You hold a tokenised bond and you want to sell a lot of it without the
+      market seeing you coming. SeamMe lets you <b>prove you are allowed to
+      trade</b> without handing over your identity, put the order on chain as a
+      <b>sealed hash</b>, and open it only once the round has closed. Whatever
+      the venue does disclose about you comes out of a <b>budget it cannot
+      exceed</b>.
+    </p>
+
+    <div class="cta-row rise">
+      <a class="btn-grad lg" href="prove.html">
+        Start using SeamMe
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn-ghost lg" href="../docs/commit-preview.html">See a commitment first</a>
+    </div>
+
+    <p class="closing-note rise">
+      Hedera testnet only. You will need an ECDSA secp256k1 account with test
+      HBAR. No extension? Open the wallet sheet and watch any address read-only.
+    </p>
+  </div>
+</section>
+
+<footer class="lfoot">
+  <div class="wrap">
+    <div class="row">
+      <a href="prove.html">Prove</a>
+      <a href="trade.html">Trade</a>
+      <a href="position.html">Position</a>
+      <a href="repo.html">Repo</a>
+      <a href="venue.html">Venue</a>
+      <a href="../docs/commit-preview.html">Commitment preview</a>
+      <a href="../docs/disclosure-receipt.html">Disclosure receipt</a>
+      <a id="foot-scan" href="#" rel="noopener">Engine on HashScan</a>
+    </div>
+    <p>
+      SeamMe is a testnet demonstration. Numbers on this site are read from the
+      contracts named beside them and are not quotes, advice, or an offer.
+    </p>
+  </div>
+</footer>
+</div>
+
+<button type="button" class="theme" id="theme">Dark</button>
+<div id="toast" class="toast" hidden role="status"></div>
+<div class="sr" aria-live="polite" id="live"></div>
+
+<!-- ethers v6.13.5, MIT, vendored rather than fetched: a demo must not depend
+     on a CDN answering, and the file is then cached across every screen.
+     sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
+<script src="vendor/ethers-6.13.5.umd.min.js"></script>
+<script src="glass.js"></script>
+<script>
+/*INLINE tools/keccak.mjs*/
+/*INLINE tools/units.mjs*/
+/*INLINE tools/commitment.mjs*/
+/*INLINE tools/lattice.mjs*/
+/*INLINE tools/client-bundle.mjs*/
+/*INLINE tools/venue-app.mjs*/
+/*INLINE tools/landing.mjs*/
+Landing.boot();
+Venue.boot("index");
+if (window.SeamGlass) window.SeamGlass.mount(document.getElementById("glass-root"));
+</script>

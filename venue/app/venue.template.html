@@ -1,0 +1,286 @@
+<title>Venue · SeamMe</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The state of the venue: regime, volume cap, trading halt, parameter root, rulebook and the compliance journal, each read from its own contract.">
+<script>/* Stored choice wins; with nothing stored, follow the operating system.
+   Inline and before the stylesheet so the page never paints the wrong theme. */
+document.documentElement.setAttribute("data-theme",
+  localStorage.getItem("seamme.theme")
+  || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<!-- The runtime is a local file now, so start it during parse rather than at the
+     closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
+<link rel="prefetch" href="index.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
+<style>
+/*INLINE docs/venue.css*/
+/*INLINE app/app.css*/
+</style>
+
+<div id="block" class="blocked" hidden>
+  <h1>This is not the live venue.</h1>
+  <p></p>
+</div>
+
+<div id="app">
+<header class="mast">
+  <div class="mast-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html">SeamMe</a>
+      <span class="net-chip">TESTNET</span>
+    </div>
+    <nav class="nav" aria-label="Screens">
+      <a href="prove.html">Prove</a>
+      <a href="trade.html">Trade</a>
+      <a href="position.html">Position</a>
+      <a href="repo.html">Repo</a>
+      <a href="venue.html" aria-current="page">Venue</a>
+    </nav>
+    <div class="mast-end">
+      <div class="clocks" aria-label="Venue clocks">
+        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+      </div>
+      <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap page">
+  <h1>Venue</h1>
+  <p class="lede">The six contracts the trading screens do not call. Every figure below is a
+    getter on the address named beside it, read now, not copied out of the deployment record.</p>
+
+  <div class="cols">
+    <section class="panel">
+      <div class="top"><h2>Regime</h2><span class="src">Regime</span></div>
+      <div class="body">
+        <p class="note">The disclosure point the venue is allowed to operate at, bracketed by a
+          floor it may not go under and a ceiling it may not go over. Lattice points are hex
+          because that is the only form in which two of them can be compared by eye.</p>
+        <ul class="readout">
+          <li><span class="k">current</span><span class="v" id="rg-current">—</span></li>
+          <li><span class="k">floor</span><span class="v" id="rg-floor">—</span></li>
+          <li><span class="k">ceiling</span><span class="v" id="rg-ceiling">—</span></li>
+          <li><span class="k">ideal</span><span class="v" id="rg-ideal">—</span></li>
+          <li><span class="k">mandate</span><span class="v" id="rg-mandate">—</span></li>
+          <li><span class="k">narrowed</span><span class="v" id="rg-narrowed">—</span></li>
+          <li><span class="k">permits</span><span class="v" id="rg-permits">—</span></li>
+          <li><span class="k">liquidityClass</span><span class="v" id="rg-class">—</span></li>
+          <li><span class="k">supervisor</span><span class="v" id="rg-supervisor">—</span></li>
+          <li><span class="k">operator</span><span class="v" id="rg-operator">—</span></li>
+          <li><span class="k">pending</span><span class="v" id="rg-pending">—</span></li>
+          <li><span class="k">relaxation</span><span class="v" id="rg-relax">—</span></li>
+          <li><span class="k">floor cut</span><span class="v" id="rg-lower">—</span></li>
+        </ul>
+        <p class="note" id="rg-supnote"></p>
+      </div>
+    </section>
+
+    <div>
+      <section class="panel">
+        <div class="top"><h2>Volume cap</h2><span class="src">VolumeCap</span></div>
+        <div class="body">
+          <ul class="readout">
+            <li><span class="k">state</span><span class="v" id="vc-suspended">—</span></li>
+            <li><span class="k">capBps</span><span class="v" id="vc-cap">—</span></li>
+            <li><span class="k">shareBps</span><span class="v" id="vc-share">—</span></li>
+            <li><span class="k">suspendedFloor</span><span class="v" id="vc-floor">—</span></li>
+            <li><span class="k">venue</span><span class="v" id="vc-venue">—</span></li>
+          </ul>
+          <p class="note" id="vc-note"></p>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top:1rem">
+        <div class="top"><h2>Trading halt</h2><span class="src">TradingHalt</span></div>
+        <div class="body">
+          <ul class="readout">
+            <li><span class="k">state</span><span class="v" id="th-now">—</span></li>
+            <li><span class="k">haltedUntil</span><span class="v" id="th-until">—</span></li>
+            <li><span class="k">bandBps</span><span class="v" id="th-band">—</span></li>
+            <li><span class="k">breaker</span><span class="v" id="th-breaker">—</span></li>
+            <li><span class="k">budget</span><span class="v" id="th-budget">—</span></li>
+            <li><span class="k">granted</span><span class="v" id="th-granted">—</span></li>
+            <li><span class="k">maxHalt</span><span class="v" id="th-max">—</span></li>
+            <li><span class="k">lastPriceTwice</span><span class="v" id="th-last">—</span></li>
+          </ul>
+          <p class="note">A halt is bounded twice: no single halt runs longer than the maximum,
+            and no epoch spends more halt seconds than the budget. Both bounds are on chain,
+            so a halt cannot be extended by whoever called it.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section>
+    <div class="shead"><h2>Parameter set</h2><span class="src">ParameterRoot</span></div>
+    <p>The live root, the one proposed behind it, and one row of the set read back key by key.
+      The bundle this page ships with recorded these when it was generated; a governance window
+      exists precisely so they can change without it. Drift is called out where it appears.</p>
+    <div class="cols">
+      <section class="panel">
+        <div class="body">
+          <ul class="readout">
+            <li><span class="k">root</span><span class="v" id="pr-root">—</span></li>
+            <li><span class="k">previousRoot</span><span class="v" id="pr-prev">—</span></li>
+            <li><span class="k">keyCount</span><span class="v" id="pr-keys">—</span></li>
+            <li><span class="k">GRACE</span><span class="v" id="pr-grace">—</span></li>
+            <li><span class="k">pending</span><span class="v" id="pr-pending">—</span></li>
+            <li><span class="k">windowClosesAt</span><span class="v" id="pr-window">—</span></li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="top"><h2>One row</h2><span class="src">budgetFor · floorFor · isWaived</span></div>
+        <div class="body">
+          <div class="field" style="padding:0 0 .65rem">
+            <label for="param-row">Row</label>
+            <select id="param-row">
+              <option value="3">3 · order exists</option>
+              <option value="4">4 · order side</option>
+              <option value="5">5 · order size</option>
+              <option value="7">7 · trader identity</option>
+              <option value="12">12 · position</option>
+              <option value="13" selected>13 · round outcome</option>
+              <option value="14">14 · print</option>
+              <option value="15">15 · settlement</option>
+              <option value="16">16 · margin state</option>
+              <option value="17">17 · repo terms</option>
+            </select>
+          </div>
+          <div id="param-out"></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>Everything governance published</h2><span class="src">keyCount · keyAt · valueOf</span></div>
+    <p>The set behind the root, walked entry by entry. The disclosure table on Position shows ten
+      rows because those are the rows this client knows names for; this is the set itself.</p>
+    <div class="rows" id="param-set"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>The immutables, checked</h2><span class="src">engine · registry · gate</span></div>
+    <p>Every constant the bundle carries, read off chain and compared against it. A cache nobody
+      compares against its source is a hardcoded number with a better story.</p>
+    <div class="rows" id="immutables"></div>
+    <p class="note" id="imm-note"></p>
+    <p class="note"><code>minimumCancelFee</code>: <span id="imm-minfee">—</span>.</p>
+  </section>
+
+  <section>
+    <div class="shead"><h2>Rulebook</h2><span class="src">Rulebook</span></div>
+    <p>The published fee schedule, and whether the contracts still charge what it says.
+      <code>reconcile</code> is the getter that answers that; it is not an assertion this page makes.</p>
+    <div class="cols">
+      <section class="panel">
+        <div class="body">
+          <ul class="readout">
+            <li><span class="k">edition</span><span class="v" id="rb-edition">—</span></li>
+            <li><span class="k">document</span><span class="v" id="rb-document">—</span></li>
+            <li><span class="k">chargeCount</span><span class="v" id="rb-charges">—</span></li>
+            <li><span class="k">netOperatorTake</span><span class="v" id="rb-take">—</span></li>
+            <li><span class="k">pending</span><span class="v" id="rb-pending">—</span></li>
+            <li><span class="k">windowClosesAt</span><span class="v" id="rb-window">—</span></li>
+            <li><span class="k">reconcile</span><span class="v" id="rb-reconcile">—</span></li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="top"><h2>Charges</h2><span class="src">chargeAt(i)</span></div>
+        <div class="body"><div class="rows" id="charges"></div></div>
+      </section>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>The journal, and what it would refuse</h2><span class="src">SeamJournal · EpochClock</span></div>
+    <p>The contract wired into the bond as its compliance hook. <code>explain</code> is the only
+      getter in the system that answers <em>why</em> a transfer would be refused rather than
+      reverting and leaving a selector behind.</p>
+    <div class="cols">
+      <section class="panel">
+        <div class="body">
+          <ul class="readout">
+            <li><span class="k">registry</span><span class="v" id="sj-registry">—</span></li>
+            <li><span class="k">token</span><span class="v" id="sj-token">—</span></li>
+            <li><span class="k">admin</span><span class="v" id="sj-admin">—</span></li>
+            <li><span class="k">ceiling</span><span class="v" id="sj-ceiling">—</span></li>
+            <li><span class="k">row</span><span class="v" id="sj-row">—</span></li>
+            <li><span class="k">spentBits</span><span class="v" id="sj-spent">—</span></li>
+            <li><span class="k">epochRecord</span><span class="v" id="sj-record">—</span></li>
+            <li><span class="k">gross</span><span class="v" id="sj-gross">—</span></li>
+            <li><span class="k">epochLength</span><span class="v" id="ec-length">—</span></li>
+            <li><span class="k">epochZero</span><span class="v" id="ec-zero">—</span></li>
+            <li><span class="k">currentEpoch</span><span class="v" id="ec-now">—</span></li>
+            <li><span class="k">startOf</span><span class="v" id="ec-start">—</span></li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="top"><h2>Would this transfer be allowed?</h2><span class="src">explain · canTransfer</span></div>
+        <div class="body">
+          <div class="field"><label for="ex-from">From</label>
+            <input id="ex-from" spellcheck="false" placeholder="blank uses the connected address"></div>
+          <div class="field"><label for="ex-to">To</label>
+            <input id="ex-to" spellcheck="false" placeholder="0x…"></div>
+          <div class="field"><label for="ex-amt">Units</label>
+            <input id="ex-amt" inputmode="numeric" value="1"></div>
+          <div class="rowbtns"><button type="button" class="primary" id="journal-go">Ask the journal</button></div>
+          <div id="journal-out" style="margin-top:1rem"></div>
+
+          <h2 style="margin-top:1.6rem">Publish a closed epoch</h2>
+          <p class="note"><code>disclose(e)</code> is permissionless and is the only write in the
+            system whose purpose is to disclose. It spends budget to do it: the journal takes the
+            coarser reading when the finer one is unaffordable, and emits nothing at all when
+            neither fits. On an epoch that has not closed it returns without doing anything, so
+            this control will not send one.</p>
+          <div class="field"><label for="disc-epoch-in">Epoch</label>
+            <input id="disc-epoch-in" inputmode="numeric" placeholder="the latest closed epoch"></div>
+          <div class="rowbtns"><button type="button" id="disclose-go">Disclose it</button></div>
+          <div class="status" id="disclose-status" role="status"></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>What the venue has done</h2><span class="src">Hedera mirror node</span></div>
+    <p>History, from the mirror node's log index. The client never subscribes and never calls
+      <code>eth_getLogs</code>: HashIO throttles it, and the read budget belongs to the trading screens.</p>
+    <div class="rowbtns" style="margin-bottom:1rem">
+      <select id="tape-scope">
+        <option value="governance">Governance and policy</option>
+        <option value="market">Market and journal</option>
+        <option value="all">Everything</option>
+      </select>
+      <button type="button" id="tape-reload">Read the tape</button>
+    </div>
+    <div class="tape" id="tape"><div class="empty">Press <b>Read the tape</b>.</div></div>
+  </section>
+</main>
+</div>
+
+<button type="button" class="theme" id="theme">Dark</button>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<!-- ethers v6.13.5, MIT, vendored rather than fetched: a demo must not depend
+     on a CDN answering, and the file is then cached across every screen.
+     sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
+<script src="vendor/ethers-6.13.5.umd.min.js"></script>
+<script>
+/*INLINE tools/keccak.mjs*/
+/*INLINE tools/units.mjs*/
+/*INLINE tools/commitment.mjs*/
+/*INLINE tools/lattice.mjs*/
+/*INLINE tools/client-bundle.mjs*/
+/*INLINE tools/venue-app.mjs*/
+/*INLINE tools/venue-obs.mjs*/
+Venue.boot("venue");
+</script>

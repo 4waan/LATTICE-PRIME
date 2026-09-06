@@ -9,9 +9,9 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook pages client prove-live-epoch beat
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat
 
-all: build census circuit verifier fixtures pages test report
+all: build census circuit verifier fixtures pages app test report
 
 build:
 	forge build
@@ -76,21 +76,37 @@ census:
 	$(NODE) node tools/callstack.mjs --json docs/callstack.json --md docs/CALLSTACK.md
 	$(NODE) node tools/gen-seammap.mjs docs/callstack.json src/observatory/SeamMap.sol
 
-# The two pages a trader reads: the commitment before signing `commit(bytes32)`,
-# and the disclosure receipt after acting. Each carries a client-side copy of
-# arithmetic the contract also performs, and each copy is pinned to the contract
-# by a vector suite, so the vectors run before the pages are built.
+# Every client-side copy of arithmetic a contract also performs, checked before
+# anything inlines it. Both `pages` and `app` are built out of these modules, so
+# neither can be built without the copies still agreeing with the chain.
 #
+#   keccak.mjs     -> three published vectors, and the hash under every id
 #   commitment.mjs -> OrderBook.commitmentOf     test/CommitmentVectors.t.sol
 #   lattice.mjs    -> the five DisclosureView getters  test/ReceiptVectors.t.sol
 #   units.mjs      -> CallAuction.notional and the market parameters
 #                                                test/UnitVectors.t.sol
-pages:
+vectors:
+	$(NODE) node tools/keccak.test.mjs
 	$(NODE) node tools/commitment.test.mjs
 	$(NODE) node tools/lattice.test.mjs
 	$(NODE) node tools/units.test.mjs
+
+# The two pages a trader reads: the commitment before signing `commit(bytes32)`,
+# and the disclosure receipt after acting.
+pages: vectors
 	$(NODE) node tools/gen-preview.mjs
 	$(NODE) node tools/gen-receipt.mjs
+
+# The live client: a front door and the three screens behind it, written to
+# app/. Templates in, one self-contained HTML file per screen out. No bundler
+# and no backend, and nothing fetched at run time but ethers and the chain.
+#
+# Reads deployments/client.json and deployments/abi/*, both committed, so this
+# builds offline. `make client` is what regenerates those off chain 296, and it
+# is deliberately not a prerequisite: rebuilding the UI must never be able to
+# move the address book underneath it.
+app: vectors
+	$(NODE) node tools/gen-app.mjs
 
 # The receipt beat, on chain: two sealed orders committed and both withdrawn
 # inside one disclosure epoch, with the second withdrawal going through in
