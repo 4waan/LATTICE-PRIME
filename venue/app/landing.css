@@ -5,8 +5,8 @@
 
    1. The moving light lives behind the content, never over it. A fixed layer at
       z-index -1 with html painting the canvas means every glyph on the page is
-      composited on top of the glow at full opacity. Nothing needs a backdrop,
-      nothing loses contrast, and the masthead stays solid.
+      composited on top of the glow at full opacity. The glass canvas sits inside
+      #app, above the cards and below the sticky mast, and is pointer-events: none.
    2. Every reveal is opt-out. Under prefers-reduced-motion the cards are simply
       there, in the same final position, with no transform to undo. */
 
@@ -14,6 +14,45 @@
 
 html{background:var(--paper)}
 body{background:transparent}
+
+.glass-root{
+  position:fixed;inset:0;z-index:2;pointer-events:none;
+}
+.glass-root canvas{display:block;width:100%;height:100%;pointer-events:none}
+#app{position:relative;z-index:1}
+.glass-anchor{
+  position:absolute;pointer-events:none;
+}
+.hero-frame > #ga-seam{
+  top:28%;
+  left:calc(50% + min(21rem, 38vw));
+  width:min(26vw, 400px);
+  height:min(34vw, 520px);
+}
+@media(max-width:1100px){
+  .hero-frame > #ga-seam{
+    left:calc(50% + 14rem);
+    width:min(22vw, 280px);
+    height:min(30vw, 360px);
+  }
+}
+@media(max-width:900px){
+  .hero-frame > #ga-seam{display:none}
+}
+
+.mark-slot{
+  display:none;
+  width:72px;height:72px;
+  margin:.1rem 0 .45rem;
+  pointer-events:none;flex:0 0 auto;
+}
+.pcard .mark-slot{margin:.05rem 0 .5rem}
+.has-glass .mark-slot{display:block}
+.has-glass .step .glyph{display:none}
+.has-glass .pcard-proof .who svg{display:none}
+
+.brand{gap:.55rem}
+.brand-mark{width:22px;height:28px;flex:0 0 auto;display:block}
 
 .aura{
   position:fixed;inset:0;z-index:-1;pointer-events:none;

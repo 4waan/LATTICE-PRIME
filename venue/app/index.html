@@ -7,6 +7,11 @@
 document.documentElement.setAttribute("data-theme",
   localStorage.getItem("seamme.theme")
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<!-- The runtime is a local file now, so start it during parse rather than at the
+     closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
+<link rel="prefetch" href="prove.html">
+<link rel="prefetch" href="trade.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
@@ -805,8 +810,8 @@ body[data-screen="position"]{--screen:var(--success)}
 
    1. The moving light lives behind the content, never over it. A fixed layer at
       z-index -1 with html painting the canvas means every glyph on the page is
-      composited on top of the glow at full opacity. Nothing needs a backdrop,
-      nothing loses contrast, and the masthead stays solid.
+      composited on top of the glow at full opacity. The glass canvas sits inside
+      #app, above the cards and below the sticky mast, and is pointer-events: none.
    2. Every reveal is opt-out. Under prefers-reduced-motion the cards are simply
       there, in the same final position, with no transform to undo. */
 
@@ -814,6 +819,45 @@ body[data-screen="position"]{--screen:var(--success)}
 
 html{background:var(--paper)}
 body{background:transparent}
+
+.glass-root{
+  position:fixed;inset:0;z-index:2;pointer-events:none;
+}
+.glass-root canvas{display:block;width:100%;height:100%;pointer-events:none}
+#app{position:relative;z-index:1}
+.glass-anchor{
+  position:absolute;pointer-events:none;
+}
+.hero-frame > #ga-seam{
+  top:28%;
+  left:calc(50% + min(21rem, 38vw));
+  width:min(26vw, 400px);
+  height:min(34vw, 520px);
+}
+@media(max-width:1100px){
+  .hero-frame > #ga-seam{
+    left:calc(50% + 14rem);
+    width:min(22vw, 280px);
+    height:min(30vw, 360px);
+  }
+}
+@media(max-width:900px){
+  .hero-frame > #ga-seam{display:none}
+}
+
+.mark-slot{
+  display:none;
+  width:72px;height:72px;
+  margin:.1rem 0 .45rem;
+  pointer-events:none;flex:0 0 auto;
+}
+.pcard .mark-slot{margin:.05rem 0 .5rem}
+.has-glass .mark-slot{display:block}
+.has-glass .step .glyph{display:none}
+.has-glass .pcard-proof .who svg{display:none}
+
+.brand{gap:.55rem}
+.brand-mark{width:22px;height:28px;flex:0 0 auto;display:block}
 
 .aura{
   position:fixed;inset:0;z-index:-1;pointer-events:none;
@@ -1233,7 +1277,20 @@ body{background:transparent}
 <header class="mast solid">
   <div class="mast-inner">
     <div class="brand-row">
-      <a class="brand" href="index.html">SeamMe</a>
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 22 28" width="22" height="28" aria-hidden="true">
+          <defs>
+            <linearGradient id="seam-brand-grad" x1="2" y1="26" x2="20" y2="2" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#2f9f90"/>
+              <stop offset="55%" stop-color="#5eead4"/>
+              <stop offset="100%" stop-color="#9ef6e8"/>
+            </linearGradient>
+          </defs>
+          <path fill="none" stroke="url(#seam-brand-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+            d="M4.2 22.2c.2 2.4 3.2 3.6 7 3.6 4.6 0 7.3-2.2 7.3-5.2 0-3.6-3.8-4.6-7.2-5.6C7.6 14 3.5 12.8 3.5 8.4c0-3.2 2.8-5.6 7.4-5.6 3.6 0 6.4 1.5 6.8 4.4"/>
+        </svg>
+        SeamMe
+      </a>
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
@@ -1253,9 +1310,11 @@ body{background:transparent}
     </div>
   </div>
 </header>
+<div id="glass-root" class="glass-root" aria-hidden="true"></div>
 
 <!-- ============ 1 · the claim ============ -->
 <section class="frame hero-frame">
+  <span class="glass-anchor" id="ga-seam"></span>
   <div class="wrap hero-inner">
     <p class="kicker">Sealed order flow for tokenised collateral</p>
 
@@ -1316,12 +1375,13 @@ body{background:transparent}
     <div class="steps">
       <a class="step step-1 pop" style="--i:0" href="prove.html">
         <span class="n">01 / PROVE</span>
+        <span class="mark-slot" id="ga-path"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
           <path d="M17 24l5 5 10-11"/>
         </svg>
         <h3>Prove you are allowed</h3>
-        <p>A Groth16 proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
+        <p>A PLONK proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
         <span class="verb">gate.register(account, proof, signals)</span>
         <span class="go">Open Prove
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
@@ -1330,6 +1390,7 @@ body{background:transparent}
 
       <a class="step step-2 pop" style="--i:1" href="trade.html">
         <span class="n">02 / TRADE</span>
+        <span class="mark-slot" id="ga-market"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="9" y="21" width="30" height="20" rx="4"/>
           <path d="M16 21v-6a8 8 0 0116 0v6"/>
@@ -1345,6 +1406,7 @@ body{background:transparent}
 
       <a class="step step-3 pop" style="--i:2" href="position.html">
         <span class="n">03 / POSITION</span>
+        <span class="mark-slot" id="ga-vault"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 40h36"/>
           <path d="M13 40V27M23 40V15M33 40V22"/>
@@ -1389,7 +1451,7 @@ body{background:transparent}
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/><path d="M17 4.5l2.5 2.5L23 3"/></svg>
           <h3>Eligibility without identity</h3>
           <p>A zero-knowledge proof of tier and jurisdiction, checked against an issuer root that rolls at every KYC epoch boundary.</p>
-          <span class="src">ZkKycRegistry · Groth16</span>
+          <span class="src">ZkKycRegistry · PLONK</span>
         </article>
 
         <article class="fcard" tabindex="0">
@@ -1457,13 +1519,14 @@ body{background:transparent}
         <p>The bond is a real ATS security token: partitions, holds and an external compliance hook. The venue escrows through the hold, never by taking custody.</p>
       </div>
 
-      <div class="pcard">
+      <div class="pcard pcard-proof">
+        <span class="mark-slot" id="ga-proof"></span>
         <span class="role">The proof</span>
         <span class="who">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
           Circom and snarkjs
         </span>
-        <p>The eligibility circuit compiles to Groth16 and is proved in the browser tab. The private inputs never leave the machine that made them.</p>
+        <p>The eligibility circuit compiles to PLONK over a universal ceremony, so this project ran no trusted setup of its own. Proving happens on the holder&rsquo;s machine; the private inputs never leave it.</p>
       </div>
 
       <div class="pcard">
@@ -1548,7 +1611,11 @@ body{background:transparent}
 <div id="toast" class="toast" hidden role="status"></div>
 <div class="sr" aria-live="polite" id="live"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<!-- ethers v6.13.5, MIT, vendored rather than fetched: a demo must not depend
+     on a CDN answering, and the file is then cached across every screen.
+     sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
+<script src="vendor/ethers-6.13.5.umd.min.js"></script>
+<script src="glass.js"></script>
 <script>
 // keccak-256, the Ethereum variant. Sixty lines, no dependency.
 //
@@ -2270,48 +2337,65 @@ Venue.boot = async function (page) {
     const net = new ethers.Network("hedera-testnet", CLIENT.network.chainId);
     Venue.reader = new ethers.JsonRpcProvider(CLIENT.network.rpc, net, {staticNetwork: net});
     Venue.c = Venue.contracts(Venue.reader);
-    let wired = null;
-    for (let attempt = 0; attempt < 4 && !wired; attempt++) {
-        try {
-            await Venue.assertWiring();
-            wired = true;
-        } catch (e) {
-            if (attempt === 3) {
-                // A screen that can print a venue figure refuses to render one
-                // it cannot stand behind. The front door prints no venue figure
-                // of its own, so it stays up and says plainly that the chain
-                // could not be reached.
-                if (page !== "index") {
-                    Venue.block("The live venue did not match its wiring checks. " + (e.message || e));
-                    return;
-                }
-                Venue.wiringErr = e.message || String(e);
-            }
-            await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
-        }
-    }
-    Venue.wiringOk = !Venue.wiringErr;
+
+    // Nothing above the chrome needs the chain, so nothing above the chrome
+    // waits for it. The theme, the nav and the wallet sheet are painted from
+    // the document before a single read is issued; only figures wait for reads,
+    // which is the distinction a viewer can see.
     $("block")?.setAttribute("hidden", "");
     $("app")?.removeAttribute("hidden");
     Venue.bindChrome();
     Venue.restoreTheme();
-    try {
-        await Venue.refreshClocks();
-    } catch (e) {
-        Venue.toast(is429(e) ? "HashIO is rate limiting reads. Backing off." : decodeRevert(e).message);
-    }
     Venue.listenProviders();
     Venue.buildSheet();
+
+    // The wiring checks and the clocks are independent of each other, so they
+    // are issued together and cost one round trip between them rather than two.
+    // The injected wallet is a third party on a different transport, so it is
+    // asked at the same time and nothing waits on its answer either.
+    //
     // Prefer a wallet that announced itself over whoever won the race for
     // window.ethereum. Reconnect without a prompt if this origin is already
     // authorised; eth_accounts asks nothing of the user.
     const injected = Venue.providers[0]?.provider || window.ethereum;
-    if (injected) {
+    const walletReady = (async () => {
+        if (!injected) return;
         Venue.eth = injected;
         Venue.bindProviderEvents(injected);
         const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
         if (accs?.[0]) await Venue.attachAccount(accs[0]);
+    })();
+
+    let wired = null;
+    let clocked = false;
+    for (let attempt = 0; attempt < 4 && !wired; attempt++) {
+        const [w, c] = await Promise.allSettled([
+            Venue.assertWiring(),
+            clocked ? Promise.resolve() : Venue.refreshClocks(),
+        ]);
+        if (c.status === "rejected") {
+            const e = c.reason;
+            Venue.toast(is429(e) ? "HashIO is rate limiting reads. Backing off." : decodeRevert(e).message);
+        } else {
+            clocked = true;
+        }
+        if (w.status === "fulfilled") { wired = true; break; }
+        const e = w.reason;
+        if (attempt === 3) {
+            // A screen that can print a venue figure refuses to render one
+            // it cannot stand behind. The front door prints no venue figure
+            // of its own, so it stays up and says plainly that the chain
+            // could not be reached.
+            if (page !== "index") {
+                Venue.block("The live venue did not match its wiring checks. " + (e.message || e));
+                return;
+            }
+            Venue.wiringErr = e.message || String(e);
+        }
+        await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
     }
+    Venue.wiringOk = !Venue.wiringErr;
+    await walletReady;
     if (!Venue.account) {
         let saved = null;
         try { saved = sessionStorage.getItem("seamme.watch"); } catch (e) { saved = null; }
@@ -2771,16 +2855,29 @@ Venue.startPolling = function () {
 Venue.tick = async function () {
     if (document.hidden) return;
     try {
-        await Venue.refreshClocks();
-        if (Venue.page === "prove" && Venue.viewer()) await Venue.refreshProve({quiet: true});
-        if (Venue.page === "trade" && Venue.viewer()) await Venue.refreshTrade({quiet: true});
-        if (Venue.page === "position" && Venue.viewer()) await Venue.refreshPosition({quiet: true});
+        // One wave a tick. The clocks are read alongside the screen rather than
+        // before it: a refresh that wanted this tick's round would have had to
+        // wait for it, and every one of them is content with the last, which is
+        // at most five seconds old and is re-read in the same request.
+        //
         // The venue screen answers for the whole venue, so it has no viewer to
         // wait for. The book is the same: what is resting in this round is not
         // a fact about whoever happens to be connected.
-        if (Venue.page === "trade") await Venue.refreshBook();
-        if (Venue.page === "position") await Venue.refreshInstrument();
-        if (Venue.page === "prove") await Venue.refreshGateGov();
+        const work = [Venue.refreshClocks()];
+        const viewer = Venue.viewer();
+        if (Venue.page === "prove") {
+            if (viewer) work.push(Venue.refreshProve({quiet: true}));
+            work.push(Venue.refreshGateGov());
+        }
+        if (Venue.page === "trade") {
+            if (viewer) work.push(Venue.refreshTrade({quiet: true}));
+            work.push(Venue.refreshBook());
+        }
+        if (Venue.page === "position") {
+            if (viewer) work.push(Venue.refreshPosition({quiet: true}));
+            work.push(Venue.refreshInstrument());
+        }
+        await Promise.all(work);
         // The venue screen is about sixty reads and nothing on it moves faster
         // than an epoch. Redraw it once a minute, and immediately whenever the
         // disclosure epoch it is scoped to actually turns over.
@@ -2805,16 +2902,57 @@ Venue.tick = async function () {
     }
 };
 
+// Every read on this page costs one network round trip, and the round trip, not
+// the call, is what a viewer waits for: seven getters issued together answer in
+// the time one of them takes, and the same seven issued in three waves take
+// three times as long. ethers batches whatever is dispatched in a single tick
+// into one JSON-RPC request, so the only thing that costs time here is a value
+// that has to arrive before the next call can be written.
+//
+// Two of the seven were exactly that. `roundEnd(r)` needs `r`, and
+// `rootForEpoch(e + 1)` needs `e`. Neither is read from the chain any less for
+// being predicted: both getters are still called, in the same wave, against a
+// round and an epoch this client works out from the same immutables the
+// contracts use. The prediction is then checked against what the chain said,
+// and a miss falls back to the read it would have done anyway. A miss can only
+// happen within a second of a boundary, or on a machine whose clock is wrong.
+Venue.predictRound = function () {
+    const genesis = asBig(CLIENT.immutables.genesis);
+    const len = asBig(CLIENT.immutables.roundLength);
+    const t = nowSec();
+    return t <= genesis ? 0n : (t - genesis) / len;
+};
+
+Venue.predictKycEpoch = function () {
+    const zero = asBig(CLIENT.clocks.kyc.origin);
+    const period = asBig(CLIENT.clocks.kyc.period);
+    const t = nowSec();
+    return t <= zero ? 0n : (t - zero) / period;
+};
+
 Venue.refreshClocks = async function () {
-    const {engine, registry, policy, halt} = Venue.c;
-    const [round, kycEpoch, discEpoch, halted, haltUntil] = await Promise.all([
+    const {engine, registry, policy, halt, gate} = Venue.c;
+    const guessRound = Venue.predictRound();
+    const guessKyc = Venue.predictKycEpoch();
+    let [round, kycEpoch, discEpoch, halted, haltUntil, roundEnd, nextRoot] = await Promise.all([
         engine.currentRound(),
         registry.currentEpoch(),
         policy.currentEpoch(),
         halt.haltedNow(),
         halt.haltedUntil(),
+        engine.roundEnd(guessRound),
+        gate.rootForEpoch(guessKyc + 1n).catch(() => 0n),
     ]);
-    const roundEnd = await engine.roundEnd(round);
+    // The boundary case, and the wrong-clock case. Both re-read rather than
+    // print a figure that belongs to a round or an epoch that has moved on.
+    const missed = [];
+    if (asBig(round) !== guessRound) missed.push(engine.roundEnd(round));
+    if (asBig(kycEpoch) !== guessKyc) missed.push(gate.rootForEpoch(asBig(kycEpoch) + 1n).catch(() => 0n));
+    if (missed.length) {
+        const again = await Promise.all(missed);
+        if (asBig(round) !== guessRound) roundEnd = again.shift();
+        if (asBig(kycEpoch) !== guessKyc) nextRoot = again.shift();
+    }
     const kycZero = asBig(CLIENT.clocks.kyc.origin);
     const kycPeriod = asBig(CLIENT.clocks.kyc.period);
     const discZero = asBig(CLIENT.clocks.disclosure.origin);
@@ -2827,7 +2965,6 @@ Venue.refreshClocks = async function () {
     Venue.snap.discEnd = discZero + (asBig(discEpoch) + 1n) * discPeriod;
     Venue.snap.halted = !!halted;
     Venue.snap.haltUntil = asBig(haltUntil);
-    const nextRoot = await Venue.c.gate.rootForEpoch(asBig(kycEpoch) + 1n).catch(() => 0n);
     Venue.snap.nextRoot = asBig(nextRoot);
     Venue.paintClocks();
 };
@@ -2943,19 +3080,23 @@ Venue.mountProve = async function () {
     $("kyc-act")?.addEventListener("click", () => Venue.openSheet());
     $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => Venue.fail(e)));
     $("register")?.addEventListener("click", () => Venue.doRegister().catch((e) => Venue.fail(e)));
-    await Venue.refreshProve();
-    await Venue.refreshGateGov().catch(() => {});
+    await Promise.all([
+        Venue.refreshProve(),
+        Venue.refreshGateGov().catch(() => {}),
+    ]);
 };
 
 Venue.refreshProve = async function () {
     const {gate, registry} = Venue.c;
     const epoch = Venue.snap.kycEpoch ?? asBig(await registry.currentEpoch());
-    const [minTier, mask, maxUses, root, nextRoot] = await Promise.all([
+    const who = Venue.viewer();
+    const [minTier, mask, maxUses, root, nextRoot, granted] = await Promise.all([
         gate.minTier(),
         gate.jurisdictionMask(),
         registry.MAX_USES_PER_EPOCH(),
         gate.rootForEpoch(epoch),
         gate.rootForEpoch(epoch + 1n),
+        who ? registry.getKycStatus(who) : null,
     ]);
     Venue.snap.minTier = asBig(minTier);
     Venue.snap.mask = asBig(mask);
@@ -2970,9 +3111,8 @@ Venue.refreshProve = async function () {
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
     let status = "Connect or watch an address to read grant state.";
-    const who = Venue.viewer();
     if (who) {
-        const kyc = Number(await registry.getKycStatus(who));
+        const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
             ? "Granted for epoch " + epoch + ". The grant is nothing the instant the epoch ends."
@@ -3429,35 +3569,41 @@ Venue.doWithdraw = async function () {
     if (rec) await Venue.refreshTrade();
 };
 
+// One wave. The venue's own four figures, the viewer's four, and the quote all
+// go out together: `quote` is the only one that needed a round number first, and
+// the clocks already read one this tick.
 Venue.refreshTrade = async function () {
-    const {engine, token, registry} = Venue.c;
+    const {engine, token, registry, holds} = Venue.c;
     const acc = Venue.viewer();
-    const [bond, fee, round, revealed] = await Promise.all([
+    const round = Venue.snap.round ?? Venue.predictRound();
+    const [bond, fee, chainRound, revealed, kyc, bal, held, credit, q] = await Promise.all([
         engine.commitBond(),
         engine.cancelFee(),
         engine.currentRound(),
         engine.revealedCount(),
+        acc ? registry.getKycStatus(acc) : null,
+        acc ? token.balanceOfByPartition(CLIENT.immutables.partition, acc) : null,
+        acc ? holds.getHeldAmountForByPartition(CLIENT.immutables.partition, acc) : null,
+        acc ? engine.credit(acc) : null,
+        acc ? engine.quote(round) : null,
     ]);
     $("im-bond").textContent = formatHbar(asBig(bond)) + " HBAR";
     $("im-fee").textContent = formatHbar(asBig(fee)) + " HBAR";
-    $("im-round").textContent = round.toString();
+    $("im-round").textContent = chainRound.toString();
     $("im-live").textContent = revealed.toString() + " revealed";
     if (acc) {
-        const [kyc, bal, held, credit] = await Promise.all([
-            registry.getKycStatus(acc),
-            token.balanceOfByPartition(CLIENT.immutables.partition, acc),
-            Venue.c.holds.getHeldAmountForByPartition(CLIENT.immutables.partition, acc),
-            engine.credit(acc),
-        ]);
         $("bal-kyc").textContent = Number(kyc) === 1 ? "granted" : "not granted";
         $("bal-units").textContent = formatQuantity(asBig(bal));
         $("bal-held").textContent = formatQuantity(asBig(held));
         $("bal-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
         $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
         $("kyc-gate").hidden = Number(kyc) === 1;
-        const q = await engine.quote(round);
-        $("quote").textContent = q.willCross
-            ? "This round would cross at " + displayPrice(asBig(q.priceTwice)) + ", volume " + formatQuantity(asBig(q.volume))
+        // The quote was asked of the round this client predicted. If the round
+        // turned over between the prediction and the answer, ask again rather
+        // than print a quote for a round that has ended.
+        const quote = asBig(chainRound) === asBig(round) ? q : await engine.quote(chainRound);
+        $("quote").textContent = quote.willCross
+            ? "This round would cross at " + displayPrice(asBig(quote.priceTwice)) + ", volume " + formatQuantity(asBig(quote.volume))
             : "This round would not cross (quote is a view).";
     }
     Venue.paintTicket();
@@ -3490,15 +3636,19 @@ Venue.mountPosition = async function () {
     $("watch-go")?.addEventListener("click", () => Venue.doWatch().catch((e) => Venue.fail(e)));
     $("withdraw")?.addEventListener("click", () => Venue.doWithdraw().catch((e) => Venue.fail(e)));
     $("disclose")?.addEventListener("click", () => Venue.refreshDisclosure().catch((e) => Venue.fail(e)));
-    await Venue.refreshPosition();
-    await Venue.refreshInstrument().catch(() => {});
+    await Promise.all([
+        Venue.refreshPosition(),
+        Venue.refreshInstrument().catch(() => {}),
+    ]);
 };
 
 Venue.refreshPosition = async function () {
-    await Venue.refreshDisclosure();
     const who = Venue.viewer();
+    const [, credit] = await Promise.all([
+        Venue.refreshDisclosure(),
+        who ? Venue.c.engine.credit(who) : null,
+    ]);
     if (!who) return;
-    const credit = await Venue.c.engine.credit(who);
     $("pos-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
     $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
     const tickets = readList("tickets", who);
@@ -3516,16 +3666,19 @@ Venue.refreshDisclosure = async function () {
     // client.json records what these were when it was generated; a governance
     // window exists so they can change without it, and docs/UI-INTEGRATION-MAP.md
     // says in as many words not to hardcode a number from that file.
-    const live = await Promise.all(rows.map(async (row) => {
-        const [budget, waived] = await Promise.all([
-            policy.budgetFor(row), policy.isWaived(row),
-        ]);
-        return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
-    }));
-
-    const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
-    const calls = rows.flatMap((row, i) => {
-        const g = live[i].metered ? G.PRED : G.EXACT;
+    //
+    // The bundle is still allowed to say which granularity to *ask about*, which
+    // is not the same as printing a figure from it. Asking is free to be wrong:
+    // `budgetFor` goes out in the same wave, and any row where the bundle and the
+    // chain disagree is asked again at the granularity the chain gave. That turns
+    // fifty reads plus twenty into one round trip instead of two, and a governance
+    // change costs a second one on the tick that meets it rather than being missed.
+    const ask = rows.map((row) => {
+        const b = CLIENT.disclosure["row" + row];
+        return b ? !!b.metered : true;
+    });
+    const rowCalls = (row, metered) => {
+        const g = metered ? G.PRED : G.EXACT;
         return [
             engine.ceilingFor(row),
             engine.wouldDisclose(row, g, T.IMM),
@@ -3533,8 +3686,28 @@ Venue.refreshDisclosure = async function () {
             engine.wouldAfford(row, g),
             engine.breakingSize(row, g),
         ];
-    });
-    const got = await Promise.all(calls);
+    };
+    const [live, got] = await Promise.all([
+        Promise.all(rows.map(async (row) => {
+            const [budget, waived] = await Promise.all([
+                policy.budgetFor(row), policy.isWaived(row),
+            ]);
+            return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
+        })),
+        Promise.all(rows.flatMap((row, i) => rowCalls(row, ask[i]))),
+    ]);
+    const drift = rows.map((row, i) => live[i].metered !== ask[i]).filter(Boolean).length;
+    if (drift) {
+        const redo = await Promise.all(rows.flatMap((row, i) =>
+            live[i].metered === ask[i] ? [] : rowCalls(row, live[i].metered)));
+        let k = 0;
+        rows.forEach((row, i) => {
+            if (live[i].metered === ask[i]) return;
+            for (let j = 0; j < 5; j++) got[i * 5 + j] = redo[k++];
+        });
+    }
+
+    const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
     const lines = rows.map((row, i) => {
         const meta = live[i];
         const off = i * 5;
@@ -3621,6 +3794,10 @@ Landing.reduced = () =>
 // once the two agree, so an idle tab costs nothing.
 Landing.aura = function () {
     const el = document.getElementById("aura");
+    const pointer = window.__SEAMME_POINTER || (window.__SEAMME_POINTER = {
+        x: window.innerWidth * 0.5,
+        y: window.innerHeight * 0.34,
+    });
     if (!el || Landing.reduced()) return;
     if (window.matchMedia("(hover: none)").matches) return;
 
@@ -3633,6 +3810,8 @@ Landing.aura = function () {
     const paint = () => {
         el.style.setProperty("--mx", x.toFixed(1) + "px");
         el.style.setProperty("--my", y.toFixed(1) + "px");
+        pointer.x = x;
+        pointer.y = y;
     };
 
     const step = () => {
@@ -3784,4 +3963,5 @@ Landing.boot = function () {
 
 Landing.boot();
 Venue.boot("index");
+if (window.SeamGlass) window.SeamGlass.mount(document.getElementById("glass-root"));
 </script>

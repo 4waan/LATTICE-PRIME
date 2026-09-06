@@ -7,6 +7,10 @@
 document.documentElement.setAttribute("data-theme",
   localStorage.getItem("seamme.theme")
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<!-- The runtime is a local file now, so start it during parse rather than at the
+     closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
+<link rel="prefetch" href="index.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
@@ -1051,7 +1055,10 @@ body[data-screen="position"]{--screen:var(--success)}
 <button type="button" class="theme" id="theme">Dark</button>
 <div id="toast" class="toast" hidden role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<!-- ethers v6.13.5, MIT, vendored rather than fetched: a demo must not depend
+     on a CDN answering, and the file is then cached across every screen.
+     sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
+<script src="vendor/ethers-6.13.5.umd.min.js"></script>
 <script>
 // keccak-256, the Ethereum variant. Sixty lines, no dependency.
 //
@@ -1773,48 +1780,65 @@ Venue.boot = async function (page) {
     const net = new ethers.Network("hedera-testnet", CLIENT.network.chainId);
     Venue.reader = new ethers.JsonRpcProvider(CLIENT.network.rpc, net, {staticNetwork: net});
     Venue.c = Venue.contracts(Venue.reader);
-    let wired = null;
-    for (let attempt = 0; attempt < 4 && !wired; attempt++) {
-        try {
-            await Venue.assertWiring();
-            wired = true;
-        } catch (e) {
-            if (attempt === 3) {
-                // A screen that can print a venue figure refuses to render one
-                // it cannot stand behind. The front door prints no venue figure
-                // of its own, so it stays up and says plainly that the chain
-                // could not be reached.
-                if (page !== "index") {
-                    Venue.block("The live venue did not match its wiring checks. " + (e.message || e));
-                    return;
-                }
-                Venue.wiringErr = e.message || String(e);
-            }
-            await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
-        }
-    }
-    Venue.wiringOk = !Venue.wiringErr;
+
+    // Nothing above the chrome needs the chain, so nothing above the chrome
+    // waits for it. The theme, the nav and the wallet sheet are painted from
+    // the document before a single read is issued; only figures wait for reads,
+    // which is the distinction a viewer can see.
     $("block")?.setAttribute("hidden", "");
     $("app")?.removeAttribute("hidden");
     Venue.bindChrome();
     Venue.restoreTheme();
-    try {
-        await Venue.refreshClocks();
-    } catch (e) {
-        Venue.toast(is429(e) ? "HashIO is rate limiting reads. Backing off." : decodeRevert(e).message);
-    }
     Venue.listenProviders();
     Venue.buildSheet();
+
+    // The wiring checks and the clocks are independent of each other, so they
+    // are issued together and cost one round trip between them rather than two.
+    // The injected wallet is a third party on a different transport, so it is
+    // asked at the same time and nothing waits on its answer either.
+    //
     // Prefer a wallet that announced itself over whoever won the race for
     // window.ethereum. Reconnect without a prompt if this origin is already
     // authorised; eth_accounts asks nothing of the user.
     const injected = Venue.providers[0]?.provider || window.ethereum;
-    if (injected) {
+    const walletReady = (async () => {
+        if (!injected) return;
         Venue.eth = injected;
         Venue.bindProviderEvents(injected);
         const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
         if (accs?.[0]) await Venue.attachAccount(accs[0]);
+    })();
+
+    let wired = null;
+    let clocked = false;
+    for (let attempt = 0; attempt < 4 && !wired; attempt++) {
+        const [w, c] = await Promise.allSettled([
+            Venue.assertWiring(),
+            clocked ? Promise.resolve() : Venue.refreshClocks(),
+        ]);
+        if (c.status === "rejected") {
+            const e = c.reason;
+            Venue.toast(is429(e) ? "HashIO is rate limiting reads. Backing off." : decodeRevert(e).message);
+        } else {
+            clocked = true;
+        }
+        if (w.status === "fulfilled") { wired = true; break; }
+        const e = w.reason;
+        if (attempt === 3) {
+            // A screen that can print a venue figure refuses to render one
+            // it cannot stand behind. The front door prints no venue figure
+            // of its own, so it stays up and says plainly that the chain
+            // could not be reached.
+            if (page !== "index") {
+                Venue.block("The live venue did not match its wiring checks. " + (e.message || e));
+                return;
+            }
+            Venue.wiringErr = e.message || String(e);
+        }
+        await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
     }
+    Venue.wiringOk = !Venue.wiringErr;
+    await walletReady;
     if (!Venue.account) {
         let saved = null;
         try { saved = sessionStorage.getItem("seamme.watch"); } catch (e) { saved = null; }
@@ -2274,16 +2298,29 @@ Venue.startPolling = function () {
 Venue.tick = async function () {
     if (document.hidden) return;
     try {
-        await Venue.refreshClocks();
-        if (Venue.page === "prove" && Venue.viewer()) await Venue.refreshProve({quiet: true});
-        if (Venue.page === "trade" && Venue.viewer()) await Venue.refreshTrade({quiet: true});
-        if (Venue.page === "position" && Venue.viewer()) await Venue.refreshPosition({quiet: true});
+        // One wave a tick. The clocks are read alongside the screen rather than
+        // before it: a refresh that wanted this tick's round would have had to
+        // wait for it, and every one of them is content with the last, which is
+        // at most five seconds old and is re-read in the same request.
+        //
         // The venue screen answers for the whole venue, so it has no viewer to
         // wait for. The book is the same: what is resting in this round is not
         // a fact about whoever happens to be connected.
-        if (Venue.page === "trade") await Venue.refreshBook();
-        if (Venue.page === "position") await Venue.refreshInstrument();
-        if (Venue.page === "prove") await Venue.refreshGateGov();
+        const work = [Venue.refreshClocks()];
+        const viewer = Venue.viewer();
+        if (Venue.page === "prove") {
+            if (viewer) work.push(Venue.refreshProve({quiet: true}));
+            work.push(Venue.refreshGateGov());
+        }
+        if (Venue.page === "trade") {
+            if (viewer) work.push(Venue.refreshTrade({quiet: true}));
+            work.push(Venue.refreshBook());
+        }
+        if (Venue.page === "position") {
+            if (viewer) work.push(Venue.refreshPosition({quiet: true}));
+            work.push(Venue.refreshInstrument());
+        }
+        await Promise.all(work);
         // The venue screen is about sixty reads and nothing on it moves faster
         // than an epoch. Redraw it once a minute, and immediately whenever the
         // disclosure epoch it is scoped to actually turns over.
@@ -2308,16 +2345,57 @@ Venue.tick = async function () {
     }
 };
 
+// Every read on this page costs one network round trip, and the round trip, not
+// the call, is what a viewer waits for: seven getters issued together answer in
+// the time one of them takes, and the same seven issued in three waves take
+// three times as long. ethers batches whatever is dispatched in a single tick
+// into one JSON-RPC request, so the only thing that costs time here is a value
+// that has to arrive before the next call can be written.
+//
+// Two of the seven were exactly that. `roundEnd(r)` needs `r`, and
+// `rootForEpoch(e + 1)` needs `e`. Neither is read from the chain any less for
+// being predicted: both getters are still called, in the same wave, against a
+// round and an epoch this client works out from the same immutables the
+// contracts use. The prediction is then checked against what the chain said,
+// and a miss falls back to the read it would have done anyway. A miss can only
+// happen within a second of a boundary, or on a machine whose clock is wrong.
+Venue.predictRound = function () {
+    const genesis = asBig(CLIENT.immutables.genesis);
+    const len = asBig(CLIENT.immutables.roundLength);
+    const t = nowSec();
+    return t <= genesis ? 0n : (t - genesis) / len;
+};
+
+Venue.predictKycEpoch = function () {
+    const zero = asBig(CLIENT.clocks.kyc.origin);
+    const period = asBig(CLIENT.clocks.kyc.period);
+    const t = nowSec();
+    return t <= zero ? 0n : (t - zero) / period;
+};
+
 Venue.refreshClocks = async function () {
-    const {engine, registry, policy, halt} = Venue.c;
-    const [round, kycEpoch, discEpoch, halted, haltUntil] = await Promise.all([
+    const {engine, registry, policy, halt, gate} = Venue.c;
+    const guessRound = Venue.predictRound();
+    const guessKyc = Venue.predictKycEpoch();
+    let [round, kycEpoch, discEpoch, halted, haltUntil, roundEnd, nextRoot] = await Promise.all([
         engine.currentRound(),
         registry.currentEpoch(),
         policy.currentEpoch(),
         halt.haltedNow(),
         halt.haltedUntil(),
+        engine.roundEnd(guessRound),
+        gate.rootForEpoch(guessKyc + 1n).catch(() => 0n),
     ]);
-    const roundEnd = await engine.roundEnd(round);
+    // The boundary case, and the wrong-clock case. Both re-read rather than
+    // print a figure that belongs to a round or an epoch that has moved on.
+    const missed = [];
+    if (asBig(round) !== guessRound) missed.push(engine.roundEnd(round));
+    if (asBig(kycEpoch) !== guessKyc) missed.push(gate.rootForEpoch(asBig(kycEpoch) + 1n).catch(() => 0n));
+    if (missed.length) {
+        const again = await Promise.all(missed);
+        if (asBig(round) !== guessRound) roundEnd = again.shift();
+        if (asBig(kycEpoch) !== guessKyc) nextRoot = again.shift();
+    }
     const kycZero = asBig(CLIENT.clocks.kyc.origin);
     const kycPeriod = asBig(CLIENT.clocks.kyc.period);
     const discZero = asBig(CLIENT.clocks.disclosure.origin);
@@ -2330,7 +2408,6 @@ Venue.refreshClocks = async function () {
     Venue.snap.discEnd = discZero + (asBig(discEpoch) + 1n) * discPeriod;
     Venue.snap.halted = !!halted;
     Venue.snap.haltUntil = asBig(haltUntil);
-    const nextRoot = await Venue.c.gate.rootForEpoch(asBig(kycEpoch) + 1n).catch(() => 0n);
     Venue.snap.nextRoot = asBig(nextRoot);
     Venue.paintClocks();
 };
@@ -2446,19 +2523,23 @@ Venue.mountProve = async function () {
     $("kyc-act")?.addEventListener("click", () => Venue.openSheet());
     $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => Venue.fail(e)));
     $("register")?.addEventListener("click", () => Venue.doRegister().catch((e) => Venue.fail(e)));
-    await Venue.refreshProve();
-    await Venue.refreshGateGov().catch(() => {});
+    await Promise.all([
+        Venue.refreshProve(),
+        Venue.refreshGateGov().catch(() => {}),
+    ]);
 };
 
 Venue.refreshProve = async function () {
     const {gate, registry} = Venue.c;
     const epoch = Venue.snap.kycEpoch ?? asBig(await registry.currentEpoch());
-    const [minTier, mask, maxUses, root, nextRoot] = await Promise.all([
+    const who = Venue.viewer();
+    const [minTier, mask, maxUses, root, nextRoot, granted] = await Promise.all([
         gate.minTier(),
         gate.jurisdictionMask(),
         registry.MAX_USES_PER_EPOCH(),
         gate.rootForEpoch(epoch),
         gate.rootForEpoch(epoch + 1n),
+        who ? registry.getKycStatus(who) : null,
     ]);
     Venue.snap.minTier = asBig(minTier);
     Venue.snap.mask = asBig(mask);
@@ -2473,9 +2554,8 @@ Venue.refreshProve = async function () {
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
     let status = "Connect or watch an address to read grant state.";
-    const who = Venue.viewer();
     if (who) {
-        const kyc = Number(await registry.getKycStatus(who));
+        const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
             ? "Granted for epoch " + epoch + ". The grant is nothing the instant the epoch ends."
@@ -2932,35 +3012,41 @@ Venue.doWithdraw = async function () {
     if (rec) await Venue.refreshTrade();
 };
 
+// One wave. The venue's own four figures, the viewer's four, and the quote all
+// go out together: `quote` is the only one that needed a round number first, and
+// the clocks already read one this tick.
 Venue.refreshTrade = async function () {
-    const {engine, token, registry} = Venue.c;
+    const {engine, token, registry, holds} = Venue.c;
     const acc = Venue.viewer();
-    const [bond, fee, round, revealed] = await Promise.all([
+    const round = Venue.snap.round ?? Venue.predictRound();
+    const [bond, fee, chainRound, revealed, kyc, bal, held, credit, q] = await Promise.all([
         engine.commitBond(),
         engine.cancelFee(),
         engine.currentRound(),
         engine.revealedCount(),
+        acc ? registry.getKycStatus(acc) : null,
+        acc ? token.balanceOfByPartition(CLIENT.immutables.partition, acc) : null,
+        acc ? holds.getHeldAmountForByPartition(CLIENT.immutables.partition, acc) : null,
+        acc ? engine.credit(acc) : null,
+        acc ? engine.quote(round) : null,
     ]);
     $("im-bond").textContent = formatHbar(asBig(bond)) + " HBAR";
     $("im-fee").textContent = formatHbar(asBig(fee)) + " HBAR";
-    $("im-round").textContent = round.toString();
+    $("im-round").textContent = chainRound.toString();
     $("im-live").textContent = revealed.toString() + " revealed";
     if (acc) {
-        const [kyc, bal, held, credit] = await Promise.all([
-            registry.getKycStatus(acc),
-            token.balanceOfByPartition(CLIENT.immutables.partition, acc),
-            Venue.c.holds.getHeldAmountForByPartition(CLIENT.immutables.partition, acc),
-            engine.credit(acc),
-        ]);
         $("bal-kyc").textContent = Number(kyc) === 1 ? "granted" : "not granted";
         $("bal-units").textContent = formatQuantity(asBig(bal));
         $("bal-held").textContent = formatQuantity(asBig(held));
         $("bal-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
         $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
         $("kyc-gate").hidden = Number(kyc) === 1;
-        const q = await engine.quote(round);
-        $("quote").textContent = q.willCross
-            ? "This round would cross at " + displayPrice(asBig(q.priceTwice)) + ", volume " + formatQuantity(asBig(q.volume))
+        // The quote was asked of the round this client predicted. If the round
+        // turned over between the prediction and the answer, ask again rather
+        // than print a quote for a round that has ended.
+        const quote = asBig(chainRound) === asBig(round) ? q : await engine.quote(chainRound);
+        $("quote").textContent = quote.willCross
+            ? "This round would cross at " + displayPrice(asBig(quote.priceTwice)) + ", volume " + formatQuantity(asBig(quote.volume))
             : "This round would not cross (quote is a view).";
     }
     Venue.paintTicket();
@@ -2993,15 +3079,19 @@ Venue.mountPosition = async function () {
     $("watch-go")?.addEventListener("click", () => Venue.doWatch().catch((e) => Venue.fail(e)));
     $("withdraw")?.addEventListener("click", () => Venue.doWithdraw().catch((e) => Venue.fail(e)));
     $("disclose")?.addEventListener("click", () => Venue.refreshDisclosure().catch((e) => Venue.fail(e)));
-    await Venue.refreshPosition();
-    await Venue.refreshInstrument().catch(() => {});
+    await Promise.all([
+        Venue.refreshPosition(),
+        Venue.refreshInstrument().catch(() => {}),
+    ]);
 };
 
 Venue.refreshPosition = async function () {
-    await Venue.refreshDisclosure();
     const who = Venue.viewer();
+    const [, credit] = await Promise.all([
+        Venue.refreshDisclosure(),
+        who ? Venue.c.engine.credit(who) : null,
+    ]);
     if (!who) return;
-    const credit = await Venue.c.engine.credit(who);
     $("pos-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
     $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
     const tickets = readList("tickets", who);
@@ -3019,16 +3109,19 @@ Venue.refreshDisclosure = async function () {
     // client.json records what these were when it was generated; a governance
     // window exists so they can change without it, and docs/UI-INTEGRATION-MAP.md
     // says in as many words not to hardcode a number from that file.
-    const live = await Promise.all(rows.map(async (row) => {
-        const [budget, waived] = await Promise.all([
-            policy.budgetFor(row), policy.isWaived(row),
-        ]);
-        return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
-    }));
-
-    const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
-    const calls = rows.flatMap((row, i) => {
-        const g = live[i].metered ? G.PRED : G.EXACT;
+    //
+    // The bundle is still allowed to say which granularity to *ask about*, which
+    // is not the same as printing a figure from it. Asking is free to be wrong:
+    // `budgetFor` goes out in the same wave, and any row where the bundle and the
+    // chain disagree is asked again at the granularity the chain gave. That turns
+    // fifty reads plus twenty into one round trip instead of two, and a governance
+    // change costs a second one on the tick that meets it rather than being missed.
+    const ask = rows.map((row) => {
+        const b = CLIENT.disclosure["row" + row];
+        return b ? !!b.metered : true;
+    });
+    const rowCalls = (row, metered) => {
+        const g = metered ? G.PRED : G.EXACT;
         return [
             engine.ceilingFor(row),
             engine.wouldDisclose(row, g, T.IMM),
@@ -3036,8 +3129,28 @@ Venue.refreshDisclosure = async function () {
             engine.wouldAfford(row, g),
             engine.breakingSize(row, g),
         ];
-    });
-    const got = await Promise.all(calls);
+    };
+    const [live, got] = await Promise.all([
+        Promise.all(rows.map(async (row) => {
+            const [budget, waived] = await Promise.all([
+                policy.budgetFor(row), policy.isWaived(row),
+            ]);
+            return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
+        })),
+        Promise.all(rows.flatMap((row, i) => rowCalls(row, ask[i]))),
+    ]);
+    const drift = rows.map((row, i) => live[i].metered !== ask[i]).filter(Boolean).length;
+    if (drift) {
+        const redo = await Promise.all(rows.flatMap((row, i) =>
+            live[i].metered === ask[i] ? [] : rowCalls(row, live[i].metered)));
+        let k = 0;
+        rows.forEach((row, i) => {
+            if (live[i].metered === ask[i]) return;
+            for (let j = 0; j < 5; j++) got[i * 5 + j] = redo[k++];
+        });
+    }
+
+    const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
     const lines = rows.map((row, i) => {
         const meta = live[i];
         const off = i * 5;
@@ -3267,52 +3380,69 @@ Venue.refreshVenue = async function () {
     const {regime, cap, halt, policy, rulebook, journal, clock} = Venue.c;
     const epoch = Venue.snap.discEpoch ?? asBig(await policy.currentEpoch());
 
+    // Fifty-seven reads. Grouped by the contract they ask, which is how they are
+    // read, they were also *issued* by that grouping: seven waves, each one
+    // waiting on the last for no reason, because nothing in the regime block is
+    // an input to the cap block. They go out together now. ethers puts everything
+    // dispatched in one tick into a single JSON-RPC request, so the screen costs
+    // one round trip rather than seven, and the grouping survives in the
+    // destructuring where it was doing the reader some good.
+    //
+    // Two reads genuinely take an input. `startOf` wants the clock's epoch, which
+    // is the disclosure epoch the masthead already read this tick, so it is asked
+    // speculatively and checked below. `permits` wants the regime's current
+    // point, which this client has no way to know before it asks, so it is the
+    // one thing left in a second wave.
     const [
-        rCur, rFloor, rCeil, rIdeal, rMandate, rNarrowed, rClass, rPermits,
+        rCur, rFloor, rCeil, rIdeal, rMandate, rNarrowed, rClass,
         rPending, rPendingEpoch, rPendingClass, rRelaxTo, rRelaxEpoch, rLowerTo, rLowerEpoch,
         rSup, rOp,
+        capBps, shareBps, suspended, susFloor, capVenue,
+        hNow, hUntil, band, breaker, budgetS, remaining, granted, lastPx, maxHalt,
+        root, pendingRoot, pendingEpoch, prevRoot, windowAt, grace, keyCount,
+        edition, document_, pendEd, pendEdEpoch, rbWindow, chargeCount, take, rec,
+        jRegistry, jToken, jAdmin, jRow, jSpent, jRecord, jCeiling,
+        cLen, cZero, cNow, cStartGuess,
     ] = await Promise.all([
         regime.current(), regime.floor(), regime.ceiling(), regime.ideal(),
         regime.mandate(), regime.narrowed(), regime.liquidityClass(),
-        regime.current().then((c) => regime.permits(c)),
         regime.pending(), regime.pendingEpoch(), regime.pendingLiquidityClass(),
         regime.relaxTo(), regime.relaxEpoch(), regime.lowerTo(), regime.lowerEpoch(),
         regime.supervisor(), regime.operator(),
-    ]);
 
-    const [capBps, shareBps, suspended, susFloor, capVenue] = await Promise.all([
         cap.capBps(), cap.shareBps(), cap.suspendedNow(), cap.suspendedFloor(), cap.venue(),
-    ]);
 
-    const [hNow, hUntil, band, breaker, budgetS, remaining, granted, lastPx, maxHalt] =
-        await Promise.all([
-            halt.haltedNow(), halt.haltedUntil(), halt.bandBps(), halt.breakerSeconds(),
-            halt.budgetSeconds(), halt.remainingBudget(), halt.grantedIn(epoch),
-            halt.lastPriceTwice(), halt.maxHaltSeconds(),
-        ]);
+        halt.haltedNow(), halt.haltedUntil(), halt.bandBps(), halt.breakerSeconds(),
+        halt.budgetSeconds(), halt.remainingBudget(), halt.grantedIn(epoch),
+        halt.lastPriceTwice(), halt.maxHaltSeconds(),
 
-    const [root, pendingRoot, pendingEpoch, prevRoot, windowAt, grace, keyCount] =
-        await Promise.all([
-            policy.root(), policy.pendingRoot(), policy.pendingEpoch(),
-            policy.previousRoot(), policy.windowClosesAt(), policy.GRACE(), policy.keyCount(),
-        ]);
+        policy.root(), policy.pendingRoot(), policy.pendingEpoch(),
+        policy.previousRoot(), policy.windowClosesAt(), policy.GRACE(), policy.keyCount(),
 
-    const [edition, document_, pendEd, pendEdEpoch, rbWindow, chargeCount, take, rec] =
-        await Promise.all([
-            rulebook.edition(), rulebook.document(), rulebook.pendingEdition(),
-            rulebook.pendingEpoch(), rulebook.windowClosesAt(), rulebook.chargeCount(),
-            rulebook.netOperatorTake(), rulebook.reconcile(),
-        ]);
+        rulebook.edition(), rulebook.document(), rulebook.pendingEdition(),
+        rulebook.pendingEpoch(), rulebook.windowClosesAt(), rulebook.chargeCount(),
+        rulebook.netOperatorTake(), rulebook.reconcile(),
 
-    const [jRegistry, jToken, jAdmin, jRow, jSpent, jRecord, jCeiling] = await Promise.all([
         journal.registry(), journal.token(), journal.admin(), journal.row(),
         journal.spentBits(epoch), journal.epochRecord(epoch), journal.ceiling(),
+
+        clock.epochLength(), clock.epochZero(), clock.currentEpoch(),
+        clock.startOf(epoch),
     ]);
 
-    const [cLen, cZero, cNow] = await Promise.all([
-        clock.epochLength(), clock.epochZero(), clock.currentEpoch(),
+    // The four panels below the fold need nothing from the two reads left in
+    // this wave, so they are started here rather than after the rendering: their
+    // first reads join the same request `permits` is in.
+    const panels = Promise.all([
+        Venue.refreshCharges(Number(chargeCount)),
+        Venue.refreshParamRow(),
+        Venue.refreshParamSet(),
+        Venue.refreshImmutables(),
     ]);
-    const cStart = await clock.startOf(cNow);
+    const [rPermits, cStart] = await Promise.all([
+        regime.permits(rCur),
+        asBig(cNow) === asBig(epoch) ? cStartGuess : clock.startOf(cNow),
+    ]);
 
     const bps = (v) => (Number(v) / 100).toFixed(2) + "%";
     const at = (ts) => asBig(ts) === 0n ? "—" : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
@@ -3437,10 +3567,7 @@ Venue.refreshVenue = async function () {
     const de = $("disc-epoch-in");
     if (de && !de.value) de.value = String(asBig(cNow) > 0n ? asBig(cNow) - 1n : 0n);
 
-    await Venue.refreshCharges(Number(chargeCount));
-    await Venue.refreshParamRow();
-    await Venue.refreshParamSet();
-    await Venue.refreshImmutables();
+    await panels;
 };
 
 // The fee schedule, itemised. The trade screen charges a commit bond and a
@@ -3699,18 +3826,39 @@ Venue.refreshBook = async function () {
     if (!el) return;
     const {engine} = Venue.c;
     const round = Venue.snap.round ?? asBig(await engine.currentRound());
-    const n = Number(await engine.revealedCount());
     // The quote and the retained fees are facts about the round, not about the
     // book, so an empty book is no reason to stop saying them. An earlier cut
     // returned here and left both blank whenever nothing was resting.
-    await Venue.paintQuote(round);
+    //
+    // How many orders are live is itself a read, and until it lands there is
+    // nothing to ask `liveAt` for. So the count from the last tick is asked for
+    // again alongside it: a book that has not changed since the previous refresh
+    // costs one round trip instead of two, and a book that has grown pays for
+    // the difference only.
+    // A speculative index the book has since dropped reverts, which is an answer
+    // and not a failure, so it is caught and read again below rather than taking
+    // the refresh down with it.
+    const guess = Math.min(Venue._revealed || 0, 40);
+    const [count, , ...seen] = await Promise.all([
+        engine.revealedCount(),
+        Venue.paintQuote(round),
+        ...Array.from({length: guess}, (_, i) => engine.liveAt(i).catch(() => null)),
+    ]);
+    const n = Number(count);
+    Venue._revealed = n;
     if (!n) {
         el.innerHTML = '<div class="empty">Nothing revealed. A sealed commitment is not in the book ' +
             "until it is opened, which is the point.</div>";
         return;
     }
     const capN = Math.min(n, 40);
-    const ids = await Promise.all(Array.from({length: capN}, (_, i) => engine.liveAt(i)));
+    const ids = seen.slice(0, capN);
+    const gaps = [];
+    for (let i = 0; i < capN; i++) if (ids[i] == null) gaps.push(i);
+    if (gaps.length) {
+        const again = await Promise.all(gaps.map((i) => engine.liveAt(i)));
+        gaps.forEach((i, k) => { ids[i] = again[k]; });
+    }
     const rows = await Promise.all(ids.map(async (id) => {
         const [o, live, eligible, backing] = await Promise.all([
             engine.orders(id), engine.isLive(id), engine.eligibleIn(id, round),
@@ -3784,13 +3932,12 @@ Venue.refreshInstrument = async function () {
     const {token} = Venue.c;
     const who = Venue.viewer();
     const part = CLIENT.immutables.partition;
-    const [name, symbol, supply, multi, lists, comp] = await Promise.all([
+    const [name, symbol, supply, multi, lists, comp, whole, inPart] = await Promise.all([
         token.name(), token.symbol(), token.totalSupply(),
         token.isMultiPartition(), token.getExternalKycListsCount(), token.compliance(),
+        who ? token.balanceOf(who) : null,
+        who ? token.balanceOfByPartition(part, who) : null,
     ]);
-    const [whole, inPart] = who
-        ? await Promise.all([token.balanceOf(who), token.balanceOfByPartition(part, who)])
-        : [null, null];
     const put = (id, v, cls) => {
         const el = $(id);
         if (!el) return;
@@ -3818,11 +3965,11 @@ Venue.refreshInstrument = async function () {
 // be pointed at a different gate entirely.
 Venue.refreshGateGov = async function () {
     const {gate, registry} = Venue.c;
-    const [issuer, verifier, pMinTier, pMask, pEpoch] = await Promise.all([
+    // The gate's five and the registry's five are two contracts, not two waves.
+    const [issuer, verifier, pMinTier, pMask, pEpoch,
+           admin, pendingGate, pendingGateEpoch, epochLen, epochZero] = await Promise.all([
         gate.issuer(), gate.verifier(), gate.pendingMinTier(),
         gate.pendingJurisdictionMask(), gate.pendingPolicyEpoch(),
-    ]);
-    const [admin, pendingGate, pendingGateEpoch, epochLen, epochZero] = await Promise.all([
         registry.admin(), registry.pendingGate(), registry.pendingGateEpoch(),
         registry.epochLength(), registry.epochZero(),
     ]);
@@ -3852,8 +3999,12 @@ Venue.refreshGateGov = async function () {
     // be renewed the moment it dies and one that cannot be renewed at all.
     // rootForEpoch is declared uint256, not bytes32, so ethers hands back a
     // BigInt. It is a Merkle root and reads as one only in hex.
+    // The masthead read this in the same tick and it is the same getter, so
+    // asking again would be a round trip spent on an answer already in hand.
     const cur = Venue.snap.kycEpoch ?? asBig(await registry.currentEpoch());
-    const next = asBig(await gate.rootForEpoch(cur + 1n).catch(() => 0n));
+    const next = Venue.snap.kycEpoch !== undefined && Venue.snap.nextRoot !== undefined
+        ? asBig(Venue.snap.nextRoot)
+        : asBig(await gate.rootForEpoch(cur + 1n).catch(() => 0n));
     put("gv-nextroot", next === 0n
         ? "NOT PUBLISHED. Every grant dies at the boundary and none can be renewed until it is."
         : shortId(toHexWord(next)) + " · published, so a grant can be renewed the moment this epoch ends",
@@ -3925,11 +4076,24 @@ Venue.refreshParamSet = async function () {
     const el = $("param-set");
     if (!el) return;
     const {policy} = Venue.c;
-    const [n, rowCard, waivedKey] = await Promise.all([
+    // How many keys there are is itself a read, and `keyAt` cannot be asked
+    // until it lands. The count from the last refresh goes out alongside it, so
+    // a set that has not been governed since costs one round trip fewer. An
+    // index the set no longer has reverts, which is caught and read again.
+    const guess = Math.min(Venue._keyCount || 0, 64);
+    const [n, rowCard, waivedKey, ...seen] = await Promise.all([
         policy.keyCount(), policy.ROW_CARD(), policy.KEY_WAIVED_ROWS(),
+        ...Array.from({length: guess}, (_, i) => policy.keyAt(i).catch(() => null)),
     ]);
     const count = Math.min(Number(n), 64);
-    const keys = await Promise.all(Array.from({length: count}, (_, i) => policy.keyAt(i)));
+    Venue._keyCount = Number(n);
+    const keys = seen.slice(0, count);
+    const gaps = [];
+    for (let i = 0; i < count; i++) if (keys[i] == null) gaps.push(i);
+    if (gaps.length) {
+        const again = await Promise.all(gaps.map((i) => policy.keyAt(i)));
+        gaps.forEach((i, k) => { keys[i] = again[k]; });
+    }
     // `valueOf` is on Object.prototype, so `policy.valueOf(k)` reaches the
     // built-in and hands back the contract rather than sending a call. Ask for
     // the fragment by name instead. ParameterRoot.valueOf and IAtsToken.name are
@@ -3969,15 +4133,19 @@ Venue.refreshImmutables = async function () {
     const el = $("immutables");
     if (!el) return;
     const {engine, registry, gate} = Venue.c;
-    const [bond, fee, delay, window_, len, rest, gen, part, dom, minFee, uses, tier, mask] =
+    // `minimumCancelFee` takes three of the immutables this panel is already
+    // reading. Awaiting them inside the argument list read each one a second
+    // time and, worse, suspended the array literal they sat in: the twelve
+    // reads either side of it went out in five waves instead of one. They are
+    // read once, and the fee is derived from what came back.
+    const [bond, fee, delay, window_, len, rest, gen, part, dom, uses, tier, mask] =
         await Promise.all([
             engine.commitBond(), engine.cancelFee(), engine.revealDelay(),
             engine.revealWindow(), engine.roundLength(), engine.restRounds(),
             engine.genesis(), engine.partition(), engine.DOMAIN_ORDER(),
-            engine.minimumCancelFee(await engine.commitBond(), await engine.revealDelay(),
-                await engine.revealWindow()),
             registry.MAX_USES_PER_EPOCH(), gate.minTier(), gate.jurisdictionMask(),
         ]);
+    const minFee = await engine.minimumCancelFee(bond, delay, window_);
     const I = CLIENT.immutables;
     const pairs = [
         ["commitBond", bond, I.commitBond], ["cancelFee", fee, I.cancelFee],

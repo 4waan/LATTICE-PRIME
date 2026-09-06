@@ -6,6 +6,10 @@
 document.documentElement.setAttribute("data-theme",
   localStorage.getItem("seamme.theme")
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<!-- The runtime is a local file now, so start it during parse rather than at the
+     closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
+<link rel="prefetch" href="trade.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
@@ -124,7 +128,10 @@ document.documentElement.setAttribute("data-theme",
 <button type="button" class="theme" id="theme">Dark</button>
 <div id="toast" class="toast" hidden role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<!-- ethers v6.13.5, MIT, vendored rather than fetched: a demo must not depend
+     on a CDN answering, and the file is then cached across every screen.
+     sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
+<script src="vendor/ethers-6.13.5.umd.min.js"></script>
 <script>
 /*INLINE tools/keccak.mjs*/
 /*INLINE tools/units.mjs*/
