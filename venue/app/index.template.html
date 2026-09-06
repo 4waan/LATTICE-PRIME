@@ -7,6 +7,11 @@
 document.documentElement.setAttribute("data-theme",
   localStorage.getItem("seamme.theme")
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<!-- The runtime is a local file now, so start it during parse rather than at the
+     closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
+<link rel="prefetch" href="prove.html">
+<link rel="prefetch" href="trade.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
@@ -27,7 +32,20 @@ document.documentElement.setAttribute("data-theme",
 <header class="mast solid">
   <div class="mast-inner">
     <div class="brand-row">
-      <a class="brand" href="index.html">SeamMe</a>
+      <a class="brand" href="index.html">
+        <svg class="brand-mark" viewBox="0 0 22 28" width="22" height="28" aria-hidden="true">
+          <defs>
+            <linearGradient id="seam-brand-grad" x1="2" y1="26" x2="20" y2="2" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#2f9f90"/>
+              <stop offset="55%" stop-color="#5eead4"/>
+              <stop offset="100%" stop-color="#9ef6e8"/>
+            </linearGradient>
+          </defs>
+          <path fill="none" stroke="url(#seam-brand-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+            d="M4.2 22.2c.2 2.4 3.2 3.6 7 3.6 4.6 0 7.3-2.2 7.3-5.2 0-3.6-3.8-4.6-7.2-5.6C7.6 14 3.5 12.8 3.5 8.4c0-3.2 2.8-5.6 7.4-5.6 3.6 0 6.4 1.5 6.8 4.4"/>
+        </svg>
+        SeamMe
+      </a>
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
@@ -47,9 +65,11 @@ document.documentElement.setAttribute("data-theme",
     </div>
   </div>
 </header>
+<div id="glass-root" class="glass-root" aria-hidden="true"></div>
 
 <!-- ============ 1 · the claim ============ -->
 <section class="frame hero-frame">
+  <span class="glass-anchor" id="ga-seam"></span>
   <div class="wrap hero-inner">
     <p class="kicker">Sealed order flow for tokenised collateral</p>
 
@@ -110,12 +130,13 @@ document.documentElement.setAttribute("data-theme",
     <div class="steps">
       <a class="step step-1 pop" style="--i:0" href="prove.html">
         <span class="n">01 / PROVE</span>
+        <span class="mark-slot" id="ga-path"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
           <path d="M17 24l5 5 10-11"/>
         </svg>
         <h3>Prove you are allowed</h3>
-        <p>A Groth16 proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
+        <p>A PLONK proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
         <span class="verb">gate.register(account, proof, signals)</span>
         <span class="go">Open Prove
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
@@ -124,6 +145,7 @@ document.documentElement.setAttribute("data-theme",
 
       <a class="step step-2 pop" style="--i:1" href="trade.html">
         <span class="n">02 / TRADE</span>
+        <span class="mark-slot" id="ga-market"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="9" y="21" width="30" height="20" rx="4"/>
           <path d="M16 21v-6a8 8 0 0116 0v6"/>
@@ -139,6 +161,7 @@ document.documentElement.setAttribute("data-theme",
 
       <a class="step step-3 pop" style="--i:2" href="position.html">
         <span class="n">03 / POSITION</span>
+        <span class="mark-slot" id="ga-vault"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 40h36"/>
           <path d="M13 40V27M23 40V15M33 40V22"/>
@@ -183,7 +206,7 @@ document.documentElement.setAttribute("data-theme",
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/><path d="M17 4.5l2.5 2.5L23 3"/></svg>
           <h3>Eligibility without identity</h3>
           <p>A zero-knowledge proof of tier and jurisdiction, checked against an issuer root that rolls at every KYC epoch boundary.</p>
-          <span class="src">ZkKycRegistry · Groth16</span>
+          <span class="src">ZkKycRegistry · PLONK</span>
         </article>
 
         <article class="fcard" tabindex="0">
@@ -251,13 +274,14 @@ document.documentElement.setAttribute("data-theme",
         <p>The bond is a real ATS security token: partitions, holds and an external compliance hook. The venue escrows through the hold, never by taking custody.</p>
       </div>
 
-      <div class="pcard">
+      <div class="pcard pcard-proof">
+        <span class="mark-slot" id="ga-proof"></span>
         <span class="role">The proof</span>
         <span class="who">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
           Circom and snarkjs
         </span>
-        <p>The eligibility circuit compiles to Groth16 and is proved in the browser tab. The private inputs never leave the machine that made them.</p>
+        <p>The eligibility circuit compiles to PLONK over a universal ceremony, so this project ran no trusted setup of its own. Proving happens on the holder&rsquo;s machine; the private inputs never leave it.</p>
       </div>
 
       <div class="pcard">
@@ -342,7 +366,11 @@ document.documentElement.setAttribute("data-theme",
 <div id="toast" class="toast" hidden role="status"></div>
 <div class="sr" aria-live="polite" id="live"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<!-- ethers v6.13.5, MIT, vendored rather than fetched: a demo must not depend
+     on a CDN answering, and the file is then cached across every screen.
+     sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
+<script src="vendor/ethers-6.13.5.umd.min.js"></script>
+<script src="glass.js"></script>
 <script>
 /*INLINE tools/keccak.mjs*/
 /*INLINE tools/units.mjs*/
@@ -353,4 +381,5 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/landing.mjs*/
 Landing.boot();
 Venue.boot("index");
+if (window.SeamGlass) window.SeamGlass.mount(document.getElementById("glass-root"));
 </script>
