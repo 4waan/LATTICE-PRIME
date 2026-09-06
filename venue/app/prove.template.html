@@ -30,6 +30,8 @@ document.documentElement.setAttribute("data-theme",
       <a href="prove.html" aria-current="page">Prove</a>
       <a href="trade.html">Trade</a>
       <a href="position.html">Position</a>
+      <a href="repo.html">Repo</a>
+      <a href="venue.html">Venue</a>
     </nav>
     <div class="mast-end">
       <div class="clocks" aria-label="Venue clocks">
@@ -89,6 +91,25 @@ document.documentElement.setAttribute("data-theme",
   </div>
 
   <section class="panel">
+    <div class="top"><h2>The gate itself</h2><span class="src">RegistrationGate · ZkKycRegistry</span></div>
+    <div class="body">
+      <p class="note">The pins above are what the gate insists on today. Both the policy behind
+        them and the gate the registry trusts sit behind proposal windows, so either can already
+        be scheduled to change. Whether next epoch's root is published is the difference between a
+        grant that can be renewed the instant it dies and one that cannot be renewed at all.</p>
+      <ul class="readout">
+        <li><span class="k">issuer</span><span class="v" id="gv-issuer">—</span></li>
+        <li><span class="k">verifier</span><span class="v" id="gv-verifier">—</span></li>
+        <li><span class="k">pending policy</span><span class="v" id="gv-pending">—</span></li>
+        <li><span class="k">registry admin</span><span class="v" id="gv-admin">—</span></li>
+        <li><span class="k">pending gate</span><span class="v" id="gv-gate">—</span></li>
+        <li><span class="k">KYC epoch</span><span class="v" id="gv-epoch">—</span></li>
+        <li><span class="k">next root</span><span class="v" id="gv-nextroot">—</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel">
     <div class="top"><h2>Public signals</h2><span class="src">seven, pinned</span></div>
     <div class="body">
       <div class="pins-slot" id="pins">
@@ -111,5 +132,6 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/lattice.mjs*/
 /*INLINE tools/client-bundle.mjs*/
 /*INLINE tools/venue-app.mjs*/
+/*INLINE tools/venue-obs.mjs*/
 Venue.boot("prove");
 </script>

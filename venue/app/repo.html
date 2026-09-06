@@ -1,6 +1,7 @@
-<title>Position · SeamMe</title>
+<title>Repo · SeamMe</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The repo vault: state, the price to repurchase now, the settlement penalty now, and whether the margin log can be believed.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -814,8 +815,8 @@ body[data-screen="position"]{--screen:var(--success)}
     <nav class="nav" aria-label="Screens">
       <a href="prove.html">Prove</a>
       <a href="trade.html">Trade</a>
-      <a href="position.html" aria-current="page">Position</a>
-      <a href="repo.html">Repo</a>
+      <a href="position.html">Position</a>
+      <a href="repo.html" aria-current="page">Repo</a>
       <a href="venue.html">Venue</a>
     </nav>
     <div class="mast-end">
@@ -830,63 +831,51 @@ body[data-screen="position"]{--screen:var(--success)}
 </header>
 
 <main class="wrap page">
-  <ol class="flow" aria-label="Where you are in the flow">
-    <li><a href="prove.html"><b>01</b> Prove</a></li>
-    <li><a href="trade.html"><b>02</b> Trade</a></li>
-    <li class="here"><span aria-current="step"><b>03</b> Position</span></li>
-  </ol>
-  <h1>Position</h1>
-  <p class="lede">Credit, five disclosure getters, and whether the margin log can be believed.</p>
+  <h1>Repo</h1>
+  <p class="lede">The collateral side of the venue. A repo is opened against a hold on the same
+    bond the engine trades, marked while it is open, and repurchased or defaulted at the end.
+    This screen reads it; the vault's writes are an operator path and are not offered here.</p>
 
   <div class="wire" style="margin-bottom:1rem">
-    <div class="wcell"><span class="k">Credit</span><span class="v num" id="pos-credit">—</span><span class="n">MatchingEngine.credit</span></div>
-    <div class="wcell"><span class="k">Tickets</span><span class="v" id="pos-tickets">—</span><span class="n">this browser only</span></div>
-    <div class="wcell"><span class="k">Disclosure epoch</span><span class="v" id="disc-epoch">—</span><span class="n">ParameterRoot.currentEpoch</span></div>
-  </div>
-  <div class="rowbtns" style="margin-bottom:1rem">
-    <button type="button" id="withdraw" disabled>Withdraw credit</button>
-    <button type="button" id="disclose">Re-read getters</button>
+    <div class="wcell"><span class="k">Fail grace</span><span class="v num" id="rv-grace">—</span><span class="n">failGrace</span></div>
+    <div class="wcell"><span class="k">Penalty</span><span class="v num" id="rv-penalty">—</span><span class="n">penaltyRate</span></div>
+    <div class="wcell"><span class="k">Margin engine</span><span class="v" id="rv-engine">—</span><span class="n">marginEngine</span></div>
+    <div class="wcell"><span class="k">Watcher points at</span><span class="v" id="rv-watchvault">—</span><span class="n">MarginWatch.vault</span></div>
   </div>
 
-  <section>
-    <div class="shead"><h2>The instrument</h2><span class="src">the ATS bond</span></div>
-    <p>What is actually being traded. <code>balanceOf</code> counts every partition and does not
-      net out held units; <code>balanceOfByPartition</code> excludes them. Two different questions.</p>
-    <section class="panel">
-      <div class="body">
-        <ul class="readout">
-          <li><span class="k">name</span><span class="v" id="in-name">—</span></li>
-          <li><span class="k">totalSupply</span><span class="v" id="in-supply">—</span></li>
-          <li><span class="k">partitions</span><span class="v" id="in-multi">—</span></li>
-          <li><span class="k">KYC lists</span><span class="v" id="in-lists">—</span></li>
-          <li><span class="k">compliance</span><span class="v" id="in-compliance">—</span></li>
-          <li><span class="k">your balance</span><span class="v" id="in-balance">—</span></li>
-        </ul>
-      </div>
-    </section>
-  </section>
+  <div class="wire" style="margin-bottom:1.4rem">
+    <div class="wcell"><span class="k">Security</span><span class="v" id="rv-security">—</span><span class="n">vault.security</span></div>
+    <div class="wcell"><span class="k">Policy</span><span class="v" id="rv-policy">—</span><span class="n">vault.policy</span></div>
+    <div class="wcell" style="grid-column:span 2"><span class="k">Disclosure stream</span><span class="v" id="rv-stream">—</span><span class="n">MarginWatch.stream</span></div>
+  </div>
 
   <section>
-    <div class="shead"><h2>The five getters, per row</h2><span class="src">SeamJournal · DisclosureView</span></div>
-    <p>ceilingFor, wouldDisclose, spentBits, wouldAfford, breakingSize. Spent is for the epoch named above, not inferred from the round clock.</p>
-    <div class="rows" id="disc-rows"></div>
-  </section>
-
-  <section>
-    <div class="shead"><h2>Last action this session</h2><span class="src">this browser only</span></div>
-    <p>Decoded from that transaction’s receipt, then re-read from the getters.</p>
-    <div id="last-view"><div class="empty">Act on Trade. The receipt for that transaction is decoded here, then re-read from the getters.</div></div>
-  </section>
-
-  <section>
-    <div class="shead"><h2>Margin, and whether to believe it</h2><span class="src">MarginWatch.watch</span></div>
-    <p>Paste repo ids. The stream says whether the log can be believed.</p>
-    <div class="field" style="padding:0 0 .65rem">
-      <label for="repo-ids">Repo ids</label>
-      <input id="repo-ids" spellcheck="false" placeholder="0x… one per line or comma">
+    <div class="shead"><h2>Repos this vault has touched</h2><span class="src">mirror node · calledAmong</span></div>
+    <p>Repo ids are not enumerable on chain. Every vault event carries the id as its first
+      indexed topic, so the history is the index. <span id="repo-called" class="note"></span></p>
+    <div class="rowbtns" style="margin-bottom:1rem">
+      <button type="button" id="repo-discover">Re-read the vault history</button>
     </div>
-    <button type="button" id="watch-go">Watch</button>
-    <div class="list" id="watch-out" style="margin-top:1rem"></div>
+    <div class="picks" id="repo-known"></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>One repo</h2><span class="src">RepoVault.repo · MarginWatch.alertOf</span></div>
+    <p><code>repurchasePriceNow</code> and <code>settlementPenaltyNow</code> move with the clock,
+      so they are read at the moment you ask and never derived from <code>openedAt</code> here.</p>
+    <div class="field" style="padding:0 0 .65rem">
+      <label for="repo-id">Repo id</label>
+      <input id="repo-id" spellcheck="false" placeholder="0x… thirty-two bytes">
+    </div>
+    <div class="rowbtns"><button type="button" class="primary" id="repo-go">Read it</button></div>
+    <div id="repo-out" style="margin-top:1rem">
+      <div class="empty">Pick one above, or paste an id.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>What happened to it</h2><span class="src">Hedera mirror node</span></div>
+    <div class="tape" id="repo-tape"><div class="empty">Read a repo above and its history lands here.</div></div>
   </section>
 </main>
 </div>
@@ -3855,5 +3844,5 @@ Venue.refreshImmutables = async function () {
     if (mf) mf.textContent = minFee + " tinybar minimum, engine charges " + fee;
 };
 
-Venue.boot("position");
+Venue.boot("repo");
 </script>

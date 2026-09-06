@@ -30,6 +30,8 @@ document.documentElement.setAttribute("data-theme",
       <a href="prove.html">Prove</a>
       <a href="trade.html" aria-current="page">Trade</a>
       <a href="position.html">Position</a>
+      <a href="repo.html">Repo</a>
+      <a href="venue.html">Venue</a>
     </nav>
     <div class="mast-end">
       <div class="clocks" aria-label="Venue clocks">
@@ -149,6 +151,26 @@ document.documentElement.setAttribute("data-theme",
   </section>
 
   <section>
+    <div class="shead"><h2>The book, as it stands</h2><span class="src">revealedCount · liveAt · orders</span></div>
+    <p>Only what has been opened. A sealed commitment is not here, which is the whole point of
+      sealing it; your own resting orders are marked. <code>quote</code> says what
+      <code>crossRound</code> would do before anybody pays for it.</p>
+    <div class="rows" id="book"><div class="empty">Reading the book…</div></div>
+    <p class="note" id="book-quote"></p>
+    <p class="note">Fees held by the engine: <span id="book-fees">—</span>. <code>feesRetained</code>.</p>
+  </section>
+
+  <section>
+    <div class="shead"><h2>What the engine has done</h2><span class="src">Hedera mirror node</span></div>
+    <p>Crossings, coarse prints, withheld prints, settlements and the ones it refused.
+      Read from the mirror node's index, never by subscribing.</p>
+    <div class="rowbtns" style="margin-bottom:1rem">
+      <button type="button" id="market-reload">Read the tape</button>
+    </div>
+    <div class="tape" id="market-tape"><div class="empty">Press <b>Read the tape</b>.</div></div>
+  </section>
+
+  <section>
     <div class="shead"><h2>Tickets on this device</h2><span class="src">localStorage</span></div>
     <p>Reveal is this list. Cancel is offered only while <code>cancellableUntil</code> is still in the future. Forfeit is not.</p>
     <div class="list" id="tickets"></div>
@@ -167,5 +189,6 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/lattice.mjs*/
 /*INLINE tools/client-bundle.mjs*/
 /*INLINE tools/venue-app.mjs*/
+/*INLINE tools/venue-obs.mjs*/
 Venue.boot("trade");
 </script>

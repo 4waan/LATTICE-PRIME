@@ -104,7 +104,7 @@ Proceeds land in `credit` (pull). Watch `SettlementRefused` — the round can pr
 
 Five getters on the engine: `ceilingFor`, `wouldDisclose`, `spentBits`, `wouldAfford`, `breakingSize`. A row can be permitted and inaudible at once.
 
-Do not subscribe to events (`eth_getLogs` throttles; Rule A withholds). Decode events from the tx receipt only.
+Do not subscribe to events (`eth_getLogs` throttles; Rule A withholds). Decode a *specific transaction's* events from its own receipt. For history, read the mirror node's log index: `/api/v1/contracts/{evmAddress}/results/logs?order=desc&limit=n`, decoded against the bundled ABI. Different host, so it does not spend the relay budget.
 
 ## Errors worth special-casing
 
@@ -128,9 +128,17 @@ Selector table: `client.json` → `errors`.
 7. Grants die at the KYC epoch boundary with no warning (**loss**).
 8. `disclose(e)` on an open epoch is a silent no-op.
 
+## Screens 4 and 5 · Repo and Venue
+
+Read-only. `RepoVault.repo/stateOf/repurchasePriceNow/settlementPenaltyNow` plus `MarginWatch.alertOf/calledAmong`; repo ids come from the vault's own log history, since they are not enumerable on chain. `Regime`, `VolumeCap`, `TradingHalt`, `ParameterRoot`, `Rulebook`, `SeamJournal` and `EpochClock`, including every proposal window and `reconcile`.
+
+Read budgets and ceilings from `ParameterRoot`, never from `client.json`. The Venue screen compares the two and says so when they differ.
+
+Two permissionless writes are offered: `engine.expire(id)` (retires an order past `lastRound`; reverts `StillResting` before that) and `journal.disclose(e)` (a no-op on an open epoch, so the client refuses to send one).
+
 ## Out of scope
 
-`AxeBoard` is not deployed. Repo writes are not a v1 client path (`substitute` reverts `SubstitutionRefused`). Governance writes are operator/supervisor surfaces.
+`AxeBoard` is not deployed. Repo writes are not a v1 client path (`substitute` reverts `SubstitutionRefused`). Governance writes are operator/supervisor surfaces. `forfeit` is never offered.
 
 ## Reads
 

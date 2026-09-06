@@ -30,6 +30,8 @@ document.documentElement.setAttribute("data-theme",
       <a href="prove.html">Prove</a>
       <a href="trade.html">Trade</a>
       <a href="position.html" aria-current="page">Position</a>
+      <a href="repo.html">Repo</a>
+      <a href="venue.html">Venue</a>
     </nav>
     <div class="mast-end">
       <div class="clocks" aria-label="Venue clocks">
@@ -60,6 +62,24 @@ document.documentElement.setAttribute("data-theme",
     <button type="button" id="withdraw" disabled>Withdraw credit</button>
     <button type="button" id="disclose">Re-read getters</button>
   </div>
+
+  <section>
+    <div class="shead"><h2>The instrument</h2><span class="src">the ATS bond</span></div>
+    <p>What is actually being traded. <code>balanceOf</code> counts every partition and does not
+      net out held units; <code>balanceOfByPartition</code> excludes them. Two different questions.</p>
+    <section class="panel">
+      <div class="body">
+        <ul class="readout">
+          <li><span class="k">name</span><span class="v" id="in-name">—</span></li>
+          <li><span class="k">totalSupply</span><span class="v" id="in-supply">—</span></li>
+          <li><span class="k">partitions</span><span class="v" id="in-multi">—</span></li>
+          <li><span class="k">KYC lists</span><span class="v" id="in-lists">—</span></li>
+          <li><span class="k">compliance</span><span class="v" id="in-compliance">—</span></li>
+          <li><span class="k">your balance</span><span class="v" id="in-balance">—</span></li>
+        </ul>
+      </div>
+    </section>
+  </section>
 
   <section>
     <div class="shead"><h2>The five getters, per row</h2><span class="src">SeamJournal · DisclosureView</span></div>
@@ -97,5 +117,6 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/lattice.mjs*/
 /*INLINE tools/client-bundle.mjs*/
 /*INLINE tools/venue-app.mjs*/
+/*INLINE tools/venue-obs.mjs*/
 Venue.boot("position");
 </script>
