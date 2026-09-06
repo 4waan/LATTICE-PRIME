@@ -6,73 +6,14 @@ import {DisclosureBudget as B} from "../lattice/DisclosureBudget.sol";
 import {DisclosureMeter} from "../lattice/DisclosureMeter.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 import {RootWindow} from "./RootWindow.sol";
-import {Regime, IEpochClock} from "./Regime.sol";
+import {Regime} from "./Regime.sol";
+import {IEpochClock} from "../interfaces/IEpochClock.sol";
 
 /// @title ParameterRoot
-/// @notice The governed parameter set, committed to one word.
-///
-/// ## What D11b actually buys, and why it is not a gas optimisation
-///
-/// `the study plan` D11b starts from a measured property: Groth16 verification
-/// costs `181,000 + 6,150n` gas and depends only on the public input count, never
-/// on circuit size. So a Merkle tree over every governed parameter, with the
-/// **root** as one public input, gives the circuit an unbounded parameter set for
-/// 6,150 gas. The prover supplies the value and its path as private witness, the
-/// circuit checks the path, the verifier checks the root against storage.
-///
-/// That is the ZK-side argument and it is already written down. The part that was
-/// not written down is what the root does for the contracts that hold no proof at
-/// all, and it is the larger half:
-///
-/// > **The root turns the disclosure matrix from a document into a deployment
-/// > artefact.** Section 7.2 has seventeen rows. Before this contract, two of
-/// > those rows were compiled into `RepoVault` and `OrderBook` as immutable
-/// > constants and the other fifteen existed only in Markdown. A regulator asking
-/// > "which cells is this venue actually operating under" had no on-chain answer.
-///
-/// ## Committed at proposal, opened at adoption
-///
-/// `propose` takes a **root** and nothing else. `adopt` takes the parameter set
-/// and rebuilds the root from it, so the set is revealed only when it lands.
-/// This is the order book's own commit-and-reveal discipline turned on
-/// governance, and it is there because D11d.1 says governance is itself a
-/// disclosure channel and names the dangerous case: per-asset parameter changes.
-/// A proposal in the clear announces which asset is about to have its threshold
-/// moved, one epoch before it moves, to everyone.
-///
-/// Row 10 of section 7.2 gives governance actions `(exact, {pub}, epoch)`. This
-/// construction meets it exactly and adds a predicate at `imm`: the commitment
-/// discloses **that** a change is coming and nothing about which parameter or
-/// which asset, so the pair of cells is `(pred, {pub}, imm)` then
-/// `(exact, {pub}, epoch)`.
-///
-/// ## The root is derived, never declared
-///
-/// `adopt` does not take the publisher's word for the tree. It hashes the set it
-/// was given and compares. So contract storage and the root the circuit checks
-/// against cannot disagree, and nobody has to trust that whoever built the tree
-/// built it over the values that were actually written. `rootOf` is public and
-/// pure for the same reason `OrderBook.commitmentOf` is: the client and the
-/// contract must not be able to disagree about the preimage.
-///
-/// ## A row has two bounds, and the second one arrived late
-///
-/// Keys 0 to 17 are row **ceilings** and keys 18 to 35 are row **floors**.
-/// `the design notes` a design decision: the lattice expresses a maximum, MiFID imposes a
-/// minimum, and a parameter set that carried only the maximum could say what the
-/// venue may hide and had no way to say what it must publish. Adoption now
-/// refuses a set whose row ceiling forbids that same set's row floor, and every
-/// read returns the pair under one regime state. See `_effective`.
-///
-/// ## Two hash functions again, and the same reason as the order book
-///
-/// The path is checked with Poseidon **inside** the circuit, where keccak costs
-/// roughly 150,000 constraints and Poseidon about 240. The tree here is built
-/// with keccak because it is built **on chain**, where keccak is a precompile at
-/// about 30 gas a word. These are not competing implementations of one tree: the
-/// contract never walks a path, it only ever compares a root, and the prover
-/// never touches this contract. Same primitive, opposite cost model, chosen per
-/// call site. `OrderBook` states this for bids and it is the identical argument.
+/// @notice Governed parameter set, committed as one keccak root.
+/// @dev `propose` takes a root; `adopt` rebuilds it from the opened set.
+///      On-chain tree is keccak (precompile); circuit paths are Poseidon.
+///      Keys 0–17 ceilings, 18–35 floors, 36–53 budgets. `docs/MATH.md`.
 contract ParameterRoot is IDisclosurePolicy {
     using RootWindow for RootWindow.Window;
 
@@ -81,57 +22,20 @@ contract ParameterRoot is IDisclosurePolicy {
         uint256 value;
     }
 
-    /// @notice Rows 1 to 17 of the section 7.2 matrix key themselves.
-    /// @dev A row key is literally `bytes32(row)`, so `key < ROW_CARD` identifies
-    ///      one in a single comparison and the adopt path can validate that a row
-    ///      value is a coherent disclosure ideal without seventeen keccaks per
-    ///      leaf. Every other governed key is a `keccak256`, which does not
-    ///      collide with an integer below eighteen in any world we need to reason
-    ///      about.
+    /// @notice Rows 1–17 key themselves as `bytes32(row)`.
     uint16 public constant ROW_CARD = 18;
 
-    /// @notice A row's **floor** is keyed `ROW_CARD + row`, so keys 18 to 35 are
-    ///         the obligations and keys 0 to 17 are the ceilings.
-    /// @dev `the design notes` a design decision: the lattice expresses a maximum and
-    ///      MiFID imposes a minimum, so a row needs both. An integer offset
-    ///      rather than a `keccak256` for two reasons that are the same reason.
-    ///      The `k < ROW_CARD` test that identifies a row in one comparison
-    ///      extends to `k < KEY_CARD` for a floor, so both are validated as
-    ///      ideals without seventeen more keccaks per leaf. And keys must
-    ///      strictly ascend in `rootOf`, so an offset puts every row ceiling
-    ///      before every row floor in the tree, which is what lets `adopt` check
-    ///      a floor against its own ceiling in the same single pass.
+    /// @notice Floors are keyed `ROW_CARD + row` (18–35).
     uint16 public constant KEY_CARD = 36;
 
-    /// @notice A row's **coalition budget** is keyed `KEY_CARD + row`, so keys 36
-    ///         to 53 are the budgets and the parameter space is three bands.
-    /// @dev The third bound, and the reason it is governed rather than a
-    ///      constructor argument is the reason `IDisclosurePolicy` exists: a
-    ///      bound nobody can read off the committed root is a bound nobody can
-    ///      audit. `SeamJournal` still takes its budget at deploy and that is
-    ///      recorded as owed rather than fixed here, because it is an
-    ///      `ICompliance` that must never revert and a governed read is a new
-    ///      revert path into a token's transfer.
-    ///
-    ///      The band sits above the floors and the same ascending-key discipline
-    ///      applies, so a budget leaf is validated in the same single pass and
-    ///      against the row ceiling that `adopt` has already written.
+    /// @notice Budgets are keyed `KEY_CARD + row` (36–53).
     uint16 public constant BUDGET_BASE = KEY_CARD;
 
-    /// @notice One past the last integer-keyed parameter. Keys at or above this
-    ///         are `keccak256` and carry no row semantics.
+    /// @notice First keccak-keyed parameter. Integer keys below this carry row semantics.
     uint16 public constant PARAM_CARD = 54;
 
-    /// @notice A bitmask over rows: which rows the granted waiver actually
-    ///         covers, and therefore which rows `Regime` may narrow.
-    /// @dev **Meeting the regime into every row was the first version and it was
-    ///      wrong.** A waiver is granted over named rows. MiFIR's reference-price
-    ///      waiver covers pre-trade transparency for order size and price; it says
-    ///      nothing about instrument reference data. Under a blanket meet, a
-    ///      supervisor narrowing the venue's disclosure policy would also stop it
-    ///      publishing a maturity date, and the venue could not open a repo. A
-    ///      suspension that halts the venue is not the suspension the regulation
-    ///      describes.
+    /// @notice Bitmask of rows the waiver covers, hence rows `Regime` may narrow.
+    /// @dev A blanket meet would let a size/price suspension also silence maturity.
     bytes32 public constant KEY_WAIVED_ROWS = keccak256("hedera2026.param.waivedRows.v1");
 
     bytes32 public constant DOMAIN_LEAF = keccak256("hedera2026.param.leaf.v1");
@@ -146,7 +50,7 @@ contract ParameterRoot is IDisclosurePolicy {
 
     RootWindow.Window private window;
 
-    /// @notice `DEPTH_ONE_BEHIND`. See `RootWindow` and a design decision's table.
+    /// @notice `DEPTH_ONE_BEHIND`. See `RootWindow`.
     uint8 public constant DEPTH = RootWindow.DEPTH_ONE_BEHIND;
     uint64 public constant GRACE = RootWindow.GRACE;
 
@@ -168,23 +72,9 @@ contract ParameterRoot is IDisclosurePolicy {
     error KeysNotAscending(bytes32 previous, bytes32 next);
     error RowValueIsNotAnIdeal(uint16 row, uint256 value);
 
-    /// @notice an invariant at the parameter set's end. A published set whose row
-    ///         ceiling forbids what the same set's row floor requires is
-    ///         **un-adoptable**, which is a design decision's word for it.
     error RowFloorAboveCeiling(uint16 row, uint32 ceiling_, uint32 floor_);
-
-    /// @notice Rule B of `DisclosureMeter`. A budget published against a row
-    ///         whose ceiling already admits an exact disclosure could never bind,
-    ///         because `bits(row, G_EXACT)` is `domainBits` and
-    ///         `requireWellFormed` demands `budgetBits < domainBits`. Publishing
-    ///         one would certify a bound that does not hold, which is worse than
-    ///         publishing none.
+    /// @dev Rule B: a budget on a row that already admits exact can never bind.
     error BudgetCannotBindRow(uint16 row, uint32 ceiling_);
-
-    /// @notice A budget on a row with no published ceiling. An un-granted row
-    ///         refuses every disclosure already, so a budget on it is a bound on
-    ///         a channel that does not exist, and a reader of the root would take
-    ///         it for a governed limit.
     error BudgetOnUnpublishedRow(uint16 row);
 
     constructor(Regime regime_) {
@@ -304,14 +194,8 @@ contract ParameterRoot is IDisclosurePolicy {
                 }
             }
             if (ki >= ROW_CARD && ki < KEY_CARD) {
-                // Keys ascend, so this row's ceiling is already written. The
-                // check is static: it holds against the published set and does
-                // not read the live regime, because `adopt` is permissionless
-                // and a check against a moving supervisory state would let a
-                // suspension wedge the operator's committed root out of
-                // governance for the length of the suspension. The regime's own
-                // half of an invariant is held in `Regime` and read back in
-                // `_effective` below.
+                // Static vs the published set, not the live regime: `adopt` is
+                // permissionless and must not be wedgeable by a suspension.
                 // Safe: the branch is `ROW_CARD <= ki < KEY_CARD`, so the
                 // difference is in `[0, ROW_CARD)`.
                 // forge-lint: disable-next-line(unsafe-typecast)
@@ -353,61 +237,25 @@ contract ParameterRoot is IDisclosurePolicy {
 
     // ------------------------------------------------- IDisclosurePolicy
 
-    /// @notice The ceiling in force for one matrix row.
-    /// @dev Two bounds, met. The published parameter is what the venue was
-    ///      configured to do; `regime.current()` is what it is currently allowed
-    ///      to do. Meeting them means a narrowing propagates to every row without
-    ///      a parameter republication, which is what makes a suspension
-    ///      immediate rather than an epoch away.
-    ///
-    ///      An unpublished row returns `BOTTOM` and every disclosure on it
-    ///      reverts. That is deliberate and it is the direction a design decision chose for
-    ///      seam D: a venue whose parameters have not been published is a venue
-    ///      that has not been granted anything.
+    /// @notice Ceiling for one row: meet of published param and live regime.
+    ///         Unpublished → `BOTTOM` (fail closed).
     function ceilingFor(uint16 row) external view returns (uint32) {
         (uint32 c,) = _effective(row);
         return c;
     }
 
-    /// @notice The obligation in force for one matrix row: what the venue must
-    ///         publish, as against what it may.
-    /// @dev **A floor is not checked per event and nothing here offers to.** An
-    ///      event discloses at one cell; an obligation runs over a row and a
-    ///      window, and a predicate emitted now can be legitimately followed by
-    ///      the exact publication later, so `permits(floorFor(row), actual)` is
-    ///      not a question with a meaningful answer at emission time. This is a
-    ///      view for a regulator and for the tests, and the enforcement it
-    ///      belongs to is an invariant: the floor bounds the ceiling, held in
-    ///      `_effective` and in `Regime._reconcile`.
+    /// @notice Floor for one row. Not a per-event check; it bounds the ceiling.
     function floorFor(uint16 row) external view returns (uint32) {
         (, uint32 f) = _effective(row);
         return f;
     }
 
-    /// @dev Both bounds in one read, because the property that matters is the
-    ///      relation between them and a caller that computed them separately
-    ///      could see two different regime states.
-    ///
-    ///      **`floorFor(row) <= ceilingFor(row)` holds by construction here**,
-    ///      for every row and every reachable regime state, given only the static
-    ///      check `adopt` already ran. Three cases. An unpublished row is
-    ///      `(BOTTOM, BOTTOM)`. An unwaived row is the published pair, which
-    ///      `adopt` ordered. A waived row meets both against the same
-    ///      `regime.current()`, which preserves the order, then joins both with
-    ///      the same `regime.floor()`, which preserves it again.
-    ///
-    ///      The join is the half a design decision is about and it is worth saying plainly:
-    ///      **a supervisory obligation lifts a row ceiling the operator
-    ///      published.** That is not a leak. `Regime` holds `floor <= current`,
-    ///      so the lift never carries the row above what the regime permits, and
-    ///      an operator cannot use it as a lever because it is the *regime's*
-    ///      floor that is joined in and not the row's. A parameter set that
-    ///      forbids what the supervisor compels does not get to forbid it.
+    /// @dev Both bounds in one read so they cannot come from two regime states.
+    ///      Unpublished → `(BOTTOM, BOTTOM)`. Waived rows meet then join against
+    ///      the live regime, which preserves `floor ≤ ceiling` and can lift a
+    ///      published ceiling to the supervisor's obligation.
     function _effective(uint16 row) private view returns (uint32 c, uint32 f) {
         uint256 v = valueOf[bytes32(uint256(row))];
-        // An unpublished row is un-granted and un-obliged, in that order. Seam
-        // D's direction from a design decision, and it has to apply to both bounds or the
-        // regime's floor would attach itself to a row nobody published.
         if (v == 0) return (L.BOTTOM, L.BOTTOM);
 
         // Safe: `adopt` rejects a row value that is not an ideal, and every ideal
