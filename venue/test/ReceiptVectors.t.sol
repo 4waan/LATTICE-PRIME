@@ -18,7 +18,10 @@ import {PolicyFixture} from "./PolicyFixture.sol";
 ///
 ///      That recomputation is the risk. A page that derives a budget the venue
 ///      does not charge is worse than no page, because it is a receipt that
-///      reconciles against nothing. `tools/lattice.test.mjs` holds the literals
+///      reconciles against nothing. Which is why the page moved off
+///      `meteredCancellations()` and onto `asDeployed()` the moment the deployed
+///      set had a budget to print: a receipt reconciling against a fixture is
+///      the same failure in a politer form. `tools/lattice.test.mjs` holds the literals
 ///      below and this file asserts the same ones against a deployed book, in
 ///      the pattern `CommitmentVectors.t.sol` established: both sides carry the
 ///      literals, neither computes the other's.
@@ -37,7 +40,10 @@ contract ReceiptVectorsTest is Test, PolicyFixture {
 
     function setUp() public {
         vm.warp(1_000_000);
-        _deployPolicy(meteredCancellations());
+        // `asDeployed`, not a fixture. The page prints the numbers the venue
+        // publishes; before `PolicySets.budgetFor` existed there were none to
+        // print and this ran on `meteredCancellations()` instead.
+        _deployPolicy(asDeployed());
         book = new OrderBook(DELAY, WINDOW, BOND, FEE, params, ROUND, REST);
         vm.deal(ALICE, 10 ether);
     }
@@ -75,12 +81,12 @@ contract ReceiptVectorsTest is Test, PolicyFixture {
 
     function test_theBudgetThePageReadsIsThePublishedBudget() public view {
         B.Row memory r = params.budgetFor(ROW_ACTIVITY);
-        assertEq(r.domainBits, 8, "domainBits");
-        assertEq(r.aggBits, 2, "aggBits");
-        assertEq(r.bucketBits, 4, "bucketBits");
-        assertEq(r.budgetBits, 3, "budgetBits");
+        assertEq(r.domainBits, 2, "domainBits: cancel, reveal, forfeit");
+        assertEq(r.aggBits, 2, "aggBits: no aggregate defined, so it costs the domain");
+        assertEq(r.bucketBits, 2, "bucketBits: likewise");
+        assertEq(r.budgetBits, 1, "budgetBits: domainBits - 1, the largest that binds");
         assertEq(B.bits(r, L.G_PRED), 1, "a cancel costs one bit");
-        assertEq(B.bits(r, L.G_EXACT), 8, "exact costs the domain");
+        assertEq(B.bits(r, L.G_EXACT), 2, "exact costs the domain");
     }
 
     function test_theOpeningReceiptIsWhatTheGettersSay() public view {
@@ -88,13 +94,13 @@ contract ReceiptVectorsTest is Test, PolicyFixture {
         assertTrue(book.wouldDisclose(ROW_ACTIVITY, L.G_PRED, L.T_IMM), "wouldDisclose");
         assertEq(book.spentBits(ROW_ACTIVITY, params.currentEpoch()), 0, "spentBits");
         assertTrue(book.wouldAfford(ROW_ACTIVITY, L.G_PRED), "wouldAfford");
-        assertEq(book.breakingSize(ROW_ACTIVITY, L.G_PRED), 4, "breakingSize");
+        assertEq(book.breakingSize(ROW_ACTIVITY, L.G_PRED), 2, "breakingSize");
     }
 
-    function test_theFourthCancellationIsSilentAndStillSucceeds() public {
+    function test_theSecondCancellationIsSilentAndStillSucceeds() public {
         uint64 epoch = params.currentEpoch();
-        bytes32[4] memory ids;
-        for (uint256 i = 0; i < 4; ++i) {
+        bytes32[2] memory ids;
+        for (uint256 i = 0; i < 2; ++i) {
             ids[i] = book.commitmentOf(
                 ALICE, OrderBook.Side.BUY, 101, 5_000, bytes32(uint256(i + 1))
             );
@@ -102,22 +108,69 @@ contract ReceiptVectorsTest is Test, PolicyFixture {
             book.commit{value: BOND}(ids[i]);
         }
 
-        for (uint256 i = 0; i < 3; ++i) {
-            assertTrue(book.wouldAfford(ROW_ACTIVITY, L.G_PRED), "audible before cancel");
-            vm.recordLogs();
-            vm.prank(ALICE);
-            book.cancel(ids[i]);
-            assertEq(book.spentBits(ROW_ACTIVITY, epoch), i + 1, "one bit per cancel");
-        }
+        assertTrue(book.wouldAfford(ROW_ACTIVITY, L.G_PRED), "audible before the first");
+        vm.prank(ALICE);
+        book.cancel(ids[0]);
+        assertEq(book.spentBits(ROW_ACTIVITY, epoch), 1, "one bit per cancel");
 
         assertFalse(book.wouldAfford(ROW_ACTIVITY, L.G_PRED), "row is spent");
         assertTrue(book.wouldDisclose(ROW_ACTIVITY, L.G_PRED, L.T_IMM), "still permitted");
 
         uint256 before = book.credit(ALICE);
         vm.prank(ALICE);
-        book.cancel(ids[3]);
+        book.cancel(ids[1]);
         assertEq(book.credit(ALICE) - before, BOND - FEE, "the withheld cancel still refunded");
-        assertEq(book.spentBits(ROW_ACTIVITY, epoch), 3, "a withheld disclosure spends nothing");
+        assertEq(book.spentBits(ROW_ACTIVITY, epoch), 1, "a withheld disclosure spends nothing");
+    }
+
+    /// @notice Sweeping a stranded bond must not spend the row the receipt reports.
+    ///
+    /// @dev `forfeit` is the recovery path for a commitment whose cancel window
+    ///      shut, and `script/live/receipt-beat.sh sweep` is the operational form
+    ///      of it. It is permissionless and pays the bond to whoever calls, so a
+    ///      missed window costs a fee and not a bond.
+    ///
+    ///      It is also the one terminal branch of a commitment's life that does
+    ///      **not** go through `_emitUnder`: `BondForfeited` is emitted
+    ///      unconditionally. That is deliberate and worth pinning, because the
+    ///      alternative is a receipt nobody can reconcile. Row 15's budget is one
+    ///      bit, so if a sweep charged it, the trader's first real cancellation of
+    ///      the epoch would be withheld and the screen would show a spent row with
+    ///      no cancellation behind it. The live run met this on 2026-09-06: two
+    ///      bonds stranded by a closed window were swept, and `spentBits(15, e)`
+    ///      read zero across both, which is this assertion made on chain.
+    function test_aSweptBondDoesNotSpendTheActivityRow() public {
+        uint64 epoch = params.currentEpoch();
+        bytes32 stranded =
+            book.commitmentOf(ALICE, OrderBook.Side.BUY, 101, 5_000, bytes32(uint256(7)));
+        vm.prank(ALICE);
+        book.commit{value: BOND}(stranded);
+
+        // Past the cancel window and past the reveal window: the state the beat's
+        // first attempt actually reached.
+        vm.warp(block.timestamp + DELAY + WINDOW + 1);
+        // In the past, not zero. `cancellableUntil` returns the instant the
+        // window shut and only answers zero for a commitment that is already
+        // terminal, so a client asking "can I still cancel" has to compare it
+        // against the clock rather than against zero. `receipt-beat.sh` does.
+        assertLe(book.cancellableUntil(stranded), block.timestamp, "cancel is shut");
+        assertGt(book.cancellableUntil(stranded), 0, "and not terminal yet");
+
+        uint256 before = ALICE.balance;
+        vm.prank(ALICE);
+        book.forfeit(stranded);
+        assertEq(ALICE.balance - before, BOND, "the sweeper takes the whole bond");
+        assertEq(book.spentBits(ROW_ACTIVITY, epoch), 0, "a sweep charges nothing");
+        assertTrue(book.wouldAfford(ROW_ACTIVITY, L.G_PRED), "the row is still audible");
+
+        // And the next real cancellation is still the epoch's first charge.
+        bytes32 id =
+            book.commitmentOf(ALICE, OrderBook.Side.BUY, 101, 5_000, bytes32(uint256(8)));
+        vm.prank(ALICE);
+        book.commit{value: BOND}(id);
+        vm.prank(ALICE);
+        book.cancel(id);
+        assertEq(book.spentBits(ROW_ACTIVITY, params.currentEpoch()), 1, "first charge");
     }
 
     function test_theExactRowsReportNoBudgetToPrint() public view {

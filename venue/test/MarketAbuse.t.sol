@@ -23,6 +23,13 @@ import {ZkKycRegistry} from "../src/kyc/ZkKycRegistry.sol";
 /// The reasoning is in `../../docs/manipulation-surface.md`, at the repository root.
 /// Each test here is the executable half of one finding in it.
 contract Holds is IHoldByPartition {
+    /// @dev Row 12 of the call list. No contract calls it; the client does, and
+    ///      nothing in this suite is a client, so it answers zero rather than a
+    ///      plausible number. `AtsHolds` in `MatchingEngine.t.sol` keeps a real
+    ///      sum, which is where the read is exercised.
+    function getHeldAmountForByPartition(bytes32, address) external pure returns (uint256) {
+        return 0;
+    }
 
     function getHoldForByPartition(IHoldTypes.HoldIdentifier calldata)
         external
@@ -68,7 +75,6 @@ contract Holds is IHoldByPartition {
 }
 
 contract MarketAbuseTest is Test, PolicyFixture {
-
     uint256 internal constant PENALTY_RATE = 10;
     uint64 internal constant FAIL_GRACE = 5 days;
 
@@ -185,7 +191,6 @@ contract MarketAbuseTest is Test, PolicyFixture {
     }
 
     function test_MA03_theOracleAndTheEmitAgree() public {
-
         assertTrue(vault.wouldDisclose(14, L.G_PRED, L.T_IMM), "row 14 admits it");
         vm.prank(ENGINE);
         vault.postMark(ID, keccak256("mark"), true, 1 days);

@@ -728,6 +728,51 @@ contract OrderCancelTest is Test, PolicyFixture {
         assertFalse(book.wouldAfford(15, L.G_PRED), "and the row is out for the epoch");
     }
 
+    /// @notice The same beat, under the set the venue actually publishes.
+    ///
+    /// @dev **`meteredCancellations` used to be the only place this happened.**
+    ///      The deployed set published ten ceilings and no budget, so on the live
+    ///      venue `spentBits` was zero for every row and every epoch,
+    ///      `wouldAfford` was true for every level and `breakingSize` was zero:
+    ///      three of the five getters a disclosure receipt is built on were
+    ///      constants, and the demo's central beat could not run on this
+    ///      contract at all. `PolicySets.budgetFor` derives one now, so the
+    ///      second cancellation of an epoch is the silent one and this is the
+    ///      deployed venue rather than a fixture.
+    ///
+    ///      Two rather than four because the derivation says two:
+    ///      `domainBits(15)` is the three windows `OrderBook` partitions a
+    ///      commitment's life into, so `budgetBits` is 1 and one cancel spends
+    ///      the row. `meteredCancellations` keeps the wider fixture numbers, so
+    ///      the test above still exercises a budget that takes several
+    ///      disclosures to exhaust.
+    function test_underTheDeployedSetTheSecondCancellationIsSilent() public {
+        uint64 epoch = params.currentEpoch();
+        assertTrue(params.budgetFor(15).budgetBits != 0, "the deployed set meters row 15");
+        assertEq(book.breakingSize(15, L.G_PRED), 2, "the second cancel of an epoch");
+
+        for (uint256 i = 0; i < 2; ++i) {
+            bytes32 id = _commit(ALICE, keccak256(abi.encode("deployed", i)));
+            vm.recordLogs();
+            vm.prank(ALICE);
+            book.cancel(id);
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+
+            bool announced;
+            for (uint256 j = 0; j < logs.length; ++j) {
+                if (logs[j].topics[0] == OrderBookBase.Cancelled.selector) announced = true;
+            }
+            assertEq(announced, i == 0, "the first is announced and the second is not");
+
+            // Rule A, both times: the exit completed and the money moved.
+            assertTrue(_cancelledFlag(id), "the cancel completed");
+            assertEq(book.credit(ALICE), (BOND - FEE) * (i + 1), "the refund landed");
+        }
+
+        assertEq(book.spentBits(15, epoch), 1, "one bit, and the row is out");
+        assertFalse(book.wouldAfford(15, L.G_PRED), "so the getter moved");
+    }
+
     /// @notice A cancel costs one bit, which is what makes the budget arithmetic
     ///         exact instead of rounded.
     function test_aCancelCostsExactlyOneBit() public {
@@ -742,13 +787,7 @@ contract OrderCancelTest is Test, PolicyFixture {
     ///      `BOTTOM` ceiling, which reads the same to `ceilingFor` but is a
     ///      different parameter set.
     function _withoutRow15() internal pure returns (ParameterRoot.Param[] memory out) {
-        ParameterRoot.Param[] memory set = asDeployed();
-        out = new ParameterRoot.Param[](set.length - 1);
-        uint256 k;
-        for (uint256 i = 0; i < set.length; ++i) {
-            if (set[i].key == bytes32(uint256(15))) continue;
-            out[k++] = set[i];
-        }
+        return _withoutRowAndItsBudget(15);
     }
 
     receive() external payable {}

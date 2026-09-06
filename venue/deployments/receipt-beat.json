@@ -1,0 +1,100 @@
+{
+ "what": "The receipt beat, run on chain 296. Two sealed orders committed and both withdrawn inside one disclosure epoch. The first withdrawal published Cancelled and was charged one bit against row 15's budget of one; the second published nothing, refunded the same bond and returned status 1.",
+ "why": "DisclosureMeter.spend is Rule A: an exhausted budget withholds the event and never fails the action. A row silenced by its budget and a row nobody disclosed on are identical in the log, so the distinction has to be read from spentBits, which is a view. This is that read, taken three times.",
+ "engine": "0x543E3C66d040e6F4FD7D066C6FD1E557D4B11DAe",
+ "sender": "0xCFc5923dEf1F25db05FE50754Ef0822175AFD449",
+ "row": 15,
+ "granularity": "pred",
+ "time": "imm",
+ "epoch": {
+  "start": 39,
+  "end": 39,
+  "length": 300
+ },
+ "commitments": {
+  "A": "0x921cb97387854a45927f5f822e62b34680d09ae7b58121f8583ec479ea6fbdf0",
+  "B": "0xb2f1c4161fd5365052b9e12c6883d8af5e3b137fbf42214cc2314f33ab86560a",
+  "note": "commitmentOf(committer, side, price, qty, salt). Never revealed, but revealable: the openings were real orders, BUY 101 x 500 and SELL 99 x 500. Each was committed and cancelled back to back, because cancel closes 30 seconds after commit and a receipt read does not fit inside that."
+ },
+ "steps": {
+  "commitA": {
+   "tx": "0xa558da5745380f6551588a2c2cfa25fe45974ccaee9bedc9502b98a366b296aa",
+   "status": 1,
+   "gasUsed": 83390,
+   "topics": [
+    "0xfda886b5d38d5d61e432b3acc9f19640a2b8c83c87a9c584a780d3854b309b9c"
+   ]
+  },
+  "cancelA": {
+   "tx": "0xa7e2287bec0fadcdeccc3c3484acab1d081eae2a6eca219b20b76b80c41950f3",
+   "status": 1,
+   "gasUsed": 118154,
+   "topics": [
+    "0xc2c92b58279430965bba4609e31c0ecd1ce733209db3c64f1a61e9b6dc9e0709",
+    "0xbaa1eb22f2a492ba1a5fea61b8df4d27c6c8b5f3971e63bb58fa14ff72eedb70"
+   ]
+  },
+  "commitB": {
+   "tx": "0x86a1bd0e0400d90a18b732fe092748b8f815a740464f9a1534312d72c66797a4",
+   "status": 1,
+   "gasUsed": 83390,
+   "topics": [
+    "0xfda886b5d38d5d61e432b3acc9f19640a2b8c83c87a9c584a780d3854b309b9c"
+   ]
+  },
+  "cancelB": {
+   "tx": "0x2885d8da867b1cab43863698895a2bf78fb35114743a33849ba5f771cc707594",
+   "status": 1,
+   "gasUsed": 60090,
+   "topics": []
+  }
+ },
+ "charged": [
+  {
+   "row": 15,
+   "epoch": 39,
+   "granularity": 1,
+   "cost": 1,
+   "spentAfter": 1
+  }
+ ],
+ "receipts": [
+  {
+   "when": "before anything",
+   "epoch": 39,
+   "spentBits": 0,
+   "wouldAfford": true,
+   "breakingSize": 2,
+   "credit": 0
+  },
+  {
+   "when": "after cancel A",
+   "epoch": 39,
+   "spentBits": 1,
+   "wouldAfford": false,
+   "breakingSize": 2,
+   "credit": 900000
+  },
+  {
+   "when": "after cancel B",
+   "epoch": 39,
+   "spentBits": 1,
+   "wouldAfford": false,
+   "breakingSize": 2,
+   "credit": 1800000
+  }
+ ],
+ "assertions": {
+  "everyStepSucceeded": true,
+  "oneEpochThroughout": true,
+  "firstCancelEmittedCancelled": true,
+  "firstCancelWasCharged": true,
+  "secondCancelEmittedNothing": true,
+  "secondCancelSucceeded": true,
+  "bothCancelsRefundedTheSameBond": true,
+  "spentWentZeroOneAndStopped": true,
+  "affordWentTrueFalseFalse": true,
+  "breakingSizeNeverMoved": true,
+  "theChargeWasOneBitOnRowFifteen": true
+ }
+}

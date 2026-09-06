@@ -2,9 +2,10 @@
 // VENDORED from hashgraph/asset-tokenization-studio, Apache-2.0.
 // Sources: packages/ats/contracts/contracts/facets/hold/IHoldTypes.sol
 //          packages/ats/contracts/contracts/facets/holdByPartition/IHoldByPartition.sol
-// Reduced to the seam call list, rows 5 to 7 and row 11. Adding a call here without
-// amending that list breaks the zero-fork contract, so row 11 was added to it in the
-// same change that added `getHoldForByPartition` below.
+// Reduced to the seam call list, rows 5 to 7, row 11 and row 12. Adding a call here
+// without amending that list breaks the zero-fork contract, so row 11 was added to it in
+// the same change that added `getHoldForByPartition` below, and row 12 in the change that
+// added `getHeldAmountForByPartition`.
 pragma solidity ^0.8.24;
 
 interface IHoldTypes {
@@ -80,4 +81,28 @@ interface IHoldByPartition {
             bytes memory operatorData_,
             uint8 thirdPartyType_
         );
+
+    /// @notice Row 12 of the call list. The encumbered half of a holder's
+    ///         position, and the only call that reports it.
+    /// @dev **The first entry on the seam call list that no contract of ours
+    ///      calls.** It is here so the exported ABI carries it, because the
+    ///      client needs it and `deployments/abi/` is what a client compiles
+    ///      against. Declared rather than vendored as a loose fragment for the
+    ///      reason the whole file exists: an interface generated from `out/` and
+    ///      an interface pasted into a frontend cannot be checked against each
+    ///      other, and the pasted one is the one that goes stale.
+    ///
+    ///      `balanceOfByPartition` **excludes** held units, so the two together
+    ///      are a holder's position and either alone is a number that reads like
+    ///      one and is not. Creating a hold moves units from the first to the
+    ///      second. Measured on chain 296: 2,000 free, 1,000 held.
+    ///
+    ///      Held is a sum over holds and not a list of them. `getHoldsIdForByPartition`
+    ///      would enumerate, and it is deliberately not on the call list: hold
+    ///      ids belong in the order ticket the client writes before it commits,
+    ///      beside the salt that has no other copy.
+    function getHeldAmountForByPartition(bytes32 partition, address tokenHolder)
+        external
+        view
+        returns (uint256 amount_);
 }

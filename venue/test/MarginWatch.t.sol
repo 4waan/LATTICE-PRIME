@@ -136,21 +136,54 @@ contract MarginWatchTest is Test, PolicyFixture {
         assertTrue(s.permitted, "withheld rather than refused: no revert coming");
     }
 
-    /// What the demo runs on. The deployed set publishes no budget here, so nothing is
-    /// withheld and the exposure is one adoption away rather than present.
-    function test_underTheDeployedSetNothingIsWithheld() public {
+    /// What the demo runs on, and it is the deployed set rather than a fixture.
+    ///
+    /// **This test used to assert the opposite.** The deployed parameter set
+    /// published ten ceilings and no budget, so `metered` was false, `spentBits`
+    /// was zero for every row and every epoch, `breakingSize` was zero and
+    /// `audible` was permanently true. Three of the five getters a receipt is
+    /// built on were constants and this suite recorded that as expected. The set
+    /// now publishes a derived budget on row 14, so the stream reading carries
+    /// information on the venue that is actually deployed, and the exposure is
+    /// present rather than one adoption away.
+    ///
+    /// `domainBits` is 3, the cardinality of `RepoVault.State`, and `budgetBits`
+    /// is 2, so the third position disclosure of an epoch is the one withheld.
+    /// `open` does not disclose on this row; `postMark` and `cure` do.
+    function test_underTheDeployedSetTheThirdCallIsWithheld() public {
         _open(ID);
 
         MarginWatch.Stream memory s = watcher.stream();
-        assertFalse(s.metered, "a ceiling, and no budget");
-        assertEq(s.budgetBits, 0);
-        assertEq(s.breakingSize, 0);
-        assertTrue(s.audible);
+        assertTrue(s.metered, "a ceiling and a budget");
+        assertEq(s.budgetBits, 2, "domainBits 3, so the largest binding bound is 2");
+        assertEq(s.breakingSize, 3, "the third call is the one withheld");
+        assertTrue(s.audible, "nothing spent yet");
 
         vm.recordLogs();
         _call(ID);
         assertEq(_countTopic(vm.getRecordedLogs(), MARGIN_CALLED), 1, "the event fires");
         assertTrue(watcher.alertOf(ID).called, "and agrees with the watcher");
+        assertEq(watcher.stream().spentBits, 1, "one bit of the two");
+
+        vm.prank(BORROWER);
+        vault.cure(ID); // the second, and the row is now at its bound
+
+        s = watcher.stream();
+        assertEq(s.spentBits, 2);
+        assertFalse(s.audible, "the next call succeeds in silence");
+        assertTrue(s.permitted, "withheld rather than refused: no revert coming");
+
+        // Rule A, on the deployed venue rather than in a fixture: the position
+        // moves and the log says nothing.
+        vm.recordLogs();
+        _call(ID);
+        assertEq(_countTopic(vm.getRecordedLogs(), MARGIN_CALLED), 0, "withheld");
+        assertEq(
+            uint8(vault.stateOf(ID)),
+            uint8(RepoVault.State.MARGIN_CALL),
+            "and the position is called regardless"
+        );
+        assertTrue(watcher.alertOf(ID).called, "which is what MarginWatch is for");
     }
 
     /// No event to miss because there is no event at all, under any budget.

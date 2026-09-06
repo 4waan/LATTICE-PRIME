@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
 
 /// @title PolicySets
 /// @notice The parameter matrix, in one place, because the deployment publishes
@@ -15,9 +16,10 @@ import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 /// `PolicyFixture` delegates to this library, so every assertion the suite makes
 /// about `asDeployed()` is an assertion about the set that went on chain.
 ///
-/// `withFloors` and `withBudgets` stay in the fixture. Neither is deployed, and
-/// the point of both is to exercise a bound the venue does not currently
-/// publish.
+/// `withFloors` stays in the fixture. It is not deployed, and the point of it is
+/// to exercise a bound the venue does not currently publish. The coalition
+/// budgets used to sit there too and now do not: `asDeployed` publishes three,
+/// and `budgetFor` below carries the derivation DP-01 asks for.
 library PolicySets {
     /// @dev Rows the reference-price waiver covers: order size, order price,
     ///      execution price, position risk. Not asset reference data, not
@@ -122,7 +124,125 @@ library PolicySets {
         // matrix allows and sooner. Neither ideal contains the other, making this
         // the venue's only incomparable divergence. Worth publishing rather than
         // dropping the feature because `pred` is the one granularity in the book
-        // a coalition budget can bind. See `meteredCancellations`.
+        // a coalition budget can bind, and one is published below.
         set[_rowAt(set, 15)].value = L.point(L.G_PRED, L.T_IMM);
+
+        // **The three coalition budgets, which used to live in the fixture.**
+        // Keys ascend: rows 0-17, floors 18-35, budgets 36-53, then the keccak
+        // keys, so a budget leaf goes between row 17 and the waiver mask.
+        // `budgetFor` carries the derivation, and `PolicySets.t.sol` asserts
+        // each of its three rules against the behaviour it produces.
+        ParameterRoot.Param[] memory withBudgets = new ParameterRoot.Param[](set.length + 3);
+        for (uint256 i = 0; i < set.length - 1; ++i) {
+            withBudgets[i] = set[i];
+        }
+        uint256 n = set.length - 1;
+        withBudgets[n] = ParameterRoot.Param(_budgetKey(13), budgetFor(13));
+        withBudgets[n + 1] = ParameterRoot.Param(_budgetKey(14), budgetFor(14));
+        withBudgets[n + 2] = ParameterRoot.Param(_budgetKey(15), budgetFor(15));
+        withBudgets[n + 3] = set[set.length - 1];
+        set = withBudgets;
+    }
+
+    // ------------------------------------------------------- the budgets
+
+    /// @notice `ParameterRoot.BUDGET_BASE + row`, spelled here so a set can be
+    ///         built without a deployed contract to ask.
+    /// @dev The offset is `ParameterRoot.KEY_CARD`, which is `2 * ROW_CARD`.
+    ///      `test_theBudgetKeysAreTheContractsBudgetKeys` pins the two together.
+    function _budgetKey(uint16 row) internal pure returns (bytes32) {
+        return bytes32(uint256(row) + 36);
+    }
+
+    /// @notice The published coalition budget for one metered row, packed the
+    ///         way `ParameterRoot.packBudget` packs it.
+    ///
+    /// @dev **Every number here is read off a deployed encoding. None is
+    ///      chosen.** That is the whole reason this function exists rather than
+    ///      four literals in a deploy script: `docs/who-gets-privacy.md` DP-01
+    ///      refuses a published constant with no derivation behind it, and the
+    ///      budgets sat in `PolicyFixture` for exactly that long. Three rules,
+    ///      applied uniformly, and each one is checkable against `src/`.
+    ///
+    ///      **Rule 1. `domainBits` is the width of the row's value domain as the
+    ///      venue itself encodes it.** The same rule `AxeGrid.RECTANGLE_BITS`
+    ///      already follows. Per row:
+    ///
+    ///      - Row 13, the match predicate. The row-13 channel carries a round's
+    ///        outcome, and `MatchingEngine` encodes that outcome in exactly four
+    ///        events: `RoundEmpty`, `RoundCrossed`, `PrintedCoarse`,
+    ///        `PrintWithheld`. Four values, so two bits.
+    ///      - Row 14, position risk. The row-14 channel carries a repo's state,
+    ///        and `RepoVault.State` has eight members. Eight values, three bits.
+    ///      - Row 15, the activity fingerprint. The row-15 channel carries which
+    ///        branch a committer took, and `OrderBook` partitions a commitment's
+    ///        life into exactly three disjoint windows: cancel, reveal, forfeit.
+    ///        `testFuzz_theWindowsPartitionTheCommitmentLifetime` is the proof
+    ///        that there is no fourth. Three values, two bits.
+    ///
+    ///      **Rule 2. `budgetBits` is `domainBits - 1`, the largest bound
+    ///      `DisclosureBudget.requireWellFormed` admits.** So the venue publishes
+    ///      the loosest bound the model allows rather than a number somebody
+    ///      liked, and the published budget cannot be read as the operator
+    ///      tuning the meter: any smaller value would be a choice, and there is
+    ///      no larger one. It still binds, which is the point. At `G_PRED`, one
+    ///      bit a disclosure, `breakingSize` is then exactly `domainBits`: the
+    ///      second cross of an epoch, the third position move, and the second
+    ///      cancellation are the ones that go quiet.
+    ///
+    ///      **Rule 3. `aggBits` and `bucketBits` are `domainBits`, because the
+    ///      venue defines no aggregate and no bucketing on any of these three
+    ///      rows.** `_bucket` exists on rows 3 and 5 and nowhere else, and
+    ///      nothing in `src/` ever charges these rows above `G_PRED`. A level
+    ///      with no defined coarsening has to cost the whole domain: pricing it
+    ///      lower would charge less than an undefined disclosure could leak,
+    ///      which is the unsound direction. Priced at the domain, it is
+    ///      unaffordable under Rule 2 by construction, which is the same
+    ///      statement as "the venue does not make it".
+    function budgetFor(uint16 row) internal pure returns (uint256) {
+        uint16 domainBits = domainBitsOf(row);
+        return _pack(
+            B.Row({
+                domainBits: domainBits,
+                aggBits: domainBits,
+                bucketBits: domainBits,
+                budgetBits: domainBits - 1
+            })
+        );
+    }
+
+    /// @notice Rule 1, alone, so a test can assert the derivation without
+    ///         unpacking anything.
+    function domainBitsOf(uint16 row) internal pure returns (uint16) {
+        // Four outcome events on the round: RoundEmpty, RoundCrossed,
+        // PrintedCoarse, PrintWithheld.
+        if (row == 13) return 2;
+        // `RepoVault.State`: NONE, PROPOSED, OPEN, MARGIN_CALL, MANUFACTURED,
+        // FAILING, DEFAULTED, CLOSED.
+        if (row == 14) return 3;
+        // Three windows: cancel, reveal, forfeit.
+        if (row == 15) return 2;
+        revert("row carries no published budget");
+    }
+
+    /// @notice The rows `asDeployed` publishes a budget on, in ascending order.
+    /// @dev The list, so a client and a test enumerate the same three rather
+    ///      than each keeping its own copy. Every other row the venue publishes
+    ///      sits at `(exact, imm)` and Rule B of `DisclosureMeter` makes a budget
+    ///      on it un-adoptable, which is the published ceiling restated rather
+    ///      than a gap.
+    function meteredRows() internal pure returns (uint16[] memory rows) {
+        rows = new uint16[](3);
+        rows[0] = 13;
+        rows[1] = 14;
+        rows[2] = 15;
+    }
+
+    /// @dev `ParameterRoot.packBudget`, repeated so a set can be built without a
+    ///      deployed contract. `test_theSetPacksWhatTheContractUnpacks` fails if
+    ///      the two ever disagree.
+    function _pack(B.Row memory r) internal pure returns (uint256) {
+        return uint256(r.domainBits) | (uint256(r.aggBits) << 16)
+            | (uint256(r.bucketBits) << 32) | (uint256(r.budgetBits) << 48);
     }
 }
