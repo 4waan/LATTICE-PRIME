@@ -1,0 +1,115 @@
+<title>Prove · SeamMe</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>/* Stored choice wins; with nothing stored, follow the operating system.
+   Inline and before the stylesheet so the page never paints the wrong theme. */
+document.documentElement.setAttribute("data-theme",
+  localStorage.getItem("seamme.theme")
+  || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
+<style>
+/*INLINE docs/venue.css*/
+/*INLINE app/app.css*/
+</style>
+
+<div id="block" class="blocked" hidden>
+  <h1>This is not the live venue.</h1>
+  <p></p>
+</div>
+
+<div id="app">
+<header class="mast">
+  <div class="mast-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html">SeamMe</a>
+      <span class="net-chip">TESTNET</span>
+    </div>
+    <nav class="nav" aria-label="Screens">
+      <a href="prove.html" aria-current="page">Prove</a>
+      <a href="trade.html">Trade</a>
+      <a href="position.html">Position</a>
+    </nav>
+    <div class="mast-end">
+      <div class="clocks" aria-label="Venue clocks">
+        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+      </div>
+      <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap page">
+  <ol class="flow" aria-label="Where you are in the flow">
+    <li class="here"><span aria-current="step"><b>01</b> Prove</span></li>
+    <li><a href="trade.html"><b>02</b> Trade</a></li>
+    <li><a href="position.html"><b>03</b> Position</a></li>
+  </ol>
+  <h1>Prove</h1>
+  <p class="lede">Load a proof, pin the seven public signals against the gate, then register for this epoch.</p>
+
+  <div class="banner" id="kyc-banner">
+    <p id="kyc-copy">Connect a wallet to read grant state. Grants expire at the KYC epoch boundary with no warning from the chain.</p>
+    <button type="button" class="primary" id="kyc-act">Connect or watch</button>
+  </div>
+
+  <div class="cols">
+    <section class="panel">
+      <div class="top"><h2>Proof</h2><span class="src">RegistrationGate.wouldAccept</span></div>
+      <div class="body">
+        <label class="drop" id="drop">
+          <input id="proof-file" type="file" accept="application/json,.json">
+          Drop a proof file, or click to choose one.
+          <span class="hint" style="display:block;margin-top:.4rem">Shape: <code>{proof[24], pub[7]}</code>, or a map keyed by address.</span>
+        </label>
+        <p class="note">This page does not prove in the browser. It runs <code>wouldAccept</code> before it spends verification gas.</p>
+        <div class="rowbtns">
+          <button type="button" id="check">Ask wouldAccept</button>
+          <button type="button" class="primary" id="register" disabled>Register</button>
+        </div>
+        <div class="status" id="prove-status" role="status"></div>
+        <div class="hint" id="uses" style="margin-top:.65rem"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="top"><h2>Gate pins</h2><span class="src">ZkKycRegistry</span></div>
+      <div class="body">
+        <ul class="readout">
+          <li><span class="k">minTier</span><span class="v" id="pol-tier">—</span></li>
+          <li><span class="k">jurisdictionMask</span><span class="v" id="pol-mask">—</span></li>
+          <li><span class="k">rootForEpoch</span><span class="v" id="pol-root">—</span></li>
+          <li><span class="k">next root</span><span class="v hint" id="pol-next">—</span></li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="top"><h2>Public signals</h2><span class="src">seven, pinned</span></div>
+    <div class="body">
+      <div class="pins-slot" id="pins">
+        <div class="empty">Load a proof above and the seven public signals land here, each
+          one shown beside the value the gate will insist on.</div>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+
+<button type="button" class="theme" id="theme">Dark</button>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<script>
+/*INLINE tools/keccak.mjs*/
+/*INLINE tools/units.mjs*/
+/*INLINE tools/commitment.mjs*/
+/*INLINE tools/lattice.mjs*/
+/*INLINE tools/client-bundle.mjs*/
+/*INLINE tools/venue-app.mjs*/
+Venue.boot("prove");
+</script>
