@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {Test, Vm} from "forge-std/Test.sol";
-import {AxeBoard, IRespondentRegistry, ISealedOrderBook} from "../src/market/AxeBoard.sol";
+import {AxeBoard} from "../src/market/AxeBoard.sol";
+import {IRespondentRegistry} from "../src/interfaces/IRespondentRegistry.sol";
+import {ISealedOrderBook} from "../src/interfaces/ISealedOrderBook.sol";
 import {AxeGrid} from "../src/market/AxeGrid.sol";
 import {OrderBook} from "../src/market/OrderBook.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";

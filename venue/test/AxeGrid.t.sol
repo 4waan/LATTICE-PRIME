@@ -3,7 +3,9 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {AxeGrid} from "../src/market/AxeGrid.sol";
-import {AxeBoard, ISealedOrderBook, IRespondentRegistry} from "../src/market/AxeBoard.sol";
+import {AxeBoard} from "../src/market/AxeBoard.sol";
+import {ISealedOrderBook} from "../src/interfaces/ISealedOrderBook.sol";
+import {IRespondentRegistry} from "../src/interfaces/IRespondentRegistry.sol";
 import {IDisclosurePolicy} from "../src/interfaces/IDisclosurePolicy.sol";
 
 contract AxeGridTest is Test {
@@ -38,9 +40,7 @@ contract AxeGridTest is Test {
             "rectangleCount"
         );
         assertEq(
-            AxeGrid.rectangleBits(),
-            vm.parseJsonUint(json, ".rectangleBits"),
-            "rectangleBits"
+            AxeGrid.rectangleBits(), vm.parseJsonUint(json, ".rectangleBits"), "rectangleBits"
         );
 
         uint256 n = 11;
@@ -74,17 +74,7 @@ contract AxeGridTest is Test {
     }
 
     function test_theSizeBandIsTheVenuesBucketFunction() public pure {
-        uint256[9] memory vs = [
-            uint256(0),
-            1,
-            9,
-            10,
-            99,
-            100,
-            10 ** 14,
-            10 ** 15 - 1,
-            10 ** 15
-        ];
+        uint256[9] memory vs = [uint256(0), 1, 9, 10, 99, 100, 10 ** 14, 10 ** 15 - 1, 10 ** 15];
         for (uint256 i = 0; i < vs.length; ++i) {
             assertEq(
                 uint256(AxeGrid.sizeBand(vs[i])),
@@ -144,8 +134,8 @@ contract AxeGridTest is Test {
                 uint8 bhi = AxeGrid.rateBand(rates[j]);
                 for (uint8 b = 0; b < AxeGrid.RATE_CARD; ++b) {
                     bool claimed = blo <= b && b <= bhi;
-                    bool actual =
-                        AxeGrid.rateBandLow(b) <= rates[j] && AxeGrid.rateBandHigh(b) >= rates[i];
+                    bool actual = AxeGrid.rateBandLow(b) <= rates[j]
+                        && AxeGrid.rateBandHigh(b) >= rates[i];
                     assertEq(claimed, actual, "rate band intersection");
                 }
             }
@@ -181,7 +171,9 @@ contract AxeGridTest is Test {
             assertEq(AxeGrid.sizeBand(lo), b, "low end of the band");
             if (b != AxeGrid.SIZE_CARD - 1) {
                 assertEq(AxeGrid.sizeBand(hi), b, "high end of the band");
-                assertEq(AxeGrid.sizeBand(hi + 1), b + 1, "the next band starts where this ends");
+                assertEq(
+                    AxeGrid.sizeBand(hi + 1), b + 1, "the next band starts where this ends"
+                );
             }
         }
     }
@@ -264,17 +256,18 @@ contract AxeGridTest is Test {
                 covered++;
             }
         }
-        uint256 want = uint256(rect.sizeHi - rect.sizeLo + 1) * uint256(rect.rateHi - rect.rateLo + 1);
+        uint256 want =
+            uint256(rect.sizeHi - rect.sizeLo + 1) * uint256(rect.rateHi - rect.rateLo + 1);
         assertEq(covered, want);
         assertTrue(AxeGrid.covers(rect, cellYes), "a lot and rate inside the box");
         assertFalse(AxeGrid.covers(rect, cellNo), "a lot below the box");
         assertFalse(AxeGrid.covers(rect, cellOtherClass), "the same box, another class");
     }
 
-    function testFuzz_valuesInsideTheAxeLandInACoveredCell(
-        uint256 lot,
-        uint256 rateBps
-    ) public view {
+    function testFuzz_valuesInsideTheAxeLandInACoveredCell(uint256 lot, uint256 rateBps)
+        public
+        view
+    {
         lot = bound(lot, SIZE_LO, SIZE_HI);
         rateBps = bound(rateBps, RATE_LO, RATE_HI);
         assertTrue(AxeGrid.covers(rect, AxeGrid.cellFor(CLASS, lot, rateBps)));
@@ -287,15 +280,20 @@ contract AxeGridTest is Test {
         assertTrue(AxeGrid.verify(root, cellYes, covered, salt, proof), "honest yes");
         assertFalse(AxeGrid.verify(root, cellYes, !covered, salt, proof), "flipped bit");
         assertFalse(
-            AxeGrid.verify(root, cellNo, covered, salt, proof), "the same opening at another cell"
+            AxeGrid.verify(root, cellNo, covered, salt, proof),
+            "the same opening at another cell"
         );
-        assertFalse(AxeGrid.verify(root, cellYes, covered, bytes32(uint256(1)), proof), "wrong salt");
+        assertFalse(
+            AxeGrid.verify(root, cellYes, covered, bytes32(uint256(1)), proof), "wrong salt"
+        );
 
         bytes32[] memory short = new bytes32[](AxeGrid.DEPTH - 1);
         assertFalse(AxeGrid.verify(root, cellYes, covered, salt, short), "short proof");
 
         bytes32[] memory broken = new bytes32[](AxeGrid.DEPTH);
-        for (uint256 i = 0; i < proof.length; ++i) broken[i] = proof[i];
+        for (uint256 i = 0; i < proof.length; ++i) {
+            broken[i] = proof[i];
+        }
         broken[0] = bytes32(uint256(1));
         assertFalse(AxeGrid.verify(root, cellYes, covered, salt, broken), "corrupt sibling");
 
@@ -303,7 +301,9 @@ contract AxeGridTest is Test {
             AxeGrid.openingOf(rect, MASTER, cellNo);
         assertFalse(noCover, "the no cell is outside the rectangle");
         assertTrue(AxeGrid.verify(root, cellNo, noCover, noSalt, noProof), "honest no");
-        assertFalse(AxeGrid.verify(root, cellNo, true, noSalt, noProof), "a no cannot be flipped to yes");
+        assertFalse(
+            AxeGrid.verify(root, cellNo, true, noSalt, noProof), "a no cannot be flipped to yes"
+        );
     }
 
     function test_theSaltStopsEnumeration() public view {
@@ -331,8 +331,8 @@ contract AxeGridTest is Test {
     }
 
     function test_aProofIsAlwaysElevenWords() public view {
-        (, , bytes32[] memory yesProof) = AxeGrid.openingOf(rect, MASTER, cellYes);
-        (, , bytes32[] memory noProof) = AxeGrid.openingOf(rect, MASTER, cellNo);
+        (,, bytes32[] memory yesProof) = AxeGrid.openingOf(rect, MASTER, cellYes);
+        (,, bytes32[] memory noProof) = AxeGrid.openingOf(rect, MASTER, cellNo);
         assertEq(yesProof.length, AxeGrid.DEPTH);
         assertEq(noProof.length, AxeGrid.DEPTH);
         assertEq(AxeGrid.DEPTH, 11);
@@ -367,11 +367,7 @@ contract OrderBookStub is ISealedOrderBook {
         commitBond = bond_;
     }
 
-    function commitments(bytes32)
-        external
-        pure
-        returns (address, uint64, bool, bool, uint256)
-    {
+    function commitments(bytes32) external pure returns (address, uint64, bool, bool, uint256) {
         return (address(0), 0, false, false, 0);
     }
 }
