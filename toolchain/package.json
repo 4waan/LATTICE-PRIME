@@ -10,9 +10,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@hiero-ledger/sdk": "^2.87.0",
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
     "ethers": "^6.17.0",
     "snarkjs": "^0.7.6"
+  },
+  "overrides": {
+    "protobufjs": "^8.8.0",
+    "ws": "^8.21.3"
   }
 }

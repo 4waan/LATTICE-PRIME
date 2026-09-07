@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat glass hcs-topic hcs-relay hcs-verify
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -85,17 +85,27 @@ census:
 #   lattice.mjs    -> the five DisclosureView getters  test/ReceiptVectors.t.sol
 #   units.mjs      -> CallAuction.notional and the market parameters
 #                                                test/UnitVectors.t.sol
+#   hcs.mjs        -> the topic record schema, the silence table, and the audit
+#                      that says a record matches the chain
+#                                                 deployments/abi/*.json
 vectors:
 	$(NODE) node tools/keccak.test.mjs
 	$(NODE) node tools/commitment.test.mjs
 	$(NODE) node tools/lattice.test.mjs
 	$(NODE) node tools/units.test.mjs
+	$(NODE) node tools/hcs.test.mjs
 
 # The two pages a trader reads: the commitment before signing `commit(bytes32)`,
 # and the disclosure receipt after acting.
 pages: vectors
 	$(NODE) node tools/gen-preview.mjs
 	$(NODE) node tools/gen-receipt.mjs
+
+# The WebGL glass layer behind the landing page. Isolated from `app` so a
+# missing install in glass/ cannot block rebuilding the screens.
+glass:
+	$(NODE) npm --prefix glass install
+	$(NODE) npm --prefix glass run build
 
 # The live client: a front door and the three screens behind it, written to
 # app/. Templates in, one self-contained HTML file per screen out. No bundler
@@ -129,6 +139,34 @@ beat:
 client:
 	bash script/live/export-abis.sh
 	$(NODE) node tools/gen-client.mjs
+
+# The disclosure record on a Hedera Consensus Service topic. `docs/HCS-SCOPE.md`
+# is the argument and `docs/HCS.md` is what was built.
+#
+# A contract in the Hedera EVM cannot create a topic, submit to one, or read one:
+# `0x167` is the only system contract that answers, and HIP-478 specifies an
+# oracle between the two services rather than a precompile. So the relay is the
+# specified pattern, not a workaround, and the verifier is what stops it being
+# taken on trust.
+#
+#   make hcs-topic          # once, ever. Costs about $0.01 and writes deployments/hcs.json
+#   make hcs-relay          # poll and publish until interrupted
+#   make hcs-relay MODE=dry # build every record, submit none
+#   make hcs-verify         # read the topic back and check it against the chain
+#
+# `hcs-topic` is deliberately not a prerequisite of anything: creating a second
+# topic would split the record in two and neither half would be the venue's.
+hcs-topic:
+	$(NODE) node tools/hcs-topic.mjs
+
+hcs-relay:
+	$(NODE) node tools/hcs-relay.mjs $(if $(filter dry,$(MODE)),--dry-run,$(if $(filter once,$(MODE)),--once,))
+
+# Writes the machine readable result next to the receipt beat's, and exits
+# non-zero on any mismatch, so this is safe to put in front of a release.
+hcs-verify: vectors
+	$(NODE) node tools/hcs-verify.mjs
+	$(NODE) node tools/hcs-verify.mjs --json > deployments/hcs-verify.json
 
 report:
 	@echo

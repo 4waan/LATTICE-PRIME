@@ -9,3 +9,8 @@ node_modules
 # Raw cast output from script/live/receipt-beat.sh. The assembled evidence is
 # deployments/receipt-beat.json, which is committed; this is the scaffolding.
 deployments/.receipt-beat/
+
+# Where the relay stopped, per contract. Runtime state, not evidence: every
+# published record carries tx and log index, so a consumer dedupes without it,
+# and tools/hcs-relay.mjs reads the topic back at startup anyway.
+deployments/hcs-cursor.json
