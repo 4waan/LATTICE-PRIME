@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat glass hcs-topic hcs-relay hcs-verify
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat hcs-topic hcs-relay hcs-verify
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -100,12 +100,6 @@ vectors:
 pages: vectors
 	$(NODE) node tools/gen-preview.mjs
 	$(NODE) node tools/gen-receipt.mjs
-
-# The WebGL glass layer behind the landing page. Isolated from `app` so a
-# missing install in glass/ cannot block rebuilding the screens.
-glass:
-	$(NODE) npm --prefix glass install
-	$(NODE) npm --prefix glass run build
 
 # The live client: a front door and the three screens behind it, written to
 # app/. Templates in, one self-contained HTML file per screen out. No bundler
