@@ -8,6 +8,7 @@ import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.s
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
@@ -75,7 +76,7 @@ contract Holds is IHoldByPartition {
     }
 }
 
-contract MarketAbuseTest is Test, PolicyFixture {
+contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -111,7 +112,16 @@ contract MarketAbuseTest is Test, PolicyFixture {
         feed = new StubOracle();
         holds = new Holds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
+        vault = new RepoVault(
+            holds,
+            ENGINE,
+            feed,
+            _deploySchedule(uint64(block.timestamp)),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
         vm.warp(1_760_000_000);
         vm.prank(BORROWER);
         vault.open(

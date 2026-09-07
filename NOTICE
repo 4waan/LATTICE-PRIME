@@ -93,6 +93,21 @@ venue/src/interfaces/IExchangeRate.sol
     venue/src/oracle/HederaRateFeed.sol is our thin adapter that presents it in
     AggregatorV3Interface's shape; the rate itself is Hedera's.
 
+venue/src/interfaces/ICashToken.sol
+
+    Not vendored, and listed here so the absence is on the record rather than
+    assumed. The three signatures are EIP-20's, which is a public specification
+    and not code under copyright, and the file is written here rather than
+    copied from any implementation: three functions out of the standard's
+    nine, no allowance model, and a header saying why.
+
+    What sits behind it on chain is the ERC-20 facade that Hedera Token Service
+    exposes for a fungible token. That facade is the network's and not ours, in
+    the same relationship as 0x168 above. The paying agent's charge is a
+    fractional custom fee on the token's own HTS fee schedule, collected by the
+    network during the transfer, so no fee arithmetic in this repository is
+    involved and none is claimed.
+
 forge-std
 
     Pinned as a git submodule, not vendored. MIT/Apache-2.0, copyright the

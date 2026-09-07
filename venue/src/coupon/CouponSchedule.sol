@@ -30,8 +30,8 @@ import {MerkleSet} from "../merkle/MerkleSet.sol";
 /// not a venue parameter; it is the issuer's promise, and an operator who could
 /// move a coupon date could move the date a payment became due on a bond
 /// somebody had already bought. The cost is stated: an instrument whose terms
-/// genuinely change — a restructuring, a schedule amended by a bondholder vote —
-/// is a new `CouponSchedule` and a redeployment, not an amendment. That is the
+/// genuinely change, whether by a restructuring or by a bondholder vote, is a
+/// new `CouponSchedule` and a redeployment, not an amendment. That is the
 /// correct shape for the rare case and the wrong shape for a frequent one, and
 /// nothing about this bond makes it frequent.
 ///
@@ -44,9 +44,9 @@ import {MerkleSet} from "../merkle/MerkleSet.sol";
 /// A budget withholds an event so that a sequence of events does not add up to
 /// somebody's position. Nothing here is a sequence. This contract emits exactly
 /// once, in its constructor, and everything that event carries is also a public
-/// getter on the same address the moment the transaction lands — a meter over it
-/// could only make the venue quieter about data an observer reads directly out
-/// of storage. Routing the constructor through `_emitUnder` would also make a
+/// getter on the same address the moment the transaction lands, so a meter over
+/// it could only make the venue quieter about data an observer reads directly
+/// out of storage. Routing the constructor through `_emitUnder` would also make a
 /// narrowed row 7 a schedule that cannot be deployed, which is a venue with no
 /// coupon calendar rather than a venue with a private one.
 ///
@@ -93,8 +93,8 @@ contract CouponSchedule is ICouponSchedule {
     ///      buys one thing and it is worth stating what: a client, `make
     ///      vectors` and this contract cannot disagree about what the calendar
     ///      is, because there is one 32-byte value all three compute and
-    ///      compare. It buys no privacy at all — every input is a public getter
-    ///      a line above — and this venue does not claim otherwise anywhere.
+    ///      compare. It buys no privacy at all, since every input is a public
+    ///      getter a line above, and this venue does not claim otherwise.
     bytes32 public immutable root;
 
     uint64[] private _dates;

@@ -10,6 +10,7 @@ import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
 import {DisclosureMeter} from "../src/lattice/DisclosureMeter.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 
 contract HoldsStub is IHoldByPartition {
@@ -79,7 +80,7 @@ contract HoldsStub is IHoldByPartition {
 /// meter are pinned here as tests rather than left as prose, in
 /// `test_theBooksExactRowsAreUnmeterableByConstruction` and
 /// `test_everyMeterableRowCarriesABudgetAndNoOtherRowDoes`.
-contract DisclosureMeterTest is Test, PolicyFixture {
+contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -111,9 +112,23 @@ contract DisclosureMeterTest is Test, PolicyFixture {
 
     function setUp() public {
         feed = new StubOracle();
+        // Live, with a reference rate. `noteCoupon` refuses a dark feed: a
+        // coupon accrued against a rate nobody published is an invented number,
+        // and this suite is about the meter and not about that refusal.
+        feed.setTerms(100e8, 425);
+        feed.setMark(1);
         _deployPolicy(withBudgets());
         holds = new HoldsStub();
-        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
+        vault = new RepoVault(
+            holds,
+            ENGINE,
+            feed,
+            _deploySchedule(uint64(block.timestamp)),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
         // A zero bond, so the derived cancel-fee floor is zero too and this
         // deployment says nothing about the fee policy. `OrderCancelTest` owns
         // that; this suite only needs a book that discloses.
@@ -137,11 +152,31 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         vault.open(id, LENDER, _terms());
     }
 
+    /// @dev Coupons are consumed in order across a suite, because `noteCoupon`
+    ///      is idempotent per coupon: noting index 0 twice on one repo is a
+    ///      no-op and would silently cost this suite a disclosure it was
+    ///      counting on. A counter is the smallest thing that keeps every call
+    ///      a real disclosure.
+    uint256 internal _nextCoupon;
+
+    /// @dev `noteCoupon` derives its amount now, so it needs a coupon that has
+    ///      actually fallen due and a feed with a reference rate on it. Warping
+    ///      here rather than in each test keeps the budget arithmetic below
+    ///      readable: `EpochClockMock` is ticked by hand and not by the block
+    ///      timestamp, so moving time forward cannot refill a budget underneath
+    ///      an assertion about it.
+    function _note(bytes32 id) internal returns (uint256 index) {
+        index = _nextCoupon++;
+        uint64 due = couponSchedule.dateOf(index);
+        if (block.timestamp < due) vm.warp(due);
+        vault.noteCoupon(id, index);
+    }
+
     /// @dev One coupon cycle costs two `(pred, imm)` disclosures on row 14:
     ///      `noteCoupon` moves `OPEN -> MANUFACTURED` and `payThrough` moves it
     ///      back. Used to spend the budget a bit at a time.
     function _cycle(bytes32 id) internal {
-        vault.noteCoupon(id, keccak256("coupon"));
+        _note(id);
         vm.prank(LENDER);
         vault.payThrough(id);
     }
@@ -271,12 +306,12 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         assertTrue(vault.wouldAfford(ROW_POSITION, L.G_PRED), "affordable at the start");
 
         // Three `(pred, imm)` disclosures fit in a budget of three bits.
-        vault.noteCoupon(id, keccak256("c1"));
+        _note(id);
         assertEq(vault.spentBits(ROW_POSITION, e), 1, "one bit");
         vm.prank(LENDER);
         vault.payThrough(id);
         assertEq(vault.spentBits(ROW_POSITION, e), 2, "two bits");
-        vault.noteCoupon(id, keccak256("c2"));
+        _note(id);
         assertEq(vault.spentBits(ROW_POSITION, e), 3, "three bits, spent");
 
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "the row is now quiet");
@@ -306,7 +341,7 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         bytes32 id = keccak256("r2");
         _open(id);
         _cycle(id);
-        vault.noteCoupon(id, keccak256("c"));
+        _note(id);
         vm.prank(LENDER);
         vault.payThrough(id); // withheld, budget already at three
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "row is spent");
@@ -330,7 +365,7 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         for (uint256 i = 0; i < 8; ++i) {
             if (vault.wouldAfford(ROW_POSITION, L.G_PRED)) admitted++;
             if (i % 2 == 0) {
-                vault.noteCoupon(id, keccak256(abi.encode(i)));
+                _note(id);
             } else {
                 vm.prank(LENDER);
                 vault.payThrough(id);
@@ -345,7 +380,7 @@ contract DisclosureMeterTest is Test, PolicyFixture {
         bytes32 id = keccak256("r4");
         _open(id);
         _cycle(id);
-        vault.noteCoupon(id, keccak256("c"));
+        _note(id);
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "spent in this epoch");
         clock.tick();
         assertTrue(vault.wouldAfford(ROW_POSITION, L.G_PRED), "and refilled in the next");
@@ -401,8 +436,8 @@ contract DisclosureMeterTest is Test, PolicyFixture {
 
         // Both repos reach MANUFACTURED. The first `payThrough` is charged, and
         // by then the row has one bit left; the second is withheld.
-        vault.noteCoupon(a, keccak256("ca")); // 1 bit
-        vault.noteCoupon(b, keccak256("cb")); // 2 bits
+        _note(a); // 1 bit
+        _note(b); // 2 bits
 
         uint256 g0 = gasleft();
         vm.prank(LENDER);

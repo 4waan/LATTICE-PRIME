@@ -110,3 +110,60 @@ to. `markToMarket` is permissionless and reads a price the feed already
 published, so the timing of a mark carries no information about who chose to
 look, and a mark that changes nothing emits nothing at all. The feed added a
 surface and closed one.
+
+## The coupon, where the surface is a date and not a price
+
+`CouponDistributor` pays money against a tree the issuer built, and the number
+an adversary would like to move here is not a price. It is **who was holding at
+the record date**.
+
+### What the issuer can do
+
+`declare` takes a record date and the contract bounds it on both sides: not in
+the future, because the mirror node cannot answer about balances nobody could
+have read yet, and not after the coupon's own due date. Between those it is the
+issuer's choice, and the choice is made *after* the balances exist. An issuer
+who wants a particular holder paid less can look for the instant inside that
+window where they held less, and declare against it.
+
+Three things bound it, and again none of them is secrecy.
+
+- **The date is published, at exact and immediate.** It is in the declaration,
+  on row 7, attributable to the issuer's own address, one epoch after nothing.
+  A record date picked to disinherit somebody is a record date anybody can read
+  and nobody has to guess at.
+- **The mirror node holds the other half.** Balances at any past instant are
+  public, so the tree is checkable against the ledger it claims to describe.
+  `test/CouponFixture.sol` is the reference builder precisely so a third party
+  can rebuild the root and get the same answer or a different one.
+- **The pool bounds the tree.** A tree whose leaves sum past what was funded
+  runs out inside its own coupon rather than reaching another declaration's
+  money. The loss falls on the last claimant of the same coupon, which is the
+  place it can still be seen and argued about.
+
+### The part that is not bounded, and is stated
+
+**The contract verifies membership, not correctness.** `claim` proves a leaf is
+in the root. Nothing on chain requires the root to agree with the balances at
+the record date, because nothing on chain can read a past balance. A tree is a
+claim the issuer makes by declaring it, checkable by anyone against the mirror
+node and enforced by nothing here. That is the same disposition the panel's open
+submissions carry above: recorded as owed rather than defended.
+
+**The residue is the issuer's after the window**, so an issuer is better off
+when a holder does not claim. What takes the edge off it is that `claim` is
+permissionless and pays the leaf's holder rather than the caller: a holder who
+never touches the chain can be paid by anybody who has the tree, and the tree is
+public. Copying somebody's claim out of the mempool costs the copier gas and
+sends the money where it was already going.
+
+### The inversion, again
+
+Two decisions elsewhere in this build removed surfaces here rather than adding
+them. The paying agent's fee is a fractional custom fee on the token itself, so
+there is no fee arithmetic in this repository to move and no rounding to farm;
+the charge either is on the token's HTS fee schedule or it is not. And `claim`
+is deliberately not metered, which is what stops the coalition budget from
+becoming a weapon: on a metered payment path an adversary could spend a row's
+budget on unrelated traffic and stop a coupon from being collected for a reason
+that has nothing to do with the bond. `test_aCouponPaysWhateverTheMatrixSays`.

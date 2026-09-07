@@ -29,16 +29,18 @@ import {MerkleSet} from "../merkle/MerkleSet.sol";
 ///
 ///     cash.balanceOf(address(this))  >=  committed
 ///
-/// `test_theContractNeverOwesMoreThanItHolds` is that claim, as an invariant
-/// suite rather than as a unit test, because it is a statement about every
-/// reachable state and not about one sequence.
+/// `invariant_theContractNeverOwesMoreThanItHolds` is that claim, and it is an
+/// invariant rather than a unit test because it is a statement about every
+/// reachable state and not about one sequence. Every unit test in
+/// `test/CouponDistributor.t.sol` that moves money asserts it as well, at the
+/// end of the sequence it wrote.
 ///
 /// ## The entitlement tree
 ///
 /// Keccak, over `(holder, amount)` pairs, built off chain from the mirror node
-/// at the record date. It is `MerkleSet` — the same leaf shape, the same node
-/// rule, the same odd-node promotion `ParameterRoot` publishes its parameter set
-/// under — because a repository with two hand-written merkle trees has two
+/// at the record date. It is `MerkleSet`, the same leaf shape, the same node
+/// rule and the same odd-node promotion `ParameterRoot` publishes its parameter
+/// set under, because a repository with two hand-written merkle trees has two
 /// answers to "what is the root of this set" and no way to notice when they
 /// disagree.
 ///
@@ -75,7 +77,7 @@ import {MerkleSet} from "../merkle/MerkleSet.sol";
 /// `declare` routes through `DisclosureView._emitUnder` at row 7, following
 /// `PrimeOracle.finalize`: a ceiling breach reverts, and a venue that may not
 /// publish a corporate action is a venue that must not declare one. Nothing is
-/// stranded by that refusal — the cash is still uncommitted and
+/// stranded by that refusal, because the cash is still uncommitted and
 /// `sweepUncommitted` returns it.
 ///
 /// `claim` and `sweep` do not, and the omission is the design, in the register
@@ -133,8 +135,8 @@ contract CouponDistributor is DisclosureView {
     ///      disagree. Reading it live off the HTS system contract at `0x167` was
     ///      the alternative and it was not taken, because that read has to be
     ///      total for `reconcile`'s sake and a total read of a system contract
-    ///      that does not exist on every chain answers zero — which is a tariff
-    ///      line that reports no charge on precisely the chains where nobody can
+    ///      that does not exist on every chain answers zero, which is a tariff
+    ///      line reporting no charge on precisely the chains where nobody can
     ///      check it.
     uint256 public immutable payingAgentFeeBps;
 
@@ -206,7 +208,12 @@ contract CouponDistributor is DisclosureView {
     error BadProof(uint256 index, address holder);
     error ExceedsRemaining(uint256 index, uint256 amount, uint256 remaining);
     error ClaimWindowOpen(uint64 until);
-    error ClaimWindowClosed(uint64 at);
+    /// @dev `closesAt` and not `at`. `ethers` decodes a custom error's arguments
+    ///      into an array-like `Result`, so a member called `at` resolves to
+    ///      `Array.prototype.at` and a client reads a function where a timestamp
+    ///      should be. `tools/gen-app.mjs` refuses to bundle an ABI with a
+    ///      colliding member name, and it refused this one.
+    error ClaimWindowClosed(uint64 closesAt);
     error AlreadySwept(uint256 index);
     error NothingUncommitted();
     error TransferFailed(address to, uint256 amount);
@@ -336,17 +343,16 @@ contract CouponDistributor is DisclosureView {
         if (block.timestamp >= closesAt) revert ClaimWindowClosed(closesAt);
         if (claimed[index][holder]) revert AlreadyClaimed(index, holder);
 
-        bytes32 leaf = MerkleSet.leafOf(
-            DOMAIN_LEAF, index, bytes32(uint256(uint160(holder))), amount
-        );
+        bytes32 leaf =
+            MerkleSet.leafOf(DOMAIN_LEAF, index, bytes32(uint256(uint160(holder))), amount);
         if (!MerkleSet.verify(d.root, DOMAIN_NODE, leaf, position, d.holders, proof)) {
             revert BadProof(index, holder);
         }
 
         // The pool bounds the tree, not the other way round. A tree whose leaves
-        // sum past `total` — a mis-built one, or a malicious one signed off by an
-        // issuer who then wanted a second coupon's money — runs out here, on this
-        // coupon, rather than reaching into another declaration's funds.
+        // sum past `total`, whether mis-built or signed off by an issuer who
+        // then wanted a second coupon's money, runs out here, on this coupon,
+        // rather than reaching into another declaration's funds.
         uint256 left = d.remaining;
         if (amount > left) revert ExceedsRemaining(index, amount, left);
 
@@ -385,8 +391,8 @@ contract CouponDistributor is DisclosureView {
     /// @notice Return cash that was never committed to a declaration.
     /// @dev **The valve that stops a refused `declare` stranding a pool.** The
     ///      issuer funds this contract before declaring, and `declare` can
-    ///      refuse afterwards — a narrowed row 7 takes the ceiling out from
-    ///      under it, the same way one takes `PrimeOracle` dark. Without this,
+    ///      refuse afterwards, because a narrowed row 7 takes the ceiling out
+    ///      from under it the same way one takes `PrimeOracle` dark. Without it,
     ///      the cash would sit here with no declaration to sweep against. It
     ///      also covers the ordinary accident of somebody sending the token to
     ///      this address.
@@ -433,7 +439,7 @@ contract CouponDistributor is DisclosureView {
     /// @notice Whether a proof would be accepted, without sending anything.
     /// @dev A view for the reason `RepoVault.previewMark` is one: the
     ///      alternative for a client is to send a transaction to find out
-    ///      whether it needed to. It discloses nothing — every input is already
+    ///      whether it needed to. It discloses nothing: every input is already
     ///      in the caller's hand and the root is published.
     function wouldAccept(
         uint256 index,
@@ -444,9 +450,8 @@ contract CouponDistributor is DisclosureView {
     ) external view returns (bool) {
         Declaration storage d = _declared[index];
         if (d.declaredAt == 0 || claimed[index][holder] || amount > d.remaining) return false;
-        bytes32 leaf = MerkleSet.leafOf(
-            DOMAIN_LEAF, index, bytes32(uint256(uint160(holder))), amount
-        );
+        bytes32 leaf =
+            MerkleSet.leafOf(DOMAIN_LEAF, index, bytes32(uint256(uint160(holder))), amount);
         return MerkleSet.verify(d.root, DOMAIN_NODE, leaf, position, d.holders, proof);
     }
 
@@ -457,8 +462,8 @@ contract CouponDistributor is DisclosureView {
     ///      amount transferred, so the recipient receives less and this
     ///      contract's balance falls by exactly `amount`. A token whose fee
     ///      schedule sets `netOfTransfers` charges the *sender* on top instead,
-    ///      and then every payment costs this contract more than it committed —
-    ///      the invariant in the class comment stops holding, and the shortfall
+    ///      and then every payment costs this contract more than it committed.
+    ///      The invariant in the class comment stops holding, and the shortfall
     ///      surfaces at the last claimant of the last coupon, which is the
     ///      furthest possible point from the fee schedule that caused it.
     ///

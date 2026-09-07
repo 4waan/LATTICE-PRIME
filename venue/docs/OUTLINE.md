@@ -16,6 +16,15 @@
 - Commit–reveal book, cancel fee, uniform-price call auction, hold settlement
 - Policy stack: `Regime`, `ParameterRoot`, `VolumeCap`, `TradingHalt`, `EpochClock`
 - Axe board (tested, not deployed — needs a real `IRespondentRegistry` owner)
+- Coupon schedule and distributor: dates, day count and spread fixed at
+  issuance; entitlements a keccak merkle tree over `(holder, amount)` on the
+  same `MerkleSet` machinery `ParameterRoot` uses, so the repo has one merkle
+  discipline. Funded before declared, claimed once, swept after the window.
+  `RepoVault.noteCoupon` derives the commitment instead of taking a caller's
+  word for it, and `payThrough` moves a lender's coupon to the borrower
+- The paying agent's fee: an HTS fractional custom fee, published as a tariff
+  line and reconciled against the token's live fee schedule rather than charged
+  here. `docs/RULEBOOK.md` §8
 - Published rulebook (`docs/RULEBOOK.md`, hashed on chain)
 - Trader pages: `commit-preview.html`, `disclosure-receipt.html`
 - Live screens: landing, prove, trade, position, venue, repo (`make app`)
@@ -26,7 +35,6 @@ Hedera EVM `msg.value` is **tinybars** (1 HBAR = 1e8). JSON-RPC `value` is **wei
 
 ## Not built
 
-- Coupon schedule and distributor (the feed's first consumer, `docs/BUILD-REMAINING.md`)
 - Native scheduled settlement at `0x16b` (spiked, not in `src/`)
 - Commit-reveal on oracle submissions: the panel answers in the open, so a
   publisher who answers last has seen the others. Bounded by the median and the

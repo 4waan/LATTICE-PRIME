@@ -39,4 +39,12 @@ abstract contract RepoVaultBase {
     /// @dev `postMark` is the degradation path and nothing else. See its header.
     error FeedIsLive();
     error NoFeed();
+    error NoSchedule();
+    /// @dev A coupon this repo was not open across. See `RepoVault.noteCoupon`.
+    error CouponOutsideTerm(uint256 index, uint64 due, uint64 openedAt, uint64 maturity);
+    error CouponNotYetDue(uint256 index, uint64 due);
+    /// @dev The mirror of `FeedIsLive`. `postMark` opens when the feed is dark;
+    ///      `noteCoupon` closes, because a coupon rate read off a dark feed is a
+    ///      number nobody published.
+    error FeedIsDark();
 }

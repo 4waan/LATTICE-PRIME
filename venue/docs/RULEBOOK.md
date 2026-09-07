@@ -250,15 +250,19 @@ of *nobody* is retained by the contract and no path pays it out.
 | `axe.probe.fee` | probing a cell | participant | counterparty | no | `AxeBoard.probeFee` |
 | `axe.probe.slash` | failing to answer a probe | participant | counterparty | no | `AxeBoard.axeBond` |
 | `repo.fail.penalty` | a close leg that did not settle | participant | counterparty | no | `RepoVault.penaltyRate` |
+| `coupon.paying.agent` | claiming a coupon | participant | counterparty | no | `CouponDistributor.payingAgentFeeBps` |
 | `venue.take` | nothing | participant | operator | no | none, and zero |
 
-`repo.fail.penalty` is a **rate** and not an amount: hundredths of a basis
-point per day, charged on the cash that failed to arrive, from the intended
-settlement date through to actual settlement. The unit is forced by the
-regulation, which writes its rates to one decimal place of a basis point, so in
-basis points the two bond rates would both be zero.
+`repo.fail.penalty` and `coupon.paying.agent` are **rates** and not amounts.
+`repo.fail.penalty` is hundredths of a basis point per day, charged on the cash
+that failed to arrive, from the intended settlement date through to actual
+settlement. The unit is forced by the regulation, which writes its rates to one
+decimal place of a basis point, so in basis points the two bond rates would both
+be zero. `coupon.paying.agent` is plain basis points of one claim, and it is not
+charged by this repository at all: it is a fractional custom fee on the cash
+token's own HTS fee schedule, and HTS collects it inside the transfer.
 
-Four derivations, because a charge without one is a constant nobody can check:
+Five derivations, because a charge without one is a constant nobody can check:
 
 - **`book.commit.cancel`** is `ceil(B * D / (D + W))` where `B` is the commit
   bond, `D` the reveal delay and `W` the reveal window. A phantom order can be
@@ -292,6 +296,33 @@ Four derivations, because a charge without one is a constant nobody can check:
   this page can check rather than assert: the line names the counterparty as
   payee, so `netOperatorTake` cannot include it. `test_theFailPenaltyIsNotVenueRevenue`.
 
+- **`coupon.paying.agent`** is the one line whose mechanism is not in this
+  repository, and the derivation is of the disposition rather than of the rate.
+  The charge is a fractional custom fee on the cash token's HTS fee schedule,
+  collected inside the transfer that pays a claim, and only HTS can set or move
+  it. `CouponDistributor.payingAgentFeeBps` is what the deployment declared that
+  fee to be, so that `reconcile` has a `(source, reader)` pair to read back and
+  the line is not a constant with nothing behind it. `make client` reads the
+  token's actual fees off the mirror node and fails if the two disagree, which is
+  where a false number is caught.
+
+  The payer is the participant because an ordinary fractional fee is deducted
+  from the amount transferred: the holder receives the coupon less the fee. A fee
+  schedule with `netOfTransfers` set would invert that and charge the distributor
+  on top, and the shortfall would surface at the last claimant of the last
+  coupon, furthest from the schedule that caused it. `_pay` measures its own
+  balance either side of the transfer and refuses on the first claim, naming the
+  fee. `test_theOrdinaryFeeComesOutOfTheCouponAndNotOutOfThePool` and
+  `test_aFeeChargedOnTopIsRefusedRatherThanAbsorbed`.
+
+  The payee is the **counterparty** and not the operator. A coupon is an
+  obligation between the issuer and the holder, and the venue is not a party to
+  it: the paying agent is the issuer's agent, and the venue neither sets the rate
+  nor receives it. So this line contributes nothing to `netOperatorTake`, and §9
+  holds. `test_thePayingAgentIsNotVenueRevenue`. The **rate** is not derived, on
+  the same terms as the Article 7 rate above: it is whatever the issuer's agent
+  charges, published here rather than asserted to be fair.
+
 ## 9. Venue revenue, and the open question that makes it zero
 
 **`venue.take` is zero, and `netOperatorTake` returns zero across the whole
@@ -316,6 +347,28 @@ epoch rather than per trade; or the relay funded as public infrastructure that
 never recovers. Each reopens something. A fee schedule written to close the gap
 this week would be a number with no derivation, which is the defect this venue
 refuses everywhere else.
+
+**The coupon leg puts a second HTS asset in the venue, and its fractional fee
+is on.** Point 3 above rests on there being one cash token with the fee off, and
+that premise now needs a boundary rather than a repair. The no-leak result is
+about the trading path: a fee inside the settled asset changes the amount a
+counterparty receives, and because fee arithmetic sits outside the circuit,
+nothing in the proof pins it, so the received amount leaks the schedule that
+produced it. The coupon path has none of those parts. There is no circuit, no
+proof, and no order book on it. An entitlement is declared against a record date
+and a public root, a claim is a merkle proof against that root, and the amount a
+holder is owed is already public in the tree. A fee taken out of a payment whose
+size anyone can already read discloses nothing that the root did not.
+
+What the second asset does cost is the simplicity of the sentence, so the
+boundary is stated rather than left implied: **the cash token used for repo
+settlement still has to carry no fractional fee, and the coupon cash token may.**
+They are permitted to be the same token only when that token's fee is off.
+`CouponDistributor._pay` refuses a `netOfTransfers` schedule outright, which is
+the one fee disposition that would make a coupon payment cost the distributor
+more than it committed, and `make client` reconciles the declared rate against
+the token's live fee schedule. Neither check is the no-leak argument. They are
+the reason the coupon leg cannot quietly become one.
 
 **A rebate would appear here.** MiFIR permits venue rebates only under an
 approved and public tariff structure. A rebate is a line with the operator as
@@ -347,6 +400,17 @@ cannot be published truthfully.
 - No venue revenue, and no derivation for one. Section 9.
 - The settlement-fail penalty rate is published, not derived. The shape of the
   charge is derived; the number is owed. Section 8.
+- The paying agent's rate is published, not derived, and it is not charged by
+  this repository at all. HTS collects it on the cash token's own fee schedule,
+  and the tariff line is a claim about what the deployment declared rather than
+  about what any contract here will take. Section 8.
+- An entitlement root is public, and mirror-node balances make the holdings
+  behind it reconstructible. Declaring a coupon publishes a commitment to who is
+  owed what at the record date, and although the tree itself discloses no
+  address, an observer who already reads balances off the mirror node can test
+  candidate leaves against the root. Row 14's `pred` ceiling constrains what this
+  venue emits; it does not constrain what the ledger already shows.
+  `docs/HCS.md`.
 - A settlement day is 24 hours here and business days in the regulation, because
   the contract has no calendar. It over-counts across a weekend, in the
   direction that favours the party that was failed against.

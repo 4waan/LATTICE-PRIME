@@ -8,6 +8,7 @@ import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 import {RepoVaultBase} from "./RepoVaultBase.sol";
 import {DisclosureView} from "../lattice/DisclosureView.sol";
 import {IPrimeOracle} from "../interfaces/IPrimeOracle.sol";
+import {ICouponSchedule} from "../interfaces/ICouponSchedule.sol";
 
 /// @title RepoVault
 /// @notice Tokenised repo on ATS holds. Instrument only; eligibility is ATS's.
@@ -86,6 +87,19 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     ///      contract was built to end.
     IPrimeOracle public immutable oracle;
 
+    /// @notice The bond's coupon calendar. `src/coupon/CouponSchedule.sol`.
+    /// @dev Immutable and required, for the reason `oracle` is. A vault
+    ///      constructed without one is a vault whose only account of when a
+    ///      coupon fell due is whatever the caller of `noteCoupon` said, which
+    ///      is the arrangement this seat was added to end.
+    ///
+    ///      It is a seat and not a governed one, which is the single place this
+    ///      venue does not reach for its own propose-and-adopt idiom. An
+    ///      operator who could reseat the calendar could move the date a payment
+    ///      became due on a bond somebody had already bought.
+    ///      `CouponSchedule`'s header carries the whole argument and the cost.
+    ICouponSchedule public immutable schedule;
+
     /// @notice How long a borrower has to cure a call raised by `markToMarket`.
     /// @dev A published constant rather than an argument, because `markToMarket`
     ///      is permissionless. If the caller chose the window, anyone could call
@@ -113,10 +127,23 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     ///      memory keeps the ABI stable if a field is added.
     mapping(bytes32 => Repo) internal repos;
 
+    /// @notice Which coupons this repo has already had noted against it.
+    /// @dev A mapping and not a field on `Repo`, so `repo(id)` keeps the shape every
+    ///      client and `tools/venue-obs.mjs` already decode. It is what makes
+    ///      `noteCoupon` idempotent per coupon rather than per repo, which is the
+    ///      property a scheduled call needs. See there.
+    mapping(bytes32 => mapping(uint256 => bool)) public notedCoupon;
+
+    /// @dev Domain tag on the manufactured payment commitment. Separate from every tree
+    ///      tag in `src/merkle`, because a commitment and a merkle leaf that shared one
+    ///      would be candidate preimages for each other.
+    bytes32 public constant DOMAIN_MANUFACTURED = keccak256("hedera2026.repo.manufactured.v1");
+
     constructor(
         IHoldByPartition security_,
         address marginEngine_,
         IPrimeOracle oracle_,
+        ICouponSchedule schedule_,
         IDisclosurePolicy policy_,
         uint256 penaltyRate_,
         uint64 failGrace_,
@@ -126,9 +153,11 @@ contract RepoVault is RepoVaultBase, DisclosureView {
             revert RepoMath.PenaltyRateTooLarge(penaltyRate_);
         }
         if (address(oracle_) == address(0)) revert NoFeed();
+        if (address(schedule_) == address(0)) revert NoSchedule();
         security = security_;
         marginEngine = marginEngine_;
         oracle = oracle_;
+        schedule = schedule_;
         penaltyRate = penaltyRate_;
         failGrace = failGrace_;
         cureWindow = cureWindow_;
@@ -430,18 +459,118 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     ///      the lender and is not economically entitled to it. Changing who ATS pays would
     ///      mean forking ATS, which is ruled out, so the venue records the obligation and
     ///      settles it as a transfer at T6.
-    /// @param commitment A commitment to the amount, not the amount. Only one coupon may
-    ///        be outstanding: a second before pay-through is refused by the state check
-    ///        rather than silently summed.
-    function noteCoupon(bytes32 id, bytes32 commitment) external {
+    ///
+    ///      **This used to take the commitment as an argument, from any caller, with no
+    ///      check that a coupon had fallen due at all.** The scorecard read that as
+    ///      "coupons only, and only as a commitment"; the sharper reading is that the
+    ///      commitment was *asserted rather than derived*. Nothing on chain connected it
+    ///      to a coupon date, to a rate, or to the bond. Four reads now stand behind it
+    ///      and not one of them is the caller's:
+    ///
+    ///      - the **date** comes from `CouponSchedule`, fixed at issuance;
+    ///      - the **period** comes from the same place, as `accrualStart`, so the caller
+    ///        cannot pick a longer one;
+    ///      - the **rate** is `PrimeOracle`'s published reference plus the schedule's
+    ///        spread, which is what makes this bond's `"kind": "bond, variable rate"` a
+    ///        property of the contract rather than of the deployment record;
+    ///      - the **lot** is this vault's own `collateralAmount`, written at `open`.
+    ///
+    ///      **The disclosure does not widen.** The event is the one it always was, a
+    ///      predicate under row 14, and the amount stays out of it for the reason it
+    ///      always did. What changed is behind the event, not in front of it.
+    ///
+    ///      **A dark feed refuses, and this is the opposite door from `postMark`.** The
+    ///      manual mark seat opens when the feed goes dark, because a repo book that
+    ///      cannot be marked is a frozen book. A coupon is not like that: there is no
+    ///      discretionary substitute for a published reference rate, and a coupon accrued
+    ///      against a rate nobody published is an invented number. So `postMark` requires
+    ///      `stale()` and this requires the negation of `ourLegStale()`: our own leg,
+    ///      not the composite, because a coupon is denominated in the cash asset and
+    ///      never passes through the HBAR conversion `markPerUnitTinybar` performs.
+    ///
+    ///      **Idempotent in the coupon, on purpose.** A second call for an index this
+    ///      repo has already noted returns rather than reverts. That is what a scheduled
+    ///      call needs: `docs/BUILD-REMAINING.md` §3 puts `noteCoupon` behind a
+    ///      HIP-1215 `scheduleCall` at each coupon date, and a scheduled call that fires
+    ///      after somebody already made it by hand must be a no-op and not a failure.
+    ///      Only one coupon may be *outstanding*, which is still the state check's job:
+    ///      a second, different coupon before pay-through is refused rather than silently
+    ///      summed.
+    /// @param index The coupon, as `CouponSchedule` numbers it.
+    /// @return owed The obligation, returned to the caller and written nowhere in the
+    ///         clear. Zero when the call was a no-op.
+    function noteCoupon(bytes32 id, uint256 index) external returns (uint256 owed) {
+        // Before the state check, so the no-op path is reachable from a repo that has
+        // since moved on. A scheduled call is not entitled to know what happened to the
+        // repo between being scheduled and firing.
+        if (notedCoupon[id][index]) return 0;
+
         Repo storage r = repos[id];
         _require(r.state == State.OPEN, r.state, State.OPEN);
-        if (commitment == bytes32(0)) revert NothingOwed();
+
+        uint64 due = schedule.dateOf(index);
+        // The coupon has to have fallen due *inside this repo's term*. A coupon before
+        // T1 was the borrower's own and a coupon after maturity is nobody's business of
+        // this vault's, and neither is a manufactured payment: the whole obligation
+        // exists because title sat with the lender when the issuer paid.
+        if (due < r.openedAt || due > r.maturity) {
+            revert CouponOutsideTerm(index, due, r.openedAt, r.maturity);
+        }
+        if (block.timestamp < due) revert CouponNotYetDue(index, due);
+
+        if (oracle.ourLegStale()) revert FeedIsDark();
+        (, uint64 refRateBps,,) = oracle.latest();
+        owed = schedule.amountFor(index, refRateBps, r.collateralAmount);
+        if (owed == 0) revert NothingOwed();
+
+        notedCoupon[id][index] = true;
+        bytes32 commitment = commitmentOf(id, index, owed);
         r.manufacturedCommitment = commitment;
         r.state = State.MANUFACTURED;
         if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit CouponObserved(id, commitment);
         }
+    }
+
+    /// @notice What `noteCoupon` would find, without sending anything.
+    /// @dev A view and never an event, on `previewMark`'s argument, and total for the
+    ///      same reason: a dark feed answers `dark` rather than reverting, so the Repo
+    ///      screen can say the feed is down instead of failing to render.
+    /// @param dark The venue's own leg is stale, so there is no rate to accrue against.
+    function couponOwed(bytes32 id, uint256 index)
+        external
+        view
+        returns (uint256 owed, bool dark, bool noted)
+    {
+        noted = notedCoupon[id][index];
+        if (oracle.ourLegStale()) return (0, true, noted);
+        Repo storage r = repos[id];
+        (, uint64 refRateBps,,) = oracle.latest();
+        owed = schedule.amountFor(index, refRateBps, r.collateralAmount);
+    }
+
+    /// @notice The commitment `noteCoupon` writes. Public and pure so the client and this
+    ///         contract cannot disagree about one.
+    /// @dev **This hides less than a commitment usually does, and the honest version of
+    ///      saying so is to say it here rather than to let the word carry the claim.**
+    ///      Every input is public: `id` is in the log, `index` is instrument data, and
+    ///      `owed` is a product of four published reads. Anyone who wants the amount can
+    ///      recompute it; nobody has to invert anything.
+    ///
+    ///      It stays a commitment for two reasons that are worth more than the hiding.
+    ///      Writing the amount into storage in the clear would be strictly worse, since
+    ///      one `repo(id)` would make the position fall out with no arithmetic at all.
+    ///      And the field, the event and the client that reads both are already this
+    ///      shape, so the change that mattered lands without a client having to move.
+    ///      `markCommitment` carries the same limit under `markToMarket`'s header, and
+    ///      that one was answered by not storing the number; here the number is an
+    ///      obligation between two named parties and somebody has to hold it.
+    function commitmentOf(bytes32 id, uint256 index, uint256 amount)
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(DOMAIN_MANUFACTURED, id, index, amount));
     }
 
     /// @notice `MANUFACTURED -> OPEN`. The lender pays through.

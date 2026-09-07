@@ -13,10 +13,10 @@ library CouponMath {
     /// @dev A bond that does not say how its coupon accrues is not a specified
     ///      instrument, so the field exists and `CouponSchedule` publishes it.
     ///      It has one legal value. 30/360 is the other basis this instrument
-    ///      class commonly uses and it needs a civil calendar — year, month and
+    ///      class commonly uses and it needs a civil calendar: year, month and
     ///      day decomposed out of a Unix timestamp, with the end-of-month
-    ///      conventions that go with it — which is a date library this venue
-    ///      does not have and would have to test before trusting. Refusing the
+    ///      conventions that go with it. That is a date library this venue does
+    ///      not have and would have to test before trusting. Refusing the
     ///      value at construction is the honest version of not having it;
     ///      accepting it and accruing ACT/365 underneath would be a schedule
     ///      that lies about its own terms.
@@ -56,9 +56,9 @@ library CouponMath {
     ///      borrower owes and rounds so the borrower never repays less than the
     ///      contract says. This prices what an issuer owes out of a pool it
     ///      funded in advance, and rounding up there means a set of entitlements
-    ///      whose sum can exceed what was funded — a rounding choice turning
-    ///      into a payment that fails at the last claimant. Down can never
-    ///      overspend the pool.
+    ///      whose sum can exceed what was funded, which is a rounding choice
+    ///      turning into a payment that fails at the last claimant. Down can
+    ///      never overspend the pool.
     ///
     ///      The multiplication order is deliberate: every factor first, one
     ///      division last. Dividing early throws away the fraction that the

@@ -7,6 +7,7 @@ import {RepoVault} from "../src/repo/RepoVault.sol";
 import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {MockHolds} from "./Repo.t.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 
 /// @title RepoFailTest
@@ -20,7 +21,7 @@ import {StubOracle} from "./OracleFixture.sol";
 /// and the lender had no remedy unless the collateral happened to move.
 /// `test_theOldMachineHadNoRouteOutOfAFail` is that hole, written as the thing
 /// that now works.
-contract RepoFailTest is Test, PolicyFixture {
+contract RepoFailTest is Test, PolicyFixture, CouponFixture {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -52,7 +53,16 @@ contract RepoFailTest is Test, PolicyFixture {
         feed = new StubOracle();
         holds = new MockHolds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, feed, params, RATE, GRACE, CURE_WINDOW);
+        vault = new RepoVault(
+            holds,
+            ENGINE,
+            feed,
+            _deploySchedule(uint64(block.timestamp)),
+            params,
+            RATE,
+            GRACE,
+            CURE_WINDOW
+        );
         vm.warp(1_000_000);
     }
 
@@ -187,7 +197,8 @@ contract RepoFailTest is Test, PolicyFixture {
     /// @notice Zero is a legal rate, and it is what a venue publishing no
     ///         penalty looks like. The rulebook then has to say so.
     function test_aZeroRateIsLegalAndCostsNothing() public {
-        RepoVault free = new RepoVault(holds, ENGINE, feed, params, 0, GRACE, CURE_WINDOW);
+        RepoVault free =
+            new RepoVault(holds, ENGINE, feed, couponSchedule, params, 0, GRACE, CURE_WINDOW);
         vm.prank(BORROWER);
         free.open(
             ID,
@@ -209,7 +220,7 @@ contract RepoFailTest is Test, PolicyFixture {
     function test_aRateAboveOneHundredPercentIsRefusedAtDeployment() public {
         uint256 tooBig = RepoMath.BP_HUNDREDTHS + 1;
         vm.expectRevert(abi.encodeWithSelector(RepoMath.PenaltyRateTooLarge.selector, tooBig));
-        new RepoVault(holds, ENGINE, feed, params, tooBig, GRACE, CURE_WINDOW);
+        new RepoVault(holds, ENGINE, feed, couponSchedule, params, tooBig, GRACE, CURE_WINDOW);
     }
 
     // ------------------------------------------------------ the grace and out

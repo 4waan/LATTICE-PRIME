@@ -7,10 +7,12 @@ import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {RepoMath} from "../src/repo/RepoMath.sol";
 import {PrimeOracle} from "../src/oracle/PrimeOracle.sol";
 import {IPrimeOracle} from "../src/interfaces/IPrimeOracle.sol";
+import {ICouponSchedule} from "../src/interfaces/ICouponSchedule.sol";
 import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
 import {MockHolds} from "./Repo.t.sol";
 import {MockAggregator} from "./OracleFixture.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
 
 /// @title MarkToMarketTest
 /// @notice The seam between the feed and the repo book, from the vault's side.
@@ -26,7 +28,7 @@ import {PolicyFixture} from "./PolicyFixture.sol";
 /// the cash leg is HBAR/USD at 0.08152235, which is what
 /// `probes/chainlink-hedera.out` read off chain 296. Nothing here is a round
 /// number chosen to make the arithmetic tidy.
-contract MarkToMarketTest is Test, PolicyFixture {
+contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
     RepoVault internal vault;
     PrimeOracle internal oracle;
     MockAggregator internal cash;
@@ -83,6 +85,7 @@ contract MarkToMarketTest is Test, PolicyFixture {
             holds,
             ENGINE,
             IPrimeOracle(address(oracle)),
+            _deploySchedule(uint64(block.timestamp)),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -210,9 +213,7 @@ contract MarkToMarketTest is Test, PolicyFixture {
         vm.recordLogs();
         vm.prank(ENGINE);
         vault.postMark(ID, keccak256("mark"), false, 1 days);
-        assertEq(
-            vm.getRecordedLogs().length, 1, "one MarkPosted on the discretionary path"
-        );
+        assertEq(vm.getRecordedLogs().length, 1, "one MarkPosted on the discretionary path");
     }
 
     /// @notice Calling an already-called position does not move the cure deadline.
@@ -239,9 +240,7 @@ contract MarkToMarketTest is Test, PolicyFixture {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                RepoVault.WrongState.selector,
-                RepoVault.State.CLOSED,
-                RepoVault.State.OPEN
+                RepoVault.WrongState.selector, RepoVault.State.CLOSED, RepoVault.State.OPEN
             )
         );
         vault.markToMarket(ID);
@@ -366,6 +365,29 @@ contract MarkToMarketTest is Test, PolicyFixture {
             holds,
             ENGINE,
             IPrimeOracle(address(0)),
+            couponSchedule,
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
+    }
+
+    /// @notice Nor without a coupon calendar, and for the same reason.
+    /// @dev The seat next to the feed's. A vault with no schedule is a vault
+    ///      whose only account of when a coupon fell due is whatever the caller
+    ///      of `noteCoupon` said, which is the arrangement `CouponSchedule` was
+    ///      built to end. Refused at construction rather than at the first
+    ///      coupon, because a bond that cannot record a manufactured payment is
+    ///      a bond that cannot be repo'd, and finding that out mid-term is
+    ///      finding it out too late.
+    function test_aVaultWithNoScheduleIsRefusedAtConstruction() public {
+        vm.expectRevert(abi.encodeWithSelector(RepoVaultBase.NoSchedule.selector));
+        new RepoVault(
+            holds,
+            ENGINE,
+            IPrimeOracle(address(oracle)),
+            ICouponSchedule(address(0)),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -389,9 +411,7 @@ contract MarkToMarketTest is Test, PolicyFixture {
         assertEq(until, uint64(block.timestamp) + vault.cureWindow());
 
         vm.prank(PASSERBY);
-        vm.expectRevert(
-            abi.encodeWithSelector(RepoVaultBase.CureWindowOpen.selector, until)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RepoVaultBase.CureWindowOpen.selector, until));
         vault.declareDefault(ID);
 
         vm.warp(until);

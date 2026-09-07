@@ -6,12 +6,13 @@ import {MarginWatch} from "../src/observatory/MarginWatch.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 import {MockHolds} from "./Repo.t.sol";
 
 /// @notice One claim: the alert survives the silence. `Repo.t.sol` covers the
 ///         transitions, so nothing here re-tests one.
-contract MarginWatchTest is Test, PolicyFixture {
+contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -43,7 +44,16 @@ contract MarginWatchTest is Test, PolicyFixture {
         feed = new StubOracle();
         holds = new MockHolds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
+        vault = new RepoVault(
+            holds,
+            ENGINE,
+            feed,
+            _deploySchedule(uint64(block.timestamp)),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
         watcher = new MarginWatch(vault);
     }
 

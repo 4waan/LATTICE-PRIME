@@ -19,6 +19,7 @@ import {
     toWeibar, fromWeibar, formatHbar, parseHbar,
     toUnits, formatQuantity, buyEscrow, notional, displayPrice,
     markPerUnitTinybar, markOfLot, formatPrice, median, deviationBps,
+    BPS, COUPON_YEAR, MAX_RATE_BPS, couponBps, couponAccrual, couponOnLot,
     diagnoseWrongBond, UnitError,
 } from "./units.mjs";
 
@@ -187,6 +188,85 @@ eq(
 eq("par, formatted as the price it is", formatPrice(10000000000n), "100.00000000");
 throws("a price is not a quantity", () => median([]), "non-empty");
 throws("and a zero rate is not divided by", () => markPerUnitTinybar(1n, 0n), "zero");
+
+// ------------------------------------------------------------------ the coupon
+//
+// The contract twin is `CouponVectorsTest` in `test/UnitVectors.t.sol`, which
+// asserts the same five literals against `CouponMath.accrue` and
+// `CouponSchedule.amountFor`. Neither side computes the other's: both carry the
+// numbers, and a change to the multiplication order in either one fails here or
+// there rather than passing in both.
+
+eq("basis points in one hundred percent", BPS, 10000n);
+eq("ACT/365 is a fixed year and never a calendar one", COUPON_YEAR, 31536000n);
+eq("the rate cap", MAX_RATE_BPS, 10000n);
+
+// The reference goes to zero and the bond still pays its spread. `deployments`
+// carries the spread; `PrimeOracle` publishes the leg in front of it.
+eq("a zero reference leaves the spread", couponBps(0n, 75n), 75n);
+eq("and the venue's own round one", couponBps(425n, 75n), 500n);
+
+// A hundred units of face at 100.00, five percent, one whole year. Chosen
+// because it divides cleanly, so a rounding bug shows up as a whole unit of the
+// cash token rather than as noise.
+eq(
+    "a full year at a clean rate is exact",
+    couponAccrual({lot: 100n, faceValue: 10000n, rateBps: 500n, from: 0n, to: COUPON_YEAR}),
+    50000n,
+);
+
+// **The floor, which is the direction that matters.** A day of interest on a lot
+// small enough that the division has a remainder pays nothing rather than a
+// whole unit. `RepoMath.accrued` on the same fraction ceils to one, and the two
+// directions are argued in `CouponMath.accrue`'s header.
+eq(
+    "a fraction of one unit floors to nothing",
+    couponAccrual({lot: 1n, faceValue: 100n, rateBps: 425n, from: 0n, to: 86400n}),
+    0n,
+);
+
+// The deployed shape: the bond's whole `maxSupply` over one quarterly period at
+// the reference round one medianed to, plus the schedule's spread.
+// `script/DeployVenue.s.sol` COUPONS / COUPON_PERIOD / COUPON_SPREAD_BPS.
+eq(
+    "the whole issue, one quarter, at 5.00 percent",
+    couponOnLot({
+        lot: 1000000n,
+        faceValue: 10000n,
+        spreadBps: 75n,
+        refRateBps: 425n,
+        accrualStart: 0n,
+        dueAt: 91n * 86400n,
+    }),
+    124657534n,
+);
+
+// Halve the reference and the coupon does not halve, because the spread does not
+// move with it. The vector that says the spread is additive and not a multiplier.
+eq(
+    "and at half the reference, less the spread's share",
+    couponOnLot({
+        lot: 1000000n,
+        faceValue: 10000n,
+        spreadBps: 75n,
+        refRateBps: 175n,
+        accrualStart: 0n,
+        dueAt: 91n * 86400n,
+    }),
+    62328767n,
+);
+
+throws("a rate over the cap is refused, not clamped", () => couponBps(10000n, 1n), "cap");
+throws(
+    "and a period that runs backwards is refused",
+    () => couponAccrual({lot: 1n, faceValue: 1n, rateBps: 1n, from: 200n, to: 100n}),
+    "backwards",
+);
+throws(
+    "a coupon is bigint arithmetic like everything else here",
+    () => couponAccrual({lot: 1, faceValue: 1n, rateBps: 1n, from: 0n, to: 1n}),
+    "bigint",
+);
 
 if (bad) {
     console.error(`\n${bad} failing vector${bad === 1 ? "" : "s"}`);
