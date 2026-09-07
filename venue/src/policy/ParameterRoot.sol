@@ -8,6 +8,7 @@ import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 import {RootWindow} from "./RootWindow.sol";
 import {Regime} from "./Regime.sol";
 import {IEpochClock} from "../interfaces/IEpochClock.sol";
+import {MerkleSet} from "../merkle/MerkleSet.sol";
 
 /// @title ParameterRoot
 /// @notice Governed parameter set, committed as one keccak root.
@@ -110,27 +111,28 @@ contract ParameterRoot is IDisclosurePolicy {
     ///      and rejects a duplicate key in the same comparison. Odd levels
     ///      promote the last node rather than duplicating it: duplication is the
     ///      classic source of a second valid tree for one leaf multiset.
+    ///
+    ///      **Those three rules are now `src/merkle/MerkleSet.sol` and not this
+    ///      function.** They moved out unchanged when `CouponDistributor` needed
+    ///      a keccak tree over a different set, because the alternative was two
+    ///      hand-written trees and therefore two answers to the same question.
+    ///      What stayed here is the pair of domain tags, which are this tree's
+    ///      identity rather than the algorithm's, and the ascending-key revert,
+    ///      whose selector sits in a published ABI.
+    ///      `test_theDeployedRootIsTheTestedRoot` is what says the extraction
+    ///      moved no bytes: the root it pins is the one on chain 296.
     function rootOf(Param[] calldata set) public pure returns (bytes32) {
         uint256 n = set.length;
         if (n == 0) revert EmptySet();
 
-        bytes32[] memory level = new bytes32[](n);
+        bytes32[] memory leaves = new bytes32[](n);
         for (uint256 i = 0; i < n; ++i) {
-            if (i > 0 && set[i].key <= set[i - 1].key) {
+            if (i > 0 && !MerkleSet.ascends(set[i - 1].key, set[i].key)) {
                 revert KeysNotAscending(set[i - 1].key, set[i].key);
             }
-            level[i] = keccak256(abi.encode(DOMAIN_LEAF, set[i].key, set[i].value));
+            leaves[i] = MerkleSet.leafOf(DOMAIN_LEAF, set[i].key, set[i].value);
         }
-
-        while (n > 1) {
-            uint256 out = 0;
-            for (uint256 i = 0; i + 1 < n; i += 2) {
-                level[out++] = keccak256(abi.encode(DOMAIN_NODE, level[i], level[i + 1]));
-            }
-            if (n & 1 == 1) level[out++] = level[n - 1];
-            n = out;
-        }
-        return level[0];
+        return MerkleSet.rootOfLeaves(DOMAIN_NODE, leaves);
     }
 
     // -------------------------------------------------------- governance
