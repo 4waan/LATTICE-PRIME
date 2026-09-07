@@ -13,6 +13,11 @@
     "internalType": "address"
    },
    {
+    "name": "oracle_",
+    "type": "address",
+    "internalType": "contract IPrimeOracle"
+   },
+   {
     "name": "policy_",
     "type": "address",
     "internalType": "contract IDisclosurePolicy"
@@ -24,6 +29,11 @@
    },
    {
     "name": "failGrace_",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "cureWindow_",
     "type": "uint64",
     "internalType": "uint64"
    }
@@ -107,6 +117,19 @@
  },
  {
   "type": "function",
+  "name": "cureWindow",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "declareDefault",
   "inputs": [
    {
@@ -155,6 +178,25 @@
    }
   ],
   "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "markToMarket",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "breach",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
   "stateMutability": "nonpayable"
  },
  {
@@ -243,6 +285,19 @@
  },
  {
   "type": "function",
+  "name": "oracle",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IPrimeOracle"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "payThrough",
   "inputs": [
    {
@@ -300,13 +355,42 @@
     "internalType": "bool"
    },
    {
-    "name": "cureWindow",
+    "name": "window",
     "type": "uint64",
     "internalType": "uint64"
    }
   ],
   "outputs": [],
   "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "previewMark",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "mark",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "breach",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "dark",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
  },
  {
   "type": "function",
@@ -864,6 +948,11 @@
  },
  {
   "type": "error",
+  "name": "FeedIsLive",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "HaircutTooLarge",
   "inputs": [
    {
@@ -872,6 +961,11 @@
     "internalType": "uint256"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "NoFeed",
+  "inputs": []
  },
  {
   "type": "error",

@@ -39,7 +39,15 @@ contract TradingHalt {
     mapping(uint64 => uint32) private _granted;
 
     event Halted(uint64 indexed until, uint32 seconds_, bytes32 rationale);
-    event Resumed(uint64 indexed at, bytes32 rationale);
+    /// @dev **Not `at`.** The parameter name is all that changed here, so the
+    ///      event signature and every log already on chain are untouched: a
+    ///      topic hashes the types, not the names. `ethers` v6 decodes a log's
+    ///      arguments into an array-like `Result`, so a member called `at`
+    ///      resolves to `Array.prototype.at` and a client reads a function where
+    ///      it expected a timestamp. `tools/gen-app.mjs` refuses to bundle an
+    ///      ABI carrying such a name, and this is the collision it found on the
+    ///      day that check was written.
+    event Resumed(uint64 indexed resumedAt, bytes32 rationale);
     event Breaker(uint64 indexed until, uint256 from, uint256 to, uint256 moveBps);
     event Observed(uint256 priceTwice);
 

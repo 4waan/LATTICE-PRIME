@@ -7,6 +7,7 @@ import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 import {RepoVaultBase} from "./RepoVaultBase.sol";
 import {DisclosureView} from "../lattice/DisclosureView.sol";
+import {IPrimeOracle} from "../interfaces/IPrimeOracle.sol";
 
 /// @title RepoVault
 /// @notice Tokenised repo on ATS holds. Instrument only; eligibility is ATS's.
@@ -70,7 +71,29 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     }
 
     IHoldByPartition public immutable security;
+
+    /// @notice The seat that may post a mark by hand. Open only when the feed is dark.
+    /// @dev Kept, and kept as an address, because a feed that goes dark must not
+    ///      freeze the repo book. What changed is that it is no longer the
+    ///      *only* way a mark reaches this contract, and `postMark` now refuses
+    ///      while `oracle.stale()` is false, so the discretionary seat cannot be
+    ///      used to overrule a live price.
     address public immutable marginEngine;
+
+    /// @notice The price feed. `src/oracle/PrimeOracle.sol`.
+    /// @dev Immutable and required. A vault constructed without one is a vault
+    ///      whose only mark is an account's word, which is the arrangement this
+    ///      contract was built to end.
+    IPrimeOracle public immutable oracle;
+
+    /// @notice How long a borrower has to cure a call raised by `markToMarket`.
+    /// @dev A published constant rather than an argument, because `markToMarket`
+    ///      is permissionless. If the caller chose the window, anyone could call
+    ///      a position with a window of zero and declare it in default in the
+    ///      next block. `postMark` keeps its argument: that seat is held by a
+    ///      named address, and narrowing it would change a path this venue's
+    ///      existing evidence was produced against.
+    uint64 public immutable cureWindow;
 
     /// @notice CSDR Article 7 cash penalty, hundredths of a basis point per day.
     /// @dev Published and not derived. Article 7 prices a cash fail, which is what a close
@@ -93,17 +116,22 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     constructor(
         IHoldByPartition security_,
         address marginEngine_,
+        IPrimeOracle oracle_,
         IDisclosurePolicy policy_,
         uint256 penaltyRate_,
-        uint64 failGrace_
+        uint64 failGrace_,
+        uint64 cureWindow_
     ) DisclosureView(policy_) {
         if (penaltyRate_ > RepoMath.BP_HUNDREDTHS) {
             revert RepoMath.PenaltyRateTooLarge(penaltyRate_);
         }
+        if (address(oracle_) == address(0)) revert NoFeed();
         security = security_;
         marginEngine = marginEngine_;
+        oracle = oracle_;
         penaltyRate = penaltyRate_;
         failGrace = failGrace_;
+        cureWindow = cureWindow_;
     }
 
     // ------------------------------------------------------------ T1: open
@@ -207,16 +235,33 @@ contract RepoVault is RepoVaultBase, DisclosureView {
 
     // ------------------------------------------------------------- T3: mark
 
-    /// @notice `OPEN -> MARGIN_CALL`, or a quiet re-mark.
-    /// @dev Row 14 in one signature. The engine posts a commitment to the mark and the
+    /// @notice `OPEN -> MARGIN_CALL` by hand. Reachable only while the feed is dark.
+    /// @dev **This used to be the only way a mark reached this contract**, and
+    ///      `script/DeployVenue.s.sol` said so: "`postMark` is a price feed's call and
+    ///      this venue has no oracle wired. It is the one seat here held by an address
+    ///      rather than by a contract." `markToMarket` is now that call, and this one is
+    ///      the documented degradation: it refuses while `oracle.stale()` is false, so
+    ///      the discretionary seat cannot overrule a live price, and it stays open when
+    ///      the feed goes dark, so a feed outage is not a frozen repo book.
+    ///
+    ///      Row 14 in one signature. The engine posts a commitment to the mark and the
     ///      boolean it implies. The boolean has to be public because both parties act on
     ///      it and a private margin call is not a margin call; the number does not,
     ///      because publishing it hands every observer the borrower's liquidation price.
     ///      An observer learns that a threshold was crossed, which is one bit, and not
     ///      where the threshold sits, which is why the engine's call frequency is itself a
     ///      budgeted disclosure.
-    function postMark(bytes32 id, bytes32 commitment, bool breach, uint64 cureWindow) external {
+    ///
+    ///      The commitment's weakness is stated rather than repaired here, because it
+    ///      cannot be repaired here: `markCommitment` hides `price x lot` while `repo(id)`
+    ///      returns `collateralAmount` in the clear two lines down, so an observer who can
+    ///      read a price can divide. `markToMarket` is the actual answer. It computes the
+    ///      mark in memory and stores nothing, so the number that must not be public is
+    ///      not written anywhere rather than written as a commitment whose preimage is two
+    ///      public reads away.
+    function postMark(bytes32 id, bytes32 commitment, bool breach, uint64 window) external {
         if (msg.sender != marginEngine) revert NotMarginEngine();
+        if (!oracle.stale()) revert FeedIsLive();
         Repo storage r = repos[id];
         if (r.state != State.OPEN && r.state != State.MARGIN_CALL) {
             revert WrongState(r.state, State.OPEN);
@@ -233,12 +278,84 @@ contract RepoVault is RepoVaultBase, DisclosureView {
 
         if (breach && r.state == State.OPEN) {
             r.state = State.MARGIN_CALL;
-            r.cureDeadline = uint64(block.timestamp) + cureWindow;
+            r.cureDeadline = uint64(block.timestamp) + window;
             // Row 14. A margin call is a predicate about a position.
             if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
                 emit MarginCalled(id, r.cureDeadline);
             }
         }
+    }
+
+    // ------------------------------------------------ T3': mark, from the feed
+
+    /// @notice `OPEN -> MARGIN_CALL` against `PrimeOracle`. Permissionless.
+    /// @dev The call `postMark` was standing in for. Three things change and each one is
+    ///      an argument the old signature could not make.
+    ///
+    ///      **The mark is never stored.** It is a product of two public reads, the feed's
+    ///      price and this repo's own lot, taken in memory and discarded. Row 14 is
+    ///      answered by not writing something, which is where `RepoMath` already said the
+    ///      constraint had to reach.
+    ///
+    ///      **The cadence stops being a signal.** `postMark` charges row 16 because the
+    ///      margin engine's call frequency is itself a disclosure: marking is daily, so
+    ///      the sequence of `MarkPosted` events is a fingerprint, and the matrix carries
+    ///      that as an open limit. Nothing here charges row 16, because nothing here is
+    ///      the venue's cadence. Anyone may call this at any time against a price the feed
+    ///      already published, so the timing of a mark carries no information about who
+    ///      chose to look.
+    ///
+    ///      **A stale price refuses rather than reads through.** `markPerUnitTinybar`
+    ///      reverts on either dark leg. Acting on an old price is the failure that
+    ///      matters, and a margin call is not a place to be optimistic.
+    /// @return breach Whether the position is short right now, whether or not this call
+    ///         was the one that moved the state.
+    function markToMarket(bytes32 id) external returns (bool breach) {
+        Repo storage r = repos[id];
+        if (r.state != State.OPEN && r.state != State.MARGIN_CALL) {
+            revert WrongState(r.state, State.OPEN);
+        }
+
+        breach = _short(r, oracle.markPerUnitTinybar() * r.collateralAmount);
+
+        if (breach && r.state == State.OPEN) {
+            r.state = State.MARGIN_CALL;
+            r.cureDeadline = uint64(block.timestamp) + cureWindow;
+            if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+                emit MarginCalled(id, r.cureDeadline);
+            }
+        }
+    }
+
+    /// @notice What `markToMarket` would find, without sending anything.
+    /// @dev A view and never an event, on `settlementPenaltyNow`'s argument: the mark is
+    ///      `markPerUnitTinybar` times `repo(id).collateralAmount` and both are already
+    ///      public reads, so this discloses nothing the ledger does not hold. It exists
+    ///      because the alternative for a client is to send a transaction to find out
+    ///      whether it needed to, and because a screen that can only show a margin call
+    ///      after it lands is a screen that tells a borrower too late.
+    ///
+    ///      Total. A dark feed answers `dark` rather than reverting, so the Repo screen
+    ///      can say the feed is down instead of failing to render.
+    function previewMark(bytes32 id)
+        external
+        view
+        returns (uint256 mark, bool breach, bool dark)
+    {
+        Repo storage r = repos[id];
+        if (oracle.stale()) return (0, false, true);
+        mark = oracle.markPerUnitTinybar() * r.collateralAmount;
+        breach = _short(r, mark);
+    }
+
+    /// @dev One place, so `markToMarket` and `previewMark` cannot disagree about what
+    ///      short means. `RepoMath.isUndercollateralised` accrues the exposure to now and
+    ///      grosses it up by the maintenance margin; nothing about that changes because
+    ///      the mark arrived from a feed rather than from an account.
+    function _short(Repo storage r, uint256 mark) private view returns (bool) {
+        return RepoMath.isUndercollateralised(
+            mark, r.principal, r.repoRateBps, r.openedAt, block.timestamp, r.maintenanceBps
+        );
     }
 
     // -------------------------------------------------------------- T4: cure

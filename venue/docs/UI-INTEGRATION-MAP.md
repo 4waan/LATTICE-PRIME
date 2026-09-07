@@ -33,6 +33,7 @@ engine.volumeCap()   != 0
 engine.tradingHalt() != 0
 token.compliance()   == SeamJournal
 token.isExternalKycList(ZkKycRegistry) == true
+vault.oracle()       == PrimeOracle
 ```
 
 Refuse to render if any fail. Skip `superseded` addresses in `296-venue.json`.
@@ -128,9 +129,55 @@ Selector table: `client.json` → `errors`.
 7. Grants die at the KYC epoch boundary with no warning (**loss**).
 8. `disclose(e)` on an open epoch is a silent no-op.
 
+## The feed
+
+`PrimeOracle`. Two legs, and a client that shows one number is hiding which half
+broke.
+
+| read | what |
+|---|---|
+| `stale()` | the composite. True means `markToMarket` reverts and `postMark` opens |
+| `ourLegStale()` | the venue's seated panel alone |
+| `cashLeg()` | `(ok, usdPerHbar, updatedAt)` for the upstream leg. Total, never reverts |
+| `latest()` | `(cleanPrice, refRateBps, publishedAt, round)` |
+| `markPerUnitTinybar()` | the composite. **Reverts** on either dark leg |
+| `MarginWatch.feed()` | all of the above in one call, plus the seated addresses |
+
+`MarginWatch.watch(ids)` now returns three values, not two: positions, the
+disclosure stream, and the feed. Positions alone cannot tell a quiet market from
+a silenced one, and neither can tell either from a market whose price stopped
+arriving.
+
+### Scales
+
+Prices are **eight decimals**, and that is a fourth quantity: it is not a
+denomination of HBAR. `100_00000000` is 100.00 USD per unit of face. Use
+`tools/units.mjs` `formatPrice`, never `formatHbar`, and
+`markPerUnitTinybar(cleanPrice, usdPerHbar)` for the composite. The result of
+*that* is tinybars and `formatHbar` is correct on it.
+
+### Two things that will bite
+
+1. **`markPerUnitTinybar()` reverts when the feed is dark.** Use
+   `RepoVault.previewMark(id)`, which is total and answers `(mark, breach, dark)`,
+   anywhere a screen has to render regardless.
+2. **The cash seat does not hold a Chainlink feed on this chain.** Chainlink runs
+   HBAR/USD on Hedera and its proxies refuse a contract caller with `No access`
+   while answering `decimals()` to anyone. The seat holds `HederaRateFeed` over
+   the network's own rate at `0x168`. Read `cashFeed().description()` rather than
+   labelling the seat in your own copy: it is governed and it can move.
+   `probes/chainlink-hedera.out`.
+
+### Writes offered
+
+`markToMarket(id)` is permissionless and safe to offer: it raises a margin call
+only when the position is actually short, the cure window is an immutable rather
+than a caller's argument, and a mark that decides nothing emits nothing.
+`submit`/`finalize` are the panel's and are not a v1 client path.
+
 ## Screens 4 and 5 · Repo and Venue
 
-Read-only. `RepoVault.repo/stateOf/repurchasePriceNow/settlementPenaltyNow` plus `MarginWatch.alertOf/calledAmong`; repo ids come from the vault's own log history, since they are not enumerable on chain. `Regime`, `VolumeCap`, `TradingHalt`, `ParameterRoot`, `Rulebook`, `SeamJournal` and `EpochClock`, including every proposal window and `reconcile`.
+Read-only. `RepoVault.repo/stateOf/repurchasePriceNow/settlementPenaltyNow/previewMark` plus `MarginWatch.alertOf/calledAmong/feed`; repo ids come from the vault's own log history, since they are not enumerable on chain. `Regime`, `VolumeCap`, `TradingHalt`, `ParameterRoot`, `Rulebook`, `SeamJournal` and `EpochClock`, including every proposal window and `reconcile`.
 
 Read budgets and ceilings from `ParameterRoot`, never from `client.json`. The Venue screen compares the two and says so when they differ.
 
