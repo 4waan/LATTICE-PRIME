@@ -57,3 +57,42 @@ forge-std
 
     Pinned as a git submodule, not vendored. MIT/Apache-2.0, copyright the
     Foundry authors.
+
+venue/app/vendor/ethers-6.13.5.umd.min.js
+
+    ethers.js v6.13.5, MIT, copyright Richard Moore and contributors, from
+    https://github.com/ethers-io/ethers.js
+
+    Vendored deliberately rather than fetched from a CDN: the client is six
+    static files with no bundler and no backend, and a demonstration must not
+    depend on a third-party host answering. Byte for byte the file that was
+    previously loaded from cdn.jsdelivr.net, unmodified, sha256
+    c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329
+
+@hiero-ledger/sdk
+
+    The Hiero JavaScript SDK, Apache 2.0, copyright Hedera Hashgraph LLC and
+    the Hiero contributors, from https://github.com/hiero-ledger/hiero-sdk-js
+
+    The one dependency the consensus topic added. A contract in the Hedera EVM
+    cannot submit to a topic, so `venue/tools/hcs-topic.mjs` and
+    `venue/tools/hcs-relay.mjs` sign a native TopicCreateTransaction and
+    TopicMessageSubmitTransaction, which needs the SDK. It is installed in
+    toolchain/ and reached only from venue/tools/. It is not vendored, it is
+    not inlined into any page, and `venue/tools/gen-app.mjs` inlines a fixed
+    list that does not include it, so the six built screens still carry no
+    dependency but the vendored ethers below.
+
+    toolchain/package.json pins three `overrides` on its behalf: protobufjs to
+    ^8.8.0, ws to ^8.21.3, and the versions those imply. They are there so
+    adding the SDK did not add a published advisory to the tree. `npm audit`
+    reports the same eighteen findings before and after, all of them in the
+    pre-existing snarkjs and circomlibjs chains, none of them with a fix
+    available.
+
+venue/app/glass.js
+
+    Build output, not source. Bundles React, three.js, @react-three/fiber and
+    one component from @react-three/drei (MeshTransmissionMaterial), all MIT,
+    copyright their respective authors. The source it is built from is
+    venue/glass/src/ and the build is `make glass`.
