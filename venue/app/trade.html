@@ -1,4 +1,4 @@
-<title>Trade · SeamMe</title>
+<title>Trade · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
@@ -169,7 +169,7 @@ footer b{color:var(--slate);font-weight:600}
 :focus-visible{outline:2px solid var(--sealed);outline-offset:2px}
 @media(prefers-reduced-motion:no-preference){button,input,select{transition:border-color .14s ease,background .14s ease}}
 
-/* SeamMe live client — Hedera scaffold-hbar-ui tokens, light first.
+/* Lattice Prime live client — Hedera scaffold-hbar-ui tokens, light first.
    Styrene A is licensed; Montserrat is Hedera's public replacement.
    Primary light #4f46e5, dark #8259ef. Accent #2d84eb. Smoke #9b9b9d.
    Loaded after venue.css so these tokens and chrome win. */
@@ -852,7 +852,7 @@ body[data-screen="position"]{--screen:var(--success)}
 <header class="mast">
   <div class="mast-inner">
     <div class="brand-row">
-      <a class="brand" href="index.html">SeamMe</a>
+      <a class="brand" href="index.html">Lattice Prime</a>
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
@@ -1954,7 +1954,7 @@ Venue.buildSheet = function () {
         '<div class="modal-scrim" data-close></div>' +
         '<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wm-title">' +
         '<button type="button" class="modal-x" data-close aria-label="Close">&times;</button>' +
-        '<h2 id="wm-title">Connect to SeamMe</h2>' +
+        '<h2 id="wm-title">Connect to Lattice Prime</h2>' +
         '<p class="sub">Hedera testnet, chain 296. The key must be ECDSA secp256k1: an ED25519 Hedera key cannot sign an EVM transaction.</p>' +
         '<div class="wallet-list" id="wm-wallets"></div>' +
         '<div class="wm-or"><span>OR</span></div>' +
@@ -2173,7 +2173,7 @@ Venue.connectWith = async function (provider) {
                 }],
             });
         } else if (e.code === 4001) {
-            Venue.sheetMsg("You declined the network switch. SeamMe only runs on chain 296.", true);
+            Venue.sheetMsg("You declined the network switch. Lattice Prime only runs on chain 296.", true);
             return;
         } else {
             throw e;
