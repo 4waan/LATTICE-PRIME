@@ -1,8 +1,7 @@
 # What the market already said
 
-**Applied, 2026-09-06.** The six cards on the landing page now name the accident
-before the contract, in the copy below. The enforcement record is above the fold
-as one line. `Venue` in the nav is `Rulebook`. The repo gloss is on its first
+**Applied, 2026-09-06.** The landing names the two accidents once, then the
+protocol loop, then the silence receipt. The copy below is that source. `Venue` in the nav is `Rulebook`. The repo gloss is on its first
 appearance. The Prove screen no longer dead-ends: **No proof? Load the
 issuer's** loads one of the three real proofs `make prove-live` generated, starts
 watching that address read-only if the visitor's own is not one of the three, and

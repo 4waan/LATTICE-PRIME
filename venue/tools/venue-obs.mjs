@@ -879,7 +879,7 @@ Venue.refreshGateGov = async function () {
         el.textContent = v;
         if (cls !== undefined) el.className = "v " + cls;
     };
-    put("gv-issuer", shortAddr(issuer));
+    put("gv-issuer", issuer);
     put("gv-verifier", addrEq(verifier, CLIENT.addresses.KycVerifier)
         ? "KycVerifier · " + shortAddr(verifier) : shortAddr(verifier),
         addrEq(verifier, CLIENT.addresses.KycVerifier) ? "v ok" : "v bad");
