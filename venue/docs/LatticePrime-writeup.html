@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lattice Prime · A quantity the operator cannot fake</title>
+<style>
+  @page { size: letter; margin: 0.7in 0.75in 0.8in 0.75in; }
+  :root {
+    --paper: #FAFAF8;
+    --ink: #141A21;
+    --ink-2: #3A444F;
+    --slate: #5F6B77;
+    --faint: #8C97A1;
+    --rule: #DEE1E3;
+    --indigo: #2F3E9E;
+    --indigo-wash: #EEF0FA;
+    --claret: #8A1E3C;
+    --claret-wash: #FBEEF1;
+    --held: #5C5230;
+    --held-wash: #F6F2E4;
+    --surface: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.55;
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .wrap { max-width: 7in; margin: 0 auto; }
+  .kicker {
+    color: var(--indigo);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 0.35rem;
+  }
+  h1 {
+    font-size: 26pt;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.12;
+    margin: 0 0 0.9rem;
+  }
+  h2 {
+    font-size: 15pt;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 1.6rem 0 0.55rem;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11.5pt;
+    font-weight: 600;
+    color: var(--indigo);
+    margin: 1.1rem 0 0.35rem;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 0.7rem; color: var(--ink); }
+  .lede { font-size: 12pt; color: var(--ink-2); }
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin: 1.1rem 0 1.4rem;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.55rem 0.6rem 0.5rem;
+  }
+  .stat b {
+    display: block;
+    font-size: 13pt;
+    color: var(--indigo);
+    letter-spacing: -0.02em;
+  }
+  .stat span { display: block; font-size: 8pt; color: var(--slate); line-height: 1.3; margin-top: 0.15rem; }
+  .figure {
+    margin: 0.9rem 0 1.1rem;
+    page-break-inside: avoid;
+  }
+  .figure svg { width: 100%; height: auto; display: block; }
+  .caption {
+    font-size: 8.5pt;
+    color: var(--slate);
+    margin: 0.35rem 0 0;
+  }
+  .callout {
+    background: var(--indigo-wash);
+    border-left: 3px solid var(--indigo);
+    padding: 0.6rem 0.75rem;
+    margin: 0.9rem 0 1.1rem;
+    page-break-inside: avoid;
+  }
+  .callout strong { display: block; color: var(--indigo); font-size: 9.5pt; margin-bottom: 0.2rem; }
+  .callout p { margin: 0; font-size: 10pt; color: var(--ink-2); }
+  .layers { margin: 0.6rem 0 1rem; page-break-inside: avoid; }
+  .layer {
+    display: grid;
+    grid-template-columns: 28px 1.35in 1fr;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 0.38rem 0.55rem;
+    margin: 0 0 5px;
+    border-radius: 6px;
+  }
+  .layer.hot { background: var(--indigo-wash); border-color: var(--indigo); }
+  .layer .n { color: var(--indigo); font-weight: 700; font-size: 10pt; }
+  .layer .name { font-weight: 650; }
+  .layer .why { color: var(--ink-2); font-size: 9.5pt; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin: 0.5rem 0 1rem;
+  }
+  th {
+    text-align: left;
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--slate);
+    border-bottom: 1px solid var(--rule);
+    padding: 0.3rem 0.4rem 0.35rem 0;
+  }
+  td {
+    border-bottom: 1px solid var(--rule);
+    padding: 0.42rem 0.5rem 0.42rem 0;
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+  .formula {
+    font-family: "Menlo", "SF Mono", ui-monospace, monospace;
+    font-size: 9.5pt;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 0.55rem 0.7rem;
+    margin: 0.5rem 0 0.9rem;
+    page-break-inside: avoid;
+  }
+  .close {
+    background: var(--surface);
+    border: 1px solid var(--indigo);
+    padding: 0.75rem 0.85rem;
+    margin: 1.2rem 0 0.4rem;
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .close p { margin: 0; font-size: 11.5pt; }
+  footer.meta {
+    margin-top: 1.6rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: 8.5pt;
+    color: var(--faint);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kicker">Lattice Prime · a product essay</p>
+<h1>A quantity the operator cannot fake</h1>
+<p class="lede">Lattice Prime is a secondary market in tokenised collateral for repurchase agreements, built on Hedera against Hashgraph’s Asset Tokenization Studio. Eligibility is a zero-knowledge proof rather than a public register. Orders reach consensus as a fixed-length hash. A margin call publishes a boolean rather than a price. After every action the venue can print what it said, at what grain, to whom, from when, and how much of that row’s epoch budget the speech consumed.</p>
+<p>That last sentence is the product. A venue whose operator reads the cleartext knows what it learned only as everything it was sent. There is no quantity to print and no bound to print it against. Competitors in tokenised repo have membership. Competitors in cryptographic matching have binary privacy. Neither can produce a receipt.</p>
+
+<div class="stats">
+  <div class="stat"><b>$351bn</b><span>Broadridge DLR, daily avg, Aug 2026</span></div>
+  <div class="stat"><b>$5.5bn</b><span>Archegos, Credit Suisse alone</span></div>
+  <div class="stat"><b>$84.3m</b><span>Crossfinder settlement, 2016</span></div>
+  <div class="stat"><b>31 Dec 2026</b><span>US Treasury cash clearing</span></div>
+</div>
+
+<h2>The two accidents that pay for the design</h2>
+<p>Institutional trading has produced the same failure twice, in opposite directions. Between 2011 and 2016 the SEC settled with essentially every major dark pool operator. Pipeline’s affiliate filled customer flow. UBS showed undisclosed order types to selected subscribers. ITG ran a secret proprietary desk against the pool. Barclays misrepresented the feeds behind its own NBBO. Credit Suisse transmitted confidential order information out of Crossfinder into other Credit Suisse systems and paid $84.3m. Five venues, about $190m, one finding. The operator held the plaintext. Confidentiality was a contract term.</p>
+<p>In 2021 Archegos built a position across several prime brokers through total return swaps. No counterparty, and no supervisor, could see the sum. Privacy was working exactly as sold. Credit Suisse lost about $5.5bn. A venue that hides everything from everyone is that architecture with better tooling.</p>
+
+<figure class="figure">
+<svg viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg" aria-label="Design space between operator-visible books and unsupervised privacy">
+  <rect x="8" y="22" width="210" height="106" fill="#FBEEF1" stroke="#8A1E3C"/>
+  <text x="113" y="52" text-anchor="middle" fill="#141A21" font-size="13" font-weight="600" font-family="Avenir Next, Helvetica Neue, sans-serif">Operator sees the book</text>
+  <text x="113" y="74" text-anchor="middle" fill="#3A444F" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">Dark pools, 2011 to 2016</text>
+  <text x="113" y="96" text-anchor="middle" fill="#5F6B77" font-size="10" font-family="Avenir Next, Helvetica Neue, sans-serif">confidentiality as a term</text>
+  <rect x="522" y="22" width="210" height="106" fill="#FBEEF1" stroke="#8A1E3C"/>
+  <text x="627" y="52" text-anchor="middle" fill="#141A21" font-size="13" font-weight="600" font-family="Avenir Next, Helvetica Neue, sans-serif">Nobody sees the sum</text>
+  <text x="627" y="74" text-anchor="middle" fill="#3A444F" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">Archegos, 2021</text>
+  <text x="627" y="96" text-anchor="middle" fill="#5F6B77" font-size="10" font-family="Avenir Next, Helvetica Neue, sans-serif">privacy as sold</text>
+  <line x1="218" y1="75" x2="312" y2="75" stroke="#C6CBCF"/>
+  <line x1="428" y1="75" x2="522" y2="75" stroke="#C6CBCF"/>
+  <rect x="312" y="14" width="116" height="122" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <text x="370" y="52" text-anchor="middle" fill="#2F3E9E" font-size="12" font-weight="700" font-family="Avenir Next, Helvetica Neue, sans-serif">Lattice Prime</text>
+  <text x="370" y="76" text-anchor="middle" fill="#141A21" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">metered lattice</text>
+  <text x="370" y="98" text-anchor="middle" fill="#5F6B77" font-size="10" font-family="Avenir Next, Helvetica Neue, sans-serif">both reads on record</text>
+</svg>
+<p class="caption">Figure 1. The design sits between two enforcement records, not between two product categories.</p>
+</figure>
+
+<p>Permissioned tokenised-repo networks (Broadridge, Kinexys, HQLAx, Fnality) solve the first accident by membership. You are private because outsiders are not admitted. Nothing is proved and nothing is metered. If the operator learns a position there is no mechanism by which you could find out. Crypto privacy venues (Renegade’s MPC matching, Penumbra’s sealed-bid batches) solve the second accident by hiding the book from the operator as well. They have no eligibility rule, no supervisor view, no regulated instrument, and no settlement fail regime. A bank cannot use a mixer.</p>
+<p>Lattice Prime refuses the choice. The regulator sees positions on a published policy, without asking permission. The market sees nothing about individual positions. The counterparty sees what the trade requires. Every exception is written down. The holder does not choose whether they are visible to the supervisor. Nobody else gets that view by default.</p>
+
+<h2>The market that is already moving</h2>
+<p>Tokenised collateral is a running business with monthly volume statements, not a thesis. Broadridge’s Distributed Ledger Repo processed $7.4tn in August 2026. J.P. Morgan Kinexys has done about $300bn of intraday repo. The GDF and ISDA U.S. Tokenized Money Market Fund report (2026) is the category’s own statement of the problem. More than 300 participants from over 120 firms, covering UCC characterisation, settlement finality, insolvency, variation margin, and UMR-compliant segregation. That is the regulatory surface a buyer will ask about.</p>
+<p>The SEC’s Treasury clearing mandate bites on 31 December 2026 for eligible cash transactions and 30 June 2027 for eligible repo. Every US Treasury repo participant is rebuilding plumbing inside eighteen months. The window is dated.</p>
+<div class="callout">
+  <strong>Hedera is already in the settlement conversation</strong>
+  <p>FATF’s 2026 DeFi report lists Hedera alongside Ethereum and Solana as a settlement layer. Archax mints pool tokens on Hedera bundling money market funds from BlackRock, State Street, and Legal and General. A conference talk titled “The Settlement Layer Wall Street Already Trusts” could not be found and is not cited.</p>
+</div>
+
+<h2>Six layers</h2>
+<p>The protocol is a stack, not a catalogue. Each layer exists because the one beneath it either discloses something the venue must not leak, or fails to enforce something the venue must not skip. Reading from the instrument up:</p>
+<div class="layers">
+  <div class="layer"><div class="n">6</div><div class="name">Observatory</div><div class="why">The published rulebook, the census, the receipt.</div></div>
+  <div class="layer"><div class="n">5</div><div class="name">Policy</div><div class="why">A committed root. Halt as the ceiling’s mirror. Article 5 as a floor.</div></div>
+  <div class="layer"><div class="n">4</div><div class="name">Repo</div><div class="why">Two legs or neither. Mark committed. Fail priced, not defaulted.</div></div>
+  <div class="layer"><div class="n">3</div><div class="name">Market</div><div class="why">Commit-reveal book. Uniform-price call. Axe as one bit.</div></div>
+  <div class="layer hot"><div class="n">2</div><div class="name">Lattice</div><div class="why">Ideals of G × T<sup>op</sup>. Then bits, because ranks do not compose.</div></div>
+  <div class="layer"><div class="n">1</div><div class="name">Instrument</div><div class="why">Unmodified ATS bond. Holds as custody. Two seams, no fork.</div></div>
+</div>
+<p>ATS is unmodified. The census in SeamMap.sol is generated from the Hashgraph factory’s own facets, 102 rows of this token rather than of a private copy. The venue occupies two seams. Seam D is ZkKycRegistry, the contract ATS calls on every transfer to decide whether an address may hold. Seam C is SeamJournal, the compliance module ATS staticcalls before a transfer and notifies after the balance has moved.</p>
+<h3>The hold rail</h3>
+<p>Two rails could move the security. Operator transfer would let seam C see the size, and would leave the seller unencumbered until the cross. Holds encumber at reveal, which is what removes the unfunded promise, and they arrive at seam C as canTransfer(address(0), to, 0). The amount is withheld. MatchingEngine therefore calls canTransfer(seller, buyer, amount) itself, with the real triple, before every execution.</p>
+<p>A third-party transaction can rebase a resting hold between reveal and cross. The engine snapshots the hold at reveal, reads it again at cross, and voids the order on a mismatch rather than under-delivering into a settlement.</p>
+
+<h2>Eligibility without a register</h2>
+<p>The design constraint was measured on mainnet, not inferred from marketing. With no key, no account, and no relationship with any issuer, Hedera’s public mirror node returns the complete holder register of institutional tokenised funds. Balances reconcile to total supply. Per-account compliance status, granted or revoked, is public as well. Concealing an order on top of that register is pointless. The venue has to change what the ledger discloses about participation itself.</p>
+<p>The circuit proves membership in the issuer’s set for this epoch, that the credential meets tier and jurisdiction, and that the nullifier is the one that credential generates for this epoch. It reveals the nullifier and whether the checks passed. Nothing else. n = Poseidon(secret, DOMAIN_KYC, epoch). The secret is not the credential id. One lawful disclosure of the secret would retroactively deanonymise the holder’s whole history.</p>
+<p>Five of seven public signals are attacker-chosen. A prover who is free to set minTier = 0, or to supply a root they built themselves, produces an honest proof of the wrong statement. Verification is not authorisation. All four policy failure modes verify with passes = 0. The gate requires passes = 1 separately, pins root, epoch, registrant, and policy, and only then spends the pairing.</p>
+<p>Seam D never reverts and never consumes unbounded gas. ATS aggregates every registered external list with an unconditional AND. A reverting member bricks the token. Denial is the zero value of the enum. A grant in epoch e grants nothing in epoch e+1. The comparison is at read time. Registration gas is paid by the venue relay. A trader who funds their own gas creates a funding history that links the nullifier to a fundable account.</p>
+
+<h2>The disclosure lattice</h2>
+<p>Privacy is usually sold as a dial between hidden and public. Two systems can both be called private and disagree about who sees what, at what resolution, and for how long. Saying a trade was between 10 and 50 million is not a smaller number than saying it was 34 million. It is a coarser partition of the same space. The right comparison is a partial order, not a score.</p>
+<p>Fuzzy membership would give every disclosure a number in [0, 1] and invite averages that have no operational meaning. The object Lattice Prime executes is older and stricter. Granularity ascends with speech: none, predicate, aggregate, bucket, exact. Time as written ascends with delay: pre, immediate, +15m, end of day, epoch, never. The poset used on chain reverses time, because delay is secrecy. (g, t) is below (g′, t′) when g is coarser or equal and t is later or equal.</p>
+
+<figure class="figure">
+<svg viewBox="0 0 520 250" xmlns="http://www.w3.org/2000/svg" aria-label="Principal ideal of bucket at EOD">
+  <g font-family="Avenir Next, Helvetica Neue, sans-serif" font-size="9" fill="#5F6B77">
+    <text x="86" y="14" text-anchor="middle">pre</text>
+    <text x="146" y="14" text-anchor="middle">imm</text>
+    <text x="206" y="14" text-anchor="middle">+15m</text>
+    <text x="266" y="14" text-anchor="middle">EOD</text>
+    <text x="326" y="14" text-anchor="middle">epoch</text>
+    <text x="386" y="14" text-anchor="middle">never</text>
+    <text x="8" y="44">exact</text>
+    <text x="8" y="84">bucket</text>
+    <text x="8" y="124">agg</text>
+    <text x="8" y="164">pred</text>
+    <text x="8" y="204">none</text>
+  </g>
+  <rect x="58" y="24" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="118" y="24" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="178" y="24" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="238" y="24" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="298" y="24" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="358" y="24" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="58" y="64" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="118" y="64" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="178" y="64" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="238" y="64" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="298" y="64" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="358" y="64" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="58" y="104" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="118" y="104" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="178" y="104" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="238" y="104" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="298" y="104" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="358" y="104" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="58" y="144" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="118" y="144" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="178" y="144" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="238" y="144" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="298" y="144" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="358" y="144" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="58" y="184" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="118" y="184" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="178" y="184" width="54" height="34" fill="#FFFFFF" stroke="#DEE1E3"/>
+  <rect x="238" y="184" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="298" y="184" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+  <rect x="358" y="184" width="54" height="34" fill="#EEF0FA" stroke="#2F3E9E"/>
+</svg>
+<p class="caption">Figure 2. Principal ideal generated by (bucket, EOD). An observer who learns a bucket at end of day also knows every coarser grain, later. Join of two observers is the union of their shaded sets. Lex join would keep Alice’s time and miss Bob’s aggregate known immediately.</p>
+</figure>
+
+<p>An observer who learns exact at end of day also, trivially, knows the bucket and knows it later. The cell is that whole downward-closed set, an order ideal of G × T<sup>op</sup>. |G| = 5 and |T| = 6, so an ideal is a subset of a thirty-element poset and fits in a uint32. Join is union, one bitwise OR. Meet is intersection. The check the venue actually runs is permits(ceiling, actual) = (actual | ceiling == ceiling). Measured at 42 gas, which is what lets it sit on a transfer path.</p>
+<p>The first collusion checker took the greatest granularity any observer reaches and the earliest time at which that granularity appears. Lex order on two finite chains is a total order, so the join is well-defined. It is also wrong, in a direction that produces false negatives. Alice holds exact at EOD. Bob holds an aggregate immediately. The pair rule reports exact at EOD and misses that the coalition already knows something now. test_lexJoinUnderReports is the witness.</p>
+<h3>Why the lattice still cannot see collusion</h3>
+<p>A coalition’s knowledge, in this representation, is the union of ideals. A ceiling is an ideal. The union of two subsets of a set is a subset of that set. If every observer is individually under the ceiling, the coalition is too, always. Landauer and Redmond’s partition lattice is the object that does see emergence. k disclosures of one bit each, over a domain of 2<sup>k</sup>, individually pass any cell-by-cell review and jointly determine the value exactly. Under the lattice, those k predicates join to one predicate.</p>
+<p>Granularity is a rank, monotone, and not a join homomorphism. Ranks do not add. The quantity that composes is information, in bits.</p>
+<div class="formula">I(A ∨ B)  ≤  min(d, I(A) + I(B))</div>
+<p>Equality holds when the disclosures are independent. A budget on the sum is always at least as strict as the truth. A coalition that passes cannot have learned more than the bound. That is a sound over-approximation. The level ceiling is an unsound one.</p>
+<p>So the model is two-layered. The lattice answers whether this observer may see this, and when. It carries the time axis, which bits cannot express. The budget answers how much a coalition may learn in total. It carries composition, which the lattice cannot. Neither replaces the other.</p>
+<p>Exhaustion withholds the disclosure. It never fails the action. A compliant transfer must not revert because the venue has run out of things it may say. The meter bounds the event stream, not storage. A row whose ceiling admits (exact, immediate) carries no budget. Unmetered is the published ceiling restated.</p>
+<p>Domain bits are read off encodings, not chosen. Row 13 carries a round’s outcome in four events, two bits. Row 14 carries a repo state with eight members, three bits. Row 15 carries which of three disjoint windows a committer took, two bits. Budget is domainBits − 1. At predicate granularity the second cross of an epoch, the third position move, and the second cancellation are the ones that go quiet.</p>
+
+<h2>Trading math</h2>
+<p>Hedera is often described as having no public mempool. That is true and it is not a privacy property. A submitted transaction is gossiped in full to the consensus node set before it is ordered or executed. The set is small and named. A conventional on-chain limit order is already disclosed, whatever the contract does afterwards. Orders arrive as one bytes32. The committer is inside the preimage, so a commitment copied off the wire cannot be opened by whoever took it.</p>
+<p>Cancel is legal on [committedAt, committedAt + D). Reveal is legal on [committedAt + D, committedAt + D + W]. Forfeit follows. The three windows partition the commitment’s life. There is no instant in which a trader can watch a reveal land and still pull their own order.</p>
+<p>A free commitment is a free phantom order. Lapsing costs the whole bond B and buys up to D + W seconds. Cancelling costs fee f and buys at most D. Requiring the second never to be the cheaper rate gives f = ceil(B × D / (D + W)). Read backwards it is a pro rata refund. At the bound the two routes cost the same per second.</p>
+<h3>The call auction</h3>
+<p>Continuous price-time priority over a queue averaging 1.6 orders a day is theatre. The only timestamp a sealed book has is the reveal, and the trader chooses when to reveal. A discrete-round uniform-price call auction has no time priority to manipulate. crossRound is permissionless. The venue must not choose when to cross, because choosing when to cross is choosing the price.</p>
+
+<figure class="figure">
+<svg viewBox="0 0 640 200" xmlns="http://www.w3.org/2000/svg" aria-label="Call auction demand, supply, and clearing">
+  <line x1="40" y1="16" x2="40" y2="160" stroke="#C6CBCF"/>
+  <line x1="40" y1="160" x2="330" y2="160" stroke="#C6CBCF"/>
+  <polyline fill="none" stroke="#2F3E9E" stroke-width="2.5" points="52,28 130,58 210,96 310,142"/>
+  <polyline fill="none" stroke="#8A1E3C" stroke-width="2.5" points="52,148 140,110 210,78 310,36"/>
+  <line x1="210" y1="24" x2="210" y2="160" stroke="#5C5230" stroke-dasharray="3 3"/>
+  <text x="218" y="22" fill="#5C5230" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">p* as lo+hi</text>
+  <text x="300" y="32" fill="#8A1E3C" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">S(p)</text>
+  <text x="300" y="148" fill="#2F3E9E" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">D(p)</text>
+  <text x="360" y="48" fill="#141A21" font-size="13" font-weight="700" font-family="Avenir Next, Helvetica Neue, sans-serif">V(p) = min(D(p), S(p))</text>
+  <text x="360" y="74" fill="#3A444F" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">1. maximise executable volume</text>
+  <text x="360" y="96" fill="#3A444F" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">2. minimise |D − S|</text>
+  <text x="360" y="118" fill="#3A444F" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">3. midpoint exists only as lo + hi</text>
+  <text x="360" y="140" fill="#3A444F" font-size="11" font-family="Avenir Next, Helvetica Neue, sans-serif">4. notional = (priceTwice × qty) / 2</text>
+</svg>
+<p class="caption">Figure 3. Scanning submitted prices is complete. D and S change only at those prices, so the maximum over the reals is attained at one of them.</p>
+</figure>
+
+<p>The clearing price is the mean of two submitted prices, a half-integer whenever their sum is odd. Rounding the price first, then multiplying by quantity, is wrong by up to qty / 2. Carrying at twice scale, floor((lo + hi) × qty / 2), is wrong by at most one half, always. Over 11,000 fills at a lot of 100,000 the round-first max error was 49,949 minor units. The divide-once max was 0.5. The price never exists as a rounded number.</p>
+<p>Allocation is price priority down to the marginal level, then pro rata by size at that level. Reveal order survives in exactly one place, the remainder of the integer division, and moves at most k − 1 minor units among the k orders sharing the marginal level. No allocation of an integer volume across integer lots is both exactly proportional and exhaustive. The residue is stated rather than removed.</p>
+<p>A revealed order rests for eight daily rounds. At 600 orders a year, Poisson, resting seven rounds yields 277.8 crossings against 130.0 with no rest, a 2.14× lift. Re-committing each round spends a fresh exact disclosure on size and price against the same row budget. Resting spends one, plus a per-round still-unfilled predicate.</p>
+<p>A lender’s indication is a rectangle in (class, size, rate), committed as a 2,048-cell bitmap in a depth-11 Merkle tree. A probe opens exactly one leaf. The borrower learns one bit. The axe bond is derived: B<sub>a</sub> &gt; M × (B<sub>c</sub> − f), with one wei of slack. The board is not deployed. A respondent registry answers what kind of counterparty an address is, and writing one here would be inventing the policy rather than implementing it.</p>
+
+<h2>The instrument</h2>
+<p>A repo is a sale with an agreed repurchase. The cash borrower sells the security at the purchase price and agrees to buy it back at the repurchase price, purchase plus interest over the term. Legally title passes. Economically it is a secured loan. That distinction is why coupons belong to the seller even though ATS pays them to the holder, and why manufactured payments are a commitment rather than an amount. A cleartext coupon would divide out to the exact position size.</p>
+<div class="formula">purchase = mark × (10,000 − haircutBps) / 10,000<br>called when mark &lt; repurchase × (1 + maintenance)</div>
+<p>Haircut and initial margin are quoted differently. Conflating them produces margin calls of the wrong size, in the direction that under-protects the lender. The mark is stored as a Poseidon commitment. Row 14 is answered by not writing the number. Accrued interest rounds up on ACT/365, so the borrower never repays less than the contract says.</p>
+<p>FAILING sits between OPEN and DEFAULTED. CSDR Article 7 charges a cash penalty daily from the intended settlement date, days rounded up, on the cash that failed rather than on the collateral. Article 7(2) says the mechanism shall not operate as a revenue source. The tariff names the counterparty as payee. A day here is 24 hours. The regulation counts business days. The contract has no calendar. It over-counts across a weekend, in the direction that favours the party that was failed against. The rate is published, not derived.</p>
+<p>MarginWatch reads state, not events. postMark moves to MARGIN_CALL unconditionally, then emits only if the meter can still afford it. A log subscriber can miss a live call. A state read cannot. watch returns the positions and, separately, whether the stream is audible. A row can be permitted and silent at once.</p>
+<h3>Halt as the ceiling’s mirror</h3>
+<p>Narrowing what may be disclosed is the safe direction, so it is immediate and unbounded. Halting is the deprivation, so it is a deadline, never a flag, capped by an immutable grant, budgeted per epoch, and it expires by itself. It gates one function, crossRound. Commit, reveal, cancel, expire, forfeit, and withdraw stay open. A halted venue cannot trade and cannot stop anyone leaving. In this deployment the supervisor seat is held by VolumeCap. The only thing that can stop a round is the breaker, arithmetic on the venue’s own clearing price.</p>
+<p>MiFIR Article 5’s waiver suspension, when the deferred share exceeds the cap, raises the disclosure floor and compels a print. It restricts secrecy. It does not stop trading. Exhaust a row budget with repeated disclosure, and the prints go dark. The dark share rises. The cap fires. The floor lifts. The venue is compelled to print again. The repetition attack and Article 5 turn out to be the same mechanism seen from two ends.</p>
+
+<h2>What is live</h2>
+<p>Seam D is on Hedera testnet. KycVerifier is 0.0.10380608, ZkKycRegistry 0.0.10380610, RegistrationGate 0.0.10380613, all three source-verified on Sourcify. A real PLONK proof verified in transaction 0x93aa278fe234b1ed3c4ee430db016cf31dd62bc557bc443d8bcb9c21425dc543 for 368,066 gas. The four negative fixtures refuse on chain for the reasons they refuse in the suite.</p>
+<p>The venue trades Lattice Prime Repo Collateral 2028 (LPRC, ISIN XS0SEAMME017), 0.0.10381562, deployed through the ATS factory Hashgraph itself runs, 0.0.9213391. MatchingEngine is 0.0.10381839. One live trade: issuing to an address with no credential reverts InvalidKycStatus. Issuing to the seller succeeds. The seller encumbers a thousand units. Both sides commit sealed orders. Both reveal. crossRound executes the hold at a uniform 100 against limits of 95 and 105. Neither side got its own limit.</p>
+<table>
+  <thead><tr><th>Surface</th><th>Status</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>KYC seam, PLONK verifier, gate</td><td>Live, chain 296</td><td>Eligibility without a public register</td></tr>
+    <tr><td>Matching engine, vault, journal, policy</td><td>Live</td><td>Trading and repo core against a real ATS bond</td></tr>
+    <tr><td>Disclosure receipt pages</td><td>Generated from getters</td><td>The quantity a competitor cannot copy</td></tr>
+    <tr><td>Axe board</td><td>Coded, not deployed</td><td>Respondent classification has no owner yet</td></tr>
+    <tr><td>Collateral substitution</td><td>Refused</td><td>Deferred, not overlooked</td></tr>
+    <tr><td>ZK settlement</td><td>Specified, not built</td><td>Different circuit class from membership</td></tr>
+  </tbody>
+</table>
+<p>The rulebook is a committed edition. Rulebook.sol holds the keccak of docs/RULEBOOK.md and the tariff of seven lines. reconcile reads every sourced charge back from the chain. venue.take is zero. That is a disclosed gap, not a business model. Three shipped rules conflict. The relay pays registration gas and recovers nothing. The relay must be operationally independent of the issuer. Per-trade attributable revenue rebuilds the link sponsorship exists to break. A fee schedule written to close the gap this week would be a number with no derivation, which is the defect this venue refuses everywhere else.</p>
+
+<h2>The future of the product</h2>
+<p>The next year in this market is not a roadmap slide. It is a compliance date. Desks that today run bilateral Treasury repo are being forced onto cleared rails. Tokenised collateral is already clearing hundreds of billions a day on permissioned ledgers whose privacy model is membership. The open question is whether a public settlement layer can host the same instrument without becoming either Crossfinder or a mixer. Lattice Prime’s answer is a metered lattice attached to an unmodified ATS token.</p>
+<table>
+  <thead><tr><th></th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr><td>Shipped</td><td>Eligibility, sealed book, lattice meter, ATS bond, receipt, halt-as-mirror.</td></tr>
+    <tr><td>HCS</td><td>Silence records on one topic. Verifier audits the relay against spentBits. The relay cannot forge or omit. It can stall.</td></tr>
+    <tr><td>Schedule</td><td>Commit and schedule the reveal together. Opening survives the trader’s later absence.</td></tr>
+    <tr><td>CLPR</td><td>Commitment travels. Reveal and the ATS hold stay on the collateral’s ledger. HIP-1535 is a draft. The order format is already the confidentiality the spec asks for.</td></tr>
+    <tr><td>ZK settle</td><td>Committed balances, then transitions, then the token’s rules outside the circuit. Not claimed.</td></tr>
+    <tr><td>Open</td><td>Substitution, liquidation disclosure, a derived venue take.</td></tr>
+  </tbody>
+</table>
+<p>There is no consensus-service system contract. HIP-478, Active, category Application, specifies an oracle network that talks to both services. The relay is the specified pattern. What the topic adds is the silences. A row withheld by an exhausted budget and a row nobody disclosed on are identical in the event stream. A relay reading results rather than only logs can publish a positive record: I acted, I deliberately told you nothing, here is the row and the budget that made me stop.</p>
+<p>HIP-1535 stores payloads in plaintext on both ledgers and hands confidentiality back to the application. A 32-byte, fixed-length, content-free commitment is already that answer. Hashgraph’s own architects reached for commit-reveal against cross-chain front-running while this book was being built.</p>
+<p>Proving eligibility is a membership statement over a small committed set. Proving settlement means proving a state transition over balances. Treating them as the same problem is the mistake that makes this look easy from a distance. Eligibility is proved. Settlement is not. Anyone reading the code should not have to infer that from what is absent.</p>
+
+<h2>Stated limits</h2>
+<p>A claim that is not written down is not tested.</p>
+<table>
+  <thead><tr><th>Limit</th><th>Where it lives</th></tr></thead>
+  <tbody>
+    <tr><td>Counterparty is published exactly and immediately. Netting would hide it only in a batch this venue’s rate cannot fill.</td><td>MATCHING.md, row 12</td></tr>
+    <tr><td>Rows 3, 4, 5 moved to (exact, imm). A public ledger has no observer set that holds a value the public does not.</td><td>PolicySets.asDeployed</td></tr>
+    <tr><td>The breaker halts the next round, not the breaching one.</td><td>TradingHalt</td></tr>
+    <tr><td>Volume cap is the venue’s own share, not the market-wide Article 5 figure.</td><td>VolumeCap</td></tr>
+    <tr><td>No per-holder revocation inside an epoch. Grants die at the boundary with no warning.</td><td>ZkKycRegistry</td></tr>
+    <tr><td>The fail-penalty rate is published, not derived.</td><td>RepoVault.penaltyRate</td></tr>
+    <tr><td>msg.value inside the Hedera EVM is tinybars. The relay takes weibars and divides by 1e10.</td><td>deployments/README.md</td></tr>
+  </tbody>
+</table>
+
+<div class="close">
+  <p>Lattice Prime is a repo venue that can tell you, after the fact, how much it said about you. That sentence is not a feature comparison. It is a claim about what a competitor is structurally unable to build.</p>
+</div>
+
+<footer class="meta">
+  Lattice Prime · venue/docs · sourced to OUTLINE.md, RULEBOOK.md, EVIDENCE.md, MATH.md, MATCHING.md, and the contracts under src/. Live addresses on Hedera testnet, chain 296.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 <title>Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Sealed order flow for tokenised repo collateral. Prove eligibility with a zero-knowledge proof, commit an order nobody can read, and settle on Hedera.">
+<meta name="description" content="A cryptographically robust protocol that seals repurchase agreements as a fixed-length hash on Hedera, proves eligibility with a zero-knowledge proof, and meters disclosure on a lattice.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -9,6 +9,7 @@ document.documentElement.setAttribute("data-theme",
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
 <!-- The runtime is a local file now, so start it during parse rather than at the
      closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
 <link rel="prefetch" href="prove.html">
 <link rel="prefetch" href="trade.html">
@@ -33,18 +34,8 @@ document.documentElement.setAttribute("data-theme",
   <div class="mast-inner">
     <div class="brand-row">
       <a class="brand" href="index.html">
-        <svg class="brand-mark" viewBox="0 0 22 28" width="22" height="28" aria-hidden="true">
-          <defs>
-            <linearGradient id="seam-brand-grad" x1="2" y1="26" x2="20" y2="2" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#2f9f90"/>
-              <stop offset="55%" stop-color="#5eead4"/>
-              <stop offset="100%" stop-color="#9ef6e8"/>
-            </linearGradient>
-          </defs>
-          <path fill="none" stroke="url(#seam-brand-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
-            d="M4.2 22.2c.2 2.4 3.2 3.6 7 3.6 4.6 0 7.3-2.2 7.3-5.2 0-3.6-3.8-4.6-7.2-5.6C7.6 14 3.5 12.8 3.5 8.4c0-3.2 2.8-5.6 7.4-5.6 3.6 0 6.4 1.5 6.8 4.4"/>
-        </svg>
-        Lattice Prime
+/*INLINE app/logo.svg*/
+        <span>Lattice Prime</span>
       </a>
       <span class="net-chip">TESTNET</span>
     </div>
@@ -56,64 +47,126 @@ document.documentElement.setAttribute("data-theme",
       <a href="venue.html">Rulebook</a>
     </nav>
     <div class="mast-end">
-      <div class="clocks" aria-label="Venue clocks">
-        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
-      </div>
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
     </div>
   </div>
 </header>
 
+<aside id="clock-float" class="clock-float" aria-label="Venue clocks">
+  <button type="button" class="clock-float-btn" id="clock-float-toggle" aria-expanded="false" aria-controls="clock-panel" aria-label="Venue clocks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
+  </button>
+  <div class="clocks" id="clock-panel" hidden>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+  </div>
+</aside>
+
 <!-- ============ 1 · the claim ============ -->
 <section class="frame hero-frame">
   <div class="wrap hero-inner">
-    <p class="kicker">Sealed order flow for tokenised collateral</p>
+    <div class="hero-split">
+      <div class="hero-copy">
+        <p class="hero-blot">Trade size on a dark pool that can account for its silence</p>
+        <h1 class="hero-h"><span class="hi">Order-leakage protection</span> for tokenised collateral</h1>
+        <p class="hero-lead">A cryptographically robust protocol that lets you seal repurchase agreements as a fixed-length hash on Hedera with fair-order settlement, proving eligibility with a zero-knowledge proof, while a disclosure lattice meters every leak against a budget and prints a receipt of what was withheld.</p>
+        <div class="cta-row">
+          <a class="btn-grad lg" href="prove.html">
+            Get started now
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
 
-    <h1 class="hero-h">Trade size <span class="hi">without showing it.</span></h1>
-
-    <p class="hero-lead">
-      Institutions cannot trade size on a public order book, because every
-      resting order leaks the position it is building.
-    </p>
-
-    <p class="hero-sub">
-      Lattice Prime seals the order and proves the trader instead. Hedera settles it
-      with fair ordering and fixed fees.
-    </p>
-
-    <!-- The stakes, above the fold. One line of the enforcement record does more
-         work than any card below it, because it is what happened rather than
-         what we built. Every figure is an SEC or NYAG settlement; the sources
-         are in docs/EVIDENCE.md. -->
-    <p class="hero-stakes">
-      <b>Five dark pools. $190m in settlements. One finding repeated in each of
-      them:</b> the operator could read the orders, and did.
-    </p>
-
-    <div class="cta-row">
-      <a class="btn-grad lg" href="prove.html">
-        Get started now
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-      </a>
-      <a class="btn-ghost lg" href="#how">See how it works</a>
-    </div>
-
-    <div class="hero-facts">
-      <span class="fact"><i class="live"></i> Live on <b>chain 296</b></span>
-      <span class="fact">Bond <b id="bond-name">LPRC</b></span>
-      <span class="fact">Round <b id="fact-round">—</b></span>
-      <span class="fact">Reads via <b id="net-rpc">hashio</b></span>
-    </div>
-
-    <!-- Held open for the agent, not faked. The band reserves its own width and
-         height now so that shipping the conversation later moves nothing above it. -->
-    <div class="agent-band">
-      <div class="agent-bar">
-        <svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
-        <span class="ph">Ask the Lattice Prime agent about eligibility, sealed orders, or settlement</span>
-        <span class="soon">Soon</span>
+      <div class="hero-mark" aria-hidden="true">
+        <svg class="hero-lattice" viewBox="-8 -8 40 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g class="hero-web">
+            <line x1="10.00" y1="0.00" x2="5.00" y2="8.66"/>
+            <line x1="5.00" y1="8.66" x2="0.00" y2="17.32"/>
+            <line x1="5.00" y1="8.66" x2="10.00" y2="17.32"/>
+            <line x1="0.00" y1="17.32" x2="10.00" y2="17.32"/>
+            <line x1="10.00" y1="17.32" x2="20.00" y2="17.32"/>
+            <line x1="0.00" y1="17.32" x2="5.00" y2="25.98"/>
+            <line x1="10.00" y1="17.32" x2="5.00" y2="25.98"/>
+            <line x1="10.00" y1="17.32" x2="15.00" y2="25.98"/>
+            <line x1="20.00" y1="17.32" x2="15.00" y2="25.98"/>
+            <line x1="5.00" y1="25.98" x2="15.00" y2="25.98"/>
+            <line x1="5.00" y1="25.98" x2="0.00" y2="34.64"/>
+          </g>
+          <g class="hero-cell" style="--i:0;--dx:0px;--dy:-3.6px">
+            <polygon class="hit" points="10.00,-4.05 14.05,0.00 10.00,4.05 5.95,0.00"/>
+            <polygon class="outer face" points="10.00,-4.05 14.05,0.00 10.00,4.05 5.95,0.00"/>
+            <polygon class="facet-ne face" points="10.00,-4.05 14.05,0.00 10.00,0.00"/>
+            <polygon class="facet-se face" points="14.05,0.00 10.00,4.05 10.00,0.00"/>
+            <polygon class="facet-sw face" points="10.00,4.05 5.95,0.00 10.00,0.00"/>
+            <polygon class="facet-nw face" points="5.95,0.00 10.00,-4.05 10.00,0.00"/>
+            <polygon class="inner face" points="10.00,-1.38 11.38,0.00 10.00,1.38 8.62,0.00"/>
+          </g>
+          <g class="hero-cell" style="--i:1;--dx:1.2px;--dy:-2.8px">
+            <polygon class="hit" points="5.00,4.61 9.05,8.66 5.00,12.71 0.95,8.66"/>
+            <polygon class="outer face" points="5.00,4.61 9.05,8.66 5.00,12.71 0.95,8.66"/>
+            <polygon class="facet-ne face" points="5.00,4.61 9.05,8.66 5.00,8.66"/>
+            <polygon class="facet-se face" points="9.05,8.66 5.00,12.71 5.00,8.66"/>
+            <polygon class="facet-sw face" points="5.00,12.71 0.95,8.66 5.00,8.66"/>
+            <polygon class="facet-nw face" points="0.95,8.66 5.00,4.61 5.00,8.66"/>
+            <polygon class="inner face" points="5.00,7.28 6.38,8.66 5.00,10.04 3.62,8.66"/>
+          </g>
+          <g class="hero-cell" style="--i:2;--dx:-1.1px;--dy:-3.4px">
+            <polygon class="hit" points="0.00,13.27 4.05,17.32 0.00,21.37 -4.05,17.32"/>
+            <polygon class="outer face" points="0.00,13.27 4.05,17.32 0.00,21.37 -4.05,17.32"/>
+            <polygon class="facet-ne face" points="0.00,13.27 4.05,17.32 0.00,17.32"/>
+            <polygon class="facet-se face" points="4.05,17.32 0.00,21.37 0.00,17.32"/>
+            <polygon class="facet-sw face" points="0.00,21.37 -4.05,17.32 0.00,17.32"/>
+            <polygon class="facet-nw face" points="-4.05,17.32 0.00,13.27 0.00,17.32"/>
+            <polygon class="inner face" points="0.00,15.94 1.38,17.32 0.00,18.70 -1.38,17.32"/>
+          </g>
+          <g class="hero-cell" style="--i:3;--dx:0.4px;--dy:-4px">
+            <polygon class="hit" points="10.00,13.27 14.05,17.32 10.00,21.37 5.95,17.32"/>
+            <polygon class="outer face" points="10.00,13.27 14.05,17.32 10.00,21.37 5.95,17.32"/>
+            <polygon class="facet-ne face" points="10.00,13.27 14.05,17.32 10.00,17.32"/>
+            <polygon class="facet-se face" points="14.05,17.32 10.00,21.37 10.00,17.32"/>
+            <polygon class="facet-sw face" points="10.00,21.37 5.95,17.32 10.00,17.32"/>
+            <polygon class="facet-nw face" points="5.95,17.32 10.00,13.27 10.00,17.32"/>
+            <polygon class="inner face" points="10.00,15.94 11.38,17.32 10.00,18.70 8.62,17.32"/>
+          </g>
+          <g class="hero-cell" style="--i:4;--dx:1.4px;--dy:-2.6px">
+            <polygon class="hit" points="20.00,13.27 24.05,17.32 20.00,21.37 15.95,17.32"/>
+            <polygon class="outer face" points="20.00,13.27 24.05,17.32 20.00,21.37 15.95,17.32"/>
+            <polygon class="facet-ne face" points="20.00,13.27 24.05,17.32 20.00,17.32"/>
+            <polygon class="facet-se face" points="24.05,17.32 20.00,21.37 20.00,17.32"/>
+            <polygon class="facet-sw face" points="20.00,21.37 15.95,17.32 20.00,17.32"/>
+            <polygon class="facet-nw face" points="15.95,17.32 20.00,13.27 20.00,17.32"/>
+            <polygon class="inner face" points="20.00,15.94 21.38,17.32 20.00,18.70 18.62,17.32"/>
+          </g>
+          <g class="hero-cell" style="--i:5;--dx:-0.8px;--dy:-3.2px">
+            <polygon class="hit" points="5.00,21.93 9.05,25.98 5.00,30.03 0.95,25.98"/>
+            <polygon class="outer face" points="5.00,21.93 9.05,25.98 5.00,30.03 0.95,25.98"/>
+            <polygon class="facet-ne face" points="5.00,21.93 9.05,25.98 5.00,25.98"/>
+            <polygon class="facet-se face" points="9.05,25.98 5.00,30.03 5.00,25.98"/>
+            <polygon class="facet-sw face" points="5.00,30.03 0.95,25.98 5.00,25.98"/>
+            <polygon class="facet-nw face" points="0.95,25.98 5.00,21.93 5.00,25.98"/>
+            <polygon class="inner face" points="5.00,24.60 6.38,25.98 5.00,27.36 3.62,25.98"/>
+          </g>
+          <g class="hero-cell" style="--i:6;--dx:0.9px;--dy:-3.8px">
+            <polygon class="hit" points="15.00,21.93 19.05,25.98 15.00,30.03 10.95,25.98"/>
+            <polygon class="outer face" points="15.00,21.93 19.05,25.98 15.00,30.03 10.95,25.98"/>
+            <polygon class="facet-ne face" points="15.00,21.93 19.05,25.98 15.00,25.98"/>
+            <polygon class="facet-se face" points="19.05,25.98 15.00,30.03 15.00,25.98"/>
+            <polygon class="facet-sw face" points="15.00,30.03 10.95,25.98 15.00,25.98"/>
+            <polygon class="facet-nw face" points="10.95,25.98 15.00,21.93 15.00,25.98"/>
+            <polygon class="inner face" points="15.00,24.60 16.38,25.98 15.00,27.36 13.62,25.98"/>
+          </g>
+          <g class="hero-cell" style="--i:7;--dx:-1.3px;--dy:-2.9px">
+            <polygon class="hit" points="0.00,30.59 4.05,34.64 0.00,38.69 -4.05,34.64"/>
+            <polygon class="outer face" points="0.00,30.59 4.05,34.64 0.00,38.69 -4.05,34.64"/>
+            <polygon class="facet-ne face" points="0.00,30.59 4.05,34.64 0.00,34.64"/>
+            <polygon class="facet-se face" points="4.05,34.64 0.00,38.69 0.00,34.64"/>
+            <polygon class="facet-sw face" points="0.00,38.69 -4.05,34.64 0.00,34.64"/>
+            <polygon class="facet-nw face" points="-4.05,34.64 0.00,30.59 0.00,34.64"/>
+            <polygon class="inner face" points="0.00,33.26 1.38,34.64 0.00,36.02 -1.38,34.64"/>
+          </g>
+        </svg>
       </div>
     </div>
   </div>
@@ -129,43 +182,37 @@ document.documentElement.setAttribute("data-theme",
 <section class="frame" id="how">
   <div class="wrap">
     <div class="frame-head rise">
-      <p class="kicker">How Lattice Prime works</p>
-      <h2>Three moves, in order. Each one is a screen you can open now.</h2>
-      <p>Nothing here is a mock. Every card below is the live contract call it names, running against Hedera testnet.</p>
+      <h2>How Lattice Prime works</h2>
+      <p class="frame-lead">Seal size in three steps. Nobody reads the order first.</p>
     </div>
 
     <div class="steps">
       <a class="step step-1 pop" style="--i:0" href="prove.html">
-        <span class="n">01 / PROVE</span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
           <path d="M17 24l5 5 10-11"/>
         </svg>
         <h3>Prove you are allowed</h3>
-        <p>A PLONK proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
-        <span class="verb">gate.register(account, proof, signals)</span>
+        <p>Walk in without handing the venue a file on who you are. One proof. The venue learns one bit: yes.</p>
         <span class="go">Open Prove
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </span>
       </a>
 
       <a class="step step-2 pop" style="--i:1" href="trade.html">
-        <span class="n">02 / TRADE</span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="9" y="21" width="30" height="20" rx="4"/>
           <path d="M16 21v-6a8 8 0 0116 0v6"/>
           <path d="M24 28v6"/>
         </svg>
         <h3>Send an order nobody can read</h3>
-        <p>Your order becomes thirty-two bytes. It stays sealed through the cancel window and opens only when you reveal it, once the round has stopped taking bids.</p>
-        <span class="verb">engine.commit(id) then engine.reveal(…)</span>
+        <p>Size, side and price leave as an unread hash. Cancel while they are still sealed. Reveal only when the round is done.</p>
         <span class="go">Open Trade
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </span>
       </a>
 
       <a class="step step-3 pop" style="--i:2" href="position.html">
-        <span class="n">03 / POSITION</span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 40h36"/>
           <path d="M13 40V27M23 40V15M33 40V22"/>
@@ -173,14 +220,19 @@ document.documentElement.setAttribute("data-theme",
           <path d="M37 10l5-5"/>
         </svg>
         <h3>See what the venue knows</h3>
-        <p>Credit, margin, and the five disclosure getters. Each row says whether it is permitted and, separately, whether the log behind it can be believed.</p>
-        <span class="verb">watch.watch(ids) · engine.spentBits(epoch)</span>
+        <p>Ask what this venue is allowed to publish. The answer is a quantity, not a shrug.</p>
         <span class="go">Open Position
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </span>
       </a>
     </div>
   </div>
+
+  <a class="scroll-cue" href="#features">
+    <span class="lbl">See our innovation</span>
+    <span class="rail"><i></i></span>
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </a>
 </section>
 
 <!-- ============ 3 · the deck ============ -->

@@ -122,6 +122,9 @@ function decodeRevert(err) {
     if (name === "UnknownCommitment") {
         message += " — the preimage does not match; check the salt on the ticket.";
     }
+    if (name === "RegistrantMismatch") {
+        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to register.";
+    }
     if (name === "NotEscrow") {
         const escrow = parsed ? String(parsed.args[0]) : "";
         if (addrEq(escrow, ZERO) || escrow === "0" || escrow === "0x") {
@@ -369,8 +372,171 @@ Venue.bindChrome = function () {
         themeBtn.classList.add("docked");
     }
     themeBtn?.addEventListener("click", Venue.toggleTheme);
+    Venue.bindClockFloat();
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) Venue.tick().catch(() => {});
+    });
+};
+
+Venue.bindClockFloat = function () {
+    const dock = $("clock-float");
+    const btn = $("clock-float-toggle");
+    const panel = $("clock-panel");
+    if (!dock || !btn || !panel) return;
+
+    const pad = 12;
+    const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const headerBottom = () => {
+        const mast = document.querySelector(".mast");
+        return mast ? mast.getBoundingClientRect().bottom : 0;
+    };
+    const box = () => {
+        const w = dock.offsetWidth;
+        const h = dock.offsetHeight;
+        const minL = pad;
+        const maxL = Math.max(pad, window.innerWidth - w - pad);
+        const minT = Math.max(pad, headerBottom() + pad);
+        const maxT = Math.max(minT, window.innerHeight - h - pad);
+        return {w, h, minL, maxL, minT, maxT};
+    };
+    const apply = (left, top, held) => {
+        const b = box();
+        const minT = held ? pad : b.minT;
+        const maxT = held ? Math.max(pad, window.innerHeight - b.h - pad) : b.maxT;
+        const p = {
+            left: Math.min(Math.max(b.minL, left), b.maxL),
+            top: Math.min(Math.max(minT, top), maxT),
+        };
+        dock.style.left = p.left + "px";
+        dock.style.top = p.top + "px";
+        dock.style.right = "auto";
+        dock.classList.add("placed");
+        return p;
+    };
+    const persist = () => {
+        const r = dock.getBoundingClientRect();
+        localStorage.setItem("seamme.clocks", JSON.stringify({left: r.left, top: r.top}));
+    };
+    const hang = () => {
+        const r = dock.getBoundingClientRect();
+        dock.classList.toggle("hang-end", r.left + r.width / 2 < window.innerWidth / 2);
+        const room = window.innerHeight - r.bottom;
+        dock.classList.toggle("drop-up", !panel.hidden && room < 140 && r.top > room);
+    };
+    const snapToEdge = () => {
+        const r = dock.getBoundingClientRect();
+        const b = box();
+        const distR = Math.abs(r.right - (window.innerWidth - pad));
+        const distL = Math.abs(r.left - b.minL);
+        const distT = Math.abs(r.top - b.minT);
+        const distB = Math.abs(r.bottom - (window.innerHeight - pad));
+        const edges = [
+            {d: distR, left: b.maxL, top: r.top},
+            {d: distL, left: b.minL, top: r.top},
+            {d: distT, left: r.left, top: b.minT},
+            {d: distB, left: r.left, top: b.maxT},
+        ];
+        let pick = edges[0];
+        for (const edge of edges) if (edge.d < pick.d) pick = edge;
+        if (!reduce()) dock.classList.add("snapping");
+        apply(pick.left, pick.top, false);
+        hang();
+        const done = () => dock.classList.remove("snapping");
+        if (!reduce()) {
+            dock.addEventListener("transitionend", done, {once: true});
+            setTimeout(done, 360);
+        }
+        persist();
+    };
+    const parkDefault = () => {
+        dock.classList.remove("placed");
+        dock.style.left = "auto";
+        dock.style.right = "1.25rem";
+        dock.style.top = Math.round(headerBottom() + pad) + "px";
+    };
+
+    try {
+        const saved = JSON.parse(localStorage.getItem("seamme.clocks") || "null");
+        if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+            apply(saved.left, saved.top, false);
+            snapToEdge();
+        } else {
+            parkDefault();
+        }
+    } catch (_) {
+        parkDefault();
+    }
+
+    const close = () => {
+        panel.hidden = true;
+        btn.setAttribute("aria-expanded", "false");
+        dock.classList.remove("open", "drop-up", "hang-end");
+    };
+    const open = () => {
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        dock.classList.add("open");
+        hang();
+    };
+
+    let drag = null;
+    const THRESH = 6;
+
+    const onMove = (e) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const dx = e.clientX - drag.x;
+        const dy = e.clientY - drag.y;
+        if (!drag.moved && (dx * dx + dy * dy) < THRESH * THRESH) return;
+        if (!drag.moved) {
+            drag.moved = true;
+            dock.classList.add("dragging");
+            dock.classList.remove("snapping");
+        }
+        apply(drag.left + dx, drag.top + dy, true);
+        hang();
+    };
+    const endDrag = (e) => {
+        if (!drag || (e && e.pointerId !== drag.id)) return;
+        const moved = drag.moved;
+        const fromBtn = drag.fromBtn;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", endDrag);
+        window.removeEventListener("pointercancel", endDrag);
+        dock.classList.remove("dragging");
+        if (moved) {
+            snapToEdge();
+            if (!panel.hidden) open();
+        } else if (fromBtn) {
+            if (panel.hidden) open();
+            else close();
+        }
+        drag = null;
+    };
+
+    dock.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        const r = dock.getBoundingClientRect();
+        drag = {
+            id: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            left: r.left,
+            top: r.top,
+            moved: false,
+            fromBtn: !!e.target.closest("#clock-float-toggle"),
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", endDrag);
+        window.addEventListener("pointercancel", endDrag);
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !panel.hidden) close();
+    });
+    window.addEventListener("resize", () => {
+        if (dock.classList.contains("placed")) snapToEdge();
+        else parkDefault();
     });
 };
 
@@ -895,6 +1061,7 @@ Venue.paintClocks = function () {
     set("clk-kyc", "KYC " + s.kycEpoch, fmtRemain(kycLeft), kycLeft < 86400n);
     const haltEl = $("clk-round");
     if (haltEl) haltEl.classList.toggle("halt", !!s.halted);
+    $("clock-float-toggle")?.classList.toggle("warn", !!s.halted || kycLeft < 86400n);
 };
 
 Venue.status = function (id, msg, kind) {
@@ -964,6 +1131,7 @@ Venue.mountIndex = async function () {
             clocks.innerHTML = '<div class="clk warn"><span class="k">Venue</span>' +
                 '<span class="v">unreachable</span></div>';
         }
+        $("clock-float-toggle")?.classList.add("warn");
         const live = document.querySelector(".fact .live");
         if (live) live.style.background = "var(--exposed)";
         const round = $("fact-round");
@@ -975,6 +1143,12 @@ Venue.mountIndex = async function () {
 Venue.mountProve = async function () {
     $("proof-file")?.addEventListener("change", (e) => Venue.onProofFile(e.target.files[0]));
     $("demo-proof")?.addEventListener("click", () => Venue.loadDemoProof().catch((e) => Venue.fail(e)));
+    $("open-lab")?.addEventListener("click", () => {
+        const lab = $("prove-lab");
+        if (!lab) return;
+        lab.open = true;
+        lab.scrollIntoView({block: "nearest", behavior: "smooth"});
+    });
     const drop = $("drop");
     drop?.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
     drop?.addEventListener("dragleave", () => drop.classList.remove("over"));
@@ -1016,13 +1190,13 @@ Venue.refreshProve = async function () {
         ? "next epoch root is unpublished — grants die at the boundary"
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
-    let status = "Connect or watch an address to read grant state.";
+    let status = "Connect a wallet, or load a proof to watch a live grant.";
     if (who) {
         const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
-            ? "Granted for epoch " + epoch + ". The grant is nothing the instant the epoch ends."
-            : "Not granted in epoch " + epoch + ".";
+            ? "Allowed for this KYC period. That ends when the period does."
+            : "Not yet allowed this period.";
         $("kyc-banner")?.classList.toggle("warn", kyc !== 1);
     } else {
         $("kyc-banner")?.classList.remove("warn");
@@ -1041,11 +1215,11 @@ Venue.onProofFile = async function (file) {
     catch { Venue.status("prove-status", "That file is not JSON.", "bad"); return; }
     const picked = Venue.pickProof(data);
     if (!picked) {
-        Venue.status("prove-status", "Need {proof[24], pub[7]} or a proofs-live.json map keyed by address.", "bad");
+        Venue.status("prove-status", "That file is not a proof the gate recognises.", "bad");
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status", "Loaded " + file.name + ".", "ok");
+    Venue.status("prove-status", "Loaded your proof file. Check the gate next.", "ok");
     Venue.paintPins();
 };
 
@@ -1072,8 +1246,7 @@ Venue.loadDemoProof = async function () {
     const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[epoch] : null;
     if (!set) {
         Venue.status("prove-status",
-            "This build carries no issuer proof for KYC epoch " + epoch +
-            ". Run `make prove-live-epoch EPOCH=" + epoch + "` and rebuild.", "bad");
+            "This page has no live proof for the current KYC period.", "bad");
         return;
     }
     const keys = Object.keys(set);
@@ -1084,14 +1257,19 @@ Venue.loadDemoProof = async function () {
         picked = Venue.pickProof(set[keys[0]]);
     }
     if (!picked) {
-        Venue.status("prove-status", "The issuer proof in this build is not the shape the gate wants.", "bad");
+        Venue.status("prove-status", "The bundled proof is not the shape the gate wants.", "bad");
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status",
-        "Loaded the issuer's proof for " + shortAddr(picked.address || Venue.viewer()) +
-        ", KYC epoch " + epoch + ". Real, and it verifies on chain. Ask wouldAccept.", "ok");
     Venue.paintPins();
+    await Venue.refreshProve();
+    if (Venue.viewer()) {
+        await Venue.previewRegister().catch(() => {});
+        return;
+    }
+    Venue.status("prove-status",
+        "A live proof is loaded for " + shortAddr(picked.address) +
+        ". Check the gate to continue.", "ok");
 };
 
 Venue.pickProof = function (data) {
@@ -1146,24 +1324,49 @@ Venue.paintPins = function () {
     }
 };
 
+Venue.explainGate = function (reason) {
+    const r = String(reason || "");
+    if (r.includes("different address")) {
+        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to register.";
+    }
+    if (r.includes("wrong epoch")) return "This proof is for a different KYC period.";
+    if (r.includes("nullifier exhausted")) {
+        return "This credential has already been used as many times as this period allows.";
+    }
+    if (r.includes("root not published")) return "The issuer has not published a root for this period yet.";
+    if (r.includes("wrong credential root")) return "This proof is not for the root the gate holds today.";
+    if (r.includes("policy mismatch")) return "The proof was built against a different policy than the gate has now.";
+    if (r.includes("policy not satisfied")) return "This proof does not pass the gate's policy.";
+    return r || "The gate will not accept this proof.";
+};
+
 Venue.previewRegister = async function () {
     const who = Venue.viewer();
-    if (!who) { Venue.openSheet(); throw new Error("Connect or watch an address first."); }
-    if (!Venue.proof) throw new Error("Load a proof file first.");
+    if (!who) { Venue.openSheet(); throw new Error("Connect a wallet, or load a proof to watch."); }
+    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
     const pub = Venue.proof.pub.map((x) => asBig(x));
     const [ok, reason] = await Venue.c.gate.wouldAccept(who, pub);
     $("register").disabled = !ok || !Venue.account;
-    Venue.status("prove-status", ok ? "wouldAccept: true. The gate will spend verification gas." : "wouldAccept: " + reason, ok ? "ok" : "bad");
+    let msg;
+    if (ok && Venue.account) {
+        msg = "The gate will accept this. Register to take the grant for this period.";
+    } else if (ok && !Venue.account) {
+        msg = "Watching a live grant for " + shortAddr(who) +
+            ". Connect that wallet if you want to register.";
+    } else {
+        msg = Venue.explainGate(reason);
+    }
+    Venue.status("prove-status", msg, ok ? "ok" : "bad");
     Venue.paintPins();
 };
 
 Venue.doRegister = async function () {
     await Venue.requireAccount();
-    if (!Venue.proof) throw new Error("Load a proof file first.");
+    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
     const pub = Venue.proof.pub.map((x) => asBig(x));
     const [ok, reason] = await Venue.w.gate.wouldAccept(Venue.account, pub);
     if (!ok) {
-        Venue.status("prove-status", "wouldAccept: " + reason, "bad");
+        Venue.status("prove-status", Venue.explainGate(reason), "bad");
         $("register").disabled = true;
         return;
     }
@@ -1172,7 +1375,7 @@ Venue.doRegister = async function () {
         "register"
     );
     if (rec) {
-        Venue.status("prove-status", "Registered. Grant is live only until this KYC epoch ends.", "ok");
+        Venue.status("prove-status", "Registered. The grant lasts only for this KYC period.", "ok");
         await Venue.refreshProve();
     }
 };

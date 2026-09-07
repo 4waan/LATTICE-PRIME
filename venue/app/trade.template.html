@@ -8,6 +8,7 @@ document.documentElement.setAttribute("data-theme",
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
 <!-- The runtime is a local file now, so start it during parse rather than at the
      closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
 <link rel="prefetch" href="position.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +28,10 @@ document.documentElement.setAttribute("data-theme",
 <header class="mast">
   <div class="mast-inner">
     <div class="brand-row">
-      <a class="brand" href="index.html">Lattice Prime</a>
+      <a class="brand" href="index.html">
+/*INLINE app/logo.svg*/
+        <span>Lattice Prime</span>
+      </a>
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
@@ -38,15 +42,21 @@ document.documentElement.setAttribute("data-theme",
       <a href="venue.html">Rulebook</a>
     </nav>
     <div class="mast-end">
-      <div class="clocks" aria-label="Venue clocks">
-        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
-      </div>
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
     </div>
   </div>
 </header>
+
+<aside id="clock-float" class="clock-float" aria-label="Venue clocks">
+  <button type="button" class="clock-float-btn" id="clock-float-toggle" aria-expanded="false" aria-controls="clock-panel" aria-label="Venue clocks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
+  </button>
+  <div class="clocks" id="clock-panel" hidden>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+  </div>
+</aside>
 
 <main class="wrap page">
   <ol class="flow" aria-label="Where you are in the flow">

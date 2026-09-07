@@ -8,6 +8,7 @@ document.documentElement.setAttribute("data-theme",
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
 <!-- The runtime is a local file now, so start it during parse rather than at the
      closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
 <link rel="prefetch" href="repo.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -231,30 +232,38 @@ code{font-size:.86em;background:var(--sunk);padding:.12em .4em;border-radius:8px
 @supports not (backdrop-filter:blur(14px)){.mast{background:var(--paper)}}
 .mast-inner{
   max-width:1120px;margin:0 auto;
-  padding:.75rem clamp(1.1rem,4vw,2.5rem);
-  display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:center;
+  padding:.4rem clamp(1.1rem,4vw,2.5rem);
+  display:grid;grid-template-columns:auto 1fr auto;gap:.7rem;align-items:center;
 }
 .brand-row{display:flex;align-items:center;gap:.55rem;min-width:0}
 .brand{
-  display:flex;align-items:center;text-decoration:none;color:var(--ink);
-  font-weight:700;font-size:1.2rem;letter-spacing:-.04em;
+  display:flex;align-items:center;gap:.55rem;text-decoration:none;color:var(--ink);
+  font-weight:700;font-size:1.5rem;letter-spacing:-.045em;line-height:1.1;
 }
+.brand-mark{
+  width:1.15em;height:1.73em;flex:0 0 auto;display:block;
+  color:var(--primary);overflow:visible;
+}
+.brand-mark polygon{fill:currentColor}
+.brand > span{white-space:nowrap}
 .net-chip{
   font-size:.68rem;font-weight:600;letter-spacing:.06em;
-  padding:.28rem .6rem;border-radius:var(--pill);
+  padding:.22rem .55rem;border-radius:var(--pill);
   background:var(--sealed-wash);color:var(--primary);border:1px solid transparent;
 }
 
-.nav{display:flex;gap:.25rem;justify-content:center;flex-wrap:wrap}
+.nav{display:flex;gap:.2rem;justify-content:center;flex-wrap:wrap}
 .nav a{
-  font-size:.9rem;font-weight:600;text-decoration:none;color:var(--slate);
-  padding:.45rem 1rem;border-radius:var(--pill);min-height:40px;
+  font-size:.86rem;font-weight:600;text-decoration:none;color:var(--slate);
+  padding:.32rem .85rem;border-radius:var(--pill);min-height:36px;
   display:inline-flex;align-items:center;
 }
 .nav a:hover{color:var(--ink);background:var(--sunk)}
 .nav a[aria-current="page"]{color:var(--on-primary);background:var(--primary)}
 
-.mast-end{display:flex;align-items:center;gap:.65rem;justify-content:flex-end;flex-wrap:wrap}
+.mast-end{display:flex;align-items:center;gap:.5rem;justify-content:flex-end;flex-wrap:wrap}
+.mast-end .wallet-btn{min-height:38px}
+
 .clocks{display:flex;gap:.4rem}
 .clk{
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--pill);
@@ -263,6 +272,60 @@ code{font-size:.86em;background:var(--sunk);padding:.12em .4em;border-radius:8px
 .clk .k{font-size:.62rem;font-weight:600;color:var(--faint);letter-spacing:.04em;display:block;text-transform:none}
 .clk .v{font-family:var(--mono);font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
 .clk.warn .v,.clk.warn .k{color:var(--exposed)}
+.clk.halt .v,.clk.halt .k{color:var(--exposed)}
+
+/* Venue clocks sit outside the mast: a round icon that opens one block of
+   three readouts. Released, it snaps to the nearest edge and never covers
+   the header. The block is absolutely positioned so opening it does not
+   move the button. */
+.clock-float{
+  position:fixed;top:4.35rem;right:1.25rem;z-index:25;
+  width:max-content;
+  touch-action:none;user-select:none;
+}
+.clock-float.placed{right:auto}
+.clock-float.dragging{z-index:26}
+.clock-float.snapping{
+  transition:left .28s var(--ease),top .28s var(--ease);
+}
+@media(prefers-reduced-motion:reduce){
+  .clock-float.snapping{transition:none}
+}
+.clock-float-btn{
+  position:relative;cursor:grab;touch-action:none;
+  width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;
+  background:color-mix(in srgb,var(--surface) 92%,transparent);
+  border:1px solid var(--rule-hard);color:var(--ink);
+  box-shadow:0 8px 24px color-mix(in srgb,var(--ink) 10%,transparent);
+  backdrop-filter:blur(12px);
+}
+.clock-float-btn svg{width:20px;height:20px;display:block}
+.clock-float-btn.warn{color:var(--exposed);border-color:color-mix(in srgb,var(--exposed) 45%,var(--rule))}
+.clock-float-btn.warn::after{
+  content:"";position:absolute;top:7px;right:7px;
+  width:7px;height:7px;border-radius:50%;background:var(--exposed);
+}
+.clock-float.dragging .clock-float-btn{cursor:grabbing;transform:none}
+.clock-float-btn:hover{filter:none;border-color:var(--primary)}
+.clock-float-btn:active{transform:none}
+.clock-float .clocks[hidden]{display:none}
+.clock-float.open .clocks{
+  position:absolute;top:calc(100% + .5rem);right:0;left:auto;z-index:1;
+  display:flex;flex-direction:column;align-items:stretch;gap:0;
+  padding:0;min-width:13.2rem;overflow:hidden;
+  background:color-mix(in srgb,var(--surface) 96%,transparent);
+  border:1px solid var(--rule);border-radius:var(--radius);
+  box-shadow:0 12px 32px color-mix(in srgb,var(--ink) 14%,transparent);
+  backdrop-filter:blur(12px);
+}
+.clock-float.hang-end.open .clocks{left:0;right:auto}
+.clock-float.drop-up.open .clocks{top:auto;bottom:calc(100% + .5rem)}
+.clock-float .clk{
+  border:0;border-radius:0;width:100%;
+  padding:.55rem .85rem;background:transparent;
+  border-bottom:1px solid var(--rule);
+}
+.clock-float .clk:last-child{border-bottom:0}
 
 button, .file-btn{
   font-family:var(--font);font-size:.875rem;font-weight:600;color:var(--ink);
@@ -295,6 +358,29 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .page{padding:1.75rem 0 4rem}
 .page h1{font-size:clamp(1.85rem,4vw,2.6rem);line-height:1.08;margin:0 0 .5rem;letter-spacing:-.04em}
 .page > p.lede{font-family:var(--font);font-size:1.05rem;line-height:1.45;color:var(--ink-2);max-width:36rem;margin:0 0 1.5rem;font-weight:400}
+
+.own-file{
+  display:inline-block;margin-top:.9rem;padding:0;border:0;background:none;
+  font:inherit;font-size:.86rem;font-weight:600;color:var(--primary);cursor:pointer;
+}
+.own-file:hover{text-decoration:underline}
+.lab{
+  margin:1.25rem 0 0;border:1px solid var(--rule);border-radius:var(--radius);
+  background:var(--surface);overflow:hidden;
+}
+.lab > summary{
+  display:flex;align-items:center;gap:.75rem;
+  padding:1rem 1.15rem;cursor:pointer;font-weight:600;font-size:.92rem;
+  list-style:none;
+}
+.lab > summary::-webkit-details-marker{display:none}
+.lab > summary::after{
+  content:"Show";margin-left:auto;font-size:.72rem;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--slate);
+}
+.lab[open] > summary::after{content:"Hide"}
+.lab-body{padding:0 1.15rem 1.15rem;display:flex;flex-direction:column;gap:1rem}
+.lab-body .panel{box-shadow:none}
 
 .doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:1.5rem}
 .door{
@@ -475,6 +561,7 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .panel > .top h2{font-size:1.08rem;font-weight:700;letter-spacing:-.025em}
 .snum{display:none}
 .note{border:0;padding:0;font-size:.88rem;color:var(--slate);max-width:42rem;margin-top:.75rem}
+.note.tight{margin-top:0}
 .note b{color:var(--ink);font-weight:600}
 
 .hero{border:0;padding:0}
@@ -483,27 +570,22 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .cols{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:1rem;align-items:start}
 /* The reference column follows the reader down the ticket rather than scrolling
    off the top of it. Below 840 the grid is one column and sticky would trap it. */
-.cols > aside{position:sticky;top:5.25rem}
+.cols > aside{position:sticky;top:4.5rem}
 @media(max-width:840px){.cols > aside{position:static}}
-/* Under 840 the masthead becomes three short rows rather than four tall ones.
-   `display:contents` on .mast-end lets the clocks, the theme control and the
-   connect button be placed individually without a second wrapper. */
+/* Under 840 the masthead is two rows: brand and wallet, then nav and theme.
+   Clocks live in the floating popover, so they no longer take a third row. */
 @media(max-width:840px){
-  .mast-inner{grid-template-columns:1fr auto;row-gap:.5rem;align-items:center;padding-block:.6rem}
+  .mast-inner{grid-template-columns:1fr auto;row-gap:.35rem;align-items:center;padding-block:.35rem}
   .mast-end{display:contents}
   .brand-row{grid-column:1;grid-row:1}
   .wallet-btn{grid-column:2;grid-row:1;justify-self:end}
   .nav{grid-column:1;grid-row:2;justify-self:start;gap:.15rem}
-  .nav a{padding:.4rem .7rem}
+  .nav a{padding:.3rem .65rem}
   .theme.docked{grid-column:2;grid-row:2;justify-self:end}
-  .clocks{grid-column:1/-1;grid-row:3;overflow-x:auto;max-width:100%;padding-bottom:.1rem;gap:.3rem}
-  .clk{padding:.24rem .55rem}
-  .clk .k{font-size:.58rem}
-  .clk .v{font-size:.72rem}
   .cols{grid-template-columns:minmax(0,1fr)}
   .pin{grid-template-columns:2rem 1fr}
 }
-/* A phone masthead has room for a brand, a nav, the clocks and one action.
+/* A phone masthead has room for a brand, a nav and one action.
    The theme control is the thing that gives way: with nothing stored, the page
    already follows the operating system, so nothing is lost by dropping it. */
 @media(max-width:560px){
@@ -511,7 +593,8 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
   .nav{grid-column:1/-1;grid-row:2}
 }
 @media(max-width:400px){
-  .brand{font-size:1.05rem}
+  .brand{font-size:1.22rem}
+  .net-chip{display:none}
   .wallet-btn{padding:0 .85rem;font-size:.8rem}
 }
 
@@ -852,7 +935,20 @@ body[data-screen="position"]{--screen:var(--success)}
 <header class="mast">
   <div class="mast-inner">
     <div class="brand-row">
-      <a class="brand" href="index.html">Lattice Prime</a>
+      <a class="brand" href="index.html">
+<svg xmlns="http://www.w3.org/2000/svg" class="brand-mark" viewBox="-4.5 -4.5 29 43.64" width="20" height="30" fill="#4f46e5" aria-hidden="true">
+  <polygon points="10,-4.05 14.05,0 10,4.05 5.95,0"/>
+  <polygon points="5,4.61 9.05,8.66 5,12.71 0.95,8.66"/>
+  <polygon points="0,13.27 4.05,17.32 0,21.37 -4.05,17.32"/>
+  <polygon points="10,13.27 14.05,17.32 10,21.37 5.95,17.32"/>
+  <polygon points="20,13.27 24.05,17.32 20,21.37 15.95,17.32"/>
+  <polygon points="5,21.93 9.05,25.98 5,30.03 0.95,25.98"/>
+  <polygon points="15,21.93 19.05,25.98 15,30.03 10.95,25.98"/>
+  <polygon points="0,30.59 4.05,34.64 0,38.69 -4.05,34.64"/>
+</svg>
+
+        <span>Lattice Prime</span>
+      </a>
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
@@ -863,15 +959,21 @@ body[data-screen="position"]{--screen:var(--success)}
       <a href="venue.html">Rulebook</a>
     </nav>
     <div class="mast-end">
-      <div class="clocks" aria-label="Venue clocks">
-        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
-      </div>
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
     </div>
   </div>
 </header>
+
+<aside id="clock-float" class="clock-float" aria-label="Venue clocks">
+  <button type="button" class="clock-float-btn" id="clock-float-toggle" aria-expanded="false" aria-controls="clock-panel" aria-label="Venue clocks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
+  </button>
+  <div class="clocks" id="clock-panel" hidden>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+  </div>
+</aside>
 
 <main class="wrap page">
   <ol class="flow" aria-label="Where you are in the flow">
@@ -1545,6 +1647,9 @@ function decodeRevert(err) {
     if (name === "UnknownCommitment") {
         message += " — the preimage does not match; check the salt on the ticket.";
     }
+    if (name === "RegistrantMismatch") {
+        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to register.";
+    }
     if (name === "NotEscrow") {
         const escrow = parsed ? String(parsed.args[0]) : "";
         if (addrEq(escrow, ZERO) || escrow === "0" || escrow === "0x") {
@@ -1792,8 +1897,171 @@ Venue.bindChrome = function () {
         themeBtn.classList.add("docked");
     }
     themeBtn?.addEventListener("click", Venue.toggleTheme);
+    Venue.bindClockFloat();
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) Venue.tick().catch(() => {});
+    });
+};
+
+Venue.bindClockFloat = function () {
+    const dock = $("clock-float");
+    const btn = $("clock-float-toggle");
+    const panel = $("clock-panel");
+    if (!dock || !btn || !panel) return;
+
+    const pad = 12;
+    const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const headerBottom = () => {
+        const mast = document.querySelector(".mast");
+        return mast ? mast.getBoundingClientRect().bottom : 0;
+    };
+    const box = () => {
+        const w = dock.offsetWidth;
+        const h = dock.offsetHeight;
+        const minL = pad;
+        const maxL = Math.max(pad, window.innerWidth - w - pad);
+        const minT = Math.max(pad, headerBottom() + pad);
+        const maxT = Math.max(minT, window.innerHeight - h - pad);
+        return {w, h, minL, maxL, minT, maxT};
+    };
+    const apply = (left, top, held) => {
+        const b = box();
+        const minT = held ? pad : b.minT;
+        const maxT = held ? Math.max(pad, window.innerHeight - b.h - pad) : b.maxT;
+        const p = {
+            left: Math.min(Math.max(b.minL, left), b.maxL),
+            top: Math.min(Math.max(minT, top), maxT),
+        };
+        dock.style.left = p.left + "px";
+        dock.style.top = p.top + "px";
+        dock.style.right = "auto";
+        dock.classList.add("placed");
+        return p;
+    };
+    const persist = () => {
+        const r = dock.getBoundingClientRect();
+        localStorage.setItem("seamme.clocks", JSON.stringify({left: r.left, top: r.top}));
+    };
+    const hang = () => {
+        const r = dock.getBoundingClientRect();
+        dock.classList.toggle("hang-end", r.left + r.width / 2 < window.innerWidth / 2);
+        const room = window.innerHeight - r.bottom;
+        dock.classList.toggle("drop-up", !panel.hidden && room < 140 && r.top > room);
+    };
+    const snapToEdge = () => {
+        const r = dock.getBoundingClientRect();
+        const b = box();
+        const distR = Math.abs(r.right - (window.innerWidth - pad));
+        const distL = Math.abs(r.left - b.minL);
+        const distT = Math.abs(r.top - b.minT);
+        const distB = Math.abs(r.bottom - (window.innerHeight - pad));
+        const edges = [
+            {d: distR, left: b.maxL, top: r.top},
+            {d: distL, left: b.minL, top: r.top},
+            {d: distT, left: r.left, top: b.minT},
+            {d: distB, left: r.left, top: b.maxT},
+        ];
+        let pick = edges[0];
+        for (const edge of edges) if (edge.d < pick.d) pick = edge;
+        if (!reduce()) dock.classList.add("snapping");
+        apply(pick.left, pick.top, false);
+        hang();
+        const done = () => dock.classList.remove("snapping");
+        if (!reduce()) {
+            dock.addEventListener("transitionend", done, {once: true});
+            setTimeout(done, 360);
+        }
+        persist();
+    };
+    const parkDefault = () => {
+        dock.classList.remove("placed");
+        dock.style.left = "auto";
+        dock.style.right = "1.25rem";
+        dock.style.top = Math.round(headerBottom() + pad) + "px";
+    };
+
+    try {
+        const saved = JSON.parse(localStorage.getItem("seamme.clocks") || "null");
+        if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+            apply(saved.left, saved.top, false);
+            snapToEdge();
+        } else {
+            parkDefault();
+        }
+    } catch (_) {
+        parkDefault();
+    }
+
+    const close = () => {
+        panel.hidden = true;
+        btn.setAttribute("aria-expanded", "false");
+        dock.classList.remove("open", "drop-up", "hang-end");
+    };
+    const open = () => {
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        dock.classList.add("open");
+        hang();
+    };
+
+    let drag = null;
+    const THRESH = 6;
+
+    const onMove = (e) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const dx = e.clientX - drag.x;
+        const dy = e.clientY - drag.y;
+        if (!drag.moved && (dx * dx + dy * dy) < THRESH * THRESH) return;
+        if (!drag.moved) {
+            drag.moved = true;
+            dock.classList.add("dragging");
+            dock.classList.remove("snapping");
+        }
+        apply(drag.left + dx, drag.top + dy, true);
+        hang();
+    };
+    const endDrag = (e) => {
+        if (!drag || (e && e.pointerId !== drag.id)) return;
+        const moved = drag.moved;
+        const fromBtn = drag.fromBtn;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", endDrag);
+        window.removeEventListener("pointercancel", endDrag);
+        dock.classList.remove("dragging");
+        if (moved) {
+            snapToEdge();
+            if (!panel.hidden) open();
+        } else if (fromBtn) {
+            if (panel.hidden) open();
+            else close();
+        }
+        drag = null;
+    };
+
+    dock.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        const r = dock.getBoundingClientRect();
+        drag = {
+            id: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            left: r.left,
+            top: r.top,
+            moved: false,
+            fromBtn: !!e.target.closest("#clock-float-toggle"),
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", endDrag);
+        window.addEventListener("pointercancel", endDrag);
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !panel.hidden) close();
+    });
+    window.addEventListener("resize", () => {
+        if (dock.classList.contains("placed")) snapToEdge();
+        else parkDefault();
     });
 };
 
@@ -2318,6 +2586,7 @@ Venue.paintClocks = function () {
     set("clk-kyc", "KYC " + s.kycEpoch, fmtRemain(kycLeft), kycLeft < 86400n);
     const haltEl = $("clk-round");
     if (haltEl) haltEl.classList.toggle("halt", !!s.halted);
+    $("clock-float-toggle")?.classList.toggle("warn", !!s.halted || kycLeft < 86400n);
 };
 
 Venue.status = function (id, msg, kind) {
@@ -2387,6 +2656,7 @@ Venue.mountIndex = async function () {
             clocks.innerHTML = '<div class="clk warn"><span class="k">Venue</span>' +
                 '<span class="v">unreachable</span></div>';
         }
+        $("clock-float-toggle")?.classList.add("warn");
         const live = document.querySelector(".fact .live");
         if (live) live.style.background = "var(--exposed)";
         const round = $("fact-round");
@@ -2398,6 +2668,12 @@ Venue.mountIndex = async function () {
 Venue.mountProve = async function () {
     $("proof-file")?.addEventListener("change", (e) => Venue.onProofFile(e.target.files[0]));
     $("demo-proof")?.addEventListener("click", () => Venue.loadDemoProof().catch((e) => Venue.fail(e)));
+    $("open-lab")?.addEventListener("click", () => {
+        const lab = $("prove-lab");
+        if (!lab) return;
+        lab.open = true;
+        lab.scrollIntoView({block: "nearest", behavior: "smooth"});
+    });
     const drop = $("drop");
     drop?.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
     drop?.addEventListener("dragleave", () => drop.classList.remove("over"));
@@ -2439,13 +2715,13 @@ Venue.refreshProve = async function () {
         ? "next epoch root is unpublished — grants die at the boundary"
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
-    let status = "Connect or watch an address to read grant state.";
+    let status = "Connect a wallet, or load a proof to watch a live grant.";
     if (who) {
         const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
-            ? "Granted for epoch " + epoch + ". The grant is nothing the instant the epoch ends."
-            : "Not granted in epoch " + epoch + ".";
+            ? "Allowed for this KYC period. That ends when the period does."
+            : "Not yet allowed this period.";
         $("kyc-banner")?.classList.toggle("warn", kyc !== 1);
     } else {
         $("kyc-banner")?.classList.remove("warn");
@@ -2464,11 +2740,11 @@ Venue.onProofFile = async function (file) {
     catch { Venue.status("prove-status", "That file is not JSON.", "bad"); return; }
     const picked = Venue.pickProof(data);
     if (!picked) {
-        Venue.status("prove-status", "Need {proof[24], pub[7]} or a proofs-live.json map keyed by address.", "bad");
+        Venue.status("prove-status", "That file is not a proof the gate recognises.", "bad");
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status", "Loaded " + file.name + ".", "ok");
+    Venue.status("prove-status", "Loaded your proof file. Check the gate next.", "ok");
     Venue.paintPins();
 };
 
@@ -2495,8 +2771,7 @@ Venue.loadDemoProof = async function () {
     const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[epoch] : null;
     if (!set) {
         Venue.status("prove-status",
-            "This build carries no issuer proof for KYC epoch " + epoch +
-            ". Run `make prove-live-epoch EPOCH=" + epoch + "` and rebuild.", "bad");
+            "This page has no live proof for the current KYC period.", "bad");
         return;
     }
     const keys = Object.keys(set);
@@ -2507,14 +2782,19 @@ Venue.loadDemoProof = async function () {
         picked = Venue.pickProof(set[keys[0]]);
     }
     if (!picked) {
-        Venue.status("prove-status", "The issuer proof in this build is not the shape the gate wants.", "bad");
+        Venue.status("prove-status", "The bundled proof is not the shape the gate wants.", "bad");
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status",
-        "Loaded the issuer's proof for " + shortAddr(picked.address || Venue.viewer()) +
-        ", KYC epoch " + epoch + ". Real, and it verifies on chain. Ask wouldAccept.", "ok");
     Venue.paintPins();
+    await Venue.refreshProve();
+    if (Venue.viewer()) {
+        await Venue.previewRegister().catch(() => {});
+        return;
+    }
+    Venue.status("prove-status",
+        "A live proof is loaded for " + shortAddr(picked.address) +
+        ". Check the gate to continue.", "ok");
 };
 
 Venue.pickProof = function (data) {
@@ -2569,24 +2849,49 @@ Venue.paintPins = function () {
     }
 };
 
+Venue.explainGate = function (reason) {
+    const r = String(reason || "");
+    if (r.includes("different address")) {
+        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to register.";
+    }
+    if (r.includes("wrong epoch")) return "This proof is for a different KYC period.";
+    if (r.includes("nullifier exhausted")) {
+        return "This credential has already been used as many times as this period allows.";
+    }
+    if (r.includes("root not published")) return "The issuer has not published a root for this period yet.";
+    if (r.includes("wrong credential root")) return "This proof is not for the root the gate holds today.";
+    if (r.includes("policy mismatch")) return "The proof was built against a different policy than the gate has now.";
+    if (r.includes("policy not satisfied")) return "This proof does not pass the gate's policy.";
+    return r || "The gate will not accept this proof.";
+};
+
 Venue.previewRegister = async function () {
     const who = Venue.viewer();
-    if (!who) { Venue.openSheet(); throw new Error("Connect or watch an address first."); }
-    if (!Venue.proof) throw new Error("Load a proof file first.");
+    if (!who) { Venue.openSheet(); throw new Error("Connect a wallet, or load a proof to watch."); }
+    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
     const pub = Venue.proof.pub.map((x) => asBig(x));
     const [ok, reason] = await Venue.c.gate.wouldAccept(who, pub);
     $("register").disabled = !ok || !Venue.account;
-    Venue.status("prove-status", ok ? "wouldAccept: true. The gate will spend verification gas." : "wouldAccept: " + reason, ok ? "ok" : "bad");
+    let msg;
+    if (ok && Venue.account) {
+        msg = "The gate will accept this. Register to take the grant for this period.";
+    } else if (ok && !Venue.account) {
+        msg = "Watching a live grant for " + shortAddr(who) +
+            ". Connect that wallet if you want to register.";
+    } else {
+        msg = Venue.explainGate(reason);
+    }
+    Venue.status("prove-status", msg, ok ? "ok" : "bad");
     Venue.paintPins();
 };
 
 Venue.doRegister = async function () {
     await Venue.requireAccount();
-    if (!Venue.proof) throw new Error("Load a proof file first.");
+    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
     const pub = Venue.proof.pub.map((x) => asBig(x));
     const [ok, reason] = await Venue.w.gate.wouldAccept(Venue.account, pub);
     if (!ok) {
-        Venue.status("prove-status", "wouldAccept: " + reason, "bad");
+        Venue.status("prove-status", Venue.explainGate(reason), "bad");
         $("register").disabled = true;
         return;
     }
@@ -2595,7 +2900,7 @@ Venue.doRegister = async function () {
         "register"
     );
     if (rec) {
-        Venue.status("prove-status", "Registered. Grant is live only until this KYC epoch ends.", "ok");
+        Venue.status("prove-status", "Registered. The grant lasts only for this KYC period.", "ok");
         await Venue.refreshProve();
     }
 };
