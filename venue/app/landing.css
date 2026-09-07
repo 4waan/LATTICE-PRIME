@@ -5,8 +5,7 @@
 
    1. The moving light lives behind the content, never over it. A fixed layer at
       z-index -1 with html painting the canvas means every glyph on the page is
-      composited on top of the glow at full opacity. The glass canvas sits inside
-      #app, above the cards and below the sticky mast, and is pointer-events: none.
+      composited on top of the glow at full opacity.
    2. Every reveal is opt-out. Under prefers-reduced-motion the cards are simply
       there, in the same final position, with no transform to undo. */
 
@@ -15,41 +14,7 @@
 html{background:var(--paper)}
 body{background:transparent}
 
-.glass-root{
-  position:fixed;inset:0;z-index:2;pointer-events:none;
-}
-.glass-root canvas{display:block;width:100%;height:100%;pointer-events:none}
 #app{position:relative;z-index:1}
-.glass-anchor{
-  position:absolute;pointer-events:none;
-}
-.hero-frame > #ga-seam{
-  top:28%;
-  left:calc(50% + min(21rem, 38vw));
-  width:min(26vw, 400px);
-  height:min(34vw, 520px);
-}
-@media(max-width:1100px){
-  .hero-frame > #ga-seam{
-    left:calc(50% + 14rem);
-    width:min(22vw, 280px);
-    height:min(30vw, 360px);
-  }
-}
-@media(max-width:900px){
-  .hero-frame > #ga-seam{display:none}
-}
-
-.mark-slot{
-  display:none;
-  width:72px;height:72px;
-  margin:.1rem 0 .45rem;
-  pointer-events:none;flex:0 0 auto;
-}
-.pcard .mark-slot{margin:.05rem 0 .5rem}
-.has-glass .mark-slot{display:block}
-.has-glass .step .glyph{display:none}
-.has-glass .pcard-proof .who svg{display:none}
 
 .brand{gap:.55rem}
 .brand-mark{width:22px;height:28px;flex:0 0 auto;display:block}
@@ -311,7 +276,7 @@ body{background:transparent}
 }
 .fcard{
   --shift:0;--lift:0;
-  position:relative;flex:0 0 var(--cw);min-height:17.5rem;
+  position:relative;flex:0 0 var(--cw);min-height:20.5rem;
   margin-left:calc(-1 * var(--lap));
   padding:1.25rem 1.15rem;
   background:var(--surface);border:1px solid var(--rule-hard);border-radius:18px;
@@ -341,10 +306,16 @@ body{background:transparent}
 }
 .fcard:last-child h3,.fcard.up h3{max-width:none}
 .fcard p{
-  font-size:.85rem;line-height:1.5;color:var(--ink-2);margin:0;max-width:none;
+  font-size:.82rem;line-height:1.48;color:var(--ink-2);margin:0;max-width:none;
   opacity:0;
 }
 .fcard.up p{opacity:1}
+/* Two paragraphs per card now: what happened, then what happens here. The lead
+   word carries the distinction so a reader can take the pair at a glance rather
+   than by reading both to the end. */
+.fcard p b{font-weight:650;letter-spacing:.02em}
+.fcard p:nth-of-type(1) b{color:var(--exposed)}
+.fcard p:nth-of-type(2) b{color:var(--primary)}
 .fcard .src{
   font-family:var(--mono);font-size:.68rem;color:var(--faint);
   margin-top:auto;padding-top:.65rem;border-top:1px dashed var(--rule);
@@ -458,3 +429,13 @@ body{background:transparent}
   .frame{scroll-margin-top:8.5rem}
   .step{min-height:0}
 }
+
+/* The enforcement record, above the fold. Sized between the lead and the facts
+   row: it is the reason to keep reading, not a caption. The left rule is the
+   exposed colour because the sentence is about disclosure that happened. */
+.hero-stakes{
+  max-width:44rem;margin:1.4rem 0 0;padding:.7rem 0 .7rem 1rem;
+  border-left:3px solid var(--exposed);
+  font-size:clamp(.94rem,1.5vw,1.02rem);line-height:1.55;color:var(--slate);
+}
+.hero-stakes b{color:var(--ink);font-weight:650}

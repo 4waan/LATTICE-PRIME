@@ -1,0 +1,605 @@
+{
+ "topicId": "0.0.10397186",
+ "checkedAt": "2026-09-06T21:34:57.443Z",
+ "messages": 13,
+ "records": 13,
+ "kinds": {
+  "charge": 1,
+  "silence": 1,
+  "checkpoint": 11
+ },
+ "assertions": 118,
+ "failures": 0,
+ "checks": [
+  {
+   "name": "sequence 1 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 1 is under 1024 bytes",
+   "pass": true,
+   "detail": "153 bytes"
+  },
+  {
+   "name": "sequence 1 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 1 follows 0",
+   "pass": true,
+   "detail": "got 1"
+  },
+  {
+   "name": "sequence 2 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 2 is under 1024 bytes",
+   "pass": true,
+   "detail": "176 bytes"
+  },
+  {
+   "name": "sequence 2 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 2 follows 1",
+   "pass": true,
+   "detail": "got 2"
+  },
+  {
+   "name": "sequence 3 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 3 is under 1024 bytes",
+   "pass": true,
+   "detail": "108 bytes"
+  },
+  {
+   "name": "sequence 3 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 3 follows 2",
+   "pass": true,
+   "detail": "got 3"
+  },
+  {
+   "name": "sequence 4 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 4 is under 1024 bytes",
+   "pass": true,
+   "detail": "109 bytes"
+  },
+  {
+   "name": "sequence 4 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 4 follows 3",
+   "pass": true,
+   "detail": "got 4"
+  },
+  {
+   "name": "sequence 5 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 5 is under 1024 bytes",
+   "pass": true,
+   "detail": "88 bytes"
+  },
+  {
+   "name": "sequence 5 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 5 follows 4",
+   "pass": true,
+   "detail": "got 5"
+  },
+  {
+   "name": "sequence 6 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 6 is under 1024 bytes",
+   "pass": true,
+   "detail": "109 bytes"
+  },
+  {
+   "name": "sequence 6 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 6 follows 5",
+   "pass": true,
+   "detail": "got 6"
+  },
+  {
+   "name": "sequence 7 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 7 is under 1024 bytes",
+   "pass": true,
+   "detail": "88 bytes"
+  },
+  {
+   "name": "sequence 7 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 7 follows 6",
+   "pass": true,
+   "detail": "got 7"
+  },
+  {
+   "name": "sequence 8 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 8 is under 1024 bytes",
+   "pass": true,
+   "detail": "109 bytes"
+  },
+  {
+   "name": "sequence 8 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 8 follows 7",
+   "pass": true,
+   "detail": "got 8"
+  },
+  {
+   "name": "sequence 9 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 9 is under 1024 bytes",
+   "pass": true,
+   "detail": "88 bytes"
+  },
+  {
+   "name": "sequence 9 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 9 follows 8",
+   "pass": true,
+   "detail": "got 9"
+  },
+  {
+   "name": "sequence 10 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 10 is under 1024 bytes",
+   "pass": true,
+   "detail": "109 bytes"
+  },
+  {
+   "name": "sequence 10 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 10 follows 9",
+   "pass": true,
+   "detail": "got 10"
+  },
+  {
+   "name": "sequence 11 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 11 is under 1024 bytes",
+   "pass": true,
+   "detail": "88 bytes"
+  },
+  {
+   "name": "sequence 11 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 11 follows 10",
+   "pass": true,
+   "detail": "got 11"
+  },
+  {
+   "name": "sequence 12 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 12 is under 1024 bytes",
+   "pass": true,
+   "detail": "109 bytes"
+  },
+  {
+   "name": "sequence 12 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 12 follows 11",
+   "pass": true,
+   "detail": "got 12"
+  },
+  {
+   "name": "sequence 13 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 13 is under 1024 bytes",
+   "pass": true,
+   "detail": "88 bytes"
+  },
+  {
+   "name": "sequence 13 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 13 follows 12",
+   "pass": true,
+   "detail": "got 13"
+  },
+  {
+   "name": "no record appears twice",
+   "pass": true,
+   "detail": "13 records"
+  },
+  {
+   "name": "sequence 1 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 1 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 1 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 2 (silence) is not before the parameter set took effect",
+   "pass": true,
+   "detail": "adopted at epoch 34"
+  },
+  {
+   "name": "sequence 2 (silence) the transaction succeeded",
+   "pass": true,
+   "detail": "result SUCCESS"
+  },
+  {
+   "name": "sequence 2 (silence) the calldata carries the selector the record names",
+   "pass": true,
+   "detail": "calldata 0xc4d252f5"
+  },
+  {
+   "name": "sequence 2 (silence) it was sent to engine",
+   "pass": true,
+   "detail": "to 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 2 (silence) the epoch is the one its timestamp falls in",
+   "pass": true,
+   "detail": "timestamp is epoch 39"
+  },
+  {
+   "name": "sequence 2 (silence) row 15 was not charged in it",
+   "pass": true,
+   "detail": "charged nothing"
+  },
+  {
+   "name": "sequence 2 (silence) the budget is the one governance published for row 15",
+   "pass": true,
+   "detail": "budgetFor says 1"
+  },
+  {
+   "name": "sequence 2 (silence) the budget it names had no room left",
+   "pass": true,
+   "detail": "1 of 1 spent, this one costs 1"
+  },
+  {
+   "name": "engine row 15 epoch 39: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 15 epoch 39: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 15 epoch 39: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 39 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 39 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 39 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 39 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 39 row 15",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 39 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 321 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 321 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 321 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 321 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 321 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 321 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 321 row 7",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 321 row 14",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 321 row 16",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 323 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 323 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 323 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 323 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 323 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 323 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 323 row 7",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 323 row 14",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 323 row 16",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 324 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 324 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 324 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 324 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 324 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 324 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 324 row 7",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 324 row 14",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 324 row 16",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 325 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 325 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 325 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 325 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 325 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 325 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 325 row 7",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 325 row 14",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 325 row 16",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 326 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 326 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 326 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 326 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 326 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 326 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 326 row 7",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 326 row 14",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "vault checkpoint epoch 326 row 16",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  }
+ ]
+}

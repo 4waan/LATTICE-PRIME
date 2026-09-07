@@ -1,4 +1,4 @@
-/* SeamMe live client — Hedera scaffold-hbar-ui tokens, light first.
+/* Lattice Prime live client — Hedera scaffold-hbar-ui tokens, light first.
    Styrene A is licensed; Montserrat is Hedera's public replacement.
    Primary light #4f46e5, dark #8259ef. Accent #2d84eb. Smoke #9b9b9d.
    Loaded after venue.css so these tokens and chrome win. */
@@ -601,6 +601,46 @@ body[data-screen="position"]{--screen:var(--success)}
 @media (max-width:820px){
   .tline{grid-template-columns:1fr;gap:.35rem}
   .tline .tat{text-align:left}
+}
+
+.rowbtns a.rowlink{font-size:.82rem;font-weight:600;color:var(--primary);
+  text-decoration:none;padding:.4rem .2rem}
+.rowbtns a.rowlink:hover{text-decoration:underline}
+
+/* ---- the consensus topic ------------------------------------------------
+   Four record kinds and one verdict per record. The kind sets the left edge
+   colour because a reader scanning the stream is looking for one of them: a
+   silence is the record nothing else in this venue can produce, so it is the
+   one that has to be findable without reading. */
+.hcs-head{display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;align-items:baseline;
+  padding:.85rem 1.15rem;border-bottom:1px solid var(--rule);background:var(--paper)}
+.hcs-head .tid{font-family:var(--mono);font-size:.86rem;color:var(--ink);font-weight:600}
+.hcs-head .memo{font-size:.78rem;color:var(--slate)}
+.hcs-head .count{margin-left:auto;font-family:var(--mono);font-size:.74rem;color:var(--faint)}
+.hline{display:grid;grid-template-columns:5.5rem 6.5rem 1fr 12rem;gap:.75rem;
+  align-items:baseline;padding:.7rem 1.15rem;border-bottom:1px solid var(--rule);
+  font-size:.82rem;border-left:3px solid transparent}
+.hline:last-of-type{border-bottom:0}
+.hline .hseq{font-family:var(--mono);font-size:.74rem;color:var(--faint)}
+.hline .hkind{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-2)}
+.hline .hsay{color:var(--ink);min-width:0}
+.hline .hat{font-family:var(--mono);font-size:.72rem;color:var(--faint);text-align:right}
+.hline.k-charge{border-left-color:var(--sealed)}
+.hline.k-silence{border-left-color:var(--held)}
+.hline.k-silence .hkind,.hline.k-silence .hsay b{color:var(--held)}
+.hline.k-refusal{border-left-color:var(--exposed)}
+.hline.k-checkpoint{border-left-color:var(--rule-hard)}
+.hline.k-bad{border-left-color:var(--exposed);background:var(--sunk)}
+.hline.k-bad .hkind{color:var(--exposed)}
+.hverdict{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;
+  text-transform:uppercase;padding:.08rem .4rem;border-radius:8px;margin-left:.5rem;white-space:nowrap}
+.hverdict.ok{background:var(--sealed-wash);color:var(--sealed)}
+.hverdict.no{background:var(--held-wash);color:var(--exposed)}
+.hwhy{display:block;font-family:var(--mono);font-size:.72rem;color:var(--faint);margin-top:.2rem}
+@media (max-width:820px){
+  .hline{grid-template-columns:1fr;gap:.3rem}
+  .hline .hat{text-align:left}
 }
 
 /* The rulebook schedule and the live book reuse .rowline, which is fixed at the
