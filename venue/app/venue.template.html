@@ -1,4 +1,4 @@
-<title>Venue · SeamMe</title>
+<title>Rulebook · SeamMe</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="The state of the venue: regime, volume cap, trading halt, parameter root, rulebook and the compliance journal, each read from its own contract.">
@@ -36,7 +36,7 @@ document.documentElement.setAttribute("data-theme",
       <a href="trade.html">Trade</a>
       <a href="position.html">Position</a>
       <a href="repo.html">Repo</a>
-      <a href="venue.html" aria-current="page">Venue</a>
+      <a href="venue.html" aria-current="page">Rulebook</a>
     </nav>
     <div class="mast-end">
       <div class="clocks" aria-label="Venue clocks">
@@ -50,8 +50,9 @@ document.documentElement.setAttribute("data-theme",
 </header>
 
 <main class="wrap page">
-  <h1>Venue</h1>
-  <p class="lede">The six contracts the trading screens do not call. Every figure below is a
+  <h1>Rulebook</h1>
+  <p class="lede">The supervision surface: the regime, the volume cap, the trading halt, the
+    parameter root, the published rulebook, the journal and the clock. Every figure below is a
     getter on the address named beside it, read now, not copied out of the deployment record.</p>
 
   <div class="cols">
@@ -175,7 +176,7 @@ document.documentElement.setAttribute("data-theme",
   </section>
 
   <section>
-    <div class="shead"><h2>Rulebook</h2><span class="src">Rulebook</span></div>
+    <div class="shead"><h2>The published fee schedule</h2><span class="src">Rulebook</span></div>
     <p>The published fee schedule, and whether the contracts still charge what it says.
       <code>reconcile</code> is the getter that answers that; it is not an assertion this page makes.</p>
     <div class="cols">
@@ -264,6 +265,28 @@ document.documentElement.setAttribute("data-theme",
     </div>
     <div class="tape" id="tape"><div class="empty">Press <b>Read the tape</b>.</div></div>
   </section>
+
+  <section>
+    <div class="shead"><h2>The disclosure record, on a consensus topic</h2><span class="src">Hedera Consensus Service</span></div>
+    <p>The venue&rsquo;s meter withholds an event when a row&rsquo;s budget is gone and lets the
+      transaction stand, so a withheld disclosure and a quiet one are the same bytes in the log.
+      That is the one thing a chain cannot report about itself. This stream reports it: an ordered,
+      publicly readable topic that carries a positive record saying <b>the venue acted and
+      deliberately said nothing, on this row, against this budget</b>.</p>
+    <p class="note">No contract writes here, and none could: <code>eth_getCode</code> answers for
+      <code>0x167</code> and for nothing else, so there is no consensus service system contract to
+      call. <a href="https://github.com/hiero-ledger/hiero-improvement-proposals/blob/main/HIP/hip-478.md" rel="noopener">HIP-478</a>
+      specifies an oracle between the two services rather than a precompile, which is what
+      <code>tools/hcs-relay.mjs</code> is. The operator holds the submit key and the topic has no
+      admin key, so it cannot be deleted, renamed or reassigned. What the operator can do is stop,
+      which the checkpoint series makes visible and nothing here can prevent.</p>
+    <div class="rowbtns" style="margin-bottom:1rem">
+      <button type="button" id="hcs-reload">Read the topic</button>
+      <button type="button" id="hcs-audit">Check every record against the chain</button>
+      <a class="rowlink" id="hcs-scan" href="#" rel="noopener" hidden>Topic on HashScan &rarr;</a>
+    </div>
+    <div class="tape" id="hcs"><div class="empty">Press <b>Read the topic</b>.</div></div>
+  </section>
 </main>
 </div>
 
@@ -279,8 +302,10 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/units.mjs*/
 /*INLINE tools/commitment.mjs*/
 /*INLINE tools/lattice.mjs*/
+/*INLINE tools/hcs.mjs*/
 /*INLINE tools/client-bundle.mjs*/
 /*INLINE tools/venue-app.mjs*/
 /*INLINE tools/venue-obs.mjs*/
+/*INLINE tools/hcs-view.mjs*/
 Venue.boot("venue");
 </script>

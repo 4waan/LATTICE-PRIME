@@ -35,7 +35,7 @@ document.documentElement.setAttribute("data-theme",
       <a href="trade.html">Trade</a>
       <a href="position.html">Position</a>
       <a href="repo.html">Repo</a>
-      <a href="venue.html">Venue</a>
+      <a href="venue.html">Rulebook</a>
     </nav>
     <div class="mast-end">
       <div class="clocks" aria-label="Venue clocks">
@@ -55,7 +55,9 @@ document.documentElement.setAttribute("data-theme",
     <li><a href="position.html"><b>03</b> Position</a></li>
   </ol>
   <h1>Prove</h1>
-  <p class="lede">Load a proof, pin the seven public signals against the gate, then register for this epoch.</p>
+  <p class="lede">Load a proof, pin the seven public signals against the gate, then register for this
+    epoch. No proof and no wallet? Press <b>No proof? Load the issuer&rsquo;s</b> and the whole
+    screen fills with a real one.</p>
 
   <div class="banner" id="kyc-banner">
     <p id="kyc-copy">Connect a wallet to read grant state. Grants expire at the KYC epoch boundary with no warning from the chain.</p>
@@ -71,11 +73,21 @@ document.documentElement.setAttribute("data-theme",
           Drop a proof file, or click to choose one.
           <span class="hint" style="display:block;margin-top:.4rem">Shape: <code>{proof[24], pub[7]}</code>, or a map keyed by address.</span>
         </label>
-        <p class="note">This page does not prove in the browser. It runs <code>wouldAccept</code> before it spends verification gas.</p>
+        <p class="note">This page does not prove in the browser. Proving needs the circom
+          toolchain and about twenty-three seconds per address, which is the holder&rsquo;s machine
+          and not a browser tab. What it does here is run <code>wouldAccept</code> before it spends
+          verification gas.</p>
         <div class="rowbtns">
+          <button type="button" id="demo-proof">No proof? Load the issuer&rsquo;s</button>
           <button type="button" id="check">Ask wouldAccept</button>
           <button type="button" class="primary" id="register" disabled>Register</button>
         </div>
+        <p class="note"><b>The issuer&rsquo;s proof is real.</b> It is one of the three
+          <code>make prove-live</code> generated against the root already published on chain for
+          this KYC epoch, and it verifies. Loading it starts watching that address read-only if
+          your own is not one of the three, because a proof that does not name the caller is
+          refused by <code>RegistrantMismatch</code> and that refusal would look like a broken
+          button rather than the rule it is.</p>
         <div class="status" id="prove-status" role="status"></div>
         <div class="hint" id="uses" style="margin-top:.65rem"></div>
       </div>
