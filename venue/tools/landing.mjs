@@ -107,18 +107,30 @@ Landing.reveals = function () {
 
 // ---------- the scroll invitation ----------
 Landing.cue = function () {
-    const cue = document.getElementById("cue");
-    if (!cue) return;
-    const onScroll = () => {
-        cue.classList.toggle("gone", window.scrollY > 60);
-    };
-    window.addEventListener("scroll", onScroll, {passive: true});
-    onScroll();
-    cue.addEventListener("click", (e) => {
-        e.preventDefault();
-        document.getElementById("how")?.scrollIntoView({
-            behavior: Landing.reduced() ? "auto" : "smooth",
-            block: "start",
+    const cues = [...document.querySelectorAll(".scroll-cue")];
+    if (!cues.length) return;
+
+    // Only the fold invitation hides once the reader has moved. The bar on
+    // later frames stays put; it is already below the fold.
+    const heroCue = document.getElementById("cue");
+    if (heroCue) {
+        const onScroll = () => {
+            heroCue.classList.toggle("gone", window.scrollY > 60);
+        };
+        window.addEventListener("scroll", onScroll, {passive: true});
+        onScroll();
+    }
+
+    cues.forEach((cue) => {
+        cue.addEventListener("click", (e) => {
+            const id = (cue.getAttribute("href") || "").replace(/^#/, "");
+            const target = id && document.getElementById(id);
+            if (!target) return;
+            e.preventDefault();
+            target.scrollIntoView({
+                behavior: Landing.reduced() ? "auto" : "smooth",
+                block: "start",
+            });
         });
     });
 };

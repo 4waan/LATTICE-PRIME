@@ -1,7 +1,7 @@
 <title>Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Sealed order flow for tokenised repo collateral. Prove eligibility with a zero-knowledge proof, commit an order nobody can read, and settle on Hedera.">
+<meta name="description" content="A cryptographically robust protocol that seals repurchase agreements as a fixed-length hash on Hedera, proves eligibility with a zero-knowledge proof, and meters disclosure on a lattice.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -9,6 +9,7 @@ document.documentElement.setAttribute("data-theme",
   || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));</script>
 <!-- The runtime is a local file now, so start it during parse rather than at the
      closing script tag: the document is a quarter of a megabyte of inlined client. -->
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
 <link rel="prefetch" href="prove.html">
 <link rel="prefetch" href="trade.html">
@@ -233,30 +234,38 @@ code{font-size:.86em;background:var(--sunk);padding:.12em .4em;border-radius:8px
 @supports not (backdrop-filter:blur(14px)){.mast{background:var(--paper)}}
 .mast-inner{
   max-width:1120px;margin:0 auto;
-  padding:.75rem clamp(1.1rem,4vw,2.5rem);
-  display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:center;
+  padding:.4rem clamp(1.1rem,4vw,2.5rem);
+  display:grid;grid-template-columns:auto 1fr auto;gap:.7rem;align-items:center;
 }
 .brand-row{display:flex;align-items:center;gap:.55rem;min-width:0}
 .brand{
-  display:flex;align-items:center;text-decoration:none;color:var(--ink);
-  font-weight:700;font-size:1.2rem;letter-spacing:-.04em;
+  display:flex;align-items:center;gap:.55rem;text-decoration:none;color:var(--ink);
+  font-weight:700;font-size:1.5rem;letter-spacing:-.045em;line-height:1.1;
 }
+.brand-mark{
+  width:1.15em;height:1.73em;flex:0 0 auto;display:block;
+  color:var(--primary);overflow:visible;
+}
+.brand-mark polygon{fill:currentColor}
+.brand > span{white-space:nowrap}
 .net-chip{
   font-size:.68rem;font-weight:600;letter-spacing:.06em;
-  padding:.28rem .6rem;border-radius:var(--pill);
+  padding:.22rem .55rem;border-radius:var(--pill);
   background:var(--sealed-wash);color:var(--primary);border:1px solid transparent;
 }
 
-.nav{display:flex;gap:.25rem;justify-content:center;flex-wrap:wrap}
+.nav{display:flex;gap:.2rem;justify-content:center;flex-wrap:wrap}
 .nav a{
-  font-size:.9rem;font-weight:600;text-decoration:none;color:var(--slate);
-  padding:.45rem 1rem;border-radius:var(--pill);min-height:40px;
+  font-size:.86rem;font-weight:600;text-decoration:none;color:var(--slate);
+  padding:.32rem .85rem;border-radius:var(--pill);min-height:36px;
   display:inline-flex;align-items:center;
 }
 .nav a:hover{color:var(--ink);background:var(--sunk)}
 .nav a[aria-current="page"]{color:var(--on-primary);background:var(--primary)}
 
-.mast-end{display:flex;align-items:center;gap:.65rem;justify-content:flex-end;flex-wrap:wrap}
+.mast-end{display:flex;align-items:center;gap:.5rem;justify-content:flex-end;flex-wrap:wrap}
+.mast-end .wallet-btn{min-height:38px}
+
 .clocks{display:flex;gap:.4rem}
 .clk{
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--pill);
@@ -265,6 +274,60 @@ code{font-size:.86em;background:var(--sunk);padding:.12em .4em;border-radius:8px
 .clk .k{font-size:.62rem;font-weight:600;color:var(--faint);letter-spacing:.04em;display:block;text-transform:none}
 .clk .v{font-family:var(--mono);font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
 .clk.warn .v,.clk.warn .k{color:var(--exposed)}
+.clk.halt .v,.clk.halt .k{color:var(--exposed)}
+
+/* Venue clocks sit outside the mast: a round icon that opens one block of
+   three readouts. Released, it snaps to the nearest edge and never covers
+   the header. The block is absolutely positioned so opening it does not
+   move the button. */
+.clock-float{
+  position:fixed;top:4.35rem;right:1.25rem;z-index:25;
+  width:max-content;
+  touch-action:none;user-select:none;
+}
+.clock-float.placed{right:auto}
+.clock-float.dragging{z-index:26}
+.clock-float.snapping{
+  transition:left .28s var(--ease),top .28s var(--ease);
+}
+@media(prefers-reduced-motion:reduce){
+  .clock-float.snapping{transition:none}
+}
+.clock-float-btn{
+  position:relative;cursor:grab;touch-action:none;
+  width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;
+  background:color-mix(in srgb,var(--surface) 92%,transparent);
+  border:1px solid var(--rule-hard);color:var(--ink);
+  box-shadow:0 8px 24px color-mix(in srgb,var(--ink) 10%,transparent);
+  backdrop-filter:blur(12px);
+}
+.clock-float-btn svg{width:20px;height:20px;display:block}
+.clock-float-btn.warn{color:var(--exposed);border-color:color-mix(in srgb,var(--exposed) 45%,var(--rule))}
+.clock-float-btn.warn::after{
+  content:"";position:absolute;top:7px;right:7px;
+  width:7px;height:7px;border-radius:50%;background:var(--exposed);
+}
+.clock-float.dragging .clock-float-btn{cursor:grabbing;transform:none}
+.clock-float-btn:hover{filter:none;border-color:var(--primary)}
+.clock-float-btn:active{transform:none}
+.clock-float .clocks[hidden]{display:none}
+.clock-float.open .clocks{
+  position:absolute;top:calc(100% + .5rem);right:0;left:auto;z-index:1;
+  display:flex;flex-direction:column;align-items:stretch;gap:0;
+  padding:0;min-width:13.2rem;overflow:hidden;
+  background:color-mix(in srgb,var(--surface) 96%,transparent);
+  border:1px solid var(--rule);border-radius:var(--radius);
+  box-shadow:0 12px 32px color-mix(in srgb,var(--ink) 14%,transparent);
+  backdrop-filter:blur(12px);
+}
+.clock-float.hang-end.open .clocks{left:0;right:auto}
+.clock-float.drop-up.open .clocks{top:auto;bottom:calc(100% + .5rem)}
+.clock-float .clk{
+  border:0;border-radius:0;width:100%;
+  padding:.55rem .85rem;background:transparent;
+  border-bottom:1px solid var(--rule);
+}
+.clock-float .clk:last-child{border-bottom:0}
 
 button, .file-btn{
   font-family:var(--font);font-size:.875rem;font-weight:600;color:var(--ink);
@@ -297,6 +360,29 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .page{padding:1.75rem 0 4rem}
 .page h1{font-size:clamp(1.85rem,4vw,2.6rem);line-height:1.08;margin:0 0 .5rem;letter-spacing:-.04em}
 .page > p.lede{font-family:var(--font);font-size:1.05rem;line-height:1.45;color:var(--ink-2);max-width:36rem;margin:0 0 1.5rem;font-weight:400}
+
+.own-file{
+  display:inline-block;margin-top:.9rem;padding:0;border:0;background:none;
+  font:inherit;font-size:.86rem;font-weight:600;color:var(--primary);cursor:pointer;
+}
+.own-file:hover{text-decoration:underline}
+.lab{
+  margin:1.25rem 0 0;border:1px solid var(--rule);border-radius:var(--radius);
+  background:var(--surface);overflow:hidden;
+}
+.lab > summary{
+  display:flex;align-items:center;gap:.75rem;
+  padding:1rem 1.15rem;cursor:pointer;font-weight:600;font-size:.92rem;
+  list-style:none;
+}
+.lab > summary::-webkit-details-marker{display:none}
+.lab > summary::after{
+  content:"Show";margin-left:auto;font-size:.72rem;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--slate);
+}
+.lab[open] > summary::after{content:"Hide"}
+.lab-body{padding:0 1.15rem 1.15rem;display:flex;flex-direction:column;gap:1rem}
+.lab-body .panel{box-shadow:none}
 
 .doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:1.5rem}
 .door{
@@ -477,6 +563,7 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .panel > .top h2{font-size:1.08rem;font-weight:700;letter-spacing:-.025em}
 .snum{display:none}
 .note{border:0;padding:0;font-size:.88rem;color:var(--slate);max-width:42rem;margin-top:.75rem}
+.note.tight{margin-top:0}
 .note b{color:var(--ink);font-weight:600}
 
 .hero{border:0;padding:0}
@@ -485,27 +572,22 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .cols{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:1rem;align-items:start}
 /* The reference column follows the reader down the ticket rather than scrolling
    off the top of it. Below 840 the grid is one column and sticky would trap it. */
-.cols > aside{position:sticky;top:5.25rem}
+.cols > aside{position:sticky;top:4.5rem}
 @media(max-width:840px){.cols > aside{position:static}}
-/* Under 840 the masthead becomes three short rows rather than four tall ones.
-   `display:contents` on .mast-end lets the clocks, the theme control and the
-   connect button be placed individually without a second wrapper. */
+/* Under 840 the masthead is two rows: brand and wallet, then nav and theme.
+   Clocks live in the floating popover, so they no longer take a third row. */
 @media(max-width:840px){
-  .mast-inner{grid-template-columns:1fr auto;row-gap:.5rem;align-items:center;padding-block:.6rem}
+  .mast-inner{grid-template-columns:1fr auto;row-gap:.35rem;align-items:center;padding-block:.35rem}
   .mast-end{display:contents}
   .brand-row{grid-column:1;grid-row:1}
   .wallet-btn{grid-column:2;grid-row:1;justify-self:end}
   .nav{grid-column:1;grid-row:2;justify-self:start;gap:.15rem}
-  .nav a{padding:.4rem .7rem}
+  .nav a{padding:.3rem .65rem}
   .theme.docked{grid-column:2;grid-row:2;justify-self:end}
-  .clocks{grid-column:1/-1;grid-row:3;overflow-x:auto;max-width:100%;padding-bottom:.1rem;gap:.3rem}
-  .clk{padding:.24rem .55rem}
-  .clk .k{font-size:.58rem}
-  .clk .v{font-size:.72rem}
   .cols{grid-template-columns:minmax(0,1fr)}
   .pin{grid-template-columns:2rem 1fr}
 }
-/* A phone masthead has room for a brand, a nav, the clocks and one action.
+/* A phone masthead has room for a brand, a nav and one action.
    The theme control is the thing that gives way: with nothing stored, the page
    already follows the operating system, so nothing is lost by dropping it. */
 @media(max-width:560px){
@@ -513,7 +595,8 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
   .nav{grid-column:1/-1;grid-row:2}
 }
 @media(max-width:400px){
-  .brand{font-size:1.05rem}
+  .brand{font-size:1.22rem}
+  .net-chip{display:none}
   .wallet-btn{padding:0 .85rem;font-size:.8rem}
 }
 
@@ -861,9 +944,6 @@ body{background:transparent}
 
 #app{position:relative;z-index:1}
 
-.brand{gap:.55rem}
-.brand-mark{width:22px;height:28px;flex:0 0 auto;display:block}
-
 .aura{
   position:fixed;inset:0;z-index:-1;pointer-events:none;
   /* Two stops. A watch-face core, then a wide soft halo that carries the colour
@@ -907,6 +987,12 @@ body{background:transparent}
   letter-spacing:-.035em;line-height:1.08;margin:.55rem 0 .7rem;
 }
 .frame-head p{font-size:1.02rem;color:var(--ink-2);max-width:36rem;margin:0}
+.frame-lead{
+  font-size:clamp(.88rem,1.15vw,.96rem);font-weight:500;
+  color:var(--ink-2);letter-spacing:-.008em;line-height:1.68;
+  max-width:34rem;margin:0;
+}
+#how .frame-head h2{margin:0 0 .9rem}
 .kicker{
   display:inline-flex;align-items:center;gap:.5rem;
   font-size:.72rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
@@ -917,92 +1003,85 @@ body{background:transparent}
 /* ---------- frame 1, the hero ---------- */
 
 .hero-frame{
-  min-height:calc(100svh - 69px);
+  min-height:calc(100svh - 58px);
   display:flex;flex-direction:column;justify-content:center;
-  padding-top:clamp(2rem,6vh,4rem);padding-bottom:6.5rem;
+  /* Near-equal pads so the split sits in the middle; bottom still clears the cue. */
+  padding-top:clamp(2.2rem,7vh,4.2rem);padding-bottom:clamp(3.6rem,9vh,5.2rem);
   border-top:0;
 }
-/* Centred on its own axis. Everything in the hero is a column item so the
-   measure of each line is set independently and nothing has to be nudged. */
-.hero-inner{
-  width:100%;text-align:center;
-  display:flex;flex-direction:column;align-items:center;
+/* Copy left, lattice right. Blot, claim, quieter description, one door. */
+.hero-inner{width:100%;text-align:left}
+.hero-split{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(13rem,.85fr);
+  gap:clamp(1.6rem,4.5vw,3.6rem);
+  align-items:center;
 }
-.hero-inner .kicker{justify-content:center}
+.hero-copy{
+  min-width:0;
+  display:flex;flex-direction:column;align-items:flex-start;
+}
 
-/* Five words, which is what finally lets the type be the size a headline
-   wants. The measure is in characters, not pixels, so the line break holds
-   its place as the clamp scales. */
+/* Named like "Impermanent Loss Protection Protocol": the accident, then
+   the instrument. Two lines on a desktop so the claim can be the size it is. */
+.hero-blot{
+  display:block;width:fit-content;box-sizing:border-box;
+  margin:0;max-width:100%;
+  background:color-mix(in srgb,var(--surface) 76%,transparent);
+  border:1px solid var(--rule);border-radius:var(--pill);
+  padding:.4rem .88rem;font-size:.78rem;color:var(--ink);font-weight:600;
+  letter-spacing:-.008em;line-height:1.35;
+}
 .hero-h{
-  font-size:clamp(2.4rem,6.6vw,4.6rem);
-  font-weight:700;letter-spacing:-.042em;line-height:1.04;
-  margin:1.1rem 0 0;max-width:16ch;text-wrap:balance;
+  font-size:clamp(2.05rem,4.8vw,3.25rem);
+  font-weight:700;letter-spacing:-.042em;line-height:1.08;
+  margin:1.35rem 0 0;max-width:13.5em;text-wrap:balance;
 }
 .hero-h .hi{
   background:var(--grad);-webkit-background-clip:text;background-clip:text;
   -webkit-text-fill-color:transparent;color:transparent;
 }
-/* Two levels beneath it. The first says why the venue exists and carries the
-   weight; the second says how it is done, and where Hedera comes in, at
-   ordinary weight. Nothing else in the frame competes with those two. */
 .hero-lead{
-  font-size:clamp(1.08rem,1.9vw,1.36rem);font-weight:600;
-  color:var(--ink);letter-spacing:-.014em;line-height:1.42;
-  max-width:40rem;margin:1.35rem 0 0;text-wrap:balance;
-}
-.hero-sub{
-  font-size:clamp(.96rem,1.4vw,1.06rem);color:var(--slate);
-  max-width:36rem;margin:.85rem 0 0;line-height:1.55;text-wrap:balance;
+  font-size:clamp(.88rem,1.15vw,.96rem);font-weight:500;
+  color:var(--ink-2);letter-spacing:-.008em;line-height:1.68;
+  margin:1.5rem 0 0;max-width:34rem;overflow-wrap:break-word;
 }
 .cta-row{
-  display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.9rem;
-  align-items:center;justify-content:center;
+  display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.85rem;
+  align-items:center;justify-content:flex-start;
 }
 
-.hero-facts{
-  display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.55rem;justify-content:center;
+/* The mark is the product, drawn large: faceted cells on a web. A cell that
+   the pointer covers is withheld; the hit polygon stays so hover does not
+   flicker. Right padding leaves a lane for the floating clocks. */
+.hero-mark{
+  justify-self:center;width:100%;max-width:22rem;
+  padding:1rem 3.25rem 1rem .4rem;
 }
-.fact{
-  display:inline-flex;align-items:center;gap:.45rem;
-  background:color-mix(in srgb,var(--surface) 76%,transparent);
-  border:1px solid var(--rule);border-radius:var(--pill);
-  padding:.34rem .8rem;font-size:.76rem;color:var(--slate);font-weight:500;
+.hero-lattice{
+  display:block;width:100%;height:auto;overflow:visible;
+  color:var(--primary);pointer-events:none;
 }
-.fact b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:.76rem}
-.fact .live{
-  width:6px;height:6px;border-radius:50%;background:var(--success-fill);flex:0 0 auto;
-  box-shadow:0 0 0 0 color-mix(in srgb,var(--success-fill) 70%,transparent);
-}
-@media(prefers-reduced-motion:no-preference){
-  .fact .live{animation:pulse 2.4s ease-out infinite}
-  @keyframes pulse{
-    0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--success-fill) 70%,transparent)}
-    70%,100%{box-shadow:0 0 0 7px transparent}
+.hero-web{stroke:currentColor;stroke-width:.38;opacity:.32}
+.hero-cell{pointer-events:auto;transform-box:fill-box;transform-origin:center}
+.hero-cell .hit{fill:transparent}
+.hero-cell .outer{fill:currentColor}
+.hero-cell .facet-ne{fill:color-mix(in srgb,white 42%,currentColor)}
+.hero-cell .facet-se{fill:color-mix(in srgb,white 14%,currentColor)}
+.hero-cell .facet-sw{fill:color-mix(in srgb,black 26%,currentColor)}
+.hero-cell .facet-nw{fill:color-mix(in srgb,white 8%,currentColor)}
+.hero-cell .inner{fill:color-mix(in srgb,white 52%,currentColor)}
+.hero-cell .face{transition:opacity .2s var(--ease)}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+  .hero-cell{
+    animation:cell-bob 3.8s ease-in-out infinite;
+    animation-delay:calc(var(--i) * .31s);
   }
-}
-
-/* ---------- the agent band ---------- */
-
-/* Space held, not a chatbot pretended. The conversational surface is the next
-   thing to land in the hero, so the band claims its full width and height now.
-   It is a div rather than a disabled button: nothing here is focusable yet,
-   and a dead control in the tab order would be worse than none. */
-.agent-band{width:100%;max-width:44rem;margin:2.1rem auto 0}
-.agent-bar{
-  display:flex;align-items:center;gap:.7rem;
-  padding:.85rem 1rem .85rem 1.05rem;
-  background:color-mix(in srgb,var(--surface) 80%,transparent);
-  border:1px solid var(--rule-hard);border-radius:var(--pill);
-  box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 5%,transparent);
-  text-align:left;font-size:.9rem;color:var(--slate);
-}
-.agent-bar .spark{width:18px;height:18px;color:var(--primary);flex:0 0 auto}
-.agent-bar .ph{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.agent-bar .soon{
-  flex:0 0 auto;font-family:var(--mono);font-size:.64rem;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--primary);
-  background:color-mix(in srgb,var(--primary) 13%,transparent);
-  border-radius:var(--pill);padding:.26rem .55rem;
+  .hero-cell:hover .face{opacity:0}
+  @keyframes cell-bob{
+    0%,100%{transform:translate(0,0)}
+    50%{transform:translate(var(--dx,0px),var(--dy,-3.4px))}
+  }
 }
 
 /* ---------- the scroll invitation ---------- */
@@ -1044,13 +1123,15 @@ body{background:transparent}
 
 /* ---------- frame 2, the three doors ---------- */
 
+#how{padding-bottom:clamp(11rem,20vh,14rem)}
+
 .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
 @media(max-width:820px){.steps{grid-template-columns:1fr}}
 
 .step{
   position:relative;overflow:hidden;
-  display:flex;flex-direction:column;gap:.55rem;
-  padding:1.5rem 1.4rem 1.35rem;min-height:19rem;
+  display:flex;flex-direction:column;gap:.65rem;
+  padding:1.55rem 1.4rem 1.35rem;min-height:16.5rem;
   background:var(--surface);border:1px solid var(--rule);border-radius:20px;
   text-decoration:none;color:inherit;
   box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 5%,transparent);
@@ -1069,22 +1150,14 @@ body{background:transparent}
   .step:hover{transform:translateY(-4px)}
   .step .go{transition:gap .2s var(--ease),color .2s var(--ease)}
 }
-.step .n{
-  font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.1em;
-  color:var(--step-ink);
-}
 .step .glyph{
-  width:52px;height:52px;margin:.1rem 0 .5rem;
+  width:52px;height:52px;margin:0 0 .15rem;
   color:var(--step-ink);
 }
 .step h3{font-size:1.4rem;font-weight:700;letter-spacing:-.03em;color:var(--ink);margin:0}
 .step p{font-size:.92rem;color:var(--ink-2);margin:0;max-width:none;line-height:1.5}
-.step .verb{
-  font-family:var(--mono);font-size:.74rem;color:var(--slate);
-  border-top:1px dashed var(--rule);padding-top:.7rem;margin-top:auto;
-}
 .step .go{
-  display:inline-flex;align-items:center;gap:.35rem;margin-top:.7rem;
+  display:inline-flex;align-items:center;gap:.35rem;margin-top:auto;padding-top:.45rem;
   font-size:.88rem;font-weight:600;color:var(--ink);
 }
 .step-1{--step-ink:var(--primary);--step-tint:color-mix(in srgb,var(--primary) 30%,transparent)}
@@ -1257,33 +1330,27 @@ body{background:transparent}
   .rise.in{opacity:1;transform:none;transition:opacity .6s var(--ease),transform .6s var(--ease)}
 }
 
+@media(max-width:820px){
+  .hero-split{grid-template-columns:1fr;gap:1.6rem}
+  /* The clocks park top-right; keep the copy from running under the button. */
+  .hero-copy{padding-right:3.25rem}
+  .hero-mark{max-width:16rem;padding:.2rem 0 0;justify-self:start}
+}
+
 @media(max-width:600px){
-  .hero-frame{min-height:0;padding-bottom:6.5rem}
-  /* A 16ch measure at the desktop floor would break the headline into four
-     stubs on a phone, so the floor comes down and the measure comes off. */
-  .hero-h{font-size:clamp(2.05rem,9vw,2.6rem);max-width:none}
-  /* The rule beside the kicker reads as a stray mark once the label wraps. */
-  .hero-inner .kicker::before{display:none}
-  .hero-lead{font-size:1.05rem}
-  .agent-bar{padding:.75rem .8rem}
-  .agent-bar .ph{font-size:.84rem}
+  .hero-frame{min-height:0;padding-top:1.8rem;padding-bottom:5rem}
+  .hero-h{font-size:clamp(1.7rem,8vw,2.35rem);max-width:none;margin-top:1.15rem}
+  .hero-lead{font-size:.9rem;margin-top:1.25rem}
+  .hero-mark{max-width:12.5rem;margin:0 auto}
   .scroll-cue .rail{width:min(18rem,72vw)}
+  #how{padding-bottom:10rem}
   /* Full-width targets: a thumb should not have to find a pill. */
-  .cta-row{flex-direction:column;align-items:stretch;gap:.6rem}
+  .cta-row{flex-direction:column;align-items:stretch;gap:.6rem;margin-top:1.55rem}
   .cta-row .btn-grad,.cta-row .btn-ghost{width:100%}
-  .frame{scroll-margin-top:8.5rem}
+  .frame{scroll-margin-top:6.5rem}
   .step{min-height:0}
 }
 
-/* The enforcement record, above the fold. Sized between the lead and the facts
-   row: it is the reason to keep reading, not a caption. The left rule is the
-   exposed colour because the sentence is about disclosure that happened. */
-.hero-stakes{
-  max-width:44rem;margin:1.4rem 0 0;padding:.7rem 0 .7rem 1rem;
-  border-left:3px solid var(--exposed);
-  font-size:clamp(.94rem,1.5vw,1.02rem);line-height:1.55;color:var(--slate);
-}
-.hero-stakes b{color:var(--ink);font-weight:650}
 
 </style>
 
@@ -1299,18 +1366,18 @@ body{background:transparent}
   <div class="mast-inner">
     <div class="brand-row">
       <a class="brand" href="index.html">
-        <svg class="brand-mark" viewBox="0 0 22 28" width="22" height="28" aria-hidden="true">
-          <defs>
-            <linearGradient id="seam-brand-grad" x1="2" y1="26" x2="20" y2="2" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#2f9f90"/>
-              <stop offset="55%" stop-color="#5eead4"/>
-              <stop offset="100%" stop-color="#9ef6e8"/>
-            </linearGradient>
-          </defs>
-          <path fill="none" stroke="url(#seam-brand-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
-            d="M4.2 22.2c.2 2.4 3.2 3.6 7 3.6 4.6 0 7.3-2.2 7.3-5.2 0-3.6-3.8-4.6-7.2-5.6C7.6 14 3.5 12.8 3.5 8.4c0-3.2 2.8-5.6 7.4-5.6 3.6 0 6.4 1.5 6.8 4.4"/>
-        </svg>
-        Lattice Prime
+<svg xmlns="http://www.w3.org/2000/svg" class="brand-mark" viewBox="-4.5 -4.5 29 43.64" width="20" height="30" fill="#4f46e5" aria-hidden="true">
+  <polygon points="10,-4.05 14.05,0 10,4.05 5.95,0"/>
+  <polygon points="5,4.61 9.05,8.66 5,12.71 0.95,8.66"/>
+  <polygon points="0,13.27 4.05,17.32 0,21.37 -4.05,17.32"/>
+  <polygon points="10,13.27 14.05,17.32 10,21.37 5.95,17.32"/>
+  <polygon points="20,13.27 24.05,17.32 20,21.37 15.95,17.32"/>
+  <polygon points="5,21.93 9.05,25.98 5,30.03 0.95,25.98"/>
+  <polygon points="15,21.93 19.05,25.98 15,30.03 10.95,25.98"/>
+  <polygon points="0,30.59 4.05,34.64 0,38.69 -4.05,34.64"/>
+</svg>
+
+        <span>Lattice Prime</span>
       </a>
       <span class="net-chip">TESTNET</span>
     </div>
@@ -1322,64 +1389,126 @@ body{background:transparent}
       <a href="venue.html">Rulebook</a>
     </nav>
     <div class="mast-end">
-      <div class="clocks" aria-label="Venue clocks">
-        <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-        <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-        <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
-      </div>
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
     </div>
   </div>
 </header>
 
+<aside id="clock-float" class="clock-float" aria-label="Venue clocks">
+  <button type="button" class="clock-float-btn" id="clock-float-toggle" aria-expanded="false" aria-controls="clock-panel" aria-label="Venue clocks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
+  </button>
+  <div class="clocks" id="clock-panel" hidden>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+  </div>
+</aside>
+
 <!-- ============ 1 · the claim ============ -->
 <section class="frame hero-frame">
   <div class="wrap hero-inner">
-    <p class="kicker">Sealed order flow for tokenised collateral</p>
+    <div class="hero-split">
+      <div class="hero-copy">
+        <p class="hero-blot">Trade size on a dark pool that can account for its silence</p>
+        <h1 class="hero-h"><span class="hi">Order-leakage protection</span> for tokenised collateral</h1>
+        <p class="hero-lead">A cryptographically robust protocol that lets you seal repurchase agreements as a fixed-length hash on Hedera with fair-order settlement, proving eligibility with a zero-knowledge proof, while a disclosure lattice meters every leak against a budget and prints a receipt of what was withheld.</p>
+        <div class="cta-row">
+          <a class="btn-grad lg" href="prove.html">
+            Get started now
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
 
-    <h1 class="hero-h">Trade size <span class="hi">without showing it.</span></h1>
-
-    <p class="hero-lead">
-      Institutions cannot trade size on a public order book, because every
-      resting order leaks the position it is building.
-    </p>
-
-    <p class="hero-sub">
-      Lattice Prime seals the order and proves the trader instead. Hedera settles it
-      with fair ordering and fixed fees.
-    </p>
-
-    <!-- The stakes, above the fold. One line of the enforcement record does more
-         work than any card below it, because it is what happened rather than
-         what we built. Every figure is an SEC or NYAG settlement; the sources
-         are in docs/EVIDENCE.md. -->
-    <p class="hero-stakes">
-      <b>Five dark pools. $190m in settlements. One finding repeated in each of
-      them:</b> the operator could read the orders, and did.
-    </p>
-
-    <div class="cta-row">
-      <a class="btn-grad lg" href="prove.html">
-        Get started now
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-      </a>
-      <a class="btn-ghost lg" href="#how">See how it works</a>
-    </div>
-
-    <div class="hero-facts">
-      <span class="fact"><i class="live"></i> Live on <b>chain 296</b></span>
-      <span class="fact">Bond <b id="bond-name">LPRC</b></span>
-      <span class="fact">Round <b id="fact-round">—</b></span>
-      <span class="fact">Reads via <b id="net-rpc">hashio</b></span>
-    </div>
-
-    <!-- Held open for the agent, not faked. The band reserves its own width and
-         height now so that shipping the conversation later moves nothing above it. -->
-    <div class="agent-band">
-      <div class="agent-bar">
-        <svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
-        <span class="ph">Ask the Lattice Prime agent about eligibility, sealed orders, or settlement</span>
-        <span class="soon">Soon</span>
+      <div class="hero-mark" aria-hidden="true">
+        <svg class="hero-lattice" viewBox="-8 -8 40 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g class="hero-web">
+            <line x1="10.00" y1="0.00" x2="5.00" y2="8.66"/>
+            <line x1="5.00" y1="8.66" x2="0.00" y2="17.32"/>
+            <line x1="5.00" y1="8.66" x2="10.00" y2="17.32"/>
+            <line x1="0.00" y1="17.32" x2="10.00" y2="17.32"/>
+            <line x1="10.00" y1="17.32" x2="20.00" y2="17.32"/>
+            <line x1="0.00" y1="17.32" x2="5.00" y2="25.98"/>
+            <line x1="10.00" y1="17.32" x2="5.00" y2="25.98"/>
+            <line x1="10.00" y1="17.32" x2="15.00" y2="25.98"/>
+            <line x1="20.00" y1="17.32" x2="15.00" y2="25.98"/>
+            <line x1="5.00" y1="25.98" x2="15.00" y2="25.98"/>
+            <line x1="5.00" y1="25.98" x2="0.00" y2="34.64"/>
+          </g>
+          <g class="hero-cell" style="--i:0;--dx:0px;--dy:-3.6px">
+            <polygon class="hit" points="10.00,-4.05 14.05,0.00 10.00,4.05 5.95,0.00"/>
+            <polygon class="outer face" points="10.00,-4.05 14.05,0.00 10.00,4.05 5.95,0.00"/>
+            <polygon class="facet-ne face" points="10.00,-4.05 14.05,0.00 10.00,0.00"/>
+            <polygon class="facet-se face" points="14.05,0.00 10.00,4.05 10.00,0.00"/>
+            <polygon class="facet-sw face" points="10.00,4.05 5.95,0.00 10.00,0.00"/>
+            <polygon class="facet-nw face" points="5.95,0.00 10.00,-4.05 10.00,0.00"/>
+            <polygon class="inner face" points="10.00,-1.38 11.38,0.00 10.00,1.38 8.62,0.00"/>
+          </g>
+          <g class="hero-cell" style="--i:1;--dx:1.2px;--dy:-2.8px">
+            <polygon class="hit" points="5.00,4.61 9.05,8.66 5.00,12.71 0.95,8.66"/>
+            <polygon class="outer face" points="5.00,4.61 9.05,8.66 5.00,12.71 0.95,8.66"/>
+            <polygon class="facet-ne face" points="5.00,4.61 9.05,8.66 5.00,8.66"/>
+            <polygon class="facet-se face" points="9.05,8.66 5.00,12.71 5.00,8.66"/>
+            <polygon class="facet-sw face" points="5.00,12.71 0.95,8.66 5.00,8.66"/>
+            <polygon class="facet-nw face" points="0.95,8.66 5.00,4.61 5.00,8.66"/>
+            <polygon class="inner face" points="5.00,7.28 6.38,8.66 5.00,10.04 3.62,8.66"/>
+          </g>
+          <g class="hero-cell" style="--i:2;--dx:-1.1px;--dy:-3.4px">
+            <polygon class="hit" points="0.00,13.27 4.05,17.32 0.00,21.37 -4.05,17.32"/>
+            <polygon class="outer face" points="0.00,13.27 4.05,17.32 0.00,21.37 -4.05,17.32"/>
+            <polygon class="facet-ne face" points="0.00,13.27 4.05,17.32 0.00,17.32"/>
+            <polygon class="facet-se face" points="4.05,17.32 0.00,21.37 0.00,17.32"/>
+            <polygon class="facet-sw face" points="0.00,21.37 -4.05,17.32 0.00,17.32"/>
+            <polygon class="facet-nw face" points="-4.05,17.32 0.00,13.27 0.00,17.32"/>
+            <polygon class="inner face" points="0.00,15.94 1.38,17.32 0.00,18.70 -1.38,17.32"/>
+          </g>
+          <g class="hero-cell" style="--i:3;--dx:0.4px;--dy:-4px">
+            <polygon class="hit" points="10.00,13.27 14.05,17.32 10.00,21.37 5.95,17.32"/>
+            <polygon class="outer face" points="10.00,13.27 14.05,17.32 10.00,21.37 5.95,17.32"/>
+            <polygon class="facet-ne face" points="10.00,13.27 14.05,17.32 10.00,17.32"/>
+            <polygon class="facet-se face" points="14.05,17.32 10.00,21.37 10.00,17.32"/>
+            <polygon class="facet-sw face" points="10.00,21.37 5.95,17.32 10.00,17.32"/>
+            <polygon class="facet-nw face" points="5.95,17.32 10.00,13.27 10.00,17.32"/>
+            <polygon class="inner face" points="10.00,15.94 11.38,17.32 10.00,18.70 8.62,17.32"/>
+          </g>
+          <g class="hero-cell" style="--i:4;--dx:1.4px;--dy:-2.6px">
+            <polygon class="hit" points="20.00,13.27 24.05,17.32 20.00,21.37 15.95,17.32"/>
+            <polygon class="outer face" points="20.00,13.27 24.05,17.32 20.00,21.37 15.95,17.32"/>
+            <polygon class="facet-ne face" points="20.00,13.27 24.05,17.32 20.00,17.32"/>
+            <polygon class="facet-se face" points="24.05,17.32 20.00,21.37 20.00,17.32"/>
+            <polygon class="facet-sw face" points="20.00,21.37 15.95,17.32 20.00,17.32"/>
+            <polygon class="facet-nw face" points="15.95,17.32 20.00,13.27 20.00,17.32"/>
+            <polygon class="inner face" points="20.00,15.94 21.38,17.32 20.00,18.70 18.62,17.32"/>
+          </g>
+          <g class="hero-cell" style="--i:5;--dx:-0.8px;--dy:-3.2px">
+            <polygon class="hit" points="5.00,21.93 9.05,25.98 5.00,30.03 0.95,25.98"/>
+            <polygon class="outer face" points="5.00,21.93 9.05,25.98 5.00,30.03 0.95,25.98"/>
+            <polygon class="facet-ne face" points="5.00,21.93 9.05,25.98 5.00,25.98"/>
+            <polygon class="facet-se face" points="9.05,25.98 5.00,30.03 5.00,25.98"/>
+            <polygon class="facet-sw face" points="5.00,30.03 0.95,25.98 5.00,25.98"/>
+            <polygon class="facet-nw face" points="0.95,25.98 5.00,21.93 5.00,25.98"/>
+            <polygon class="inner face" points="5.00,24.60 6.38,25.98 5.00,27.36 3.62,25.98"/>
+          </g>
+          <g class="hero-cell" style="--i:6;--dx:0.9px;--dy:-3.8px">
+            <polygon class="hit" points="15.00,21.93 19.05,25.98 15.00,30.03 10.95,25.98"/>
+            <polygon class="outer face" points="15.00,21.93 19.05,25.98 15.00,30.03 10.95,25.98"/>
+            <polygon class="facet-ne face" points="15.00,21.93 19.05,25.98 15.00,25.98"/>
+            <polygon class="facet-se face" points="19.05,25.98 15.00,30.03 15.00,25.98"/>
+            <polygon class="facet-sw face" points="15.00,30.03 10.95,25.98 15.00,25.98"/>
+            <polygon class="facet-nw face" points="10.95,25.98 15.00,21.93 15.00,25.98"/>
+            <polygon class="inner face" points="15.00,24.60 16.38,25.98 15.00,27.36 13.62,25.98"/>
+          </g>
+          <g class="hero-cell" style="--i:7;--dx:-1.3px;--dy:-2.9px">
+            <polygon class="hit" points="0.00,30.59 4.05,34.64 0.00,38.69 -4.05,34.64"/>
+            <polygon class="outer face" points="0.00,30.59 4.05,34.64 0.00,38.69 -4.05,34.64"/>
+            <polygon class="facet-ne face" points="0.00,30.59 4.05,34.64 0.00,34.64"/>
+            <polygon class="facet-se face" points="4.05,34.64 0.00,38.69 0.00,34.64"/>
+            <polygon class="facet-sw face" points="0.00,38.69 -4.05,34.64 0.00,34.64"/>
+            <polygon class="facet-nw face" points="-4.05,34.64 0.00,30.59 0.00,34.64"/>
+            <polygon class="inner face" points="0.00,33.26 1.38,34.64 0.00,36.02 -1.38,34.64"/>
+          </g>
+        </svg>
       </div>
     </div>
   </div>
@@ -1395,43 +1524,37 @@ body{background:transparent}
 <section class="frame" id="how">
   <div class="wrap">
     <div class="frame-head rise">
-      <p class="kicker">How Lattice Prime works</p>
-      <h2>Three moves, in order. Each one is a screen you can open now.</h2>
-      <p>Nothing here is a mock. Every card below is the live contract call it names, running against Hedera testnet.</p>
+      <h2>How Lattice Prime works</h2>
+      <p class="frame-lead">Seal size in three steps. Nobody reads the order first.</p>
     </div>
 
     <div class="steps">
       <a class="step step-1 pop" style="--i:0" href="prove.html">
-        <span class="n">01 / PROVE</span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
           <path d="M17 24l5 5 10-11"/>
         </svg>
         <h3>Prove you are allowed</h3>
-        <p>A PLONK proof answers the eligibility question without naming you, your tier, or your jurisdiction. The venue learns one bit: yes.</p>
-        <span class="verb">gate.register(account, proof, signals)</span>
+        <p>Walk in without handing the venue a file on who you are. One proof. The venue learns one bit: yes.</p>
         <span class="go">Open Prove
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </span>
       </a>
 
       <a class="step step-2 pop" style="--i:1" href="trade.html">
-        <span class="n">02 / TRADE</span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="9" y="21" width="30" height="20" rx="4"/>
           <path d="M16 21v-6a8 8 0 0116 0v6"/>
           <path d="M24 28v6"/>
         </svg>
         <h3>Send an order nobody can read</h3>
-        <p>Your order becomes thirty-two bytes. It stays sealed through the cancel window and opens only when you reveal it, once the round has stopped taking bids.</p>
-        <span class="verb">engine.commit(id) then engine.reveal(…)</span>
+        <p>Size, side and price leave as an unread hash. Cancel while they are still sealed. Reveal only when the round is done.</p>
         <span class="go">Open Trade
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </span>
       </a>
 
       <a class="step step-3 pop" style="--i:2" href="position.html">
-        <span class="n">03 / POSITION</span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 40h36"/>
           <path d="M13 40V27M23 40V15M33 40V22"/>
@@ -1439,14 +1562,19 @@ body{background:transparent}
           <path d="M37 10l5-5"/>
         </svg>
         <h3>See what the venue knows</h3>
-        <p>Credit, margin, and the five disclosure getters. Each row says whether it is permitted and, separately, whether the log behind it can be believed.</p>
-        <span class="verb">watch.watch(ids) · engine.spentBits(epoch)</span>
+        <p>Ask what this venue is allowed to publish. The answer is a quantity, not a shrug.</p>
         <span class="go">Open Position
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </span>
       </a>
     </div>
   </div>
+
+  <a class="scroll-cue" href="#features">
+    <span class="lbl">See our innovation</span>
+    <span class="rail"><i></i></span>
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </a>
 </section>
 
 <!-- ============ 3 · the deck ============ -->
@@ -2250,6 +2378,9 @@ function decodeRevert(err) {
     if (name === "UnknownCommitment") {
         message += " — the preimage does not match; check the salt on the ticket.";
     }
+    if (name === "RegistrantMismatch") {
+        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to register.";
+    }
     if (name === "NotEscrow") {
         const escrow = parsed ? String(parsed.args[0]) : "";
         if (addrEq(escrow, ZERO) || escrow === "0" || escrow === "0x") {
@@ -2497,8 +2628,171 @@ Venue.bindChrome = function () {
         themeBtn.classList.add("docked");
     }
     themeBtn?.addEventListener("click", Venue.toggleTheme);
+    Venue.bindClockFloat();
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) Venue.tick().catch(() => {});
+    });
+};
+
+Venue.bindClockFloat = function () {
+    const dock = $("clock-float");
+    const btn = $("clock-float-toggle");
+    const panel = $("clock-panel");
+    if (!dock || !btn || !panel) return;
+
+    const pad = 12;
+    const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const headerBottom = () => {
+        const mast = document.querySelector(".mast");
+        return mast ? mast.getBoundingClientRect().bottom : 0;
+    };
+    const box = () => {
+        const w = dock.offsetWidth;
+        const h = dock.offsetHeight;
+        const minL = pad;
+        const maxL = Math.max(pad, window.innerWidth - w - pad);
+        const minT = Math.max(pad, headerBottom() + pad);
+        const maxT = Math.max(minT, window.innerHeight - h - pad);
+        return {w, h, minL, maxL, minT, maxT};
+    };
+    const apply = (left, top, held) => {
+        const b = box();
+        const minT = held ? pad : b.minT;
+        const maxT = held ? Math.max(pad, window.innerHeight - b.h - pad) : b.maxT;
+        const p = {
+            left: Math.min(Math.max(b.minL, left), b.maxL),
+            top: Math.min(Math.max(minT, top), maxT),
+        };
+        dock.style.left = p.left + "px";
+        dock.style.top = p.top + "px";
+        dock.style.right = "auto";
+        dock.classList.add("placed");
+        return p;
+    };
+    const persist = () => {
+        const r = dock.getBoundingClientRect();
+        localStorage.setItem("seamme.clocks", JSON.stringify({left: r.left, top: r.top}));
+    };
+    const hang = () => {
+        const r = dock.getBoundingClientRect();
+        dock.classList.toggle("hang-end", r.left + r.width / 2 < window.innerWidth / 2);
+        const room = window.innerHeight - r.bottom;
+        dock.classList.toggle("drop-up", !panel.hidden && room < 140 && r.top > room);
+    };
+    const snapToEdge = () => {
+        const r = dock.getBoundingClientRect();
+        const b = box();
+        const distR = Math.abs(r.right - (window.innerWidth - pad));
+        const distL = Math.abs(r.left - b.minL);
+        const distT = Math.abs(r.top - b.minT);
+        const distB = Math.abs(r.bottom - (window.innerHeight - pad));
+        const edges = [
+            {d: distR, left: b.maxL, top: r.top},
+            {d: distL, left: b.minL, top: r.top},
+            {d: distT, left: r.left, top: b.minT},
+            {d: distB, left: r.left, top: b.maxT},
+        ];
+        let pick = edges[0];
+        for (const edge of edges) if (edge.d < pick.d) pick = edge;
+        if (!reduce()) dock.classList.add("snapping");
+        apply(pick.left, pick.top, false);
+        hang();
+        const done = () => dock.classList.remove("snapping");
+        if (!reduce()) {
+            dock.addEventListener("transitionend", done, {once: true});
+            setTimeout(done, 360);
+        }
+        persist();
+    };
+    const parkDefault = () => {
+        dock.classList.remove("placed");
+        dock.style.left = "auto";
+        dock.style.right = "1.25rem";
+        dock.style.top = Math.round(headerBottom() + pad) + "px";
+    };
+
+    try {
+        const saved = JSON.parse(localStorage.getItem("seamme.clocks") || "null");
+        if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+            apply(saved.left, saved.top, false);
+            snapToEdge();
+        } else {
+            parkDefault();
+        }
+    } catch (_) {
+        parkDefault();
+    }
+
+    const close = () => {
+        panel.hidden = true;
+        btn.setAttribute("aria-expanded", "false");
+        dock.classList.remove("open", "drop-up", "hang-end");
+    };
+    const open = () => {
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        dock.classList.add("open");
+        hang();
+    };
+
+    let drag = null;
+    const THRESH = 6;
+
+    const onMove = (e) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const dx = e.clientX - drag.x;
+        const dy = e.clientY - drag.y;
+        if (!drag.moved && (dx * dx + dy * dy) < THRESH * THRESH) return;
+        if (!drag.moved) {
+            drag.moved = true;
+            dock.classList.add("dragging");
+            dock.classList.remove("snapping");
+        }
+        apply(drag.left + dx, drag.top + dy, true);
+        hang();
+    };
+    const endDrag = (e) => {
+        if (!drag || (e && e.pointerId !== drag.id)) return;
+        const moved = drag.moved;
+        const fromBtn = drag.fromBtn;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", endDrag);
+        window.removeEventListener("pointercancel", endDrag);
+        dock.classList.remove("dragging");
+        if (moved) {
+            snapToEdge();
+            if (!panel.hidden) open();
+        } else if (fromBtn) {
+            if (panel.hidden) open();
+            else close();
+        }
+        drag = null;
+    };
+
+    dock.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        const r = dock.getBoundingClientRect();
+        drag = {
+            id: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            left: r.left,
+            top: r.top,
+            moved: false,
+            fromBtn: !!e.target.closest("#clock-float-toggle"),
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", endDrag);
+        window.addEventListener("pointercancel", endDrag);
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !panel.hidden) close();
+    });
+    window.addEventListener("resize", () => {
+        if (dock.classList.contains("placed")) snapToEdge();
+        else parkDefault();
     });
 };
 
@@ -3023,6 +3317,7 @@ Venue.paintClocks = function () {
     set("clk-kyc", "KYC " + s.kycEpoch, fmtRemain(kycLeft), kycLeft < 86400n);
     const haltEl = $("clk-round");
     if (haltEl) haltEl.classList.toggle("halt", !!s.halted);
+    $("clock-float-toggle")?.classList.toggle("warn", !!s.halted || kycLeft < 86400n);
 };
 
 Venue.status = function (id, msg, kind) {
@@ -3092,6 +3387,7 @@ Venue.mountIndex = async function () {
             clocks.innerHTML = '<div class="clk warn"><span class="k">Venue</span>' +
                 '<span class="v">unreachable</span></div>';
         }
+        $("clock-float-toggle")?.classList.add("warn");
         const live = document.querySelector(".fact .live");
         if (live) live.style.background = "var(--exposed)";
         const round = $("fact-round");
@@ -3103,6 +3399,12 @@ Venue.mountIndex = async function () {
 Venue.mountProve = async function () {
     $("proof-file")?.addEventListener("change", (e) => Venue.onProofFile(e.target.files[0]));
     $("demo-proof")?.addEventListener("click", () => Venue.loadDemoProof().catch((e) => Venue.fail(e)));
+    $("open-lab")?.addEventListener("click", () => {
+        const lab = $("prove-lab");
+        if (!lab) return;
+        lab.open = true;
+        lab.scrollIntoView({block: "nearest", behavior: "smooth"});
+    });
     const drop = $("drop");
     drop?.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
     drop?.addEventListener("dragleave", () => drop.classList.remove("over"));
@@ -3144,13 +3446,13 @@ Venue.refreshProve = async function () {
         ? "next epoch root is unpublished — grants die at the boundary"
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
-    let status = "Connect or watch an address to read grant state.";
+    let status = "Connect a wallet, or load a proof to watch a live grant.";
     if (who) {
         const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
-            ? "Granted for epoch " + epoch + ". The grant is nothing the instant the epoch ends."
-            : "Not granted in epoch " + epoch + ".";
+            ? "Allowed for this KYC period. That ends when the period does."
+            : "Not yet allowed this period.";
         $("kyc-banner")?.classList.toggle("warn", kyc !== 1);
     } else {
         $("kyc-banner")?.classList.remove("warn");
@@ -3169,11 +3471,11 @@ Venue.onProofFile = async function (file) {
     catch { Venue.status("prove-status", "That file is not JSON.", "bad"); return; }
     const picked = Venue.pickProof(data);
     if (!picked) {
-        Venue.status("prove-status", "Need {proof[24], pub[7]} or a proofs-live.json map keyed by address.", "bad");
+        Venue.status("prove-status", "That file is not a proof the gate recognises.", "bad");
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status", "Loaded " + file.name + ".", "ok");
+    Venue.status("prove-status", "Loaded your proof file. Check the gate next.", "ok");
     Venue.paintPins();
 };
 
@@ -3200,8 +3502,7 @@ Venue.loadDemoProof = async function () {
     const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[epoch] : null;
     if (!set) {
         Venue.status("prove-status",
-            "This build carries no issuer proof for KYC epoch " + epoch +
-            ". Run `make prove-live-epoch EPOCH=" + epoch + "` and rebuild.", "bad");
+            "This page has no live proof for the current KYC period.", "bad");
         return;
     }
     const keys = Object.keys(set);
@@ -3212,14 +3513,19 @@ Venue.loadDemoProof = async function () {
         picked = Venue.pickProof(set[keys[0]]);
     }
     if (!picked) {
-        Venue.status("prove-status", "The issuer proof in this build is not the shape the gate wants.", "bad");
+        Venue.status("prove-status", "The bundled proof is not the shape the gate wants.", "bad");
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status",
-        "Loaded the issuer's proof for " + shortAddr(picked.address || Venue.viewer()) +
-        ", KYC epoch " + epoch + ". Real, and it verifies on chain. Ask wouldAccept.", "ok");
     Venue.paintPins();
+    await Venue.refreshProve();
+    if (Venue.viewer()) {
+        await Venue.previewRegister().catch(() => {});
+        return;
+    }
+    Venue.status("prove-status",
+        "A live proof is loaded for " + shortAddr(picked.address) +
+        ". Check the gate to continue.", "ok");
 };
 
 Venue.pickProof = function (data) {
@@ -3274,24 +3580,49 @@ Venue.paintPins = function () {
     }
 };
 
+Venue.explainGate = function (reason) {
+    const r = String(reason || "");
+    if (r.includes("different address")) {
+        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to register.";
+    }
+    if (r.includes("wrong epoch")) return "This proof is for a different KYC period.";
+    if (r.includes("nullifier exhausted")) {
+        return "This credential has already been used as many times as this period allows.";
+    }
+    if (r.includes("root not published")) return "The issuer has not published a root for this period yet.";
+    if (r.includes("wrong credential root")) return "This proof is not for the root the gate holds today.";
+    if (r.includes("policy mismatch")) return "The proof was built against a different policy than the gate has now.";
+    if (r.includes("policy not satisfied")) return "This proof does not pass the gate's policy.";
+    return r || "The gate will not accept this proof.";
+};
+
 Venue.previewRegister = async function () {
     const who = Venue.viewer();
-    if (!who) { Venue.openSheet(); throw new Error("Connect or watch an address first."); }
-    if (!Venue.proof) throw new Error("Load a proof file first.");
+    if (!who) { Venue.openSheet(); throw new Error("Connect a wallet, or load a proof to watch."); }
+    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
     const pub = Venue.proof.pub.map((x) => asBig(x));
     const [ok, reason] = await Venue.c.gate.wouldAccept(who, pub);
     $("register").disabled = !ok || !Venue.account;
-    Venue.status("prove-status", ok ? "wouldAccept: true. The gate will spend verification gas." : "wouldAccept: " + reason, ok ? "ok" : "bad");
+    let msg;
+    if (ok && Venue.account) {
+        msg = "The gate will accept this. Register to take the grant for this period.";
+    } else if (ok && !Venue.account) {
+        msg = "Watching a live grant for " + shortAddr(who) +
+            ". Connect that wallet if you want to register.";
+    } else {
+        msg = Venue.explainGate(reason);
+    }
+    Venue.status("prove-status", msg, ok ? "ok" : "bad");
     Venue.paintPins();
 };
 
 Venue.doRegister = async function () {
     await Venue.requireAccount();
-    if (!Venue.proof) throw new Error("Load a proof file first.");
+    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
     const pub = Venue.proof.pub.map((x) => asBig(x));
     const [ok, reason] = await Venue.w.gate.wouldAccept(Venue.account, pub);
     if (!ok) {
-        Venue.status("prove-status", "wouldAccept: " + reason, "bad");
+        Venue.status("prove-status", Venue.explainGate(reason), "bad");
         $("register").disabled = true;
         return;
     }
@@ -3300,7 +3631,7 @@ Venue.doRegister = async function () {
         "register"
     );
     if (rec) {
-        Venue.status("prove-status", "Registered. Grant is live only until this KYC epoch ends.", "ok");
+        Venue.status("prove-status", "Registered. The grant lasts only for this KYC period.", "ok");
         await Venue.refreshProve();
     }
 };
@@ -3961,18 +4292,30 @@ Landing.reveals = function () {
 
 // ---------- the scroll invitation ----------
 Landing.cue = function () {
-    const cue = document.getElementById("cue");
-    if (!cue) return;
-    const onScroll = () => {
-        cue.classList.toggle("gone", window.scrollY > 60);
-    };
-    window.addEventListener("scroll", onScroll, {passive: true});
-    onScroll();
-    cue.addEventListener("click", (e) => {
-        e.preventDefault();
-        document.getElementById("how")?.scrollIntoView({
-            behavior: Landing.reduced() ? "auto" : "smooth",
-            block: "start",
+    const cues = [...document.querySelectorAll(".scroll-cue")];
+    if (!cues.length) return;
+
+    // Only the fold invitation hides once the reader has moved. The bar on
+    // later frames stays put; it is already below the fold.
+    const heroCue = document.getElementById("cue");
+    if (heroCue) {
+        const onScroll = () => {
+            heroCue.classList.toggle("gone", window.scrollY > 60);
+        };
+        window.addEventListener("scroll", onScroll, {passive: true});
+        onScroll();
+    }
+
+    cues.forEach((cue) => {
+        cue.addEventListener("click", (e) => {
+            const id = (cue.getAttribute("href") || "").replace(/^#/, "");
+            const target = id && document.getElementById(id);
+            if (!target) return;
+            e.preventDefault();
+            target.scrollIntoView({
+                behavior: Landing.reduced() ? "auto" : "smooth",
+                block: "start",
+            });
         });
     });
 };

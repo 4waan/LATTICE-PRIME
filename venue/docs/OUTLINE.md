@@ -11,6 +11,7 @@
 - Axe board (tested, not deployed — needs a real `IRespondentRegistry` owner)
 - Published rulebook (`docs/RULEBOOK.md`, hashed on chain)
 - Trader pages: `commit-preview.html`, `disclosure-receipt.html`
+- Live screens: landing, prove, trade, position, venue, repo (`make app`)
 
 Live addresses and evidence: `deployments/`. Client wiring: `deployments/client.json`.
 
