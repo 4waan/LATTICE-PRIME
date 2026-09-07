@@ -36,4 +36,7 @@ abstract contract RepoVaultBase {
     error FailGraceOpen(uint64 until);
     error SubstitutionRefused();
     error AlreadyExists(bytes32 id);
+    /// @dev `postMark` is the degradation path and nothing else. See its header.
+    error FeedIsLive();
+    error NoFeed();
 }

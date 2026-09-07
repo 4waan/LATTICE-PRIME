@@ -10,6 +10,7 @@ import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
 import {DisclosureMeter} from "../src/lattice/DisclosureMeter.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {StubOracle} from "./OracleFixture.sol";
 
 contract HoldsStub is IHoldByPartition {
     /// @dev Row 12 of the call list. No contract calls it; the client does, and
@@ -79,6 +80,15 @@ contract HoldsStub is IHoldByPartition {
 /// `test_theBooksExactRowsAreUnmeterableByConstruction` and
 /// `test_everyMeterableRowCarriesABudgetAndNoOtherRowDoes`.
 contract DisclosureMeterTest is Test, PolicyFixture {
+    /// @dev Dark by default, which is the venue this suite was written against:
+    ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
+    StubOracle internal feed;
+
+    /// @dev `markToMarket` raises a call with a published window rather than a
+    ///      caller-chosen one, because it is permissionless. `postMark` still
+    ///      takes its own, so nothing below had to change.
+    uint64 internal constant CURE_WINDOW = 1 days;
+
     /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
     ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
     uint256 internal constant PENALTY_RATE = 10;
@@ -100,9 +110,10 @@ contract DisclosureMeterTest is Test, PolicyFixture {
     bytes32 internal constant PARTITION = bytes32(uint256(1));
 
     function setUp() public {
+        feed = new StubOracle();
         _deployPolicy(withBudgets());
         holds = new HoldsStub();
-        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
+        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
         // A zero bond, so the derived cancel-fee floor is zero too and this
         // deployment says nothing about the fee policy. `OrderCancelTest` owns
         // that; this suite only needs a book that discloses.

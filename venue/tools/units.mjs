@@ -170,6 +170,93 @@ export function displayPrice(priceTwice) {
     return p % 2n === 0n ? `${p / 2n}` : `${p / 2n}.5`;
 }
 
+// -------------------------------------------------------------- the feed
+
+/// Decimals on every price this venue reads or publishes.
+/// @dev Eight, and it is the same eight on both legs of the composite mark.
+///      `PrimeOracle.DECIMALS` is the contract's copy. The number is Chainlink's
+///      rather than the venue's: every feed Chainlink runs on Hedera answers
+///      with eight, measured across all seven in `probes/chainlink-hedera.out`,
+///      and `PrimeOracle._requireEightDecimals` refuses a feed that does not, so
+///      there is one price scale in this repository and not two.
+///
+///      **This is a fourth quantity and it is not a denomination of HBAR.** A
+///      clean price of `10000000000` is 100.00 USD per unit of face, not 100
+///      HBAR and not 1e10 tinybars. Reading it with `formatHbar` produces
+///      `100.00000000`, which is the right digits for the wrong reason and will
+///      be wrong the moment either scale moves.
+export const PRICE_DECIMALS = 8;
+
+/// One unit of price, in the fixed-point the feed publishes.
+export const PRICE_ONE = 10n ** 8n;
+
+/// `PrimeOracle.markPerUnitTinybar`, transcribed.
+///
+/// @dev The venue's clean price is USD per unit of face and the venue settles
+///      in tinybars, so the mark needs a rate between them. Both legs carry
+///      eight decimals, so the scale cancels and what is left is HBAR per unit;
+///      multiplying by `TINYBAR` before dividing keeps the answer in whole
+///      tinybars rather than throwing the fraction away.
+///
+///      **The division floors, and the direction is deliberate.** A lower mark
+///      is a position closer to a margin call, which is toward the lender and
+///      away from the party the call is taken against. The loss is at most one
+///      tinybar per unit of face. `venue/src/oracle/OracleMath.sol` states the
+///      same thing about the median of an even panel.
+export function markPerUnitTinybar(cleanPrice, usdPerHbar) {
+    const p = big(cleanPrice, "cleanPrice");
+    const r = big(usdPerHbar, "usdPerHbar");
+    if (r === 0n) {
+        throw new UnitError(
+            "usdPerHbar is zero. PrimeOracle refuses a non-positive upstream answer " +
+            "rather than dividing by it, and so does this."
+        );
+    }
+    return (p * TINYBAR) / r;
+}
+
+/// The whole mark on a repo: the price per unit times the lot.
+/// @dev `RepoVault.markToMarket` computes exactly this and stores none of it.
+///      The lot is a count, because the bond was issued `decimals: 0`, so no
+///      scaling enters on that side either.
+export function markOfLot(cleanPrice, usdPerHbar, lot) {
+    return markPerUnitTinybar(cleanPrice, usdPerHbar) * big(lot, "lot");
+}
+
+/// A price the feed publishes, as a decimal string in its own currency.
+/// @dev Display only, and deliberately not `formatHbar`: the unit is USD per
+///      unit of face and calling it HBAR is the same class of error as reading a
+///      bond quantity with eighteen decimals.
+export function formatPrice(cleanPrice) {
+    const p = big(cleanPrice, "cleanPrice");
+    return `${p / PRICE_ONE}.${(p % PRICE_ONE).toString().padStart(PRICE_DECIMALS, "0")}`;
+}
+
+/// `OracleMath.median`, transcribed. Sorted middle; even panels take the floor
+/// of the mean of the two middle.
+/// @dev The even rule is Chainlink's, whose `Median.sol` averages the two middle
+///      values. The client carries a copy because a screen that shows a panel
+///      should be able to show what the panel decided without a second call, and
+///      `venue/test/PrimeOracle.t.sol` replays the same fixture file this one is
+///      checked against, so the two cannot drift.
+export function median(xs) {
+    if (!Array.isArray(xs) || xs.length === 0) {
+        throw new UnitError("median takes a non-empty array");
+    }
+    const a = xs.map((x, i) => big(x, `xs[${i}]`)).sort((p, q) => (p < q ? -1 : p > q ? 1 : 0));
+    const n = a.length;
+    return n % 2 === 1 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2n;
+}
+
+/// `OracleMath.deviationBps`. How far `a` sits from `b`, in basis points of `b`.
+export function deviationBps(a, b) {
+    const x = big(a, "a");
+    const y = big(b, "b");
+    if (y === 0n) return 0n;
+    const d = x > y ? x - y : y - x;
+    return (d * 10_000n) / y;
+}
+
 // ------------------------------------------------------------- the diagnosis
 
 /// Reads a `WrongBond(sent, want)` and names which of the three units mistakes

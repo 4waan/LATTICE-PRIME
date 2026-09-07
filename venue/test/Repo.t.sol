@@ -8,6 +8,7 @@ import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {StubOracle} from "./OracleFixture.sol";
 
 /// @dev Records the ATS calls rather than simulating them. The point of a mock
 ///      here is to assert that the vault makes exactly the calls the seam call
@@ -136,6 +137,15 @@ contract RepoMathTest is Test {
 }
 
 contract RepoVaultTest is Test, PolicyFixture {
+    /// @dev Dark by default, which is the venue this suite was written against:
+    ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
+    StubOracle internal feed;
+
+    /// @dev `markToMarket` raises a call with a published window rather than a
+    ///      caller-chosen one, because it is permissionless. `postMark` still
+    ///      takes its own, so nothing below had to change.
+    uint64 internal constant CURE_WINDOW = 1 days;
+
     /// @dev 0.10 bp a day, the Article 7 rate for sovereign debt. See
     ///      `RepoVault.penaltyRate` for why it is configured rather than derived.
     uint256 internal constant PENALTY_RATE = 10;
@@ -153,9 +163,10 @@ contract RepoVaultTest is Test, PolicyFixture {
     bytes32 constant COUPON = keccak256("coupon: 12500");
 
     function setUp() public {
+        feed = new StubOracle();
         holds = new MockHolds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
+        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
     }
 
     function _open() internal returns (uint256 principal) {

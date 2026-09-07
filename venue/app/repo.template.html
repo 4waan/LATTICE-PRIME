@@ -1,7 +1,7 @@
 <title>Repo · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="The repo vault: state, the price to repurchase now, the settlement penalty now, and whether the margin log can be believed.">
+<meta name="description" content="The repo vault: the price the collateral is marked at, half of it the venue's own panel and half of it the network's own rate, plus state, the price to repurchase now, the settlement penalty now, and whether the margin log can be believed.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -62,8 +62,9 @@ document.documentElement.setAttribute("data-theme",
 <main class="wrap page">
   <h1>Repo</h1>
   <p class="lede">The collateral side of the venue. A repo is opened against a hold on the same
-    bond the engine trades, marked while it is open, and repurchased or defaulted at the end.
-    This screen reads it; the vault's writes are an operator path and are not offered here.</p>
+    bond the engine trades, marked against a live price while it is open, and repurchased or
+    defaulted at the end. This screen reads it; the vault's writes are an operator path and
+    are not offered here.</p>
 
   <div class="wire" style="margin-bottom:1rem">
     <div class="wcell"><span class="k">Fail grace</span><span class="v num" id="rv-grace">—</span><span class="n">failGrace</span></div>
@@ -78,6 +79,53 @@ document.documentElement.setAttribute("data-theme",
     <div class="wcell" style="grid-column:span 2"><span class="k">Disclosure stream</span><span class="v" id="rv-stream">—</span><span class="n">MarginWatch.stream</span></div>
   </div>
 
+  <section id="feed-box">
+    <div class="shead"><h2>The price the collateral is marked at</h2><span class="src">PrimeOracle · two legs</span></div>
+    <p>Two legs, and only one of them is the venue's. The seated panel publishes LPRC's
+      clean price in USD, because a private bond has no other quote. <b>HBAR/USD is somebody
+      else's number</b>, because the bond is denominated in USD and this venue settles in
+      tinybars, and nothing on chain converted between them before this. The mark is the
+      first divided by the second, and <code>RepoVault.markToMarket</code> multiplies it by
+      a repo's own lot in memory and stores nothing.</p>
+    <p>The cash seat is a governed address in Chainlink's <code>AggregatorV3Interface</code>
+      shape, and on this chain it does <b>not</b> hold a Chainlink feed. Chainlink runs
+      HBAR/USD on Hedera and its proxies refuse a contract caller with <code>No access</code>
+      while answering <code>decimals()</code> to anyone, on testnet and mainnet alike. So the
+      seat holds an adapter over Hedera's own exchange rate at <code>0x168</code>, which is
+      the rate every transaction fee on this network is priced at. The measurement, including
+      the on-chain probe that shows what an <code>eth_call</code> cannot, is
+      <code>probes/chainlink-hedera.out</code>.</p>
+    <p class="note" id="feed-says"></p>
+
+    <div class="wire" style="margin-bottom:1rem">
+      <div class="wcell"><span class="k">Feed</span><span class="v" id="feed-state">—</span><span class="n">oracle.stale()</span></div>
+      <div class="wcell"><span class="k">Clean price</span><span class="v num" id="feed-price">—</span><span class="n">per unit of face</span></div>
+      <div class="wcell"><span class="k">Coupon reference</span><span class="v num" id="feed-rate">—</span><span class="n">refRateBps</span></div>
+      <div class="wcell"><span class="k">Round</span><span class="v" id="feed-round">—</span><span class="n">lastRound</span></div>
+    </div>
+
+    <div class="wire" style="margin-bottom:1rem">
+      <div class="wcell"><span class="k">Our leg</span><span class="v" id="feed-ourleg">—</span><span class="n">seated panel</span></div>
+      <div class="wcell"><span class="k">Cash leg</span><span class="v" id="feed-cashleg">—</span><span class="n">HBAR/USD, seated</span></div>
+      <div class="wcell"><span class="k">HBAR/USD</span><span class="v num" id="feed-hbar">—</span><span class="n">cashLeg()</span></div>
+      <div class="wcell"><span class="k">Mark per unit</span><span class="v num" id="feed-mark">—</span><span class="n">markPerUnitTinybar</span></div>
+    </div>
+
+    <div class="wire" style="margin-bottom:1rem">
+      <div class="wcell"><span class="k">Quorum</span><span class="v" id="feed-quorum">—</span><span class="n">median over the panel</span></div>
+      <div class="wcell"><span class="k">Heartbeat</span><span class="v" id="feed-heartbeat">—</span><span class="n">ours · theirs</span></div>
+      <div class="wcell"><span class="k">Deviation cap</span><span class="v" id="feed-deviation">—</span><span class="n">maxDeviationBps</span></div>
+      <div class="wcell"><span class="k">Upstream</span><span class="v" id="feed-cashaddr">—</span><span class="n">cashFeed</span></div>
+    </div>
+
+    <p>Who may price this bond. A change to the panel is proposed an epoch before it binds,
+      and adopting it is permissionless.</p>
+    <div class="picks" id="feed-panel"></div>
+    <div class="rowbtns" style="margin-top:1rem">
+      <button type="button" id="feed-refresh">Re-read the feed</button>
+    </div>
+  </section>
+
   <section>
     <div class="shead"><h2>Repos this vault has touched</h2><span class="src">mirror node · calledAmong</span></div>
     <p>Repo ids are not enumerable on chain. Every vault event carries the id as its first
@@ -91,7 +139,10 @@ document.documentElement.setAttribute("data-theme",
   <section>
     <div class="shead"><h2>One repo</h2><span class="src">RepoVault.repo · MarginWatch.alertOf</span></div>
     <p><code>repurchasePriceNow</code> and <code>settlementPenaltyNow</code> move with the clock,
-      so they are read at the moment you ask and never derived from <code>openedAt</code> here.</p>
+      so they are read at the moment you ask and never derived from <code>openedAt</code> here.
+      <b>Mark now</b> is <code>previewMark</code>: what <code>markToMarket</code> would find
+      in this block, without sending anything, so a margin call can be seen before it lands
+      rather than read about afterwards.</p>
     <div class="field" style="padding:0 0 .65rem">
       <label for="repo-id">Repo id</label>
       <input id="repo-id" spellcheck="false" placeholder="0x… thirty-two bytes">

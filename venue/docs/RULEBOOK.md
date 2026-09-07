@@ -45,13 +45,111 @@ be opened by whoever copied it.
 
 ## 4. Market data used
 
-**None from outside.** The venue consumes no reference price, no external feed
-and no consolidated tape. There is nothing to lag and nothing to spoof upstream.
+**Execution uses none. Collateral valuation uses two feeds, and one of them is
+not ours.**
 
-What it publishes is governed per row by the disclosure lattice under a committed
-parameter root: order size, order price, execution price, counterparty, the
-match predicate, activity and account provenance. A print degrades to an order of
-magnitude, and then to silence, before it will fail a trade.
+Nothing in the matching path consumes market data. The clearing price is the
+venue's own uniform-price auction over sealed orders, there is no reference
+price and no consolidated tape, and there is nothing upstream of a trade to lag
+or to spoof.
+
+The repo book is different, because a repo has to be marked. `PrimeOracle`
+publishes what the collateral is worth and `RepoVault.markToMarket` acts on it.
+
+| leg | what | source | scale |
+|---|---|---|---|
+| clean price | USD per unit of face, LPRC | quorum median over the venue's seated publishers | 8 dp |
+| coupon reference rate | basis points, the rate the variable coupon resets against | the same panel, medianed separately | bps |
+| HBAR/USD | the rate between the instrument's currency and the venue's settlement unit | a **seated upstream feed** in Chainlink's `AggregatorV3Interface` shape, currently Hedera's own network exchange rate at `0x168` | 8 dp |
+
+The split is the rule. The venue publishes the price of its own instrument
+because no one else quotes it, and it consumes the rate between two currencies
+because it has no business inventing one. A venue that rebuilt the second would
+be running a worse feed under the same interface.
+
+The composite mark is `cleanPrice / hbarUsd`, in tinybars per unit of face. It is
+computed in memory when a repo is marked and is never stored.
+
+### 4.1 Bounds on the venue's own leg
+
+- **Quorum.** A round is decided by a median over at least a strict majority of
+  the seated panel. A median moves by at most one order statistic per dishonest
+  answer, which a mean does not; the panel bound and the sweep behind that
+  statement are in `probes/oracle-median.py`.
+- **Heartbeat.** A price older than the published heartbeat is not a price. The
+  venue refuses to act on it rather than reading through it.
+- **Deviation.** A finalised round more than the published cap away from the
+  last one is refused rather than accepted quietly. **The cost of this bound is
+  stated rather than hidden:** a genuine move larger than the cap takes several
+  rounds to walk, and until it does the feed goes stale and the venue falls back
+  to the seat below. That is deliberate. An unexplained jump in a private bond's
+  clean price is a bad publisher long before it is a market.
+- **Seating.** Publishers and the upstream aggregator are both seated through
+  the same propose-then-adopt epoch delay the rest of this venue's governance
+  uses, so a change to who prices the instrument is visible an epoch before it
+  binds. Adoption is permissionless.
+
+### 4.2 The upstream leg, and what is actually seated
+
+The seat is a governed address, not a constant, and it is held to the checks a
+Chainlink consumer owes any feed: a non-positive answer, an unfinished round, an
+answer carried forward under a newer round id, and a feed that reverts outright
+all read as **dark**, never as a price.
+
+**On this chain the seat does not hold a Chainlink feed, and the reason is
+measured rather than argued.** Chainlink runs HBAR/USD on Hedera. Its proxies
+are access controlled: a contract reading one is refused with `No access`, while
+`decimals()` answers anyone. That is true of all seven feeds, on testnet and on
+mainnet, and an `eth_call` cannot show it, because `eth_call` sets `tx.origin`
+to its own `from` and the check passes. It takes a contract in the middle, and
+`probes/chainlink-hedera.out` is that probe and its output.
+
+What is seated instead is Hedera's own exchange rate, at the system contract
+`0x168`, through the thin adapter `HederaRateFeed`. It is the rate every
+transaction fee on this network is priced at, and it is readable by contracts
+because being read by contracts is what it is for.
+
+Two consequences are stated rather than left to be discovered.
+
+- **It is not a market price.** Hedera's rate is governed and updated on the
+  network's own schedule; a market feed is aggregated from exchanges. They do not
+  agree. On 2026-09-07 the two differed by about 2.3 percent, and the probe
+  prints the gap on every run rather than quoting a number that ages.
+- **It cannot go stale, so the heartbeat does not bind this seat.** The rate is
+  consensus state that every transaction in the block is already priced against;
+  there is no last-update to report. The risk that replaces staleness here is
+  divergence from the market, which a heartbeat cannot express, which is why it
+  is written here in words. The heartbeat is kept at the publisher's own value so
+  that it binds again the moment a readable market feed is seated in its place.
+
+### 4.3 What happens when a feed goes dark
+
+`RepoVault.postMark`, a seat held by a named margin engine, may post a mark by
+hand. **It is reachable on no other condition:** while the feed is live it
+refuses. So the discretionary seat cannot overrule a working price, and a feed
+outage cannot freeze the repo book. Both halves of that are load-bearing.
+
+A disclosure policy narrowed below what a price disclosure requires also takes
+the feed dark, by the same path: the venue may not publish the price, so it does
+not, and therefore does not act on one. That is the mechanism working rather
+than a failure of it.
+
+### 4.4 The surface this creates
+
+A publisher who moves the mark can trigger a margin call on a counterparty. That
+is a new surface, it is bounded by the deviation cap, the quorum and the cure
+window, and it is written up beside the venue's other manipulation surfaces
+rather than left to be found.
+
+### 4.5 What the venue publishes
+
+Governed per row by the disclosure lattice under a committed parameter root:
+order size, order price, execution price, counterparty, the match predicate,
+activity and account provenance. A print degrades to an order of magnitude, and
+then to silence, before it will fail a trade. A clean price and a coupon
+reference rate are terms of the instrument and are published exactly and at
+once, on the same row as a maturity date. A mark, which is a price multiplied by
+somebody's position, is not.
 
 ## 5. Execution and priority
 

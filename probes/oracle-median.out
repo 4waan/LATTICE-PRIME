@@ -1,0 +1,41 @@
+PrimeOracle: the median, the deviation bound, and the composite mark
+==========================================================================
+
+2. one dishonest publisher
+   panels swept, sizes 3..7:          18340
+   landed outside the adjacent pair:  0
+   Read: on any panel of three or more, replacing one answer with
+   anything at all, including the top of uint128, leaves the median
+   between the honest answers on either side of the middle. It moves
+   by one order statistic and no further.
+
+   The same sweep against the mean, which is the arrangement not
+   chosen: one liar drags it up to 113427455640312821154458202477256070484 above the honest maximum.
+   That is the whole argument for the median in one number.
+
+3. f dishonest publishers: does the median leave the honest range?
+   n\f   0  1  2  3  4  5  6  7
+   1     -  X  .  .  .  .  .  .
+   2     -  X  X  .  .  .  .  .
+   3     -  -  X  X  .  .  .  .
+   4     -  -  X  X  X  .  .  .
+   5     -  -  -  X  X  X  .  .
+   6     -  -  -  X  X  X  X  .
+   7     -  -  -  -  X  X  X  X
+   '-' inside the honest range, 'X' outside it.
+   The boundary is f >= n/2 at every n, which is what makes a strict
+   majority the right quorum: it is the largest f the median still
+   survives. DeployVenue._quorum is seats/2 + 1 for that reason.
+
+4. the composite mark
+   price                                10000000000 / rate 8109665    -> 123309655824
+     exact 123309655824.254150, floored, so the loss is at most one tinybar
+   price                                          1 / rate 3          -> 33333333
+     exact 33333333.333333, floored, so the loss is at most one tinybar
+   The floor moves the mark down. A lower mark is a position closer
+   to a margin call, which is toward the lender and away from the
+   party the call is taken against. Stated in OracleMath's header.
+
+5. wrote 72 panels, 7 deviation cases and 6 marks
+   -> ../venue/test/fixtures/median.json
+   venue/test/PrimeOracle.t.sol replays every one of them.

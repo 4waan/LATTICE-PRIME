@@ -1,0 +1,159 @@
+Chainlink data feeds on Hedera testnet, chain 296
+==========================================================================
+relay: https://testnet.hashio.io/api
+read at: 1788787154  (2026-09-07T13:19:14Z)
+
+HBAR / USD   0xd4DC5F0a891381D09d6437482a0E4E2dca4ACCAa
+  code                 yes   (22337 bytes)
+  description()        'HBAR / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 43184  answeredInRound 43184
+                       answer 8254051  =  0.08254051 USD
+                       updatedAt 1788786952, 202s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+USDC / USD   0x22B41b74e340b5A3e8fE70b82531509E05AbFA62
+  code                 yes   (22337 bytes)
+  description()        'USDC / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 525  answeredInRound 525
+                       answer 99994796  =  0.99994796 USD
+                       updatedAt 1788718792, 68362s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+USDT / USD   0xAFb9e69BA1053a34b307664066eDCF9Ccf1F79Ef
+  code                 yes   (22337 bytes)
+  description()        'USDT / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 525  answeredInRound 525
+                       answer 99996261  =  0.99996261 USD
+                       updatedAt 1788718854, 68300s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+DAI / USD    0xE7c825635998dBc2Ba915C54AD0EB64864387e82
+  code                 yes   (22337 bytes)
+  description()        'DAI / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 556  answeredInRound 556
+                       answer 99997358  =  0.99997358 USD
+                       updatedAt 1788720420, 66734s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+BTC / USD    0x8A1EC8E9FA1636b2AA38dE3109539587fe755f62
+  code                 yes   (22337 bytes)
+  description()        'BTC / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 9342  answeredInRound 9342
+                       answer 7945229000000  =  79452.29000000 USD
+                       updatedAt 1788765911, 21243s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+ETH / USD    0x4D18EB4043241E8fC981112b23459F35E5b79147
+  code                 yes   (22337 bytes)
+  description()        'ETH / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 19166  answeredInRound 19166
+                       answer 250955700797  =  2509.55700797 USD
+                       updatedAt 1788786695, 459s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+LINK / USD   0x6EAcAE8c5C7531a425818Ad678fb59873DF338f2
+  code                 yes   (22337 bytes)
+  description()        'LINK / USD'
+  decimals()           8
+  version()            6
+  latestRoundData()    roundId 34192  answeredInRound 34192
+                       answer 1331600000  =  13.31600000 USD
+                       updatedAt 1788786302, 852s ago
+  PrimeOracle._cash    answer > 0 True, updatedAt != 0 True, answeredInRound >= roundId True
+
+==========================================================================
+3. the same feeds, read from inside a contract
+   through FeedAccessProbe at 0x1ddd6B597b6FF96f4bcA0CD57650cA53d1A42815
+
+   HBAR / USD   decimals() ok    latestRoundData() REVERT 'No access'
+   USDC / USD   decimals() ok    latestRoundData() REVERT 'No access'
+   USDT / USD   decimals() ok    latestRoundData() REVERT 'No access'
+   DAI / USD    decimals() ok    latestRoundData() REVERT 'No access'
+   BTC / USD    decimals() ok    latestRoundData() REVERT 'No access'
+   ETH / USD    decimals() ok    latestRoundData() REVERT 'No access'
+   LINK / USD   decimals() ok    latestRoundData() REVERT 'No access'
+
+   7 of 7 refuse a contract while answering its scale.
+
+   This is the finding. An externally owned account reads a price and
+   a contract does not, because the proxy's access controller admits a
+   caller only when it is allowlisted or when msg.sender == tx.origin.
+   eth_call cannot show it: eth_call sets tx.origin to whatever `from`
+   says, so the two are equal again and the check passes. Every read in
+   section 1 above is an eth_call and every one of them succeeded.
+
+   decimals() is not gated, and that is the trap. PrimeOracle validates
+   a feed by its scale before seating it, because the scale is the one
+   thing that has to match. So the seat took, the deployment succeeded,
+   and the first markToMarket reverted CashFeedStale. The venue behaved
+   correctly throughout: a leg it cannot read is dark, and dark opens
+   RepoVault.postMark. But the feed was never going to work.
+
+   Hedera **mainnet**, same question, same probe bytecode:
+     0x1B9a65b54e36A4f4E3591e4deAAb423C64959Ae0
+       extcodesize        22337
+       decimals()         ok, 8
+       latestRoundData()  REVERT 'No access'
+
+     Recorded rather than read live, because the probe contract is
+     deployed on 296 only and putting one on mainnet would spend real
+     HBAR to learn something a fork already answers. `forge script`
+     runs against a fork of whatever RPC it is given, and a fork
+     carries the target chain's contract bytecode, so Chainlink's
+     access controller executes there exactly as it does on the
+     network. Reproduce it in one command, free:
+
+       FEED=0x1B9a65b54e36A4f4E3591e4deAAb423C64959Ae0 \
+         forge script script/ProbeFeedAccess.s.sol:ForkProbe \
+           --rpc-url https://mainnet.hashio.io/api
+
+     A fork is the wrong instrument for `0x168` and for `0x16b`,
+     which are the node's and are not bytecode. Those are read with
+     `cast` against the real relay, which is what section 4 does.
+
+==========================================================================
+4. what the venue seats instead: Hedera's own exchange rate, 0x168
+   tinybarsToTinycents(1e14)  806413333333333
+   USD per HBAR, eight dp     8064133   = 0.08064133 USD
+   Chainlink says             8254051   = 0.08254051 USD
+   they differ by             2.30 percent
+
+   Both are HBAR/USD and neither is wrong. Chainlink's is aggregated
+   from exchanges; Hedera's is set by the council and is what every
+   transaction fee on the network is priced at. The venue seats the
+   second because it is the one a contract can read, through
+   venue/src/oracle/HederaRateFeed.sol, which wears the Chainlink
+   interface so the seat stays swappable. What replaces staleness as
+   the risk on that seat is divergence from the market, which is the
+   number printed directly above and which docs/RULEBOOK.md section
+   4.2 states in words rather than pretending a heartbeat covers it.
+
+--------------------------------------------------------------------------
+every feed answers eight decimals:   True
+   PrimeOracle._requireEightDecimals refuses anything else rather
+   than normalising, and this is why that refusal is safe: there is
+   no feed here it would turn away.
+
+oldest answer across the seven:      68362s
+registry heartbeat:                  86400s
+DeployOracle.CASH_HEARTBEAT:         93600s
+   Kept at the publisher's heartbeat plus slack even though the seat
+   now holds an adapter that cannot go stale. It costs nothing, and
+   it is the bound that binds again the moment a real Chainlink
+   aggregator is seated on a chain that permits contract reads.
+
+The other six feeds are read to establish that both claims above are
+about Chainlink on this chain, and not about one address that happened
+to behave that way.

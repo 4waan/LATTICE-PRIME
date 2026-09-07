@@ -1,0 +1,1264 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "policy_",
+    "type": "address",
+    "internalType": "contract IDisclosurePolicy"
+   },
+   {
+    "name": "admin_",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "cashFeed_",
+    "type": "address",
+    "internalType": "contract AggregatorV3Interface"
+   },
+   {
+    "name": "panel_",
+    "type": "address[]",
+    "internalType": "address[]"
+   },
+   {
+    "name": "quorum_",
+    "type": "uint8",
+    "internalType": "uint8"
+   },
+   {
+    "name": "maxPublishers_",
+    "type": "uint8",
+    "internalType": "uint8"
+   },
+   {
+    "name": "heartbeat_",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "cashHeartbeat_",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "maxDeviationBps_",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "DECIMALS",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "admin",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "adoptCashFeed",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "adoptPublishers",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "answered",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "publisher",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "breakingSize",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "g",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "cashFeed",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract AggregatorV3Interface"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "cashHeartbeat",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "cashLeg",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "ok",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "usdPerHbar",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "updatedAt",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "ceilingFor",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "decimals",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "description",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "string",
+    "internalType": "string"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "finalize",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "price",
+    "type": "uint128",
+    "internalType": "uint128"
+   },
+   {
+    "name": "rate",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "generation",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "getRoundData",
+  "inputs": [
+   {
+    "name": "roundId",
+    "type": "uint80",
+    "internalType": "uint80"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint80",
+    "internalType": "uint80"
+   },
+   {
+    "name": "",
+    "type": "int256",
+    "internalType": "int256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint80",
+    "internalType": "uint80"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "heartbeat",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "lastRound",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "latest",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "cleanPrice",
+    "type": "uint128",
+    "internalType": "uint128"
+   },
+   {
+    "name": "refRateBps",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "publishedAt",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "latestRoundData",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint80",
+    "internalType": "uint80"
+   },
+   {
+    "name": "",
+    "type": "int256",
+    "internalType": "int256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint80",
+    "internalType": "uint80"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "markPerUnitTinybar",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "maxDeviationBps",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "maxPublishers",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "openRound",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "ourLegStale",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "panelOf",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "tuple[]",
+    "internalType": "struct PrimeOracle.Answer[]",
+    "components": [
+     {
+      "name": "price",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
+      "name": "rate",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "by",
+      "type": "address",
+      "internalType": "address"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingCashFeed",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract AggregatorV3Interface"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingCashFeedEpoch",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingPanelEpoch",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "pendingPublishers",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address[]",
+    "internalType": "address[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "policy",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IDisclosurePolicy"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "proposeCashFeed",
+  "inputs": [
+   {
+    "name": "next",
+    "type": "address",
+    "internalType": "contract AggregatorV3Interface"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "proposePublishers",
+  "inputs": [
+   {
+    "name": "next",
+    "type": "address[]",
+    "internalType": "address[]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "publisherCount",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "publishers",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address[]",
+    "internalType": "address[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "quorum",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "roundOf",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "tuple",
+    "internalType": "struct PrimeOracle.Round",
+    "components": [
+     {
+      "name": "price",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
+      "name": "rate",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "publishedAt",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "panel",
+      "type": "uint8",
+      "internalType": "uint8"
+     },
+     {
+      "name": "gen",
+      "type": "uint64",
+      "internalType": "uint64"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "seated",
+  "inputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "spentBits",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "stale",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "submit",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "cleanPrice",
+    "type": "uint128",
+    "internalType": "uint128"
+   },
+   {
+    "name": "refRateBps",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "version",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "wouldAfford",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "g",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "wouldDisclose",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "g",
+    "type": "uint8",
+    "internalType": "uint8"
+   },
+   {
+    "name": "t",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "event",
+  "name": "CashFeedAdopted",
+  "inputs": [
+   {
+    "name": "next",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "CashFeedProposed",
+  "inputs": [
+   {
+    "name": "next",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "effectiveEpoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "DisclosureCharged",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "indexed": true,
+    "internalType": "uint16"
+   },
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "granularity",
+    "type": "uint8",
+    "indexed": false,
+    "internalType": "uint8"
+   },
+   {
+    "name": "cost",
+    "type": "uint32",
+    "indexed": false,
+    "internalType": "uint32"
+   },
+   {
+    "name": "spentAfter",
+    "type": "uint32",
+    "indexed": false,
+    "internalType": "uint32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "DisclosureRefused",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "row",
+    "type": "uint16",
+    "indexed": false,
+    "internalType": "uint16"
+   },
+   {
+    "name": "excess",
+    "type": "uint32",
+    "indexed": false,
+    "internalType": "uint32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "Finalized",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "cleanPrice",
+    "type": "uint128",
+    "indexed": false,
+    "internalType": "uint128"
+   },
+   {
+    "name": "refRateBps",
+    "type": "uint64",
+    "indexed": false,
+    "internalType": "uint64"
+   },
+   {
+    "name": "panel",
+    "type": "uint8",
+    "indexed": false,
+    "internalType": "uint8"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "PanelAdopted",
+  "inputs": [
+   {
+    "name": "epoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "size",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "PanelProposed",
+  "inputs": [
+   {
+    "name": "effectiveEpoch",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "size",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "Submitted",
+  "inputs": [
+   {
+    "name": "round",
+    "type": "uint64",
+    "indexed": true,
+    "internalType": "uint64"
+   },
+   {
+    "name": "publisher",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "answers",
+    "type": "uint8",
+    "indexed": false,
+    "internalType": "uint8"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "error",
+  "name": "AlreadyAnswered",
+  "inputs": [
+   {
+    "name": "who",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "round",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "BadGranularity",
+  "inputs": [
+   {
+    "name": "g",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "BadTime",
+  "inputs": [
+   {
+    "name": "t",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "CashFeedStale",
+  "inputs": [
+   {
+    "name": "feed",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "DeviationTooLarge",
+  "inputs": [
+   {
+    "name": "from",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "capBps",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "DisclosureExceedsCeiling",
+  "inputs": [
+   {
+    "name": "row",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "excess",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "EmptyPanel",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "FeedDecimals",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint8",
+    "internalType": "uint8"
+   },
+   {
+    "name": "want",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "FeedStale",
+  "inputs": [
+   {
+    "name": "publishedAt",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "heartbeat_",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NoData",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NotAdmin",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NotPublisher",
+  "inputs": [
+   {
+    "name": "who",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NotYetEffective",
+  "inputs": [
+   {
+    "name": "want",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "have",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NothingPending",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "PanelNotDistinct",
+  "inputs": [
+   {
+    "name": "who",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "PanelSize",
+  "inputs": [
+   {
+    "name": "size",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "quorum_",
+    "type": "uint8",
+    "internalType": "uint8"
+   },
+   {
+    "name": "max",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "QuorumShort",
+  "inputs": [
+   {
+    "name": "answers",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "quorum_",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "UnknownLevel",
+  "inputs": [
+   {
+    "name": "g",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "WrongRound",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "want",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "ZeroInterval",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "ZeroPrice",
+  "inputs": []
+ }
+]
