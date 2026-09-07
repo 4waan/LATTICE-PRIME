@@ -32,6 +32,9 @@
 
 html{min-height:100%;color-scheme:light}
 :root[data-theme="dark"]{color-scheme:dark}
+/* Author `display` on buttons beats the UA [hidden] rule. Clock and modal
+   already special-cased this; one rule covers the rest, including #kyc-act. */
+[hidden]{display:none !important}
 body{
   margin:0;
   background:var(--paper); color:var(--ink);
@@ -192,6 +195,16 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
   font:inherit;font-size:.86rem;font-weight:600;color:var(--primary);cursor:pointer;
 }
 .own-file:hover{text-decoration:underline}
+.own-file.stale,button.stale{
+  color:var(--faint);font-weight:500;opacity:.72;
+}
+button.primary.stale{
+  background:var(--sunk);color:var(--faint);
+}
+.own-file.stale:hover,button.stale:hover{
+  filter:none;text-decoration:none;color:var(--slate);
+}
+button.primary.stale:hover{background:var(--sunk);color:var(--slate)}
 .lab{
   margin:1.25rem 0 0;border:1px solid var(--rule);border-radius:var(--radius);
   background:var(--surface);overflow:hidden;
@@ -283,6 +296,12 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 }
 .banner p{flex:1 1 22rem}
 .banner button{flex:0 0 auto;min-height:38px;font-size:.82rem}
+#kyc-act.connected{
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--rule-hard);
+}
+#kyc-act.connected:hover{filter:none;border-color:var(--primary);background:var(--sunk)}
+#kyc-act .dot{width:7px;height:7px;border-radius:50%;background:var(--success-fill);flex:0 0 auto}
 .banner.warn{background:var(--exposed-wash);border-color:color-mix(in srgb, var(--exposed) 35%, var(--rule))}
 .banner.held{background:var(--held-wash)}
 .banner p{margin:0;max-width:none}
@@ -320,6 +339,12 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .status{font-size:.85rem;font-weight:500;color:var(--ink-2);min-height:1.3em;margin-top:.65rem}
 .status.bad{color:var(--exposed)}
 .status.ok{color:var(--success)}
+.status.flash{animation:status-flash .55s var(--ease)}
+@keyframes status-flash{from{filter:brightness(1.8)}to{filter:none}}
+@media(prefers-reduced-motion:reduce){
+  .status.flash{animation:none}
+}
+#check.busy{color:var(--faint);cursor:progress}
 
 .toast{
   position:fixed;bottom:1.25rem;right:1.25rem;z-index:40;max-width:28rem;
@@ -367,7 +392,7 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
   overflow-wrap:anywhere}
 
 .readout{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.readout li{display:grid;grid-template-columns:9rem 1fr;gap:.75rem;margin:0;
+.readout li{display:grid;grid-template-columns:11rem 1fr;gap:.75rem;margin:0;
   padding:.5rem 0;border-bottom:1px solid var(--rule);font-size:.88rem;align-items:baseline}
 .readout li:last-child{border-bottom:0}
 .readout .k{font-size:.72rem;font-weight:600;color:var(--faint)}

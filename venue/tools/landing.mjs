@@ -1,5 +1,5 @@
 // Front-door behaviour: the light that follows the cursor, the scroll
-// invitation, the staggered reveals, and the fanned deck.
+// invitation, and the staggered reveals.
 //
 // No dependencies and no imports, because `tools/gen-page.mjs` inlines this
 // file into `app/index.html` verbatim. Every effect here is decoration:
@@ -81,7 +81,7 @@ Landing.aura = function () {
 // ---------- reveals ----------
 //
 // One observer for everything that enters. `--i` on the element carries the
-// stagger, so the three doors land one, two, three without three observers and
+// stagger, so the three beats land one, two, three without three observers and
 // without a timer that can drift out of step with the scroll.
 Landing.reveals = function () {
     const items = document.querySelectorAll(".pop, .rise");
@@ -135,59 +135,8 @@ Landing.cue = function () {
     });
 };
 
-// ---------- the fanned deck ----------
-//
-// Cards overlap by a fixed margin. Pointing at one raises it and pushes its
-// neighbours outward: everything to its left shifts left, everything to its
-// right shifts right, so the raised card gets room without the row changing
-// width. Focus does the same thing as hover, so the deck opens from a keyboard.
-Landing.deck = function () {
-    const deck = document.getElementById("deck");
-    if (!deck) return;
-    const cards = [...deck.querySelectorAll(".fcard")];
-    if (!cards.length) return;
-
-    // A shallow fan at rest: outer cards tilt away from the middle.
-    const mid = (cards.length - 1) / 2;
-    cards.forEach((c, i) => {
-        c.style.setProperty("--tilt", ((i - mid) * 0.9).toFixed(2));
-        c.style.setProperty("--z", String(i));
-    });
-
-    const clear = () => {
-        cards.forEach((c, i) => {
-            c.classList.remove("up");
-            c.style.setProperty("--shift", "0");
-            c.style.setProperty("--z", String(i));
-        });
-    };
-
-    const raise = (i) => {
-        cards.forEach((c, j) => {
-            const up = j === i;
-            c.classList.toggle("up", up);
-            c.style.setProperty("--shift", up ? "0" : (j < i ? "-1" : "1"));
-            c.style.setProperty("--z", up ? "40" : String(j));
-        });
-    };
-
-    cards.forEach((c, i) => {
-        c.addEventListener("pointerenter", (e) => {
-            if (e.pointerType === "touch") return;
-            raise(i);
-        });
-        c.addEventListener("focusin", () => raise(i));
-    });
-    deck.addEventListener("pointerleave", clear);
-    deck.addEventListener("focusout", (e) => {
-        if (!deck.contains(e.relatedTarget)) clear();
-    });
-    clear();
-};
-
 Landing.boot = function () {
     Landing.aura();
     Landing.reveals();
     Landing.cue();
-    Landing.deck();
 };

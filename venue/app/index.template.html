@@ -171,225 +171,198 @@ document.documentElement.setAttribute("data-theme",
     </div>
   </div>
 
-  <a class="scroll-cue" id="cue" href="#privacy">
-    <span class="lbl">The rule that matters</span>
+  <a class="scroll-cue" id="cue" href="#why">
+    <span class="lbl">Why it exists</span>
     <span class="rail"><i></i></span>
     <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
   </a>
 </section>
 
-<!-- ============ 2 · the category, and nothing else ============ -->
-<section class="frame privacy-frame" id="privacy">
-  <div class="wrap privacy-inner">
-    <div class="privacy-copy">
-      <p class="kicker">The rule that matters</p>
-      <h2 class="privacy-h">Privacy is a quantity,<br>not a toggle</h2>
-      <p class="privacy-lead">Hide or show is a mixer. This venue meters what it may say, to whom, and for how long.</p>
+<!-- ============ 2 · why sealed books exist ============ -->
+<section class="frame" id="why">
+  <div class="wrap">
+    <div class="frame-head rise">
+      <p class="kicker">The two accidents</p>
+      <h2>A house that could read the book, or a book nobody could sum.</h2>
+      <p class="frame-lead">Institutional trading produced the same failure twice, in opposite directions. Most venues still pick one.</p>
     </div>
-  </div>
 
-  <a class="scroll-cue" href="#how">
-    <span class="lbl">How it works</span>
-    <span class="rail"><i></i></span>
-    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-  </a>
+    <div class="why-split rise">
+      <article class="why-card">
+        <p class="why-k why-k-leak">The operator held the cleartext</p>
+        <h3>Crossfinder, $84.3m</h3>
+        <p>Credit Suisse transmitted subscriber orders out of its dark pool to other desks. Confidentiality was a contract term. The machine could read the book anyway.</p>
+      </article>
+      <article class="why-card">
+        <p class="why-k why-k-dark">Nobody held the sum</p>
+        <h3>Archegos, $5.5bn</h3>
+        <p>One fund stacked the same risk across several primes. Privacy worked exactly as sold. No counterparty, and no supervisor, could see the line.</p>
+      </article>
+    </div>
+
+    <p class="why-then rise">This venue refuses that choice. Size leaves as a hash. Disclosure is a budget, not a mixer.</p>
+
+    <div class="why-books rise">
+      <div class="why-pane">
+        <p class="why-cap">A public book</p>
+        <table class="why-tape">
+          <thead>
+            <tr><th>Side</th><th>Price</th><th>Size</th><th>Rest</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Buy</td><td>101.25</td><td>40,000</td><td>resting</td></tr>
+            <tr><td>Buy</td><td>101.00</td><td>12,500</td><td>resting</td></tr>
+            <tr><td>Sell</td><td>101.50</td><td>8,000</td><td>resting</td></tr>
+            <tr><td>Sell</td><td>101.75</td><td>22,000</td><td>resting</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="why-pane why-sealed">
+        <p class="why-cap">A sealed ticket</p>
+        <p class="why-commit">commit(bytes32)</p>
+        <p class="why-hash">0x7c3a&hellip;9e12</p>
+        <p>Side, price and size are not on the wire. There is nothing for an operator to be trusted with.</p>
+      </div>
+    </div>
+
+    <p class="why-scale rise">The instrument is already a market: Broadridge&rsquo;s distributed ledger repo printed $7.4tn in August 2026. What it cannot print is a receipt of what it withheld.</p>
+  </div>
 </section>
 
-<!-- ============ 3 · how it works, which is also the way in ============ -->
+<!-- ============ 3 · how a round runs ============ -->
 <section class="frame" id="how">
   <div class="wrap">
     <div class="frame-head rise">
-      <h2>How Lattice Prime works</h2>
-      <p class="frame-lead">Seal size in three steps. Nobody reads the order first.</p>
+      <p class="kicker">How a round runs</p>
+      <h2>Prove, seal, settle.</h2>
+      <p class="frame-lead">Three contract surfaces. Eligibility, the book, the instrument.</p>
     </div>
 
-    <div class="steps">
-      <a class="step step-1 pop" style="--i:0" href="prove.html">
-        <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
-          <path d="M17 24l5 5 10-11"/>
-        </svg>
-        <h3>Prove you are allowed</h3>
-        <p>Walk in without handing the venue a file on who you are. One proof. The venue learns one bit: yes.</p>
-        <span class="go">Open Prove
+    <ol class="loop">
+      <li class="beat pop" style="--i:0">
+        <span class="beat-n">01</span>
+        <div class="beat-body">
+          <h3>Prove you are allowed</h3>
+          <p>A PLONK proof against the issuer root. The venue stores one bit for this KYC epoch. The credential never leaves the holder.</p>
+          <p class="beat-src">RegistrationGate · ZkKycRegistry</p>
+        </div>
+        <a class="beat-go" href="prove.html">Open Prove
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-        </span>
-      </a>
-
-      <a class="step step-2 pop" style="--i:1" href="trade.html">
-        <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="9" y="21" width="30" height="20" rx="4"/>
-          <path d="M16 21v-6a8 8 0 0116 0v6"/>
-          <path d="M24 28v6"/>
-        </svg>
-        <h3>Send an order nobody can read</h3>
-        <p>Size, side and price leave as an unread hash. Cancel while they are still sealed. Reveal only when the round is done.</p>
-        <span class="go">Open Trade
+        </a>
+      </li>
+      <li class="beat pop" style="--i:1">
+        <span class="beat-n">02</span>
+        <div class="beat-body">
+          <h3>Send size as a hash</h3>
+          <p>An order arrives as keccak. Cancel and reveal are disjoint off one timestamp. Anyone may cross the round.</p>
+          <p class="beat-src">OrderBook · MatchingEngine · CallAuction</p>
+        </div>
+        <a class="beat-go" href="trade.html">Open Trade
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-        </span>
-      </a>
-
-      <a class="step step-3 pop" style="--i:2" href="position.html">
-        <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 40h36"/>
-          <path d="M13 40V27M23 40V15M33 40V22"/>
-          <circle cx="33" cy="14" r="5"/>
-          <path d="M37 10l5-5"/>
-        </svg>
-        <h3>See what the venue knows</h3>
-        <p>Ask what this venue is allowed to publish. The answer is a quantity, not a shrug.</p>
-        <span class="go">Open Position
+        </a>
+      </li>
+      <li class="beat pop" style="--i:2">
+        <span class="beat-n">03</span>
+        <div class="beat-body">
+          <h3>Settle the instrument</h3>
+          <p>The bond is escrowed by ATS hold, not taken. Cash and collateral move in one transaction. The mark is computed in memory; a fail penalty pays the counterparty, not the house.</p>
+          <p class="beat-src">RepoVault · PrimeOracle · ATS holds</p>
+        </div>
+        <a class="beat-go" href="repo.html">Open Repo
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-        </span>
-      </a>
-    </div>
+        </a>
+      </li>
+    </ol>
   </div>
-
-  <a class="scroll-cue" href="#features">
-    <span class="lbl">See our innovation</span>
-    <span class="rail"><i></i></span>
-    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-  </a>
 </section>
 
-<!-- ============ 4 · the deck ============ -->
-<section class="frame" id="features">
+<!-- ============ 4 · the receipt ============ -->
+<section class="frame" id="receipt">
+  <div class="wrap receipt-split">
+    <div class="receipt-copy rise">
+      <p class="kicker">The record</p>
+      <h2>Privacy is a quantity, not a toggle</h2>
+      <p>Hide-or-show is a mixer, and a mixer is unbankable for regulated collateral. Every leak here spends bits from a published ceiling. When the budget is gone the event is withheld; the trade still prints.</p>
+      <p>The EVM cannot emit &ldquo;I said nothing.&rdquo; A Hedera consensus topic can. A supervisor can resolve the same position on a published policy without asking the holder.</p>
+      <div class="receipt-links">
+        <a href="position.html">Open Position
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="../docs/disclosure-receipt.html">See a disclosure receipt
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </div>
+    <aside class="rcpt rise" aria-label="Sample disclosure receipt">
+      <header class="rcpt-head">
+        <p class="rcpt-k">Disclosure receipt</p>
+        <p class="rcpt-meta">Round 1482 · epoch 7 · sample</p>
+      </header>
+      <dl class="rcpt-rows">
+        <div>
+          <dt>Action</dt>
+          <dd>cancel</dd>
+        </div>
+        <div>
+          <dt>Published</dt>
+          <dd>nothing</dd>
+        </div>
+        <div class="rcpt-withheld">
+          <dt>Withheld</dt>
+          <dd>side, price, size</dd>
+        </div>
+        <div>
+          <dt>Bits spent</dt>
+          <dd>0 of 12</dd>
+        </div>
+        <div>
+          <dt>Observers</dt>
+          <dd>none this row</dd>
+        </div>
+        <div class="rcpt-silence">
+          <dt>Silence</dt>
+          <dd>on HCS</dd>
+        </div>
+      </dl>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 5 · why Hedera ============ -->
+<section class="frame" id="chain">
   <div class="wrap">
     <div class="frame-head rise">
-      <p class="kicker">What makes it different</p>
-      <h2>Six things a normal order book cannot do.</h2>
-      <p>Each card names the accident first and the contract second, because a mechanism is an
-        answer and a card that never states the question is asking you to take it on faith.
-        <span class="on-hover">Point at a card to read it.</span><span class="on-touch">Swipe through them.</span></p>
+      <p class="kicker">On Hedera</p>
+      <h2>Four facts that have to live on this chain.</h2>
+      <p class="frame-lead">Fair order, a real security token, a silence record the EVM cannot emit, and a mark that is never written down.</p>
     </div>
-  </div>
 
-  <div class="deck-shell rise">
-    <div class="deck-wrap">
-      <div class="deck" id="deck">
-        <article class="fcard" tabindex="0">
-          <span class="fnum">01</span>
-          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-          <h3>Orders are sealed, not merely hidden</h3>
-          <p><b>Before.</b> Credit Suisse settled for $84.3m after subscriber order information left its dark pool for other Credit Suisse systems. The venue held the cleartext, so the confidentiality was a contract term.</p>
-          <p><b>Here.</b> An order reaches the chain as a keccak commitment. Side, price and size are not on the wire, so there is no cleartext for an operator to be trusted with.</p>
-          <span class="src">MatchingEngine.commit</span>
-        </article>
-
-        <article class="fcard" tabindex="0">
-          <span class="fnum">02</span>
-          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/><path d="M17 4.5l2.5 2.5L23 3"/></svg>
-          <h3>Eligibility without identity</h3>
-          <p><b>Before.</b> Getting into a regulated venue means handing a counterparty a permanent copy of who you are, which every venue then has to defend and none of them can un-learn.</p>
-          <p><b>Here.</b> A proof answers tier and jurisdiction against an issuer root that rolls every KYC epoch. The venue learns one bit and stores one bit.</p>
-          <span class="src">ZkKycRegistry · PLONK over a universal ceremony</span>
-        </article>
-
-        <article class="fcard" tabindex="0">
-          <span class="fnum">03</span>
-          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 019-9v9z"/><circle cx="12" cy="12" r="9"/></svg>
-          <h3>A disclosure budget the chain enforces</h3>
-          <p><b>Before.</b> Archegos built a position across several prime brokers and cost Credit Suisse about $5.5bn, because privacy had no supervisory counterpart and nobody held the sum.</p>
-          <p><b>Here.</b> Disclosure is metered. Every read that leaks spends bits from a per-epoch budget with a published ceiling, so a supervisor can be answered without the venue becoming an open book.</p>
-          <span class="src">SeamJournal.spentBits</span>
-        </article>
-
-        <article class="fcard" tabindex="0">
-          <span class="fnum">04</span>
-          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-          <h3>Cancel and reveal never overlap</h3>
-          <p><b>Before.</b> The last-look window is where information advantage lives, and it exists in most venues because the two windows are defined separately and drift.</p>
-          <p><b>Here.</b> Both windows come off one timestamp and are disjoint by construction. There is no instant in which you can watch a reveal land and still pull your own order.</p>
-          <span class="src">cancellableUntil(id)</span>
-        </article>
-
-        <article class="fcard" tabindex="0">
-          <span class="fnum">05</span>
-          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>
-          <h3>Margin you can believe, or told plainly that you cannot</h3>
-          <p><b>Before.</b> A margin figure with no statement of its own reliability is how a stale position becomes a default nobody saw.</p>
-          <p><b>Here.</b> The watcher returns the position and, separately, whether the log behind it was audible. A row can be permitted and unreliable at once, and it says so.</p>
-          <span class="src">MarginWatch.watch</span>
-        </article>
-
-        <article class="fcard" tabindex="0">
-          <span class="fnum">06</span>
-          <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg>
-          <h3>Fair ordering, and a fee you can predict</h3>
-          <p><b>Before.</b> On a public book the resting order is the leak, and the mempool is where somebody else gets paid for reading it.</p>
-          <p><b>Here.</b> Hedera orders by consensus timestamp. No mempool to be front-run in and no gas auction to lose.</p>
-          <span class="src">Hedera consensus</span>
-        </article>
-      </div>
-      <p class="deck-hint">Hover a card to bring it forward. Tab works too.</p>
+    <div class="chain rise">
+      <article>
+        <p class="chain-k">Ordering</p>
+        <h3>Consensus timestamp</h3>
+        <p>There is no mempool to front-run and no gas auction to lose. The commit is sequenced before anyone can read it.</p>
+      </article>
+      <article>
+        <p class="chain-k">The instrument</p>
+        <h3>HTS / ATS holds</h3>
+        <p>The bond is a partitioned security token. The venue escrows through an ATS hold. It never takes custody.</p>
+      </article>
+      <article>
+        <p class="chain-k">The record</p>
+        <h3>A consensus topic</h3>
+        <p>Charge, refusal, silence, and checkpoint land on HCS, then reconcile against spentBits. Contracts cannot reach the topic; a relay is the specified pattern.</p>
+      </article>
+      <article>
+        <p class="chain-k">The mark</p>
+        <h3>Network rate 0x168</h3>
+        <p>The cash leg is Hedera&rsquo;s own exchange-rate precompile, because Chainlink on this network refuses a contract caller. markToMarket stores nothing.</p>
+      </article>
     </div>
   </div>
 </section>
 
-<!-- ============ 5 · what is underneath ============ -->
-<section class="frame" id="powered">
-  <div class="wrap">
-    <div class="frame-head rise">
-      <p class="kicker">What powers it</p>
-      <h2>Four pieces of industry infrastructure, used as intended.</h2>
-      <p>None of this is reimplemented. The venue is the part that did not exist yet.</p>
-    </div>
-
-    <div class="powered rise">
-      <div class="pcard">
-        <span class="role">Settlement</span>
-        <span class="who">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 8v8M16 8v8M8 12h8"/></svg>
-          Hedera
-        </span>
-        <p>Consensus timestamps give fair ordering with no mempool, and the EVM gives the venue somewhere to live. Fees are quoted, not auctioned.</p>
-      </div>
-
-      <div class="pcard">
-        <span class="role">The instrument</span>
-        <span class="who">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
-          Asset Tokenization Studio
-        </span>
-        <p>The bond is a real ATS security token: partitions, holds and an external compliance hook. The venue escrows through the hold, never by taking custody.</p>
-      </div>
-
-      <div class="pcard pcard-proof">
-        <span class="role">The proof</span>
-        <span class="who">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
-          Circom and snarkjs
-        </span>
-        <p>The eligibility circuit compiles to PLONK over a universal ceremony, so this project ran no trusted setup of its own. Proving happens on the holder&rsquo;s machine; the private inputs never leave it.</p>
-      </div>
-
-      <div class="pcard">
-        <span class="role">The contracts</span>
-        <span class="who">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 8L4 12l5 4M15 8l5 4-5 4"/></svg>
-          Foundry and Solidity
-        </span>
-        <p>Every claim on this page is a getter somebody can call. The invariants above are covered by the test suite in the repository, not by prose.</p>
-      </div>
-    </div>
-
-    <div class="wrap" style="padding:0">
-      <p class="kicker rise" style="margin-top:2.4rem">And what makes it pleasant</p>
-      <div class="also rise">
-        <span>ethers v6</span>
-        <span>HashIO JSON-RPC</span>
-        <span>Hedera mirror node</span>
-        <span>HashScan receipts</span>
-        <span>EIP-6963 wallet discovery</span>
-        <span>read-only watch mode</span>
-        <span>no bundler, no backend</span>
-        <span>one file per screen</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ 6 · in plain terms, and the way in ============ -->
+<!-- ============ 6 · the way in ============ -->
 <section class="frame closing" id="start">
   <div class="wrap">
     <div class="frame-head rise">
@@ -412,7 +385,6 @@ document.documentElement.setAttribute("data-theme",
         Start using Lattice Prime
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
       </a>
-      <a class="btn-ghost lg" href="../docs/commit-preview.html">See a commitment first</a>
     </div>
 
     <p class="closing-note rise">
@@ -435,8 +407,8 @@ document.documentElement.setAttribute("data-theme",
       <a id="foot-scan" href="#" rel="noopener">Engine on HashScan</a>
     </div>
     <p>
-      Lattice Prime is a testnet demonstration. Numbers on this site are read from the
-      contracts named beside them and are not quotes, advice, or an offer.
+      Lattice Prime is a testnet demonstration. Numbers on the live screens are read from the
+      contracts those screens name, and are not quotes, advice, or an offer.
     </p>
   </div>
 </footer>

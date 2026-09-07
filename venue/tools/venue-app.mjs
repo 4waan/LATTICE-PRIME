@@ -161,6 +161,28 @@ function upsert(kind, account, item, idField) {
     return items;
 }
 
+function readPocketProof(account) {
+    if (!account) return null;
+    try {
+        const raw = localStorage.getItem(storeKey("proof", account));
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+function writePocketProof(account, picked, epoch) {
+    if (!account || !picked) return;
+    try {
+        localStorage.setItem(storeKey("proof", account), JSON.stringify({
+            epoch: String(epoch),
+            proof: picked.proof,
+            pub: picked.pub,
+            address: picked.address || account,
+        }));
+    } catch { /* quota or private mode */ }
+}
+
 function downloadJson(name, obj) {
     const blob = new Blob([JSON.stringify(obj, null, 2)], {type: "application/json"});
     const a = document.createElement("a");
@@ -720,7 +742,12 @@ Venue.paintWallets = function () {
 
     if (Venue.watching) {
         html += Venue.row(EYE, "Stop watching " + shortAddr(Venue.watching), "Return to a disconnected page");
-        acts.push(() => { Venue.stopWatching(); Venue.closeSheet(); });
+        acts.push(() => {
+            Venue.stopWatching();
+            Venue.closeSheet();
+            Venue.clearProveGrant();
+            Venue.refreshForViewer().catch(() => {});
+        });
     }
 
     list.innerHTML = html;
@@ -732,12 +759,18 @@ Venue.paintWallets = function () {
     });
 };
 
-Venue.openSheet = function () {
+Venue.openSheet = function (opts) {
     Venue.buildSheet();
     // Ask again on open: a wallet installed since page load will answer.
     window.dispatchEvent(new Event("eip6963:requestProvider"));
     Venue.paintWallets();
-    Venue.sheetMsg("No extension needed. Every screen fills in, and nothing can be signed.", false);
+    const addr = $("wm-addr");
+    if (addr) addr.value = (opts && opts.watchAddr) || "";
+    Venue.sheetMsg(
+        (opts && opts.msg) ||
+        "No extension needed. Every screen fills in, and nothing can be signed.",
+        false,
+    );
     const el = $("wallet-modal");
     el.hidden = false;
     setTimeout(() => $("wm-addr")?.focus({preventScroll: true}), 40);
@@ -757,6 +790,16 @@ Venue.closeSheet = function () {
 
 Venue.viewer = function () {
     return Venue.account || Venue.watching || null;
+};
+
+// A read that started for one viewer must not paint for the next. Disconnect
+// from the wallet is the case that used to lose: the masthead cleared, then
+// `wouldAccept` came back and wrote the last grant back into Eligibility.
+Venue.stillViewer = function (who) {
+    const now = Venue.viewer();
+    if (!who && !now) return true;
+    if (!who || !now) return false;
+    return who.toLowerCase() === now.toLowerCase();
 };
 
 Venue.resolveAddress = async function (input) {
@@ -787,6 +830,7 @@ Venue.startWatching = async function (input) {
     Venue.closeSheet();
     Venue.toast("Watching " + shortAddr(addr) + ". Read only.");
     await Venue.refreshForViewer();
+    if (Venue.page === "prove") await Venue.hydrateProof();
 };
 
 Venue.stopWatching = function () {
@@ -891,6 +935,10 @@ Venue.onAccounts = async function (accs) {
         Venue.signer = null;
         Venue.w = null;
         Venue.renderWallet();
+        // The masthead follows accountsChanged. Eligibility used not to: the
+        // last grant and the use count sat there until a reload.
+        Venue.clearProveGrant();
+        await Venue.refreshForViewer().catch(() => {});
         return;
     }
     await Venue.attachAccount(accs[0]);
@@ -910,7 +958,9 @@ Venue.attachAccount = async function (account) {
     Venue.w = Venue.contracts(Venue.signer);
     Venue.watching = null;
     Venue.renderWallet();
+    Venue.clearProveGrant();
     await Venue.refreshForViewer();
+    if (Venue.page === "prove") await Venue.hydrateProof();
 };
 
 Venue.renderWallet = function () {
@@ -1083,8 +1133,35 @@ Venue.paintClocks = function () {
 Venue.status = function (id, msg, kind) {
     const el = $(id);
     if (!el) return;
-    el.textContent = msg || "";
+    const text = msg || "";
+    const same = el.textContent === text && text !== "";
+    el.textContent = text;
     el.className = "status" + (kind ? " " + kind : "");
+    if (same) Venue.flashStatus(el);
+};
+
+Venue.flashStatus = function (el) {
+    if (!el) return;
+    el.classList.remove("flash");
+    void el.offsetWidth;
+    el.classList.add("flash");
+};
+
+Venue.pulseProveStatus = function () {
+    const el = $("prove-status");
+    if (!el) return;
+    if (!el.textContent) {
+        Venue.status("prove-status", "You already hold a grant this period. Trade is next.", "ok");
+        return;
+    }
+    if (!el.classList.contains("ok")) el.classList.add("ok");
+    Venue.flashStatus(el);
+};
+
+Venue.paintProveActions = function () {
+    const granted = Venue.snap.kyc === 1;
+    $("demo-proof")?.classList.toggle("stale", granted);
+    $("open-lab")?.classList.toggle("stale", granted);
 };
 
 Venue.toast = function (msg) {
@@ -1158,8 +1235,12 @@ Venue.mountIndex = async function () {
 
 Venue.mountProve = async function () {
     $("proof-file")?.addEventListener("change", (e) => Venue.onProofFile(e.target.files[0]));
-    $("demo-proof")?.addEventListener("click", () => Venue.loadDemoProof().catch((e) => Venue.fail(e)));
+    $("demo-proof")?.addEventListener("click", () => {
+        if (Venue.snap.kyc === 1) { Venue.pulseProveStatus(); return; }
+        Venue.loadDemoProof().catch((e) => Venue.fail(e));
+    });
     $("open-lab")?.addEventListener("click", () => {
+        if (Venue.snap.kyc === 1) { Venue.pulseProveStatus(); return; }
         const lab = $("prove-lab");
         if (!lab) return;
         lab.open = true;
@@ -1173,13 +1254,41 @@ Venue.mountProve = async function () {
         drop.classList.remove("over");
         Venue.onProofFile(e.dataTransfer.files[0]);
     });
-    $("kyc-act")?.addEventListener("click", () => Venue.openSheet());
-    $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => Venue.fail(e)));
+    $("kyc-act")?.addEventListener("click", () => {
+        if ($("kyc-act")?.dataset.act === "trade") {
+            location.href = "trade.html";
+            return;
+        }
+        Venue.openSheet();
+    });
+    $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => {
+        const d = Venue.fail(e);
+        Venue.status("prove-status", d.message, "bad");
+    }));
     $("register")?.addEventListener("click", () => Venue.doRegister().catch((e) => Venue.fail(e)));
     await Promise.all([
         Venue.refreshProve(),
         Venue.refreshGateGov().catch(() => {}),
     ]);
+    await Venue.hydrateProof();
+};
+
+Venue.clearProveGrant = function () {
+    if (Venue.page !== "prove") return;
+    Venue.snap.kyc = 0;
+    Venue.status("prove-status", "", "");
+    const uses = $("uses");
+    if (uses) uses.textContent = "";
+    const reg = $("register");
+    if (reg) reg.disabled = true;
+    if (Venue.viewer()) {
+        Venue.paintKycAct();
+        return;
+    }
+    $("kyc-banner")?.classList.remove("warn");
+    const copy = $("kyc-copy");
+    if (copy) copy.textContent = "Connect a wallet, or load a proof to watch a live grant.";
+    Venue.paintKycAct();
 };
 
 Venue.refreshProve = async function () {
@@ -1194,6 +1303,7 @@ Venue.refreshProve = async function () {
         gate.rootForEpoch(epoch + 1n),
         who ? registry.getKycStatus(who) : null,
     ]);
+    if (!Venue.stillViewer(who)) return;
     Venue.snap.minTier = asBig(minTier);
     Venue.snap.mask = asBig(mask);
     Venue.snap.maxUses = Number(maxUses);
@@ -1215,12 +1325,48 @@ Venue.refreshProve = async function () {
             : "Not yet allowed this period.";
         $("kyc-banner")?.classList.toggle("warn", kyc !== 1);
     } else {
+        Venue.snap.kyc = 0;
         $("kyc-banner")?.classList.remove("warn");
+        Venue.clearProveGrant();
     }
-    const act = $("kyc-act");
-    if (act) act.hidden = !!who;
+    Venue.paintKycAct();
+    Venue.paintProveActions();
     $("kyc-copy").textContent = status;
     if (Venue.proof) Venue.paintPins();
+    Venue.paintCheckButton();
+};
+
+Venue.paintKycAct = function () {
+    const act = $("kyc-act");
+    if (!act) return;
+    act.hidden = false;
+    act.classList.remove("connected", "primary");
+    if (Venue.account && Venue.snap.kyc === 1) {
+        act.textContent = "Trade";
+        act.classList.add("primary");
+        act.setAttribute("aria-label", "Go to Trade");
+        act.dataset.act = "trade";
+    } else if (Venue.account) {
+        act.innerHTML = '<span class="dot"></span>Connected';
+        act.classList.add("connected");
+        act.setAttribute("aria-label", "Connected as " + Venue.account + ". Open wallet options.");
+        act.dataset.act = "sheet";
+    } else {
+        act.textContent = "Connect";
+        act.classList.add("primary");
+        act.setAttribute("aria-label", "Connect a wallet");
+        act.dataset.act = "sheet";
+    }
+};
+
+Venue.paintCheckButton = function () {
+    const btn = $("check");
+    if (!btn || Venue._checking) return;
+    btn.disabled = false;
+    btn.removeAttribute("disabled");
+    btn.classList.remove("busy");
+    btn.setAttribute("aria-busy", "false");
+    btn.textContent = btn.dataset.label || "Check the gate";
 };
 
 Venue.onProofFile = async function (file) {
@@ -1235,8 +1381,18 @@ Venue.onProofFile = async function (file) {
         return;
     }
     Venue.proof = picked;
-    Venue.status("prove-status", "Loaded your proof file. Check the gate next.", "ok");
+    const epoch = Venue.snap.kycEpoch;
+    const who = picked.address || Venue.viewer();
+    if (who && epoch != null) writePocketProof(who, picked, epoch);
+    Venue.paintCheckButton();
     Venue.paintPins();
+    if (Venue.viewer()) {
+        await Venue.previewRegister().catch((e) => {
+            Venue.status("prove-status", Venue.fail(e).message, "bad");
+        });
+        return;
+    }
+    Venue.status("prove-status", "Loaded your proof file. Check the gate next.", "ok");
 };
 
 /// The issuer's own proofs, for whoever arrives without one.
@@ -1251,10 +1407,10 @@ Venue.onProofFile = async function (file) {
 /// It picks by the registry's current KYC epoch rather than by whichever set was
 /// generated last, because `RegistrationGate.register` pins public signal 3 to
 /// that epoch and a proof for the wrong one is refused. If the viewer is one of
-/// the issuer's three addresses they get their own; otherwise the page starts
-/// watching the first of them read-only, because a proof that does not name the
-/// viewer would fail `RegistrantMismatch` and the failure would look like a
-/// broken button rather than the rule it is.
+/// the issuer's three addresses they get their own. Otherwise this is the same
+/// door as Connect: a proof that does not name the viewer would fail
+/// `RegistrantMismatch`, and silently watching the issuer instead looked like
+/// the page had connected a wallet when it had not.
 Venue.loadDemoProof = async function () {
     const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
         ? String(Venue.snap.kycEpoch)
@@ -1266,33 +1422,105 @@ Venue.loadDemoProof = async function () {
         return;
     }
     const keys = Object.keys(set);
-    const mine = Venue.viewer() ? set[Venue.viewer().toLowerCase()] : null;
-    let picked = Venue.pickProof(mine || set);
-    if (!picked && keys.length) {
-        await Venue.startWatching(keys[0]);
-        picked = Venue.pickProof(set[keys[0]]);
+    const who = Venue.viewer();
+    const mine = who ? set[who.toLowerCase()] : null;
+    if (!mine) {
+        const opts = {
+            msg: who
+                ? "This proof belongs to another account. Connect the matching wallet, or watch that live grant read-only."
+                : "Connect a wallet this page already holds a proof for, or watch that live grant read-only.",
+        };
+        if (keys[0]) opts.watchAddr = keys[0];
+        Venue.openSheet(opts);
+        return;
     }
+    const picked = Venue.pickProof(mine);
     if (!picked) {
         Venue.status("prove-status", "The bundled proof is not the shape the gate wants.", "bad");
         return;
     }
     Venue.proof = picked;
+    if (picked.address && who.toLowerCase() === String(picked.address).toLowerCase()) {
+        writePocketProof(who, picked, epoch);
+    }
     Venue.paintPins();
+    Venue.paintCheckButton();
     await Venue.refreshProve();
-    if (Venue.viewer()) {
-        await Venue.previewRegister().catch(() => {});
+    await Venue.previewRegister().catch((e) => {
+        Venue.status("prove-status", Venue.fail(e).message, "bad");
+    });
+};
+
+Venue.proofFor = function (who, epoch) {
+    if (!who) return null;
+    const key = who.toLowerCase();
+    const e = String(epoch);
+    const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[e] : null;
+    if (set && set[key]) {
+        const bundled = Venue.pickProof(set[key]);
+        if (bundled) return bundled;
+    }
+    const stored = readPocketProof(who);
+    if (!stored || String(stored.epoch) !== e) return null;
+    return Venue.pickProof(stored);
+};
+
+Venue.hydrateProof = async function () {
+    if (Venue.page !== "prove") return;
+    const who = Venue.viewer();
+    if (!who) {
+        Venue.paintCheckButton();
         return;
     }
-    Venue.status("prove-status",
-        "A live proof is loaded for " + shortAddr(picked.address) +
-        ". Check the gate to continue.", "ok");
+    const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
+        ? Venue.snap.kycEpoch
+        : asBig(await Venue.c.registry.currentEpoch());
+    const bound = Venue.proof?.address
+        && String(Venue.proof.address).toLowerCase() === who.toLowerCase();
+    if (bound) {
+        Venue.paintCheckButton();
+        return;
+    }
+    const picked = Venue.proofFor(who, epoch);
+    if (picked) {
+        Venue.proof = picked;
+        Venue.paintPins();
+        Venue.paintCheckButton();
+        await Venue.previewRegister().catch((e) => {
+            Venue.status("prove-status", Venue.fail(e).message, "bad");
+        });
+        return;
+    }
+    if (Venue.account && Venue.proof && !bound) {
+        Venue.proof = null;
+        const pins = $("pins");
+        if (pins) {
+            pins.className = "pins-slot";
+            pins.innerHTML = '<div class="empty">Load a proof and the seven public signals land here, each '
+                + "one shown beside the value the gate will insist on.</div>";
+        }
+        const uses = $("uses");
+        if (uses) uses.textContent = "";
+    }
+    Venue.paintCheckButton();
+    if (Venue.account && !Venue.proof && Venue.snap.kyc !== 1) {
+        Venue.status("prove-status",
+            "No proof on this device for this wallet this period. Add a file once and it stays here.",
+            "");
+    }
 };
 
 Venue.pickProof = function (data) {
     const norm = (p) => {
         if (!p?.proof || !p?.pub) return null;
         if (p.proof.length !== 24 || p.pub.length !== 7) return null;
-        return {proof: p.proof.map(String), pub: p.pub.map(String), address: p.address};
+        let address = p.address;
+        if (!address && p.pub[4] != null) {
+            try {
+                address = ethers.getAddress("0x" + asBig(p.pub[4]).toString(16).padStart(40, "0"));
+            } catch { /* pub[4] is not an address */ }
+        }
+        return {proof: p.proof.map(String), pub: p.pub.map(String), address};
     };
     const direct = norm(data);
     if (direct) return direct;
@@ -1307,7 +1535,7 @@ Venue.pickProof = function (data) {
 
 Venue.paintPins = function () {
     const p = Venue.proof;
-    if (!p) return;
+    if (!p || !$("pins")) return;
     const epoch = Venue.snap.kycEpoch;
     const want = [
         null,
@@ -1321,8 +1549,10 @@ Venue.paintPins = function () {
     const body = SIGS.map((s) => {
         const got = asBig(p.pub[s.i]);
         const w = want[s.i];
-        const match = w === null ? "—" : (got === asBig(w) ? "ok" : "no");
-        const wantTxt = w === null ? "output" : (s.i === 4 && !Venue.viewer() ? "connect" : toHexWord(w).replace(/^0x0+/, "0x") );
+        // Clocks may not have stamped the epoch yet; treat missing pins as
+        // unknown rather than throwing BigInt(undefined) and wiping the gate result.
+        const match = w == null ? "—" : (got === asBig(w) ? "ok" : "no");
+        const wantTxt = w == null ? "output" : (s.i === 4 && !Venue.viewer() ? "connect" : toHexWord(w).replace(/^0x0+/, "0x") );
         return '<div class="pin"><span>' + s.i + "</span><span>" + s.name +
             "</span><span class='v'>" + toHexWord(got) + "</span><span class='v'>" +
             esc(String(wantTxt)) + '</span><span class="' + match + '">' + match +
@@ -1333,10 +1563,15 @@ Venue.paintPins = function () {
         '<div class="pin head"><span>#</span><span>Signal</span><span>Proof</span><span>Gate</span><span></span></div>' +
         body;
     const nf = p.pub[0];
-    if (Venue.viewer() && nf) {
+    const uses = $("uses");
+    const who = Venue.viewer();
+    if (who && nf) {
         Venue.c.registry.usesThisEpoch(toHexWord(nf)).then((u) => {
-            $("uses").textContent = u.toString() + " / " + Venue.snap.maxUses + " uses this epoch";
+            if (!Venue.stillViewer(who)) return;
+            if (uses) uses.textContent = u.toString() + " / " + Venue.snap.maxUses + " uses this epoch";
         }).catch(() => {});
+    } else if (uses) {
+        uses.textContent = "";
     }
 };
 
@@ -1358,22 +1593,89 @@ Venue.explainGate = function (reason) {
 
 Venue.previewRegister = async function () {
     const who = Venue.viewer();
-    if (!who) { Venue.openSheet(); throw new Error("Connect a wallet, or load a proof to watch."); }
-    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
-    const pub = Venue.proof.pub.map((x) => asBig(x));
-    const [ok, reason] = await Venue.c.gate.wouldAccept(who, pub);
-    $("register").disabled = !ok || !Venue.account;
-    let msg;
-    if (ok && Venue.account) {
-        msg = "The gate will accept this. Register to take the grant for this period.";
-    } else if (ok && !Venue.account) {
-        msg = "Watching a live grant for " + shortAddr(who) +
-            ". Connect that wallet if you want to register.";
-    } else {
-        msg = Venue.explainGate(reason);
+    const btn = $("check");
+    if (!who) {
+        Venue.openSheet();
+        Venue.status("prove-status", "Connect a wallet, or load a proof to watch.", "bad");
+        return;
     }
-    Venue.status("prove-status", msg, ok ? "ok" : "bad");
-    Venue.paintPins();
+    if (!Venue.proof) {
+        Venue.status("prove-status",
+            "Use a real eligibility proof first, or connect a wallet this page already holds a proof for.",
+            "bad");
+        return;
+    }
+    // A native `disabled` button never fires click, so a hung check used to
+    // look like a dead control. Keep the handler alive; if a check is already
+    // in flight, just make that visible.
+    if (Venue._checking) {
+        if (btn) {
+            btn.textContent = "Checking…";
+            btn.classList.add("busy");
+            btn.setAttribute("aria-busy", "true");
+        }
+        return;
+    }
+    const label = "Check the gate";
+    Venue._checking = true;
+    if (btn) {
+        btn.dataset.label = label;
+        btn.disabled = false;
+        btn.removeAttribute("disabled");
+        btn.textContent = "Checking…";
+        btn.classList.add("busy");
+        btn.setAttribute("aria-busy", "true");
+    }
+    const started = Date.now();
+    let timeoutId = 0;
+    try {
+        const pub = Venue.proof.pub.map((x) => asBig(x));
+        const [ok, reason] = await Promise.race([
+            Venue.c.gate.wouldAccept(who, pub),
+            new Promise((_, rej) => {
+                timeoutId = setTimeout(() => {
+                    rej(new Error("The gate did not answer. Try Check the gate again."));
+                }, 20000);
+            }),
+        ]);
+        clearTimeout(timeoutId);
+        if (!Venue.stillViewer(who)) return;
+        const granted = Venue.snap.kyc === 1;
+        const reg = $("register");
+        if (reg) reg.disabled = granted || !ok || !Venue.account;
+        const exhausted = String(reason || "").includes("nullifier exhausted");
+        let msg;
+        let kind = ok ? "ok" : "bad";
+        if (granted) {
+            msg = "You already hold a grant this period. Trade is next.";
+            if (exhausted) {
+                msg += " This credential cannot be used again until the next KYC epoch.";
+            }
+            kind = "ok";
+        } else if (ok && Venue.account) {
+            msg = "The gate will accept this. Register to take the grant for this period.";
+        } else if (ok && !Venue.account) {
+            msg = "Watching a live grant for " + shortAddr(who) +
+                ". Connect that wallet if you want to register.";
+        } else if (exhausted) {
+            msg = Venue.explainGate(reason)
+                + " A new grant needs the next KYC epoch, or a different credential.";
+        } else {
+            msg = Venue.explainGate(reason);
+        }
+        Venue.status("prove-status", msg, kind);
+        try { Venue.paintPins(); } catch { /* pin paint must not wipe the gate result */ }
+    } finally {
+        clearTimeout(timeoutId);
+        const wait = 400 - (Date.now() - started);
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        Venue._checking = false;
+        if (btn) {
+            btn.textContent = label;
+            btn.classList.remove("busy");
+            btn.setAttribute("aria-busy", "false");
+        }
+    }
 };
 
 Venue.doRegister = async function () {
@@ -1761,6 +2063,7 @@ Venue.refreshTrade = async function () {
     $("im-fee").textContent = formatHbar(asBig(fee)) + " HBAR";
     $("im-round").textContent = chainRound.toString();
     $("im-live").textContent = revealed.toString() + " revealed";
+    if (!Venue.stillViewer(acc)) return;
     if (acc) {
         $("bal-kyc").textContent = Number(kyc) === 1 ? "granted" : "not granted";
         $("bal-units").textContent = formatQuantity(asBig(bal));
@@ -1772,9 +2075,18 @@ Venue.refreshTrade = async function () {
         // turned over between the prediction and the answer, ask again rather
         // than print a quote for a round that has ended.
         const quote = asBig(chainRound) === asBig(round) ? q : await engine.quote(chainRound);
+        if (!Venue.stillViewer(acc)) return;
         $("quote").textContent = quote.willCross
             ? "This round would cross at " + displayPrice(asBig(quote.priceTwice)) + ", volume " + formatQuantity(asBig(quote.volume))
             : "This round would not cross (quote is a view).";
+    } else {
+        if ($("bal-kyc")) $("bal-kyc").textContent = "—";
+        if ($("bal-units")) $("bal-units").textContent = "—";
+        if ($("bal-held")) $("bal-held").textContent = "—";
+        if ($("bal-credit")) $("bal-credit").textContent = "—";
+        if ($("withdraw")) $("withdraw").disabled = true;
+        if ($("kyc-gate")) $("kyc-gate").hidden = true;
+        if ($("quote")) $("quote").textContent = "";
     }
     Venue.paintTicket();
     await Venue.paintTickets();
@@ -1818,7 +2130,13 @@ Venue.refreshPosition = async function () {
         Venue.refreshDisclosure(),
         who ? Venue.c.engine.credit(who) : null,
     ]);
-    if (!who) return;
+    if (!Venue.stillViewer(who)) return;
+    if (!who) {
+        if ($("pos-credit")) $("pos-credit").textContent = "—";
+        if ($("pos-tickets")) $("pos-tickets").textContent = "—";
+        if ($("withdraw")) $("withdraw").disabled = true;
+        return;
+    }
     $("pos-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
     $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
     const tickets = readList("tickets", who);
