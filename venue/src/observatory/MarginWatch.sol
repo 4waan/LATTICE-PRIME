@@ -5,6 +5,7 @@ import {RepoVault} from "../repo/RepoVault.sol";
 import {DisclosureBudget as B} from "../lattice/DisclosureBudget.sol";
 import {DisclosureLattice as L} from "../lattice/DisclosureLattice.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
+import {IPrimeOracle} from "../interfaces/IPrimeOracle.sol";
 
 /// @title MarginWatch
 /// @notice Position alerts from state, not events. A withheld `MarginCalled` still happened.
@@ -43,8 +44,53 @@ contract MarginWatch {
         uint256 breakingSize;
     }
 
+    /// @dev Whether the price the alerts were computed from can be believed.
+    ///      `Stream` answers the same question about the event log and this is
+    ///      the same question about the feed, so it belongs in the same contract
+    ///      rather than in a second one: an alert derived from a dark feed and an
+    ///      alert nobody published look identical to a client that only has the
+    ///      positions.
+    struct Feed {
+        address oracle;
+        /// @dev True when `RepoVault.markToMarket` reverts and `postMark` opens.
+        bool dark;
+        /// @dev Which half. Both can be true.
+        bool ourLegDark;
+        bool cashLegDark;
+        /// @notice USD per unit of face, eight decimals. Row 7.
+        uint128 cleanPrice;
+        /// @notice The coupon reference rate, basis points. Row 7.
+        uint64 refRateBps;
+        /// @dev Not `at`. See `IPrimeOracle.latest`.
+        uint64 publishedAt;
+        uint64 round;
+        /// @notice USD per HBAR, eight decimals. Whoever holds the cash seat.
+        uint256 usdPerHbar;
+        /// @notice Tinybars per unit of face. Zero when dark.
+        uint256 markPerUnitTinybar;
+        address cashFeed;
+    }
+
     constructor(RepoVault vault_) {
         vault = vault_;
+    }
+
+    /// @notice The feed behind every alert above. Total: never reverts.
+    /// @dev A view that reverted on an outage would take a client's whole
+    ///      position screen down with the feed, which is exactly when somebody
+    ///      needs to be told the feed is down. Everything here degrades to a
+    ///      zero beside a flag that says why it is zero.
+    function feed() public view returns (Feed memory f) {
+        IPrimeOracle o = vault.oracle();
+        f.oracle = address(o);
+        f.dark = o.stale();
+        f.ourLegDark = o.ourLegStale();
+        f.cashFeed = address(o.cashFeed());
+        (f.cleanPrice, f.refRateBps, f.publishedAt, f.round) = o.latest();
+        (bool ok, uint256 usdPerHbar,) = o.cashLeg();
+        f.cashLegDark = !ok;
+        f.usdPerHbar = usdPerHbar;
+        if (!f.dark) f.markPerUnitTinybar = o.markPerUnitTinybar();
     }
 
     function alertOf(bytes32 id) public view returns (Alert memory a) {
@@ -84,15 +130,18 @@ contract MarginWatch {
         s.breakingSize = vault.breakingSize(ROW_POSITION, L.G_PRED);
     }
 
-    /// @notice A book and the reading that says whether to trust the log beside it.
+    /// @notice A book and the two readings that say whether to trust it.
     /// @dev One call because positions alone cannot distinguish a quiet market from a
-    ///      silenced one.
+    ///      silenced one, and now cannot distinguish either from a market whose price
+    ///      stopped arriving. Three questions, one round trip: what the positions are,
+    ///      whether the log that would have announced them is audible, and whether the
+    ///      price they were computed against is live.
     function watch(bytes32[] calldata ids)
         external
         view
-        returns (Alert[] memory alerts, Stream memory s)
+        returns (Alert[] memory alerts, Stream memory s, Feed memory f)
     {
-        return (alertsOf(ids), stream());
+        return (alertsOf(ids), stream(), feed());
     }
 
     /// @notice The subset of `ids` currently called.

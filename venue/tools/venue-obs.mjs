@@ -46,6 +46,7 @@ const LOG_ABI = {
     Regime: "Regime",
     ZkKycRegistry: "ZkKycRegistry",
     RegistrationGate: "RegistrationGate",
+    PrimeOracle: "PrimeOracle",
 };
 
 Venue.iface = function (name) {
@@ -444,7 +445,8 @@ Venue.refreshTape = async function () {
         : which === "market"
             ? ["MatchingEngine", "SeamJournal"]
             : ["Regime", "ParameterRoot", "Rulebook", "TradingHalt", "VolumeCap",
-                "MatchingEngine", "SeamJournal", "RepoVault", "ZkKycRegistry", "RegistrationGate"];
+                "MatchingEngine", "SeamJournal", "RepoVault", "PrimeOracle",
+                "ZkKycRegistry", "RegistrationGate"];
     Venue.paintTape("tape", await Venue.historyOf(names, {limit: 20}),
         "Read from the Hedera mirror node, not from eth_getLogs. Newest first.");
 };
@@ -453,12 +455,110 @@ Venue.refreshTape = async function () {
 
 Venue.mountRepo = async function () {
     $("repo-go")?.addEventListener("click", () => Venue.doRepo().catch((e) => Venue.fail(e)));
+    $("feed-refresh")?.addEventListener("click", () => Venue.refreshOracle().catch((e) => Venue.fail(e)));
     $("repo-id")?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") Venue.doRepo().catch((x) => Venue.fail(x));
     });
     $("repo-discover")?.addEventListener("click", () => Venue.discoverRepos().catch((e) => Venue.fail(e)));
     await Venue.refreshVault();
+    // Not swallowed. A feed panel full of em dashes and no reason for them is a
+    // screen that lies by omission, and the whole point of this section is to
+    // say whether the price can be believed.
+    await Venue.refreshOracle().catch((e) => {
+        const says = $("feed-says");
+        if (says) {
+            says.innerHTML = "This screen could not read the feed: " +
+                esc(decodeRevert(e).message);
+        }
+    });
     await Venue.discoverRepos().catch(() => {});
+};
+
+// ---------- the feed ----------
+//
+// Two legs, shown as two legs. A screen that collapsed them into one "price"
+// would be unable to say which half went dark, and which half went dark is the
+// only thing a reader can act on: our own panel going quiet is the venue's
+// problem, and the upstream rate going quiet is not.
+//
+// Every figure here is read from the chain in this call. Nothing is taken from
+// `client.json`, which carries the same numbers as of the run that generated it
+// and is exactly the sort of thing that goes stale without saying so.
+Venue.refreshOracle = async function () {
+    const box = $("feed-box");
+    if (!box) return;
+    const {oracle, watch} = Venue.c;
+    if (!oracle) {
+        box.innerHTML = '<div class="empty">This address book carries no PrimeOracle. ' +
+            "The venue is running on <code>RepoVault.postMark</code>, which is the " +
+            "documented degradation and not a broken screen.</div>";
+        return;
+    }
+
+    // One call for the composite, because MarginWatch already exists to answer
+    // "can the thing beside this be believed" and the feed is the third such
+    // question. The panel and the immutables come alongside it.
+    const [f, panel, quorum, heartbeat, cashHeartbeat, dev, round] = await Promise.all([
+        watch.feed(),
+        oracle.publishers(),
+        oracle.quorum(),
+        oracle.heartbeat(),
+        oracle.cashHeartbeat(),
+        oracle.maxDeviationBps(),
+        oracle.lastRound(),
+    ]);
+
+    const dark = f.dark;
+    const age = asBig(f.publishedAt) > 0n ? nowSec() - asBig(f.publishedAt) : null;
+    const put = (id, v, cls) => {
+        const el = $(id);
+        if (!el) return;
+        el.innerHTML = v;
+        if (cls !== undefined) el.className = "v " + cls;
+    };
+
+    put("feed-state", dark ? "dark" : "live", dark ? "v bad" : "v ok");
+    put("feed-price", asBig(f.cleanPrice) === 0n ? "—"
+        : esc(formatPrice(asBig(f.cleanPrice))) + " USD");
+    put("feed-rate", asBig(f.cleanPrice) === 0n ? "—" : String(f.refRateBps) + " bps");
+    put("feed-round", "round " + String(round) +
+        (age === null ? "" : " · " + fmtRemain(Number(age)) + " ago"));
+    put("feed-ourleg", f.ourLegDark ? "dark" : "live", f.ourLegDark ? "v bad" : "v ok");
+    put("feed-cashleg", f.cashLegDark ? "dark" : "live", f.cashLegDark ? "v bad" : "v ok");
+    put("feed-hbar", asBig(f.usdPerHbar) === 0n ? "—"
+        : esc(formatPrice(asBig(f.usdPerHbar))) + " USD");
+    put("feed-mark", asBig(f.markPerUnitTinybar) === 0n ? "—"
+        : esc(formatHbar(asBig(f.markPerUnitTinybar))) + " HBAR");
+    put("feed-quorum", quorum + " of " + panel.length + " seated");
+    put("feed-heartbeat", heartbeat + " s · upstream " + cashHeartbeat + " s");
+    put("feed-deviation", dev + " bps per round");
+    put("feed-cashaddr", f.cashFeed && !addrEq(f.cashFeed, ZERO)
+        ? '<a href="' + explorerAddr(f.cashFeed) + '" target="_blank" rel="noopener">' +
+            esc(shortAddr(f.cashFeed)) + "</a>"
+        : "not seated");
+
+    const seats = $("feed-panel");
+    if (seats) {
+        seats.innerHTML = panel.length
+            ? panel.map((a) => '<a class="quiet" href="' + explorerAddr(a) +
+                '" target="_blank" rel="noopener">' + esc(shortAddr(a)) + "</a>").join("")
+            : '<div class="empty">No publisher is seated.</div>';
+    }
+
+    // The sentence a reader actually needs, rather than eight fields they have
+    // to assemble it from.
+    const says = $("feed-says");
+    if (says) {
+        says.innerHTML = dark
+            ? "The feed is dark, so <code>RepoVault.markToMarket</code> refuses and the " +
+              "margin engine's manual <code>postMark</code> is open. " +
+              (f.ourLegDark ? "The venue's own panel has not published inside its heartbeat. " : "") +
+              (f.cashLegDark ? "The seated HBAR/USD feed is not answering. " : "")
+            : "The feed is live, so <code>postMark</code> refuses and every mark comes " +
+              "from this price. Anyone may call <code>markToMarket</code> on any open repo.";
+    }
+
+    box.hidden = false;
 };
 
 Venue.refreshVault = async function () {
@@ -554,10 +654,17 @@ Venue.doRepo = async function () {
     }
     // repurchasePriceNow and settlementPenaltyNow are the two figures that move
     // with the clock, so they are read now rather than derived from openedAt.
-    const [price, penalty, sub] = await Promise.all([
+    //
+    // previewMark is the third and it is the one worth having: it says what
+    // `markToMarket` would find without sending anything, so a borrower can see
+    // a margin call coming rather than reading about it afterwards. It is a
+    // view and it is total, so a dark feed renders as a dark feed instead of
+    // taking this panel down.
+    const [price, penalty, sub, mk] = await Promise.all([
         vault.repurchasePriceNow(id).catch(() => null),
         vault.settlementPenaltyNow(id).catch(() => null),
         vault.substitute(id).catch(() => null),
+        vault.previewMark(id).catch(() => null),
     ]);
     const at = (ts) => asBig(ts) === 0n ? "—"
         : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
@@ -588,7 +695,15 @@ Venue.doRepo = async function () {
         li("settlement penalty now", penalty === null
             ? "<i>not answerable in this state</i>"
             : esc(formatHbar(asBig(penalty))) + " HBAR") +
-        li("mark commitment", asBig(r.markCommitment) === 0n ? "none posted" : esc(shortId(r.markCommitment))) +
+        li("mark now", mk === null ? "<i>this vault has no feed</i>"
+            : mk.dark ? "<i>the feed is dark, so nothing is marked</i>"
+                : esc(formatHbar(asBig(mk.mark))) + " HBAR" +
+                  (mk.breach
+                      ? ' <b class="v bad">short of the maintenance margin</b>'
+                      : ' <b class="v ok">covered</b>')) +
+        li("mark commitment", asBig(r.markCommitment) === 0n
+            ? "none posted. markToMarket stores nothing"
+            : esc(shortId(r.markCommitment)) + " · posted by hand while the feed was dark") +
         li("manufactured", asBig(r.manufacturedCommitment) === 0n
             ? "none observed" : esc(shortId(r.manufacturedCommitment))) +
         li("substitute", sub === null || addrEq(sub, ZERO)
