@@ -81,7 +81,7 @@ venue/app/vendor/ethers-6.13.5.umd.min.js
     toolchain/ and reached only from venue/tools/. It is not vendored, it is
     not inlined into any page, and `venue/tools/gen-app.mjs` inlines a fixed
     list that does not include it, so the six built screens still carry no
-    dependency but the vendored ethers below.
+    dependency but the vendored ethers above.
 
     toolchain/package.json pins three `overrides` on its behalf: protobufjs to
     ^8.8.0, ws to ^8.21.3, and the versions those imply. They are there so
@@ -89,10 +89,3 @@ venue/app/vendor/ethers-6.13.5.umd.min.js
     reports the same eighteen findings before and after, all of them in the
     pre-existing snarkjs and circomlibjs chains, none of them with a fix
     available.
-
-venue/app/glass.js
-
-    Build output, not source. Bundles React, three.js, @react-three/fiber and
-    one component from @react-three/drei (MeshTransmissionMaterial), all MIT,
-    copyright their respective authors. The source it is built from is
-    venue/glass/src/ and the build is `make glass`.
