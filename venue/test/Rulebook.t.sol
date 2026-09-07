@@ -10,6 +10,7 @@ import {IRespondentRegistry} from "../src/interfaces/IRespondentRegistry.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {MockHolds} from "./Repo.t.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {StubOracle} from "./OracleFixture.sol";
 
 /// @notice A tariff source whose number can move after publication.
 contract MovableSource {
@@ -106,7 +107,7 @@ contract RulebookTest is Test, PolicyFixture {
     ///      republishing fails the build instead of passing silently. The failure
     ///      prints the hash to paste back.
     bytes32 internal constant DOCUMENT =
-        0xd3596823cf96b51ee24b9738823374547f27480650f01029b15499c85fbf6fed;
+        0x6a09edf80365319ad14a26607a8a51bb7f431b59ac61b7c709b4e074af9de07a;
 
     /// @dev The getters section 8 names. A wrong one cannot survive `setUp`:
     ///      `adopt` reads every sourced line back and refuses a mismatch.
@@ -132,7 +133,7 @@ contract RulebookTest is Test, PolicyFixture {
             OSR,
             MAX_OUT
         );
-        vault = new RepoVault(new MockHolds(), address(0xE49), params, PENALTY_RATE, 5 days);
+        vault = new RepoVault(new MockHolds(), address(0xE49), new StubOracle(), params, PENALTY_RATE, 5 days, 1 days);
         book_ = new Rulebook(regime);
         _publishEdition(DOCUMENT, deployedSchedule());
     }

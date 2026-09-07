@@ -228,6 +228,16 @@ Venue.contracts = function (runner) {
         regime: new ethers.Contract(A.Regime, ABI.Regime, runner),
         cap: new ethers.Contract(A.VolumeCap, ABI.VolumeCap, runner),
         clock: new ethers.Contract(A.EpochClock, ABI.EpochClock, runner),
+        // The feed, and the one contract here that is allowed not to exist. A
+        // checkout whose address book predates PrimeOracle still boots every
+        // screen; the Repo screen says the feed is not configured rather than
+        // throwing, which is the shape `gen-app.mjs` already uses for the
+        // consensus topic. Once it is in the address book it is not optional to
+        // anything: `assertWiring` refuses to render a venue whose vault is
+        // pointed at some other feed.
+        oracle: A.PrimeOracle
+            ? new ethers.Contract(A.PrimeOracle, ABI.PrimeOracle, runner)
+            : null,
     };
 };
 
@@ -340,7 +350,7 @@ Venue.block = function (msg) {
 Venue.assertWiring = async function () {
     const {engine, token} = Venue.c;
     const A = CLIENT.addresses;
-    const [sec, comp, pol, cap, halt, tcomp, kyc] = await Promise.all([
+    const [sec, comp, pol, cap, halt, tcomp, kyc, feedOf] = await Promise.all([
         engine.security(),
         engine.compliance(),
         engine.policy(),
@@ -348,6 +358,7 @@ Venue.assertWiring = async function () {
         engine.tradingHalt(),
         token.compliance(),
         token.isExternalKycList(A.ZkKycRegistry),
+        A.PrimeOracle ? Venue.c.vault.oracle() : Promise.resolve(null),
     ]);
     const fails = [];
     if (!addrEq(sec, A.token)) fails.push("engine.security() is not the bond");
@@ -357,6 +368,11 @@ Venue.assertWiring = async function () {
     if (addrEq(halt, ZERO)) fails.push("engine.tradingHalt() is zero");
     if (!addrEq(tcomp, A.SeamJournal)) fails.push("token.compliance() is not SeamJournal");
     if (!kyc) fails.push("token.isExternalKycList(ZkKycRegistry) is false");
+    // A vault pointed at some other feed is a vault whose margin calls came from
+    // a price this screen cannot show you, which is worse than showing nothing.
+    if (feedOf !== null && !addrEq(feedOf, A.PrimeOracle)) {
+        fails.push("vault.oracle() is not the PrimeOracle in this address book");
+    }
     if (fails.length) throw new Error(fails.join("; "));
 };
 

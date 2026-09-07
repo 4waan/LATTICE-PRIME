@@ -142,8 +142,9 @@
   "MatchingEngine": "0x543E3C66d040e6F4FD7D066C6FD1E557D4B11DAe",
   "VolumeCap": "0x875b9B9F76678DD38D90AB5a400cA17d6E50aBB3",
   "TradingHalt": "0x79ed68512Cd554f3Ef33A3ECd57aEE643f916177",
-  "RepoVault": "0x216EAdD5F08BEE7a4F79Be7C6e2f85A111F50edd",
-  "MarginWatch": "0xfe13078E2Ff442204AA30754634c8C95b176b60E",
+  "PrimeOracle": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
+  "RepoVault": "0xeD38ed697EcdEc0572b1F52a2409322858D71990",
+  "MarginWatch": "0x73A24d0DF087E18D4b8cbDB9734Cb607d33D30D2",
   "Rulebook": "0x28Bacf68849dcAdFedf8826D20892a0FA1CC555f",
   "wiring": {
    "engine.security": "the ATS bond",
@@ -151,7 +152,8 @@
    "token.compliance": "SeamJournal",
    "journal.registry": "ZkKycRegistry",
    "regime.supervisor": "VolumeCap, so suspension is arithmetic rather than a person",
-   "cap.venue": "MatchingEngine, checked by attachVolumeCap"
+   "cap.venue": "MatchingEngine, checked by attachVolumeCap",
+   "vault.oracle": "PrimeOracle, so postMark is only reachable while the feed is dark"
   },
   "market": {
    "note": "Amounts are in the unit msg.value carries inside the Hedera EVM, which is tinybars: 1 HBAR is 1e8.",
@@ -168,10 +170,68 @@
    "SeamJournal": "0.0.10381694",
    "VolumeCap": "0.0.10381842",
    "TradingHalt": "0.0.10381850",
-   "RepoVault": "0.0.10381851",
-   "MarginWatch": "0.0.10381852",
-   "Rulebook": "0.0.10381856"
-  }
+   "RepoVault": "0.0.10407431",
+   "MarginWatch": "0.0.10407435",
+   "Rulebook": "0.0.10381856",
+   "PrimeOracle": "0.0.10407426",
+   "HederaRateFeed": "0.0.10407248",
+   "FeedAccessProbe": "0.0.10407267"
+  },
+  "feed": {
+   "note": "Deployed 2026-09-07 by script/DeployOracle.s.sol. Two legs. The venue's seated panel publishes LPRC's clean price in USD and the coupon reference rate, because a private bond has no other quote. A seated upstream feed publishes HBAR/USD, because the bond is denominated in USD and every cash figure in this venue is in tinybars, and nothing on chain converted between them before this. The mark is the first divided by the second and RepoVault.markToMarket stores none of it.",
+   "decimals": 8,
+   "decimalsNote": "Chainlink's scale, not the venue's. All seven Chainlink feeds on chain 296 answer eight; PrimeOracle._requireEightDecimals refuses anything else rather than normalising. Measured in probes/chainlink-hedera.out.",
+   "quorum": 2,
+   "publishers": [
+    "0xcfc5923def1f25db05fe50754ef0822175afd449",
+    "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+    "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d"
+   ],
+   "publishersNote": "The deployer and the two live actors from .env.venue-actors. A strict majority, not the whole panel: requiring every seat makes one absent publisher a dark feed. probes/oracle-median.py sweeps where the median leaves the honest range and the boundary is f >= n/2 at every panel size.",
+   "maxPublishers": 7,
+   "heartbeat": 21600,
+   "cashHeartbeat": 93600,
+   "cashHeartbeatNote": "26 hours, kept at Chainlink's own 86,400 second heartbeat plus slack even though the seated adapter cannot go quiet. It costs nothing and it binds again the moment a real market feed is seated in its place.",
+   "maxDeviationBps": 500,
+   "cureWindow": 86400,
+   "cureWindowNote": "An immutable on RepoVault rather than an argument, because markToMarket is permissionless: a caller-chosen window of zero would let anyone call a position and declareDefault it in the next block.",
+   "cashFeed": {
+    "note": "HederaRateFeed, our adapter, over Hedera's own exchange rate system contract at 0x168. The rate is the network's; the adapter is 1,323 bytes that put it in Chainlink's AggregatorV3Interface shape so the seat stays swappable.",
+    "address": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0",
+    "contractId": "0.0.10407248",
+    "description": "HBAR / USD (Hedera network exchange rate, 0x168)",
+    "decimals": 8,
+    "readAt": "0.08064133 USD per HBAR, read 2026-09-07T13:15Z",
+    "seatedBy": "proposeCashFeed at epoch 515, adopted at 516. The epoch delay was run on chain in two halves rather than short-circuited, so the seat visibly did not move until the epoch turned. script/DeployRateFeed.s.sol is both halves.",
+    "whyNotChainlink": "Chainlink DOES run HBAR/USD on Hedera, at 0xd4DC5F0a891381D09d6437482a0E4E2dca4ACCAa on testnet and 0x1B9a65b54e36A4f4E3591e4deAAb423C64959Ae0 on mainnet, and this venue tried to seat it. Its proxies are access controlled: a CONTRACT reading one is refused with 'No access' while decimals() answers anyone. All seven feeds, both networks. The seat therefore took a feed it could never price against, the deployment succeeded, and the first markToMarket reverted CashFeedStale. The venue behaved correctly throughout, because a leg it cannot read is dark and dark opens RepoVault.postMark, but the feed was never going to work. Nothing in this repository calls a Chainlink contract; the AggregatorV3Interface is vendored and NOTICE declares it.",
+    "evidence": "probes/chainlink-hedera.out, read through FeedAccessProbe on chain 296. An eth_call cannot show this: it sets tx.origin to its own from field and the access check passes, which is why every EOA read in that probe's first section succeeds.",
+    "feedAccessProbe": "0x1ddd6B597b6FF96f4bcA0CD57650cA53d1A42815",
+    "divergence": "Hedera's rate is council-governed and Chainlink's is aggregated from exchanges, so they do not agree. Measured 2.3 percent apart on 2026-09-07. This is the risk that replaces staleness on this seat; docs/RULEBOOK.md section 4.2 states it.",
+    "swappable": "CASH_FEED in the deploy scripts, or proposeCashFeed on a live oracle, seats a readable Chainlink aggregator on any chain that permits one. No code changes."
+   },
+   "deployTx": {
+    "PrimeOracle": "0x424daa095d2c4cae340cc36e91384ad27522edc805bef4e84c29f758a45f1913",
+    "RepoVault": "0x583c5d4968f90d6893c45f6f33f1efb0a4284cdd98f2cc7b130719e31e4b1be1",
+    "MarginWatch": "0x3e8150b3bd6e4bbc60ebb133d9497140964c43bc927b4c7edd3c79b9a4012947",
+    "HederaRateFeed": "0x5f8f40a820d9999ee039e3d8ad6157c2e3b335182f4cdba1fe1729f4cf3151cf",
+    "proposeCashFeed": "0xaf67b8668530562a3feb04f290dd2d3ee167bc9a711d118c37d0437609db203c",
+    "FeedAccessProbe": "0xb9631dbda30cd3b239b3d928af414650e813d0423ab382d9c559e6bc17673f7c"
+   },
+   "firstRound": {
+    "note": "Three seated publishers, three distinct answers, one permissionless finalize. The prices are deliberately not equal: a round where everyone says the same thing proves the plumbing and nothing about the rule. script/live/publish-mark.sh is the script and prints all three beside the median.",
+    "round": 1,
+    "submitted": [
+     "99.75",
+     "100.00",
+     "100.25"
+    ],
+    "median": "100.00 USD per unit of face, 10000000000 at eight decimals",
+    "refRateBps": 425,
+    "markPerUnitTinybar": "124005891271, which is 1240.06 HBAR per unit of face",
+    "finalizeTx": "0xc8fe3e7cd13d7a01f504b4d14970844500b28635894b40d233b6be42b36d5723"
+   }
+  },
+  "HederaRateFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
  },
  "superseded": {
   "why": "The first venue set commitBond to 0.01 ether, meaning 1e16. msg.value inside the Hedera EVM is tinybars, not weibars, so that asked for a hundred million HBAR and every commit reverted WrongBond(1000000, 10000000000000000). The ratio was then measured at two points: 1e18 weibar arrives as 1e8, 5e18 as 5e8. Nothing in src/ was wrong; the deployment parameter was. Regime.bootstrapSupervisor is single-use by design, so the regime, the parameter root and everything seated under them had to be redeployed.",
@@ -183,7 +243,20 @@
   "RepoVault": "0x354c6b3c605a0ccC188459E166c3B485181657b6",
   "MarginWatch": "0x44A576680e6f19E307A7c88F49460d5375f15ef2",
   "Rulebook": "0xdd0D15FaF78AB99959aF5F361610416B18306970",
-  "strandedHold": "Hold id 1 on the bond names the superseded engine as escrow and still encumbers 1,000 of the seller's units. Left in place: releasing it needs the escrow, and the seller holds enough besides."
+  "strandedHold": "Hold id 1 on the bond names the superseded engine as escrow and still encumbers 1,000 of the seller's units. Left in place: releasing it needs the escrow, and the seller holds enough besides.",
+  "repoVaultBeforeTheFeed": {
+   "why": "RepoVault holds its oracle and its cure window as immutables, and MarginWatch holds its vault as one, so adding a feed moved both. Nothing else in the venue moved: the parameter root, the regime, the clock, the journal, the engine and the bond all keep their addresses, and script/DeployOracle.s.sol exists rather than DeployVenue precisely so that adding a feed did not spend a governance cycle on a parameter set nobody wanted to change.",
+   "stranded": "Nothing. The outgoing vault's log index on the mirror node was empty before the move: no repo was ever opened on it, so there is nothing to migrate. Had there been one, the swap would have needed a different shape.",
+   "RepoVault": "0x216EAdD5F08BEE7a4F79Be7C6e2f85A111F50edd",
+   "MarginWatch": "0xfe13078E2Ff442204AA30754634c8C95b176b60E"
+  },
+  "oracleBeforeTheAbiFix": {
+   "why": "Superseded within the hour, and the reason is worth keeping. PrimeOracle.latest() returned a member named `at`, which is a good Solidity name and is also Array.prototype.at. ethers v6 decodes a return tuple into an array-like Result, so `result.at` resolved to the array method, the Repo screen did arithmetic on a function, and the error read 'Cannot convert function to a BigInt' with nothing pointing at the ABI. Renaming it to publishedAt changes the ABI, so the three contracts holding it went up again. HederaRateFeed did not move: it has no such member and the new oracle was pointed at the address already deployed.",
+   "fixedForGood": "tools/gen-app.mjs now refuses to bundle any ABI whose member name collides with Array.prototype, so this cannot be reintroduced quietly. The check found a second, older instance the same minute: TradingHalt's Resumed event carried `at` too. That one needed no redeploy, because an event topic hashes the parameter types and not their names.",
+   "PrimeOracle": "0x883Ce39740Ff9088DB7446Bb45bfd8f3AFbaA354",
+   "RepoVault": "0xC62320a84643436FbB9911d9021bCD29A2342c49",
+   "MarginWatch": "0xc4E41414B68952f0337d9dadD93F45d808C7d804"
+  }
  },
  "evidence": {
   "note": "One repo trade, end to end, on testnet. Every number below was read back from the chain.",

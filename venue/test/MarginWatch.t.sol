@@ -6,11 +6,21 @@ import {MarginWatch} from "../src/observatory/MarginWatch.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {StubOracle} from "./OracleFixture.sol";
 import {MockHolds} from "./Repo.t.sol";
 
 /// @notice One claim: the alert survives the silence. `Repo.t.sol` covers the
 ///         transitions, so nothing here re-tests one.
 contract MarginWatchTest is Test, PolicyFixture {
+    /// @dev Dark by default, which is the venue this suite was written against:
+    ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
+    StubOracle internal feed;
+
+    /// @dev `markToMarket` raises a call with a published window rather than a
+    ///      caller-chosen one, because it is permissionless. `postMark` still
+    ///      takes its own, so nothing below had to change.
+    uint64 internal constant CURE_WINDOW = 1 days;
+
     uint256 internal constant PENALTY_RATE = 10;
     uint64 internal constant FAIL_GRACE = 5 days;
 
@@ -30,9 +40,10 @@ contract MarginWatchTest is Test, PolicyFixture {
     bytes32 constant MARK_POSTED = keccak256("MarkPosted(bytes32,bytes32)");
 
     function setUp() public {
+        feed = new StubOracle();
         holds = new MockHolds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
+        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
         watcher = new MarginWatch(vault);
     }
 
@@ -258,7 +269,7 @@ contract MarginWatchTest is Test, PolicyFixture {
         assertEq(called[1], ID3);
     }
 
-    function test_watchReturnsTheBookAndTheStreamTogether() public {
+    function test_watchReturnsTheBookTheStreamAndTheFeedTogether() public {
         _publish(withBudgets());
         _open(ID);
         _open(ID2);
@@ -268,11 +279,19 @@ contract MarginWatchTest is Test, PolicyFixture {
         ids[0] = ID;
         ids[1] = ID2;
 
-        (MarginWatch.Alert[] memory alerts, MarginWatch.Stream memory s) = watcher.watch(ids);
+        (
+            MarginWatch.Alert[] memory alerts,
+            MarginWatch.Stream memory s,
+            MarginWatch.Feed memory f
+        ) = watcher.watch(ids);
         assertEq(alerts.length, 2);
         assertTrue(alerts[0].called);
         assertFalse(alerts[1].called);
         assertFalse(s.audible, "and the reading that says the next one is silent");
+        // The third reading, and the one this suite's stub makes easy to state:
+        // a dark feed is why `postMark` raised those calls at all.
+        assertTrue(f.dark, "the fixture's feed is dark, so the manual seat is open");
+        assertEq(f.oracle, address(feed));
     }
 
     /// Cannot fail today, since the watcher is a view. Here to fail on the edit that adds
