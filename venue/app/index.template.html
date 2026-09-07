@@ -1,4 +1,4 @@
-<title>SeamMe</title>
+<title>Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Sealed order flow for tokenised repo collateral. Prove eligibility with a zero-knowledge proof, commit an order nobody can read, and settle on Hedera.">
@@ -44,7 +44,7 @@ document.documentElement.setAttribute("data-theme",
           <path fill="none" stroke="url(#seam-brand-grad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
             d="M4.2 22.2c.2 2.4 3.2 3.6 7 3.6 4.6 0 7.3-2.2 7.3-5.2 0-3.6-3.8-4.6-7.2-5.6C7.6 14 3.5 12.8 3.5 8.4c0-3.2 2.8-5.6 7.4-5.6 3.6 0 6.4 1.5 6.8 4.4"/>
         </svg>
-        SeamMe
+        Lattice Prime
       </a>
       <span class="net-chip">TESTNET</span>
     </div>
@@ -53,7 +53,7 @@ document.documentElement.setAttribute("data-theme",
       <a href="trade.html">Trade</a>
       <a href="position.html">Position</a>
       <a href="repo.html">Repo</a>
-      <a href="venue.html">Venue</a>
+      <a href="venue.html">Rulebook</a>
     </nav>
     <div class="mast-end">
       <div class="clocks" aria-label="Venue clocks">
@@ -65,11 +65,9 @@ document.documentElement.setAttribute("data-theme",
     </div>
   </div>
 </header>
-<div id="glass-root" class="glass-root" aria-hidden="true"></div>
 
 <!-- ============ 1 · the claim ============ -->
 <section class="frame hero-frame">
-  <span class="glass-anchor" id="ga-seam"></span>
   <div class="wrap hero-inner">
     <p class="kicker">Sealed order flow for tokenised collateral</p>
 
@@ -81,8 +79,17 @@ document.documentElement.setAttribute("data-theme",
     </p>
 
     <p class="hero-sub">
-      SeamMe seals the order and proves the trader instead. Hedera settles it
+      Lattice Prime seals the order and proves the trader instead. Hedera settles it
       with fair ordering and fixed fees.
+    </p>
+
+    <!-- The stakes, above the fold. One line of the enforcement record does more
+         work than any card below it, because it is what happened rather than
+         what we built. Every figure is an SEC or NYAG settlement; the sources
+         are in docs/EVIDENCE.md. -->
+    <p class="hero-stakes">
+      <b>Five dark pools. $190m in settlements. One finding repeated in each of
+      them:</b> the operator could read the orders, and did.
     </p>
 
     <div class="cta-row">
@@ -95,7 +102,7 @@ document.documentElement.setAttribute("data-theme",
 
     <div class="hero-facts">
       <span class="fact"><i class="live"></i> Live on <b>chain 296</b></span>
-      <span class="fact">Bond <b id="bond-name">SEAMC</b></span>
+      <span class="fact">Bond <b id="bond-name">LPRC</b></span>
       <span class="fact">Round <b id="fact-round">—</b></span>
       <span class="fact">Reads via <b id="net-rpc">hashio</b></span>
     </div>
@@ -105,7 +112,7 @@ document.documentElement.setAttribute("data-theme",
     <div class="agent-band">
       <div class="agent-bar">
         <svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
-        <span class="ph">Ask the SeamMe agent about eligibility, sealed orders, or settlement</span>
+        <span class="ph">Ask the Lattice Prime agent about eligibility, sealed orders, or settlement</span>
         <span class="soon">Soon</span>
       </div>
     </div>
@@ -122,7 +129,7 @@ document.documentElement.setAttribute("data-theme",
 <section class="frame" id="how">
   <div class="wrap">
     <div class="frame-head rise">
-      <p class="kicker">How SeamMe works</p>
+      <p class="kicker">How Lattice Prime works</p>
       <h2>Three moves, in order. Each one is a screen you can open now.</h2>
       <p>Nothing here is a mock. Every card below is the live contract call it names, running against Hedera testnet.</p>
     </div>
@@ -130,7 +137,6 @@ document.documentElement.setAttribute("data-theme",
     <div class="steps">
       <a class="step step-1 pop" style="--i:0" href="prove.html">
         <span class="n">01 / PROVE</span>
-        <span class="mark-slot" id="ga-path"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M24 5l15 6v12c0 10-6.4 17.8-15 20-8.6-2.2-15-10-15-20V11z"/>
           <path d="M17 24l5 5 10-11"/>
@@ -145,7 +151,6 @@ document.documentElement.setAttribute("data-theme",
 
       <a class="step step-2 pop" style="--i:1" href="trade.html">
         <span class="n">02 / TRADE</span>
-        <span class="mark-slot" id="ga-market"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="9" y="21" width="30" height="20" rx="4"/>
           <path d="M16 21v-6a8 8 0 0116 0v6"/>
@@ -161,7 +166,6 @@ document.documentElement.setAttribute("data-theme",
 
       <a class="step step-3 pop" style="--i:2" href="position.html">
         <span class="n">03 / POSITION</span>
-        <span class="mark-slot" id="ga-vault"></span>
         <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 40h36"/>
           <path d="M13 40V27M23 40V15M33 40V22"/>
@@ -185,7 +189,8 @@ document.documentElement.setAttribute("data-theme",
     <div class="frame-head rise">
       <p class="kicker">What makes it different</p>
       <h2>Six things a normal order book cannot do.</h2>
-      <p>Each one is enforced by a contract, not by a policy document.
+      <p>Each card names the accident first and the contract second, because a mechanism is an
+        answer and a card that never states the question is asking you to take it on faith.
         <span class="on-hover">Point at a card to read it.</span><span class="on-touch">Swipe through them.</span></p>
     </div>
   </div>
@@ -197,7 +202,8 @@ document.documentElement.setAttribute("data-theme",
           <span class="fnum">01</span>
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
           <h3>Orders are sealed, not merely hidden</h3>
-          <p>A commitment is a keccak of your order. Side, price and size are never on the wire until you choose to open them.</p>
+          <p><b>Before.</b> Credit Suisse settled for $84.3m after subscriber order information left its dark pool for other Credit Suisse systems. The venue held the cleartext, so the confidentiality was a contract term.</p>
+          <p><b>Here.</b> An order reaches the chain as a keccak commitment. Side, price and size are not on the wire, so there is no cleartext for an operator to be trusted with.</p>
           <span class="src">MatchingEngine.commit</span>
         </article>
 
@@ -205,15 +211,17 @@ document.documentElement.setAttribute("data-theme",
           <span class="fnum">02</span>
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/><path d="M17 4.5l2.5 2.5L23 3"/></svg>
           <h3>Eligibility without identity</h3>
-          <p>A zero-knowledge proof of tier and jurisdiction, checked against an issuer root that rolls at every KYC epoch boundary.</p>
-          <span class="src">ZkKycRegistry · PLONK</span>
+          <p><b>Before.</b> Getting into a regulated venue means handing a counterparty a permanent copy of who you are, which every venue then has to defend and none of them can un-learn.</p>
+          <p><b>Here.</b> A proof answers tier and jurisdiction against an issuer root that rolls every KYC epoch. The venue learns one bit and stores one bit.</p>
+          <span class="src">ZkKycRegistry · PLONK over a universal ceremony</span>
         </article>
 
         <article class="fcard" tabindex="0">
           <span class="fnum">03</span>
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 019-9v9z"/><circle cx="12" cy="12" r="9"/></svg>
           <h3>A disclosure budget the chain enforces</h3>
-          <p>Every read that leaks something spends bits from a per-epoch budget. When the budget is gone the venue stops answering.</p>
+          <p><b>Before.</b> Archegos built a position across several prime brokers and cost Credit Suisse about $5.5bn, because privacy had no supervisory counterpart and nobody held the sum.</p>
+          <p><b>Here.</b> Disclosure is metered. Every read that leaks spends bits from a per-epoch budget with a published ceiling, so a supervisor can be answered without the venue becoming an open book.</p>
           <span class="src">SeamJournal.spentBits</span>
         </article>
 
@@ -221,15 +229,17 @@ document.documentElement.setAttribute("data-theme",
           <span class="fnum">04</span>
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
           <h3>Cancel and reveal never overlap</h3>
-          <p>Two disjoint windows off one timestamp. There is no instant where you can watch a reveal land and still pull your own order.</p>
+          <p><b>Before.</b> The last-look window is where information advantage lives, and it exists in most venues because the two windows are defined separately and drift.</p>
+          <p><b>Here.</b> Both windows come off one timestamp and are disjoint by construction. There is no instant in which you can watch a reveal land and still pull your own order.</p>
           <span class="src">cancellableUntil(id)</span>
         </article>
 
         <article class="fcard" tabindex="0">
           <span class="fnum">05</span>
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>
-          <h3>Margin you can believe, or told that you cannot</h3>
-          <p>The watcher returns the position and, separately, whether the log behind it was audible. A row can be permitted and unreliable at once.</p>
+          <h3>Margin you can believe, or told plainly that you cannot</h3>
+          <p><b>Before.</b> A margin figure with no statement of its own reliability is how a stale position becomes a default nobody saw.</p>
+          <p><b>Here.</b> The watcher returns the position and, separately, whether the log behind it was audible. A row can be permitted and unreliable at once, and it says so.</p>
           <span class="src">MarginWatch.watch</span>
         </article>
 
@@ -237,7 +247,8 @@ document.documentElement.setAttribute("data-theme",
           <span class="fnum">06</span>
           <svg class="fmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg>
           <h3>Fair ordering, and a fee you can predict</h3>
-          <p>Hedera orders transactions by consensus timestamp. There is no mempool to front-run you in and no gas auction to lose.</p>
+          <p><b>Before.</b> On a public book the resting order is the leak, and the mempool is where somebody else gets paid for reading it.</p>
+          <p><b>Here.</b> Hedera orders by consensus timestamp. No mempool to be front-run in and no gas auction to lose.</p>
           <span class="src">Hedera consensus</span>
         </article>
       </div>
@@ -275,7 +286,6 @@ document.documentElement.setAttribute("data-theme",
       </div>
 
       <div class="pcard pcard-proof">
-        <span class="mark-slot" id="ga-proof"></span>
         <span class="role">The proof</span>
         <span class="who">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
@@ -315,12 +325,13 @@ document.documentElement.setAttribute("data-theme",
   <div class="wrap">
     <div class="frame-head rise">
       <p class="kicker">In plain terms</p>
-      <h2>What SeamMe actually does.</h2>
+      <h2>What Lattice Prime actually does.</h2>
     </div>
 
     <p class="plain rise">
-      You hold a tokenised bond and you want to sell a lot of it without the
-      market seeing you coming. SeamMe lets you <b>prove you are allowed to
+      A repo is borrowing cash against collateral, with an agreement to buy the
+      collateral back. You hold a tokenised bond and you want to sell a lot of it
+      without the market seeing you coming. Lattice Prime lets you <b>prove you are allowed to
       trade</b> without handing over your identity, put the order on chain as a
       <b>sealed hash</b>, and open it only once the round has closed. Whatever
       the venue does disclose about you comes out of a <b>budget it cannot
@@ -329,7 +340,7 @@ document.documentElement.setAttribute("data-theme",
 
     <div class="cta-row rise">
       <a class="btn-grad lg" href="prove.html">
-        Start using SeamMe
+        Start using Lattice Prime
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
       </a>
       <a class="btn-ghost lg" href="../docs/commit-preview.html">See a commitment first</a>
@@ -349,13 +360,13 @@ document.documentElement.setAttribute("data-theme",
       <a href="trade.html">Trade</a>
       <a href="position.html">Position</a>
       <a href="repo.html">Repo</a>
-      <a href="venue.html">Venue</a>
+      <a href="venue.html">Rulebook</a>
       <a href="../docs/commit-preview.html">Commitment preview</a>
       <a href="../docs/disclosure-receipt.html">Disclosure receipt</a>
       <a id="foot-scan" href="#" rel="noopener">Engine on HashScan</a>
     </div>
     <p>
-      SeamMe is a testnet demonstration. Numbers on this site are read from the
+      Lattice Prime is a testnet demonstration. Numbers on this site are read from the
       contracts named beside them and are not quotes, advice, or an offer.
     </p>
   </div>
@@ -370,7 +381,6 @@ document.documentElement.setAttribute("data-theme",
      on a CDN answering, and the file is then cached across every screen.
      sha256 c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329 -->
 <script src="vendor/ethers-6.13.5.umd.min.js"></script>
-<script src="glass.js"></script>
 <script>
 /*INLINE tools/keccak.mjs*/
 /*INLINE tools/units.mjs*/
@@ -381,5 +391,4 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/landing.mjs*/
 Landing.boot();
 Venue.boot("index");
-if (window.SeamGlass) window.SeamGlass.mount(document.getElementById("glass-root"));
 </script>

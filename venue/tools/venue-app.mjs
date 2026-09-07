@@ -242,48 +242,65 @@ Venue.boot = async function (page) {
     const net = new ethers.Network("hedera-testnet", CLIENT.network.chainId);
     Venue.reader = new ethers.JsonRpcProvider(CLIENT.network.rpc, net, {staticNetwork: net});
     Venue.c = Venue.contracts(Venue.reader);
-    let wired = null;
-    for (let attempt = 0; attempt < 4 && !wired; attempt++) {
-        try {
-            await Venue.assertWiring();
-            wired = true;
-        } catch (e) {
-            if (attempt === 3) {
-                // A screen that can print a venue figure refuses to render one
-                // it cannot stand behind. The front door prints no venue figure
-                // of its own, so it stays up and says plainly that the chain
-                // could not be reached.
-                if (page !== "index") {
-                    Venue.block("The live venue did not match its wiring checks. " + (e.message || e));
-                    return;
-                }
-                Venue.wiringErr = e.message || String(e);
-            }
-            await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
-        }
-    }
-    Venue.wiringOk = !Venue.wiringErr;
+
+    // Nothing above the chrome needs the chain, so nothing above the chrome
+    // waits for it. The theme, the nav and the wallet sheet are painted from
+    // the document before a single read is issued; only figures wait for reads,
+    // which is the distinction a viewer can see.
     $("block")?.setAttribute("hidden", "");
     $("app")?.removeAttribute("hidden");
     Venue.bindChrome();
     Venue.restoreTheme();
-    try {
-        await Venue.refreshClocks();
-    } catch (e) {
-        Venue.toast(is429(e) ? "HashIO is rate limiting reads. Backing off." : decodeRevert(e).message);
-    }
     Venue.listenProviders();
     Venue.buildSheet();
+
+    // The wiring checks and the clocks are independent of each other, so they
+    // are issued together and cost one round trip between them rather than two.
+    // The injected wallet is a third party on a different transport, so it is
+    // asked at the same time and nothing waits on its answer either.
+    //
     // Prefer a wallet that announced itself over whoever won the race for
     // window.ethereum. Reconnect without a prompt if this origin is already
     // authorised; eth_accounts asks nothing of the user.
     const injected = Venue.providers[0]?.provider || window.ethereum;
-    if (injected) {
+    const walletReady = (async () => {
+        if (!injected) return;
         Venue.eth = injected;
         Venue.bindProviderEvents(injected);
         const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
         if (accs?.[0]) await Venue.attachAccount(accs[0]);
+    })();
+
+    let wired = null;
+    let clocked = false;
+    for (let attempt = 0; attempt < 4 && !wired; attempt++) {
+        const [w, c] = await Promise.allSettled([
+            Venue.assertWiring(),
+            clocked ? Promise.resolve() : Venue.refreshClocks(),
+        ]);
+        if (c.status === "rejected") {
+            const e = c.reason;
+            Venue.toast(is429(e) ? "HashIO is rate limiting reads. Backing off." : decodeRevert(e).message);
+        } else {
+            clocked = true;
+        }
+        if (w.status === "fulfilled") { wired = true; break; }
+        const e = w.reason;
+        if (attempt === 3) {
+            // A screen that can print a venue figure refuses to render one
+            // it cannot stand behind. The front door prints no venue figure
+            // of its own, so it stays up and says plainly that the chain
+            // could not be reached.
+            if (page !== "index") {
+                Venue.block("The live venue did not match its wiring checks. " + (e.message || e));
+                return;
+            }
+            Venue.wiringErr = e.message || String(e);
+        }
+        await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
     }
+    Venue.wiringOk = !Venue.wiringErr;
+    await walletReady;
     if (!Venue.account) {
         let saved = null;
         try { saved = sessionStorage.getItem("seamme.watch"); } catch (e) { saved = null; }
@@ -442,7 +459,7 @@ Venue.buildSheet = function () {
         '<div class="modal-scrim" data-close></div>' +
         '<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wm-title">' +
         '<button type="button" class="modal-x" data-close aria-label="Close">&times;</button>' +
-        '<h2 id="wm-title">Connect to SeamMe</h2>' +
+        '<h2 id="wm-title">Connect to Lattice Prime</h2>' +
         '<p class="sub">Hedera testnet, chain 296. The key must be ECDSA secp256k1: an ED25519 Hedera key cannot sign an EVM transaction.</p>' +
         '<div class="wallet-list" id="wm-wallets"></div>' +
         '<div class="wm-or"><span>OR</span></div>' +
@@ -661,7 +678,7 @@ Venue.connectWith = async function (provider) {
                 }],
             });
         } else if (e.code === 4001) {
-            Venue.sheetMsg("You declined the network switch. SeamMe only runs on chain 296.", true);
+            Venue.sheetMsg("You declined the network switch. Lattice Prime only runs on chain 296.", true);
             return;
         } else {
             throw e;
@@ -743,16 +760,29 @@ Venue.startPolling = function () {
 Venue.tick = async function () {
     if (document.hidden) return;
     try {
-        await Venue.refreshClocks();
-        if (Venue.page === "prove" && Venue.viewer()) await Venue.refreshProve({quiet: true});
-        if (Venue.page === "trade" && Venue.viewer()) await Venue.refreshTrade({quiet: true});
-        if (Venue.page === "position" && Venue.viewer()) await Venue.refreshPosition({quiet: true});
+        // One wave a tick. The clocks are read alongside the screen rather than
+        // before it: a refresh that wanted this tick's round would have had to
+        // wait for it, and every one of them is content with the last, which is
+        // at most five seconds old and is re-read in the same request.
+        //
         // The venue screen answers for the whole venue, so it has no viewer to
         // wait for. The book is the same: what is resting in this round is not
         // a fact about whoever happens to be connected.
-        if (Venue.page === "trade") await Venue.refreshBook();
-        if (Venue.page === "position") await Venue.refreshInstrument();
-        if (Venue.page === "prove") await Venue.refreshGateGov();
+        const work = [Venue.refreshClocks()];
+        const viewer = Venue.viewer();
+        if (Venue.page === "prove") {
+            if (viewer) work.push(Venue.refreshProve({quiet: true}));
+            work.push(Venue.refreshGateGov());
+        }
+        if (Venue.page === "trade") {
+            if (viewer) work.push(Venue.refreshTrade({quiet: true}));
+            work.push(Venue.refreshBook());
+        }
+        if (Venue.page === "position") {
+            if (viewer) work.push(Venue.refreshPosition({quiet: true}));
+            work.push(Venue.refreshInstrument());
+        }
+        await Promise.all(work);
         // The venue screen is about sixty reads and nothing on it moves faster
         // than an epoch. Redraw it once a minute, and immediately whenever the
         // disclosure epoch it is scoped to actually turns over.
@@ -777,16 +807,57 @@ Venue.tick = async function () {
     }
 };
 
+// Every read on this page costs one network round trip, and the round trip, not
+// the call, is what a viewer waits for: seven getters issued together answer in
+// the time one of them takes, and the same seven issued in three waves take
+// three times as long. ethers batches whatever is dispatched in a single tick
+// into one JSON-RPC request, so the only thing that costs time here is a value
+// that has to arrive before the next call can be written.
+//
+// Two of the seven were exactly that. `roundEnd(r)` needs `r`, and
+// `rootForEpoch(e + 1)` needs `e`. Neither is read from the chain any less for
+// being predicted: both getters are still called, in the same wave, against a
+// round and an epoch this client works out from the same immutables the
+// contracts use. The prediction is then checked against what the chain said,
+// and a miss falls back to the read it would have done anyway. A miss can only
+// happen within a second of a boundary, or on a machine whose clock is wrong.
+Venue.predictRound = function () {
+    const genesis = asBig(CLIENT.immutables.genesis);
+    const len = asBig(CLIENT.immutables.roundLength);
+    const t = nowSec();
+    return t <= genesis ? 0n : (t - genesis) / len;
+};
+
+Venue.predictKycEpoch = function () {
+    const zero = asBig(CLIENT.clocks.kyc.origin);
+    const period = asBig(CLIENT.clocks.kyc.period);
+    const t = nowSec();
+    return t <= zero ? 0n : (t - zero) / period;
+};
+
 Venue.refreshClocks = async function () {
-    const {engine, registry, policy, halt} = Venue.c;
-    const [round, kycEpoch, discEpoch, halted, haltUntil] = await Promise.all([
+    const {engine, registry, policy, halt, gate} = Venue.c;
+    const guessRound = Venue.predictRound();
+    const guessKyc = Venue.predictKycEpoch();
+    let [round, kycEpoch, discEpoch, halted, haltUntil, roundEnd, nextRoot] = await Promise.all([
         engine.currentRound(),
         registry.currentEpoch(),
         policy.currentEpoch(),
         halt.haltedNow(),
         halt.haltedUntil(),
+        engine.roundEnd(guessRound),
+        gate.rootForEpoch(guessKyc + 1n).catch(() => 0n),
     ]);
-    const roundEnd = await engine.roundEnd(round);
+    // The boundary case, and the wrong-clock case. Both re-read rather than
+    // print a figure that belongs to a round or an epoch that has moved on.
+    const missed = [];
+    if (asBig(round) !== guessRound) missed.push(engine.roundEnd(round));
+    if (asBig(kycEpoch) !== guessKyc) missed.push(gate.rootForEpoch(asBig(kycEpoch) + 1n).catch(() => 0n));
+    if (missed.length) {
+        const again = await Promise.all(missed);
+        if (asBig(round) !== guessRound) roundEnd = again.shift();
+        if (asBig(kycEpoch) !== guessKyc) nextRoot = again.shift();
+    }
     const kycZero = asBig(CLIENT.clocks.kyc.origin);
     const kycPeriod = asBig(CLIENT.clocks.kyc.period);
     const discZero = asBig(CLIENT.clocks.disclosure.origin);
@@ -799,7 +870,6 @@ Venue.refreshClocks = async function () {
     Venue.snap.discEnd = discZero + (asBig(discEpoch) + 1n) * discPeriod;
     Venue.snap.halted = !!halted;
     Venue.snap.haltUntil = asBig(haltUntil);
-    const nextRoot = await Venue.c.gate.rootForEpoch(asBig(kycEpoch) + 1n).catch(() => 0n);
     Venue.snap.nextRoot = asBig(nextRoot);
     Venue.paintClocks();
 };
@@ -904,6 +974,7 @@ Venue.mountIndex = async function () {
 
 Venue.mountProve = async function () {
     $("proof-file")?.addEventListener("change", (e) => Venue.onProofFile(e.target.files[0]));
+    $("demo-proof")?.addEventListener("click", () => Venue.loadDemoProof().catch((e) => Venue.fail(e)));
     const drop = $("drop");
     drop?.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
     drop?.addEventListener("dragleave", () => drop.classList.remove("over"));
@@ -915,19 +986,23 @@ Venue.mountProve = async function () {
     $("kyc-act")?.addEventListener("click", () => Venue.openSheet());
     $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => Venue.fail(e)));
     $("register")?.addEventListener("click", () => Venue.doRegister().catch((e) => Venue.fail(e)));
-    await Venue.refreshProve();
-    await Venue.refreshGateGov().catch(() => {});
+    await Promise.all([
+        Venue.refreshProve(),
+        Venue.refreshGateGov().catch(() => {}),
+    ]);
 };
 
 Venue.refreshProve = async function () {
     const {gate, registry} = Venue.c;
     const epoch = Venue.snap.kycEpoch ?? asBig(await registry.currentEpoch());
-    const [minTier, mask, maxUses, root, nextRoot] = await Promise.all([
+    const who = Venue.viewer();
+    const [minTier, mask, maxUses, root, nextRoot, granted] = await Promise.all([
         gate.minTier(),
         gate.jurisdictionMask(),
         registry.MAX_USES_PER_EPOCH(),
         gate.rootForEpoch(epoch),
         gate.rootForEpoch(epoch + 1n),
+        who ? registry.getKycStatus(who) : null,
     ]);
     Venue.snap.minTier = asBig(minTier);
     Venue.snap.mask = asBig(mask);
@@ -942,9 +1017,8 @@ Venue.refreshProve = async function () {
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
     let status = "Connect or watch an address to read grant state.";
-    const who = Venue.viewer();
     if (who) {
-        const kyc = Number(await registry.getKycStatus(who));
+        const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
             ? "Granted for epoch " + epoch + ". The grant is nothing the instant the epoch ends."
@@ -972,6 +1046,51 @@ Venue.onProofFile = async function (file) {
     }
     Venue.proof = picked;
     Venue.status("prove-status", "Loaded " + file.name + ".", "ok");
+    Venue.paintPins();
+};
+
+/// The issuer's own proofs, for whoever arrives without one.
+///
+/// Step one of a three-step product cannot be completed by anybody who is not
+/// us: proving needs circom, node 22 and about twenty-three seconds per address,
+/// so a visitor with no proof file is stopped at the first screen and the second
+/// and third are behind it. These are real proofs for real addresses and they
+/// verify against the root already on chain; nothing here is a mock, and the
+/// button says so.
+///
+/// It picks by the registry's current KYC epoch rather than by whichever set was
+/// generated last, because `RegistrationGate.register` pins public signal 3 to
+/// that epoch and a proof for the wrong one is refused. If the viewer is one of
+/// the issuer's three addresses they get their own; otherwise the page starts
+/// watching the first of them read-only, because a proof that does not name the
+/// viewer would fail `RegistrantMismatch` and the failure would look like a
+/// broken button rather than the rule it is.
+Venue.loadDemoProof = async function () {
+    const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
+        ? String(Venue.snap.kycEpoch)
+        : String(await Venue.c.registry.currentEpoch());
+    const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[epoch] : null;
+    if (!set) {
+        Venue.status("prove-status",
+            "This build carries no issuer proof for KYC epoch " + epoch +
+            ". Run `make prove-live-epoch EPOCH=" + epoch + "` and rebuild.", "bad");
+        return;
+    }
+    const keys = Object.keys(set);
+    const mine = Venue.viewer() ? set[Venue.viewer().toLowerCase()] : null;
+    let picked = Venue.pickProof(mine || set);
+    if (!picked && keys.length) {
+        await Venue.startWatching(keys[0]);
+        picked = Venue.pickProof(set[keys[0]]);
+    }
+    if (!picked) {
+        Venue.status("prove-status", "The issuer proof in this build is not the shape the gate wants.", "bad");
+        return;
+    }
+    Venue.proof = picked;
+    Venue.status("prove-status",
+        "Loaded the issuer's proof for " + shortAddr(picked.address || Venue.viewer()) +
+        ", KYC epoch " + epoch + ". Real, and it verifies on chain. Ask wouldAccept.", "ok");
     Venue.paintPins();
 };
 
@@ -1401,35 +1520,41 @@ Venue.doWithdraw = async function () {
     if (rec) await Venue.refreshTrade();
 };
 
+// One wave. The venue's own four figures, the viewer's four, and the quote all
+// go out together: `quote` is the only one that needed a round number first, and
+// the clocks already read one this tick.
 Venue.refreshTrade = async function () {
-    const {engine, token, registry} = Venue.c;
+    const {engine, token, registry, holds} = Venue.c;
     const acc = Venue.viewer();
-    const [bond, fee, round, revealed] = await Promise.all([
+    const round = Venue.snap.round ?? Venue.predictRound();
+    const [bond, fee, chainRound, revealed, kyc, bal, held, credit, q] = await Promise.all([
         engine.commitBond(),
         engine.cancelFee(),
         engine.currentRound(),
         engine.revealedCount(),
+        acc ? registry.getKycStatus(acc) : null,
+        acc ? token.balanceOfByPartition(CLIENT.immutables.partition, acc) : null,
+        acc ? holds.getHeldAmountForByPartition(CLIENT.immutables.partition, acc) : null,
+        acc ? engine.credit(acc) : null,
+        acc ? engine.quote(round) : null,
     ]);
     $("im-bond").textContent = formatHbar(asBig(bond)) + " HBAR";
     $("im-fee").textContent = formatHbar(asBig(fee)) + " HBAR";
-    $("im-round").textContent = round.toString();
+    $("im-round").textContent = chainRound.toString();
     $("im-live").textContent = revealed.toString() + " revealed";
     if (acc) {
-        const [kyc, bal, held, credit] = await Promise.all([
-            registry.getKycStatus(acc),
-            token.balanceOfByPartition(CLIENT.immutables.partition, acc),
-            Venue.c.holds.getHeldAmountForByPartition(CLIENT.immutables.partition, acc),
-            engine.credit(acc),
-        ]);
         $("bal-kyc").textContent = Number(kyc) === 1 ? "granted" : "not granted";
         $("bal-units").textContent = formatQuantity(asBig(bal));
         $("bal-held").textContent = formatQuantity(asBig(held));
         $("bal-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
         $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
         $("kyc-gate").hidden = Number(kyc) === 1;
-        const q = await engine.quote(round);
-        $("quote").textContent = q.willCross
-            ? "This round would cross at " + displayPrice(asBig(q.priceTwice)) + ", volume " + formatQuantity(asBig(q.volume))
+        // The quote was asked of the round this client predicted. If the round
+        // turned over between the prediction and the answer, ask again rather
+        // than print a quote for a round that has ended.
+        const quote = asBig(chainRound) === asBig(round) ? q : await engine.quote(chainRound);
+        $("quote").textContent = quote.willCross
+            ? "This round would cross at " + displayPrice(asBig(quote.priceTwice)) + ", volume " + formatQuantity(asBig(quote.volume))
             : "This round would not cross (quote is a view).";
     }
     Venue.paintTicket();
@@ -1462,15 +1587,19 @@ Venue.mountPosition = async function () {
     $("watch-go")?.addEventListener("click", () => Venue.doWatch().catch((e) => Venue.fail(e)));
     $("withdraw")?.addEventListener("click", () => Venue.doWithdraw().catch((e) => Venue.fail(e)));
     $("disclose")?.addEventListener("click", () => Venue.refreshDisclosure().catch((e) => Venue.fail(e)));
-    await Venue.refreshPosition();
-    await Venue.refreshInstrument().catch(() => {});
+    await Promise.all([
+        Venue.refreshPosition(),
+        Venue.refreshInstrument().catch(() => {}),
+    ]);
 };
 
 Venue.refreshPosition = async function () {
-    await Venue.refreshDisclosure();
     const who = Venue.viewer();
+    const [, credit] = await Promise.all([
+        Venue.refreshDisclosure(),
+        who ? Venue.c.engine.credit(who) : null,
+    ]);
     if (!who) return;
-    const credit = await Venue.c.engine.credit(who);
     $("pos-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
     $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
     const tickets = readList("tickets", who);
@@ -1488,16 +1617,19 @@ Venue.refreshDisclosure = async function () {
     // client.json records what these were when it was generated; a governance
     // window exists so they can change without it, and docs/UI-INTEGRATION-MAP.md
     // says in as many words not to hardcode a number from that file.
-    const live = await Promise.all(rows.map(async (row) => {
-        const [budget, waived] = await Promise.all([
-            policy.budgetFor(row), policy.isWaived(row),
-        ]);
-        return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
-    }));
-
-    const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
-    const calls = rows.flatMap((row, i) => {
-        const g = live[i].metered ? G.PRED : G.EXACT;
+    //
+    // The bundle is still allowed to say which granularity to *ask about*, which
+    // is not the same as printing a figure from it. Asking is free to be wrong:
+    // `budgetFor` goes out in the same wave, and any row where the bundle and the
+    // chain disagree is asked again at the granularity the chain gave. That turns
+    // fifty reads plus twenty into one round trip instead of two, and a governance
+    // change costs a second one on the tick that meets it rather than being missed.
+    const ask = rows.map((row) => {
+        const b = CLIENT.disclosure["row" + row];
+        return b ? !!b.metered : true;
+    });
+    const rowCalls = (row, metered) => {
+        const g = metered ? G.PRED : G.EXACT;
         return [
             engine.ceilingFor(row),
             engine.wouldDisclose(row, g, T.IMM),
@@ -1505,8 +1637,28 @@ Venue.refreshDisclosure = async function () {
             engine.wouldAfford(row, g),
             engine.breakingSize(row, g),
         ];
-    });
-    const got = await Promise.all(calls);
+    };
+    const [live, got] = await Promise.all([
+        Promise.all(rows.map(async (row) => {
+            const [budget, waived] = await Promise.all([
+                policy.budgetFor(row), policy.isWaived(row),
+            ]);
+            return {budgetBits: Number(budget[3]), metered: Number(budget[3]) !== 0, waived};
+        })),
+        Promise.all(rows.flatMap((row, i) => rowCalls(row, ask[i]))),
+    ]);
+    const drift = rows.map((row, i) => live[i].metered !== ask[i]).filter(Boolean).length;
+    if (drift) {
+        const redo = await Promise.all(rows.flatMap((row, i) =>
+            live[i].metered === ask[i] ? [] : rowCalls(row, live[i].metered)));
+        let k = 0;
+        rows.forEach((row, i) => {
+            if (live[i].metered === ask[i]) return;
+            for (let j = 0; j < 5; j++) got[i * 5 + j] = redo[k++];
+        });
+    }
+
+    const head = '<div class="rowline head"><span>Row</span><span>Name</span><span>Ceiling</span><span>Would</span><span>Spent</span><span>Afford</span></div>';
     const lines = rows.map((row, i) => {
         const meta = live[i];
         const off = i * 5;
@@ -1532,7 +1684,7 @@ Venue.paintLastView = function () {
     if (!v || !$("last-view")) return;
     $("last-view").innerHTML =
         '<article class="card sealed"><div class="meta">' + esc(v.kind) +
-        " · tx <a href='" + explorerTx(v.tx) + "'>" + shortId(v.tx) + "</a></div>" +
+        " · tx <a href='" + esc(explorerTx(v.tx)) + "'>" + esc(shortId(v.tx)) + "</a></div>" +
         "<div>row " + v.row + " " + esc(ROW_NAMES[v.row] || "") +
         " · " + G_NAME[v.g] + " · " + T_NAME[v.t] + "</div>" +
         "<div class='meta'>ceilingFor=" + esc(v.ceiling) +

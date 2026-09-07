@@ -142,7 +142,7 @@ Venue.paintTape = function (id, entries, note) {
             '<span class="tsrc">' + esc(e.source) + "</span>" +
             '<span class="tname">' + esc(e.name) + "</span>" +
             '<span class="targs">' + args + "</span>" +
-            "<span class='tat'>" + esc(when) + " · <a href='" + explorerTx(e.tx) +
+            "<span class='tat'>" + esc(when) + " · <a href='" + esc(explorerTx(e.tx)) +
             "' rel='noopener'>" + esc(shortId(e.tx)) + "</a></span></div>";
     }).join("") + (note ? '<p class="note">' + esc(note) + "</p>" : "");
 };
@@ -156,58 +156,78 @@ Venue.mountVenue = async function () {
     $("disclose-go")?.addEventListener("click", () => Venue.doDisclose().catch((e) => Venue.fail(e)));
     await Venue.refreshVenue();
     await Venue.refreshTape();
+    // `tools/hcs-view.mjs` is inlined only into this screen, so a build without
+    // it still mounts the rest of the Rulebook rather than throwing at boot.
+    if (Venue.mountTopic) await Venue.mountTopic().catch((e) => Venue.fail(e));
 };
 
 Venue.refreshVenue = async function () {
     const {regime, cap, halt, policy, rulebook, journal, clock} = Venue.c;
     const epoch = Venue.snap.discEpoch ?? asBig(await policy.currentEpoch());
 
+    // Fifty-seven reads. Grouped by the contract they ask, which is how they are
+    // read, they were also *issued* by that grouping: seven waves, each one
+    // waiting on the last for no reason, because nothing in the regime block is
+    // an input to the cap block. They go out together now. ethers puts everything
+    // dispatched in one tick into a single JSON-RPC request, so the screen costs
+    // one round trip rather than seven, and the grouping survives in the
+    // destructuring where it was doing the reader some good.
+    //
+    // Two reads genuinely take an input. `startOf` wants the clock's epoch, which
+    // is the disclosure epoch the masthead already read this tick, so it is asked
+    // speculatively and checked below. `permits` wants the regime's current
+    // point, which this client has no way to know before it asks, so it is the
+    // one thing left in a second wave.
     const [
-        rCur, rFloor, rCeil, rIdeal, rMandate, rNarrowed, rClass, rPermits,
+        rCur, rFloor, rCeil, rIdeal, rMandate, rNarrowed, rClass,
         rPending, rPendingEpoch, rPendingClass, rRelaxTo, rRelaxEpoch, rLowerTo, rLowerEpoch,
         rSup, rOp,
+        capBps, shareBps, suspended, susFloor, capVenue,
+        hNow, hUntil, band, breaker, budgetS, remaining, granted, lastPx, maxHalt,
+        root, pendingRoot, pendingEpoch, prevRoot, windowAt, grace, keyCount,
+        edition, document_, pendEd, pendEdEpoch, rbWindow, chargeCount, take, rec,
+        jRegistry, jToken, jAdmin, jRow, jSpent, jRecord, jCeiling,
+        cLen, cZero, cNow, cStartGuess,
     ] = await Promise.all([
         regime.current(), regime.floor(), regime.ceiling(), regime.ideal(),
         regime.mandate(), regime.narrowed(), regime.liquidityClass(),
-        regime.current().then((c) => regime.permits(c)),
         regime.pending(), regime.pendingEpoch(), regime.pendingLiquidityClass(),
         regime.relaxTo(), regime.relaxEpoch(), regime.lowerTo(), regime.lowerEpoch(),
         regime.supervisor(), regime.operator(),
-    ]);
 
-    const [capBps, shareBps, suspended, susFloor, capVenue] = await Promise.all([
         cap.capBps(), cap.shareBps(), cap.suspendedNow(), cap.suspendedFloor(), cap.venue(),
-    ]);
 
-    const [hNow, hUntil, band, breaker, budgetS, remaining, granted, lastPx, maxHalt] =
-        await Promise.all([
-            halt.haltedNow(), halt.haltedUntil(), halt.bandBps(), halt.breakerSeconds(),
-            halt.budgetSeconds(), halt.remainingBudget(), halt.grantedIn(epoch),
-            halt.lastPriceTwice(), halt.maxHaltSeconds(),
-        ]);
+        halt.haltedNow(), halt.haltedUntil(), halt.bandBps(), halt.breakerSeconds(),
+        halt.budgetSeconds(), halt.remainingBudget(), halt.grantedIn(epoch),
+        halt.lastPriceTwice(), halt.maxHaltSeconds(),
 
-    const [root, pendingRoot, pendingEpoch, prevRoot, windowAt, grace, keyCount] =
-        await Promise.all([
-            policy.root(), policy.pendingRoot(), policy.pendingEpoch(),
-            policy.previousRoot(), policy.windowClosesAt(), policy.GRACE(), policy.keyCount(),
-        ]);
+        policy.root(), policy.pendingRoot(), policy.pendingEpoch(),
+        policy.previousRoot(), policy.windowClosesAt(), policy.GRACE(), policy.keyCount(),
 
-    const [edition, document_, pendEd, pendEdEpoch, rbWindow, chargeCount, take, rec] =
-        await Promise.all([
-            rulebook.edition(), rulebook.document(), rulebook.pendingEdition(),
-            rulebook.pendingEpoch(), rulebook.windowClosesAt(), rulebook.chargeCount(),
-            rulebook.netOperatorTake(), rulebook.reconcile(),
-        ]);
+        rulebook.edition(), rulebook.document(), rulebook.pendingEdition(),
+        rulebook.pendingEpoch(), rulebook.windowClosesAt(), rulebook.chargeCount(),
+        rulebook.netOperatorTake(), rulebook.reconcile(),
 
-    const [jRegistry, jToken, jAdmin, jRow, jSpent, jRecord, jCeiling] = await Promise.all([
         journal.registry(), journal.token(), journal.admin(), journal.row(),
         journal.spentBits(epoch), journal.epochRecord(epoch), journal.ceiling(),
+
+        clock.epochLength(), clock.epochZero(), clock.currentEpoch(),
+        clock.startOf(epoch),
     ]);
 
-    const [cLen, cZero, cNow] = await Promise.all([
-        clock.epochLength(), clock.epochZero(), clock.currentEpoch(),
+    // The four panels below the fold need nothing from the two reads left in
+    // this wave, so they are started here rather than after the rendering: their
+    // first reads join the same request `permits` is in.
+    const panels = Promise.all([
+        Venue.refreshCharges(Number(chargeCount)),
+        Venue.refreshParamRow(),
+        Venue.refreshParamSet(),
+        Venue.refreshImmutables(),
     ]);
-    const cStart = await clock.startOf(cNow);
+    const [rPermits, cStart] = await Promise.all([
+        regime.permits(rCur),
+        asBig(cNow) === asBig(epoch) ? cStartGuess : clock.startOf(cNow),
+    ]);
 
     const bps = (v) => (Number(v) / 100).toFixed(2) + "%";
     const at = (ts) => asBig(ts) === 0n ? "—" : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
@@ -332,10 +352,7 @@ Venue.refreshVenue = async function () {
     const de = $("disc-epoch-in");
     if (de && !de.value) de.value = String(asBig(cNow) > 0n ? asBig(cNow) - 1n : 0n);
 
-    await Venue.refreshCharges(Number(chargeCount));
-    await Venue.refreshParamRow();
-    await Venue.refreshParamSet();
-    await Venue.refreshImmutables();
+    await panels;
 };
 
 // The fee schedule, itemised. The trade screen charges a commit bond and a
@@ -594,18 +611,39 @@ Venue.refreshBook = async function () {
     if (!el) return;
     const {engine} = Venue.c;
     const round = Venue.snap.round ?? asBig(await engine.currentRound());
-    const n = Number(await engine.revealedCount());
     // The quote and the retained fees are facts about the round, not about the
     // book, so an empty book is no reason to stop saying them. An earlier cut
     // returned here and left both blank whenever nothing was resting.
-    await Venue.paintQuote(round);
+    //
+    // How many orders are live is itself a read, and until it lands there is
+    // nothing to ask `liveAt` for. So the count from the last tick is asked for
+    // again alongside it: a book that has not changed since the previous refresh
+    // costs one round trip instead of two, and a book that has grown pays for
+    // the difference only.
+    // A speculative index the book has since dropped reverts, which is an answer
+    // and not a failure, so it is caught and read again below rather than taking
+    // the refresh down with it.
+    const guess = Math.min(Venue._revealed || 0, 40);
+    const [count, , ...seen] = await Promise.all([
+        engine.revealedCount(),
+        Venue.paintQuote(round),
+        ...Array.from({length: guess}, (_, i) => engine.liveAt(i).catch(() => null)),
+    ]);
+    const n = Number(count);
+    Venue._revealed = n;
     if (!n) {
         el.innerHTML = '<div class="empty">Nothing revealed. A sealed commitment is not in the book ' +
             "until it is opened, which is the point.</div>";
         return;
     }
     const capN = Math.min(n, 40);
-    const ids = await Promise.all(Array.from({length: capN}, (_, i) => engine.liveAt(i)));
+    const ids = seen.slice(0, capN);
+    const gaps = [];
+    for (let i = 0; i < capN; i++) if (ids[i] == null) gaps.push(i);
+    if (gaps.length) {
+        const again = await Promise.all(gaps.map((i) => engine.liveAt(i)));
+        gaps.forEach((i, k) => { ids[i] = again[k]; });
+    }
     const rows = await Promise.all(ids.map(async (id) => {
         const [o, live, eligible, backing] = await Promise.all([
             engine.orders(id), engine.isLive(id), engine.eligibleIn(id, round),
@@ -679,13 +717,12 @@ Venue.refreshInstrument = async function () {
     const {token} = Venue.c;
     const who = Venue.viewer();
     const part = CLIENT.immutables.partition;
-    const [name, symbol, supply, multi, lists, comp] = await Promise.all([
+    const [name, symbol, supply, multi, lists, comp, whole, inPart] = await Promise.all([
         token.name(), token.symbol(), token.totalSupply(),
         token.isMultiPartition(), token.getExternalKycListsCount(), token.compliance(),
+        who ? token.balanceOf(who) : null,
+        who ? token.balanceOfByPartition(part, who) : null,
     ]);
-    const [whole, inPart] = who
-        ? await Promise.all([token.balanceOf(who), token.balanceOfByPartition(part, who)])
-        : [null, null];
     const put = (id, v, cls) => {
         const el = $(id);
         if (!el) return;
@@ -713,11 +750,11 @@ Venue.refreshInstrument = async function () {
 // be pointed at a different gate entirely.
 Venue.refreshGateGov = async function () {
     const {gate, registry} = Venue.c;
-    const [issuer, verifier, pMinTier, pMask, pEpoch] = await Promise.all([
+    // The gate's five and the registry's five are two contracts, not two waves.
+    const [issuer, verifier, pMinTier, pMask, pEpoch,
+           admin, pendingGate, pendingGateEpoch, epochLen, epochZero] = await Promise.all([
         gate.issuer(), gate.verifier(), gate.pendingMinTier(),
         gate.pendingJurisdictionMask(), gate.pendingPolicyEpoch(),
-    ]);
-    const [admin, pendingGate, pendingGateEpoch, epochLen, epochZero] = await Promise.all([
         registry.admin(), registry.pendingGate(), registry.pendingGateEpoch(),
         registry.epochLength(), registry.epochZero(),
     ]);
@@ -747,8 +784,12 @@ Venue.refreshGateGov = async function () {
     // be renewed the moment it dies and one that cannot be renewed at all.
     // rootForEpoch is declared uint256, not bytes32, so ethers hands back a
     // BigInt. It is a Merkle root and reads as one only in hex.
+    // The masthead read this in the same tick and it is the same getter, so
+    // asking again would be a round trip spent on an answer already in hand.
     const cur = Venue.snap.kycEpoch ?? asBig(await registry.currentEpoch());
-    const next = asBig(await gate.rootForEpoch(cur + 1n).catch(() => 0n));
+    const next = Venue.snap.kycEpoch !== undefined && Venue.snap.nextRoot !== undefined
+        ? asBig(Venue.snap.nextRoot)
+        : asBig(await gate.rootForEpoch(cur + 1n).catch(() => 0n));
     put("gv-nextroot", next === 0n
         ? "NOT PUBLISHED. Every grant dies at the boundary and none can be renewed until it is."
         : shortId(toHexWord(next)) + " · published, so a grant can be renewed the moment this epoch ends",
@@ -820,11 +861,24 @@ Venue.refreshParamSet = async function () {
     const el = $("param-set");
     if (!el) return;
     const {policy} = Venue.c;
-    const [n, rowCard, waivedKey] = await Promise.all([
+    // How many keys there are is itself a read, and `keyAt` cannot be asked
+    // until it lands. The count from the last refresh goes out alongside it, so
+    // a set that has not been governed since costs one round trip fewer. An
+    // index the set no longer has reverts, which is caught and read again.
+    const guess = Math.min(Venue._keyCount || 0, 64);
+    const [n, rowCard, waivedKey, ...seen] = await Promise.all([
         policy.keyCount(), policy.ROW_CARD(), policy.KEY_WAIVED_ROWS(),
+        ...Array.from({length: guess}, (_, i) => policy.keyAt(i).catch(() => null)),
     ]);
     const count = Math.min(Number(n), 64);
-    const keys = await Promise.all(Array.from({length: count}, (_, i) => policy.keyAt(i)));
+    Venue._keyCount = Number(n);
+    const keys = seen.slice(0, count);
+    const gaps = [];
+    for (let i = 0; i < count; i++) if (keys[i] == null) gaps.push(i);
+    if (gaps.length) {
+        const again = await Promise.all(gaps.map((i) => policy.keyAt(i)));
+        gaps.forEach((i, k) => { keys[i] = again[k]; });
+    }
     // `valueOf` is on Object.prototype, so `policy.valueOf(k)` reaches the
     // built-in and hands back the contract rather than sending a call. Ask for
     // the fragment by name instead. ParameterRoot.valueOf and IAtsToken.name are
@@ -864,15 +918,19 @@ Venue.refreshImmutables = async function () {
     const el = $("immutables");
     if (!el) return;
     const {engine, registry, gate} = Venue.c;
-    const [bond, fee, delay, window_, len, rest, gen, part, dom, minFee, uses, tier, mask] =
+    // `minimumCancelFee` takes three of the immutables this panel is already
+    // reading. Awaiting them inside the argument list read each one a second
+    // time and, worse, suspended the array literal they sat in: the twelve
+    // reads either side of it went out in five waves instead of one. They are
+    // read once, and the fee is derived from what came back.
+    const [bond, fee, delay, window_, len, rest, gen, part, dom, uses, tier, mask] =
         await Promise.all([
             engine.commitBond(), engine.cancelFee(), engine.revealDelay(),
             engine.revealWindow(), engine.roundLength(), engine.restRounds(),
             engine.genesis(), engine.partition(), engine.DOMAIN_ORDER(),
-            engine.minimumCancelFee(await engine.commitBond(), await engine.revealDelay(),
-                await engine.revealWindow()),
             registry.MAX_USES_PER_EPOCH(), gate.minTier(), gate.jurisdictionMask(),
         ]);
+    const minFee = await engine.minimumCancelFee(bond, delay, window_);
     const I = CLIENT.immutables;
     const pairs = [
         ["commitBond", bond, I.commitBond], ["cancelFee", fee, I.cancelFee],
@@ -906,3 +964,4 @@ Venue.refreshImmutables = async function () {
     const mf = $("imm-minfee");
     if (mf) mf.textContent = minFee + " tinybar minimum, engine charges " + fee;
 };
+

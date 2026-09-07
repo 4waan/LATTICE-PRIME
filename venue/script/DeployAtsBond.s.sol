@@ -83,6 +83,14 @@ contract DeployAtsBond is Script {
     ///      `_validateISIN` computes one and refuses anything else. XS is the
     ///      international prefix; the body names the venue rather than borrowing
     ///      a real issuer's identifier.
+    ///
+    ///      The body still reads SEAMME after the venue was renamed to Lattice
+    ///      Prime, and that is deliberate rather than missed. ATS exposes
+    ///      `setName` and `setSymbol` on the Core facet and exposes no setter for
+    ///      the ISIN, so on the live token this string is immutable. It is also
+    ///      the correct behaviour: an ISIN is assigned once by a national
+    ///      numbering agency and survives the issuer renaming the instrument.
+    ///      Changing it would mean a new bond, which is what a rebrand is not.
     string internal constant ISIN = "XS0SEAMME017";
     bytes3 internal constant CURRENCY = 0x555344; // "USD"
     uint256 internal constant NOMINAL = 10_000; // 100.00
@@ -117,8 +125,8 @@ contract DeployAtsBond is Script {
                 version: BOND_VERSION
             }),
             erc20MetadataInfo: IAtsTypes.ERC20MetadataInfo({
-                name: "SeamMe Repo Collateral 2028",
-                symbol: "SEAMC",
+                name: "Lattice Prime Repo Collateral 2028",
+                symbol: "LPRC",
                 isin: ISIN,
                 decimals: 0
             }),
@@ -156,7 +164,7 @@ contract DeployAtsBond is Script {
             additionalSecurityData: IAtsTypes.AdditionalSecurityData({
                 countriesControlListType: false,
                 listOfCountries: "",
-                info: "SeamMe testnet repo collateral. Eligibility is proved, not registered."
+                info: "Lattice Prime testnet repo collateral. Eligibility is proved, not registered."
             })
         });
 
