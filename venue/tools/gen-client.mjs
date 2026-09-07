@@ -106,6 +106,19 @@ const asUint = (r) => BigInt(r).toString();
 const asAddr = (r) => "0x" + r.slice(-40);
 const asBool = (r) => BigInt(r) === 1n;
 
+/// A dynamic `string` return: an offset word, a length word, then the bytes.
+/// @dev Written out rather than pulled from a library because this file has no
+///      dependencies by design, and because the one string it decodes is the
+///      seated feed's own `description()`, which is the field that says whose
+///      feed is in the cash seat. Reading it off the chain rather than writing
+///      it here is the point: the seat is governed and can move.
+const asString = (r) => {
+    const body = r.slice(2);
+    const off = Number(BigInt("0x" + body.slice(0, 64))) * 2;
+    const len = Number(BigInt("0x" + body.slice(off, off + 64)));
+    return Buffer.from(body.slice(off + 64, off + 64 + len * 2), "hex").toString("utf8");
+};
+
 // ------------------------------------------------------------- the addresses
 
 const addresses = {
@@ -113,6 +126,11 @@ const addresses = {
     SeamJournal: venue.venue.SeamJournal,
     RepoVault: venue.venue.RepoVault,
     MarginWatch: venue.venue.MarginWatch,
+    // Optional, so a checkout whose venue record predates the feed still
+    // generates a client. `tools/gen-app.mjs` carries the same shape for the
+    // consensus topic and for the same reason: a screen should say the feed is
+    // not configured rather than throw at boot.
+    ...(venue.venue.PrimeOracle ? {PrimeOracle: venue.venue.PrimeOracle} : {}),
     VolumeCap: venue.venue.VolumeCap,
     TradingHalt: venue.venue.TradingHalt,
     Rulebook: venue.venue.Rulebook,
@@ -209,6 +227,45 @@ out.immutables = {
     jurisdictionMask: asUint(await call(addresses.RegistrationGate, "jurisdictionMask()")),
 };
 
+// ---------------------------------------------------------------- the feed
+//
+// Read back off the chain like everything else here, and **not** copied out of
+// `script/DeployVenue.s.sol`. The deploy script's constants are what was asked
+// for; these are what the chain answered. The distinction is the whole reason
+// this file exists, and it is the distinction that would have caught the
+// `commitBond` unit bug recorded in `superseded`.
+if (addresses.PrimeOracle) {
+    const O = addresses.PrimeOracle;
+    const cashFeed = asAddr(await call(O, "cashFeed()"));
+    out.feed = {
+        note:
+            "PrimeOracle. Two legs: the venue's own panel publishes the clean price " +
+            "and the coupon reference rate, and a seated upstream feed publishes " +
+            "HBAR/USD. Both carry eight decimals, which is the scale Chainlink set " +
+            "and this venue follows. A price is NOT a denomination of HBAR: see " +
+            "tools/units.mjs PRICE_DECIMALS.",
+        address: O,
+        decimals: Number(asUint(await call(O, "DECIMALS()"))),
+        quorum: asUint(await call(O, "quorum()")),
+        maxPublishers: asUint(await call(O, "maxPublishers()")),
+        heartbeat: asUint(await call(O, "heartbeat()")),
+        cashHeartbeat: asUint(await call(O, "cashHeartbeat()")),
+        maxDeviationBps: asUint(await call(O, "maxDeviationBps()")),
+        generation: asUint(await call(O, "generation()")),
+        lastRound: asUint(await call(O, "lastRound()")),
+        cashFeed: {
+            note:
+                "Not the venue's panel. Read back off the chain, whatever is seated. " +
+                "On Hedera this is HederaRateFeed over the network exchange rate at " +
+                "0x168, because Chainlink's feeds here refuse a contract caller: " +
+                "probes/chainlink-hedera.out has the measurement.",
+            address: cashFeed,
+            description: asString(await call(cashFeed, "description()")),
+            decimals: Number(asUint(await call(cashFeed, "decimals()"))),
+        },
+    };
+}
+
 // Three clocks, each read from its own getter. **Never derive one from
 // another.** Two of them share a period of 300 seconds and none of them shares
 // an origin, so `epoch = round + 3` is true today and is an artefact of two
@@ -251,7 +308,7 @@ out.clocks.kyc.nextRootPublished =
     BigInt(await call(addresses.RegistrationGate,
         "rootForEpoch(uint64)", [kycEpoch + 1n])) !== 0n;
 
-// The seven assertions the client runs at load, with the answers this run got.
+// The assertions the client runs at load, with the answers this run got.
 // A client that finds a different answer is holding a stale address book and
 // should refuse to render rather than draw a screen about the wrong venue.
 const wiring = {
@@ -271,6 +328,15 @@ const wiring = {
     "token.isExternalKycList(registry)":
         asBool(await call(addresses.token, "isExternalKycList(address)",
             [addresses.ZkKycRegistry])),
+    // The eighth. A vault pointed at some other feed is a vault whose margin
+    // calls came from a price this address book cannot show you.
+    ...(addresses.PrimeOracle
+        ? {
+            "vault.oracle() == PrimeOracle":
+                asAddr(await call(addresses.RepoVault, "oracle()")).toLowerCase()
+                    === addresses.PrimeOracle.toLowerCase(),
+        }
+        : {}),
 };
 out.wiring = wiring;
 

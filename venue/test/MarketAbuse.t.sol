@@ -8,6 +8,7 @@ import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.s
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {StubOracle} from "./OracleFixture.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
 import {ZkKycRegistry} from "../src/kyc/ZkKycRegistry.sol";
@@ -75,6 +76,15 @@ contract Holds is IHoldByPartition {
 }
 
 contract MarketAbuseTest is Test, PolicyFixture {
+    /// @dev Dark by default, which is the venue this suite was written against:
+    ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
+    StubOracle internal feed;
+
+    /// @dev `markToMarket` raises a call with a published window rather than a
+    ///      caller-chosen one, because it is permissionless. `postMark` still
+    ///      takes its own, so nothing below had to change.
+    uint64 internal constant CURE_WINDOW = 1 days;
+
     uint256 internal constant PENALTY_RATE = 10;
     uint64 internal constant FAIL_GRACE = 5 days;
 
@@ -98,9 +108,10 @@ contract MarketAbuseTest is Test, PolicyFixture {
     uint64 constant TERM = 30 days;
 
     function setUp() public {
+        feed = new StubOracle();
         holds = new Holds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, params, PENALTY_RATE, FAIL_GRACE);
+        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
         vm.warp(1_760_000_000);
         vm.prank(BORROWER);
         vault.open(

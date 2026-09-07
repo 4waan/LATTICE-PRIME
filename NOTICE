@@ -53,6 +53,46 @@ spikes/bn254/
     own upstream licences. Neither is our work and neither is relicensed
     here. The transcript itself is a public download and is not committed.
 
+venue/src/interfaces/AggregatorV3Interface.sol
+
+    Chainlink's data feed interface, MIT, copyright SmartContract Chainlink
+    Limited SEZC, from the npm package "chainlink slash contracts", file
+    src/v0.8/shared/interfaces/AggregatorV3Interface.sol. Vendored verbatim:
+    five function signatures, unmodified, with a header naming the source. The
+    package is not installed; copying one interface is smaller than adding a
+    dependency tree to a Foundry project that has one submodule.
+
+    It is used in both directions and that is deliberate.
+
+    venue/src/oracle/PrimeOracle.sol IMPLEMENTS it, so the venue's own clean
+    price is readable by anything that already speaks Chainlink, and
+
+    venue/src/oracle/PrimeOracle.sol CONSUMES it on its cash-leg seat, which is
+    a governed address rather than a constant.
+
+    That seat does NOT hold a Chainlink aggregator on Hedera, and the reason is
+    recorded rather than glossed. Chainlink's feeds here are access controlled:
+    a contract reading one gets `No access`, while decimals() answers anyone.
+    Measured on testnet and mainnet, all seven feeds, in
+    probes/chainlink-hedera.out. No Chainlink contract is called by any deployed
+    contract in this project. Only the interface above is used, and only the
+    seven addresses are named, in documentation and in a probe.
+
+    Nothing about Chainlink's aggregation, operator set, or off-chain reporting
+    is this project's work, and this project makes no claim to integrate with it
+    on this chain beyond the interface it borrows.
+
+venue/src/interfaces/IExchangeRate.sol
+
+    Hedera's exchange rate system contract interface, HIP-475, Apache 2.0,
+    copyright Hedera Hashgraph LLC and the Hiero contributors, from the
+    hedera-smart-contracts repository. Two function signatures, unmodified.
+
+    The contract behind it lives at 0x168 and is the network's, not ours. It is
+    what every transaction fee on Hedera is priced at.
+    venue/src/oracle/HederaRateFeed.sol is our thin adapter that presents it in
+    AggregatorV3Interface's shape; the rate itself is Hedera's.
+
 forge-std
 
     Pinned as a git submodule, not vendored. MIT/Apache-2.0, copyright the

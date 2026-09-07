@@ -32,6 +32,7 @@ echo "venue"
 emit MatchingEngine.sol   MatchingEngine
 emit OrderBook.sol        OrderBook
 emit RepoVault.sol        RepoVault
+emit PrimeOracle.sol      PrimeOracle
 emit MarginWatch.sol      MarginWatch
 emit SeamJournal.sol      SeamJournal
 emit Rulebook.sol         Rulebook

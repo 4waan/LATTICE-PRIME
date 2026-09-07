@@ -36,9 +36,50 @@ const hcsPath = join(root, "deployments/hcs.json");
 const hcs = existsSync(hcsPath)
     ? (({topicId, memo, createdAt}) => ({topicId, memo, createdAt}))(JSON.parse(readFileSync(hcsPath, "utf8")))
     : null;
+// Names a decoded tuple cannot carry, because `ethers` would hand back the
+// method instead of the value.
+//
+// **This check exists because it happened.** `PrimeOracle.latest()` returned a
+// member called `at`, which is a perfectly good Solidity name and is also
+// `Array.prototype.at`. `ethers` v6 decodes a return tuple into a `Result` that
+// is array-like, so `result.at` resolved to the array method, the Repo screen
+// tried arithmetic on a function, and the failure surfaced as
+// "Cannot convert function to a BigInt" with nothing pointing at the ABI. The
+// contract was redeployed with the member renamed.
+//
+// A comment would not have prevented the next one. This does: a colliding name
+// fails the build that would have shipped it, and it fails here rather than in
+// a screen, because this is the file that hands the ABIs to the client.
+const ARRAY_MEMBERS = new Set(Object.getOwnPropertyNames(Array.prototype));
+
+function collisions(abi, contract) {
+    const bad = [];
+    const walk = (params, where) => {
+        for (const p of params ?? []) {
+            if (p.name && ARRAY_MEMBERS.has(p.name)) bad.push(`${where}.${p.name}`);
+            if (p.components) walk(p.components, `${where}.${p.name || "tuple"}`);
+        }
+    };
+    for (const e of abi) {
+        const where = `${contract}.${e.name || e.type}`;
+        walk(e.outputs, where);
+        walk(e.inputs, where);
+    }
+    return bad;
+}
+
 const abis = {};
+const nameClashes = [];
 for (const name of names) {
     abis[name] = strip(JSON.parse(readFileSync(join(abiDir, name + ".json"), "utf8")));
+    nameClashes.push(...collisions(abis[name], name));
+}
+if (nameClashes.length) {
+    throw new Error(
+        "ABI member names that ethers cannot decode by name, because Array.prototype " +
+        "already defines them:\n  " + nameClashes.join("\n  ") +
+        "\nRename the Solidity field or return value. See the note above this check.",
+    );
 }
 
 // Every contract address the client can read history for, so a screen naming a
