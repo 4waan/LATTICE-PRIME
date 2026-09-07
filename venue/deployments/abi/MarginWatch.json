@@ -143,6 +143,76 @@
  },
  {
   "type": "function",
+  "name": "feed",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "f",
+    "type": "tuple",
+    "internalType": "struct MarginWatch.Feed",
+    "components": [
+     {
+      "name": "oracle",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "dark",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "ourLegDark",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cashLegDark",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cleanPrice",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
+      "name": "refRateBps",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "publishedAt",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "round",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "usdPerHbar",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "markPerUnitTinybar",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "cashFeed",
+      "type": "address",
+      "internalType": "address"
+     }
+    ]
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "stream",
   "inputs": [],
   "outputs": [
@@ -296,6 +366,68 @@
       "name": "breakingSize",
       "type": "uint256",
       "internalType": "uint256"
+     }
+    ]
+   },
+   {
+    "name": "f",
+    "type": "tuple",
+    "internalType": "struct MarginWatch.Feed",
+    "components": [
+     {
+      "name": "oracle",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "dark",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "ourLegDark",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cashLegDark",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "cleanPrice",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
+      "name": "refRateBps",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "publishedAt",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "round",
+      "type": "uint64",
+      "internalType": "uint64"
+     },
+     {
+      "name": "usdPerHbar",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "markPerUnitTinybar",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "cashFeed",
+      "type": "address",
+      "internalType": "address"
      }
     ]
    }

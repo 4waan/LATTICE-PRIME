@@ -10,10 +10,15 @@
 // **The refusal vectors** are the inputs this module is supposed to reject. They
 // carry no contract twin because there is nothing on chain to compare to: the
 // point of each is that the value never reaches a transaction.
+import {readFileSync} from "node:fs";
+import {dirname, join} from "node:path";
+import {fileURLToPath} from "node:url";
 import {
     TINYBAR, WEIBAR, WEIBAR_PER_TINYBAR, BOND_DECIMALS,
+    PRICE_DECIMALS, PRICE_ONE,
     toWeibar, fromWeibar, formatHbar, parseHbar,
     toUnits, formatQuantity, buyEscrow, notional, displayPrice,
+    markPerUnitTinybar, markOfLot, formatPrice, median, deviationBps,
     diagnoseWrongBond, UnitError,
 } from "./units.mjs";
 
@@ -137,6 +142,51 @@ eq(
     diagnoseWrongBond(999999n, 1000000n),
     null,
 );
+
+// ------------------------------------------------------------------ the feed
+//
+// **These vectors are not written here.** They are the file
+// `probes/oracle-median.py` produced and `venue/test/PrimeOracle.t.sol` replays,
+// read from disk by both. One fixture, two consumers, neither of which computed
+// the other's answer: if the client's copy of the median ever diverges from the
+// contract's, one of the two suites fails rather than a screen quietly showing a
+// mark the chain does not hold.
+
+const here = dirname(fileURLToPath(import.meta.url));
+const fx = JSON.parse(readFileSync(join(here, "../test/fixtures/median.json"), "utf8"));
+
+eq("the price scale", PRICE_DECIMALS, 8);
+eq("one unit of price", PRICE_ONE, 100000000n);
+
+for (const [i, p] of fx.panels.entries()) {
+    eq(`panel ${i} (${p.what})`, median(p.xs.map(BigInt)), BigInt(p.median));
+}
+eq("the fixture is the one the contract replays", fx.panelCount, fx.panels.length);
+
+for (const d of fx.deviations) {
+    eq(`deviation ${d.prev} -> ${d.next}`,
+        deviationBps(BigInt(d.next), BigInt(d.prev)), BigInt(d.bps));
+}
+
+for (const m of fx.marks) {
+    eq(`mark at price ${m.cleanPrice} rate ${m.usdPerHbar}`,
+        markPerUnitTinybar(BigInt(m.cleanPrice), BigInt(m.usdPerHbar)),
+        BigInt(m.markPerUnitTinybar));
+}
+
+// The lot multiply, against the numbers `venue/test/MarkToMarket.t.sol` opens a
+// repo with: a thousand units of a bond at par, priced against HBAR/USD as
+// `probes/chainlink-hedera.out` read it off chain 296.
+eq(
+    "a thousand units at par",
+    markOfLot(10000000000n, 8152235n, 1000n),
+    markPerUnitTinybar(10000000000n, 8152235n) * 1000n,
+);
+
+// A price is not an HBAR amount, and this is the vector that says so.
+eq("par, formatted as the price it is", formatPrice(10000000000n), "100.00000000");
+throws("a price is not a quantity", () => median([]), "non-empty");
+throws("and a zero rate is not divided by", () => markPerUnitTinybar(1n, 0n), "zero");
 
 if (bad) {
     console.error(`\n${bad} failing vector${bad === 1 ? "" : "s"}`);

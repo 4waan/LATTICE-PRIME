@@ -10,6 +10,10 @@ import {VolumeCap} from "../src/policy/VolumeCap.sol";
 import {TradingHalt} from "../src/policy/TradingHalt.sol";
 import {MatchingEngine} from "../src/market/MatchingEngine.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
+import {PrimeOracle} from "../src/oracle/PrimeOracle.sol";
+import {IPrimeOracle} from "../src/interfaces/IPrimeOracle.sol";
+import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
+import {HederaRateFeed} from "../src/oracle/HederaRateFeed.sol";
 import {MarginWatch} from "../src/observatory/MarginWatch.sol";
 import {Rulebook} from "../src/observatory/Rulebook.sol";
 import {SeamJournal} from "../src/observatory/SeamJournal.sol";
@@ -114,6 +118,52 @@ contract DeployVenue is Script {
     uint256 internal constant PENALTY_RATE = 10;
     uint64 internal constant FAIL_GRACE = 5 days;
 
+    /// @notice The window `markToMarket` gives a borrower to cure.
+    /// @dev Published rather than passed, because `markToMarket` is
+    ///      permissionless and a caller-chosen window would let anyone call a
+    ///      position and default it in the next block. `postMark` keeps its
+    ///      argument; that seat is a named address.
+    uint64 internal constant CURE_WINDOW = 1 days;
+
+    // ------------------------------------------------------------ the oracle
+
+    /// @notice Chainlink's HBAR/USD aggregator on Hedera testnet.
+    /// @dev **Named, and deliberately not seated.** Chainlink's proxies on
+    ///      Hedera are access controlled: a contract reading one gets
+    ///      `No access` while `decimals()` answers anyone, on testnet and on
+    ///      mainnet alike. `probes/chainlink-hedera.out` measures all seven
+    ///      through an on-chain probe, which is the only way to see it, because
+    ///      an `eth_call` sets `tx.origin` to its own `from` and passes the
+    ///      check. The constant stays because `CHAINLINK_HBAR_USD` is the
+    ///      override a chain that permits contract reads would use, and because
+    ///      a decision this expensive to rediscover should be written where the
+    ///      next person looks.
+    address internal constant CHAINLINK_HBAR_USD =
+        0xd4DC5F0a891381D09d6437482a0E4E2dca4ACCAa;
+
+    /// @dev Kept at Chainlink's own 86,400 second heartbeat plus slack, even
+    ///      though the seat holds `HederaRateFeed`, which is consensus state and
+    ///      cannot go quiet. It costs nothing, and it is the bound that binds
+    ///      again the moment a readable Chainlink aggregator is seated in its
+    ///      place. A bound tighter than a publisher's own would read a healthy
+    ///      feed as dark, which is what opens `RepoVault.postMark`.
+    uint64 internal constant CASH_HEARTBEAT = 26 hours;
+
+    /// @dev The venue's own leg is a panel this venue seats, so it is held to a
+    ///      tighter clock than the one it does not control.
+    uint64 internal constant FEED_HEARTBEAT = 6 hours;
+
+    /// @dev Five percent. A private bond's clean price does not move five
+    ///      percent between rounds for a reason the venue would not already
+    ///      know about, so a round that does is a bad publisher long before it
+    ///      is a market. The cost of the bound is stated in `docs/RULEBOOK.md`
+    ///      section 4: a genuine jump larger than this takes several rounds to
+    ///      walk, and until it does the feed goes stale and the manual seat runs.
+    uint16 internal constant MAX_DEVIATION_BPS = 500;
+
+    /// @dev The sort in `finalize` is bounded by this and nothing else.
+    uint8 internal constant MAX_PUBLISHERS = 7;
+
     function run() external {
         uint256 pk = vm.envUint("HEDERA_PRIVATE_KEY");
         address me = vm.addr(pk);
@@ -168,12 +218,41 @@ contract DeployVenue is Script {
         );
         engine.attachTradingHalt(halt);
 
-        // --- `me` is the margin engine: `postMark` is a price feed's call and
-        //     this venue has no oracle wired. It is the one seat here held by an
-        //     address rather than by a contract, and it is named so in the
-        //     record rather than left to be discovered.
+        // --- the feed. This is the line that closes the note the previous
+        //     version of this script carried: "`postMark` is a price feed's call
+        //     and this venue has no oracle wired. It is the one seat here held
+        //     by an address rather than by a contract."
+        //
+        //     Half of it is ours and half of it is not, and the split is the
+        //     design. LPRC's clean price is a private instrument nobody else
+        //     quotes, so a panel this venue seats is the only honest source.
+        //     HBAR/USD is not, so the cash-leg seat holds somebody else's
+        //     number: `HederaRateFeed` over the network's own rate at `0x168`,
+        //     or whatever `CASH_FEED` names on a chain with something better.
+        address[] memory panel = _publishers(me);
+        PrimeOracle oracle = new PrimeOracle(
+            params,
+            me,
+            _cashFeed(),
+            panel,
+            _quorum(panel.length),
+            MAX_PUBLISHERS,
+            FEED_HEARTBEAT,
+            CASH_HEARTBEAT,
+            MAX_DEVIATION_BPS
+        );
+
+        // --- `me` is still the margin engine, and that seat is now the
+        //     degradation rather than the mechanism: `postMark` refuses while
+        //     the feed is live and opens when it goes dark.
         RepoVault vault = new RepoVault(
-            IHoldByPartition(token), me, params, PENALTY_RATE, FAIL_GRACE
+            IHoldByPartition(token),
+            me,
+            IPrimeOracle(address(oracle)),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
         );
         MarginWatch watch = new MarginWatch(vault);
         Rulebook rulebook = new Rulebook(regime);
@@ -192,6 +271,10 @@ contract DeployVenue is Script {
         console2.log("engine           ", address(engine));
         console2.log("volumeCap        ", address(cap));
         console2.log("tradingHalt      ", address(halt));
+        console2.log("primeOracle      ", address(oracle));
+        console2.log("  cashFeed       ", address(oracle.cashFeed()));
+        console2.log("  publishers     ", oracle.publisherCount());
+        console2.log("  quorum         ", oracle.quorum());
         console2.log("repoVault        ", address(vault));
         console2.log("marginWatch      ", address(watch));
         console2.log("rulebook         ", address(rulebook));
@@ -214,5 +297,41 @@ contract DeployVenue is Script {
         return DisclosureBudget.Row({
             domainBits: 32, aggBits: 8, bucketBits: 16, budgetBits: 20
         });
+    }
+
+    // ------------------------------------------------------------- the panel
+
+    /// @notice The cash leg. An override, or a fresh adapter over `0x168`.
+    /// @dev See `script/DeployOracle.s.sol`, which carries the same helper and
+    ///      the same reason.
+    function _cashFeed() internal returns (AggregatorV3Interface) {
+        address given = vm.envOr("CASH_FEED", address(0));
+        if (given != address(0)) return AggregatorV3Interface(given);
+        return AggregatorV3Interface(address(new HederaRateFeed()));
+    }
+
+    /// @notice Who may price the bond. `ORACLE_PUBLISHERS`, comma separated.
+    /// @dev Falls back to the deployer alone, which is a one-seat panel and is
+    ///      honest about being one: a median of one is that one answer, and
+    ///      nothing in `PrimeOracle` pretends otherwise. The testnet deployment
+    ///      seats three, which is the smallest panel where the median is doing
+    ///      any work at all.
+    function _publishers(address me) internal view returns (address[] memory) {
+        address[] memory fallback_ = new address[](1);
+        fallback_[0] = me;
+        return vm.envOr("ORACLE_PUBLISHERS", ",", fallback_);
+    }
+
+    /// @notice A strict majority of the seated panel.
+    /// @dev Not the whole panel. Requiring every seat to answer makes one absent
+    ///      publisher a dark feed, and a feed that any single participant can
+    ///      switch off is a worse feed than one that tolerates them. A strict
+    ///      majority is also the bound the median's own robustness argument
+    ///      needs: with `f < n/2` dishonest answers the median stays inside the
+    ///      honest range.
+    function _quorum(uint256 seats) internal pure returns (uint8) {
+        // Safe: `PrimeOracle` refuses a panel above `maxPublishers`, a `uint8`.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return uint8(seats / 2 + 1);
     }
 }

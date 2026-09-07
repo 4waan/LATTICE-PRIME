@@ -412,9 +412,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
         _open();
         vm.prank(SELLER);
         vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.NotEscrow.selector, address(0)));
-        vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.NotEscrow.selector, address(0))
-        );
         engine.reveal(OrderBook.Side.SELL, 95, 1_000, "s", 42);
     }
 
@@ -557,9 +554,6 @@ contract MatchingEngineTest is Test, PolicyFixture {
     function test_anOpenRoundCannotBeCrossed() public {
         uint64 r = engine.currentRound();
         vm.expectRevert(abi.encodeWithSelector(MatchingEngineBase.RoundStillOpen.selector, r, r));
-        vm.expectRevert(
-            abi.encodeWithSelector(MatchingEngine.RoundStillOpen.selector, r, r)
-        );
         engine.crossRound(r);
     }
 
