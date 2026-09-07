@@ -14,3 +14,7 @@ deployments/.receipt-beat/
 # published record carries tx and log index, so a consumer dedupes without it,
 # and tools/hcs-relay.mjs reads the topic back at startup anyway.
 deployments/hcs-cursor.json
+
+# Raw cast output from script/live/rename-bond.sh. The evidence that matters is
+# the `renamed` block in deployments/296-venue.json, which carries both hashes.
+deployments/.rename-bond/

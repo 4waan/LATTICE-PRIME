@@ -1,4 +1,4 @@
-# SeamMe
+# Lattice Prime
 
 Tokenised collateral for repo, on Hedera, using the Asset Tokenization Studio.
 Eligibility is decided by a zero knowledge proof instead of a public KYC

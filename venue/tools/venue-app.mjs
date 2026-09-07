@@ -459,7 +459,7 @@ Venue.buildSheet = function () {
         '<div class="modal-scrim" data-close></div>' +
         '<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wm-title">' +
         '<button type="button" class="modal-x" data-close aria-label="Close">&times;</button>' +
-        '<h2 id="wm-title">Connect to SeamMe</h2>' +
+        '<h2 id="wm-title">Connect to Lattice Prime</h2>' +
         '<p class="sub">Hedera testnet, chain 296. The key must be ECDSA secp256k1: an ED25519 Hedera key cannot sign an EVM transaction.</p>' +
         '<div class="wallet-list" id="wm-wallets"></div>' +
         '<div class="wm-or"><span>OR</span></div>' +
@@ -678,7 +678,7 @@ Venue.connectWith = async function (provider) {
                 }],
             });
         } else if (e.code === 4001) {
-            Venue.sheetMsg("You declined the network switch. SeamMe only runs on chain 296.", true);
+            Venue.sheetMsg("You declined the network switch. Lattice Prime only runs on chain 296.", true);
             return;
         } else {
             throw e;

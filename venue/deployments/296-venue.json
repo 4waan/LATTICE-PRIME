@@ -14,8 +14,8 @@
  },
  "token": {
   "address": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
-  "name": "SeamMe Repo Collateral 2028",
-  "symbol": "SEAMC",
+  "name": "Lattice Prime Repo Collateral 2028",
+  "symbol": "LPRC",
   "isin": "XS0SEAMME017",
   "kind": "bond, variable rate",
   "configId": "0x0000000000000000000000000000000000000000000000000000000000000002",
@@ -34,7 +34,17 @@
   "externalKycLists": [
    "0xAa25f5CdCC905a6386a623ee37D3C57D29fA976a"
   ],
-  "contractId": "0.0.10381562"
+  "contractId": "0.0.10381562",
+  "renamed": {
+   "note": "D-25, 2026-09-07. Renamed in place through the ATS Core facet, gated on ROLE_TREX_OWNER, which script/DeployAtsBond.s.sol already granted the deployer. No redeploy: the address, the wiring, and every transaction hash recorded elsewhere in this file are unchanged. The prior metadata is kept rather than dropped, on the same rule as the superseded block below.",
+   "isin": "unchanged. ATS exposes no setter for it, and an ISIN is assigned once by a numbering agency and survives an issuer renaming the instrument. Changing it would assert a different bond.",
+   "from": {
+    "name": "SeamMe Repo Collateral 2028",
+    "symbol": "SEAMC"
+   },
+   "setNameTx": "0xdae057ba74fd47ee6cb340bf0281a27808b4230eb116524d6093d5f9fa77c3af",
+   "setSymbolTx": "0x4bd4d5bfba19f5fe68c616901ce0fa0888477486437dc9cbf930347d3fb6e203"
+  }
  },
  "kyc": {
   "note": "Deployed 2026-09-05, see 296-kyc.json. Unchanged; the bond was pointed at it.",
