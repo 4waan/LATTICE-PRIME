@@ -27,7 +27,7 @@ pragma solidity ^0.8.24;
 /// The paying agent's charge is a **fractional custom fee on the token itself**,
 /// collected by HTS during the transfer below. There is no EVM bookkeeping for
 /// it here, no fee arithmetic to get wrong, and nothing for this repository to
-/// argue is correct — the charge either is on the token's fee schedule or it is
+/// argue is correct. The charge either is on the token's fee schedule or it is
 /// not, and a reader checks it against the chain.
 /// `spikes/d02-atomicity/fractional-fee.js` measured the behaviour with three
 /// distinct parties before any of this was built.

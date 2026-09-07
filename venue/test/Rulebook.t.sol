@@ -10,6 +10,10 @@ import {IRespondentRegistry} from "../src/interfaces/IRespondentRegistry.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {MockHolds} from "./Repo.t.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
+import {CouponDistributor} from "../src/coupon/CouponDistributor.sol";
+import {ICouponSchedule} from "../src/interfaces/ICouponSchedule.sol";
+import {ICashToken} from "../src/interfaces/ICashToken.sol";
 import {StubOracle} from "./OracleFixture.sol";
 
 /// @notice A tariff source whose number can move after publication.
@@ -76,11 +80,12 @@ contract WritingSource {
 /// @title RulebookTest
 /// @notice The published rulebook, the tariff, and the claims in the document
 ///         that can be falsified by the code.
-contract RulebookTest is Test, PolicyFixture {
+contract RulebookTest is Test, PolicyFixture, CouponFixture {
     Rulebook internal book_;
     OrderBook internal orders;
     AxeBoard internal axes;
     RepoVault internal vault;
+    CouponDistributor internal coupons;
 
     uint64 internal constant DELAY = 5 minutes;
     uint64 internal constant WINDOW = 30 minutes;
@@ -102,12 +107,22 @@ contract RulebookTest is Test, PolicyFixture {
     ///      than derived, and `RepoVault.penaltyRate` says it again in code.
     uint256 internal constant PENALTY_RATE = 10;
 
+    /// @dev Twenty-five basis points, the number `script/DeployCoupon.s.sol`
+    ///      deploys. Section 8 says why it is published rather than derived, and
+    ///      why the line is a `(source, reader)` pair at all when nothing in
+    ///      this repository charges it: HTS collects the fee inside the transfer
+    ///      and this immutable is what the deployment declared that fee to be.
+    uint256 internal constant PAYING_AGENT_FEE_BPS = 25;
+
+    uint64 internal constant CLAIM_WINDOW = 30 days;
+    address internal constant ISSUER = address(0x155);
+
     /// @notice keccak256 of `docs/RULEBOOK.md`, byte for byte.
     /// @dev Recorded here rather than computed, so editing the document without
     ///      republishing fails the build instead of passing silently. The failure
     ///      prints the hash to paste back.
     bytes32 internal constant DOCUMENT =
-        0x6a09edf80365319ad14a26607a8a51bb7f431b59ac61b7c709b4e074af9de07a;
+        0xa2dc83512ddbce999fedf30d93bba2216b8b2e95e770c7f1a70fb3f121cc9f87;
 
     /// @dev The getters section 8 names. A wrong one cannot survive `setUp`:
     ///      `adopt` reads every sourced line back and refuses a mismatch.
@@ -116,6 +131,7 @@ contract RulebookTest is Test, PolicyFixture {
     bytes4 internal constant AXE_BOND_READER = bytes4(keccak256("axeBond()"));
     bytes4 internal constant PROBE_FEE_READER = bytes4(keccak256("probeFee()"));
     bytes4 internal constant PENALTY_READER = bytes4(keccak256("penaltyRate()"));
+    bytes4 internal constant AGENT_FEE_READER = bytes4(keccak256("payingAgentFeeBps()"));
     bytes4 internal constant VALUE_READER = bytes4(keccak256("value()"));
     bytes4 internal constant NO_READER = bytes4(keccak256("notAGetter()"));
 
@@ -133,7 +149,24 @@ contract RulebookTest is Test, PolicyFixture {
             OSR,
             MAX_OUT
         );
-        vault = new RepoVault(new MockHolds(), address(0xE49), new StubOracle(), params, PENALTY_RATE, 5 days, 1 days);
+        vault = new RepoVault(
+            new MockHolds(),
+            address(0xE49),
+            new StubOracle(),
+            _deploySchedule(uint64(block.timestamp)),
+            params,
+            PENALTY_RATE,
+            5 days,
+            1 days
+        );
+        coupons = new CouponDistributor(
+            params,
+            ICouponSchedule(address(couponSchedule)),
+            ICashToken(address(_deployCash())),
+            ISSUER,
+            CLAIM_WINDOW,
+            PAYING_AGENT_FEE_BPS
+        );
         book_ = new Rulebook(regime);
         _publishEdition(DOCUMENT, deployedSchedule());
     }
@@ -142,7 +175,7 @@ contract RulebookTest is Test, PolicyFixture {
 
     /// @notice Section 8 of the document, as code. Keys ascend.
     function deployedSchedule() internal view returns (Rulebook.Charge[] memory s) {
-        s = new Rulebook.Charge[](8);
+        s = new Rulebook.Charge[](9);
         uint256 i = 0;
         s[i++] =
             _c("axe.post.bond", address(axes), AXE_BOND_READER, AXE_BOND, P_PART, P_NONE, true);
@@ -175,6 +208,15 @@ contract RulebookTest is Test, PolicyFixture {
             address(orders),
             COMMIT_BOND_READER,
             COMMIT_BOND,
+            P_PART,
+            P_CPTY,
+            false
+        );
+        s[i++] = _c(
+            "coupon.paying.agent",
+            address(coupons),
+            AGENT_FEE_READER,
+            PAYING_AGENT_FEE_BPS,
             P_PART,
             P_CPTY,
             false
@@ -322,6 +364,36 @@ contract RulebookTest is Test, PolicyFixture {
         assertEq(
             book_.netOperatorTake(),
             int256(PENALTY_RATE),
+            "redirecting the payee did not change the answer"
+        );
+    }
+
+    /// @notice The paying agent is the issuer's agent, so the venue is not paid.
+    /// @dev The line is worth a test of its own rather than leaving it to
+    ///      `test_theVenueTakeIsZero`, because it is the only line in the
+    ///      schedule whose mechanism is not in this repository. Nothing here
+    ///      charges the twenty-five basis points; HTS collects them inside the
+    ///      transfer that pays a claim. What the tariff can still check is the
+    ///      disposition: the number published equals the number the deployment
+    ///      declared, and the payee is not the operator. Section 8's derivation
+    ///      says why the second one is the load-bearing half.
+    function test_thePayingAgentIsNotVenueRevenue() public {
+        (bool found, Rulebook.Charge memory c) = book_.chargeOf("coupon.paying.agent");
+        assertTrue(found, "the paying agent is not in the published tariff");
+        assertEq(c.source, address(coupons), "the line does not name the distributor");
+        assertEq(
+            c.amount, coupons.payingAgentFeeBps(), "the published rate is not the deployed one"
+        );
+        assertEq(uint8(c.payer), uint8(P_PART));
+        assertEq(uint8(c.payee), uint8(P_CPTY), "the venue is being paid the coupon fee");
+        assertEq(book_.netOperatorTake(), 0, "the venue took something");
+
+        Rulebook.Charge[] memory s = deployedSchedule();
+        s[_at(s, "coupon.paying.agent")].payee = P_OPER;
+        _publishEdition(DOCUMENT, s);
+        assertEq(
+            book_.netOperatorTake(),
+            int256(PAYING_AGENT_FEE_BPS),
             "redirecting the payee did not change the answer"
         );
     }

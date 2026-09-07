@@ -10,6 +10,9 @@ import {VolumeCap} from "../src/policy/VolumeCap.sol";
 import {TradingHalt} from "../src/policy/TradingHalt.sol";
 import {MatchingEngine} from "../src/market/MatchingEngine.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
+import {ICouponSchedule} from "../src/interfaces/ICouponSchedule.sol";
+import {CouponMath} from "../src/coupon/CouponMath.sol";
+import {CouponSchedule} from "../src/coupon/CouponSchedule.sol";
 import {PrimeOracle} from "../src/oracle/PrimeOracle.sol";
 import {IPrimeOracle} from "../src/interfaces/IPrimeOracle.sol";
 import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
@@ -125,6 +128,67 @@ contract DeployVenue is Script {
     ///      argument; that seat is a named address.
     uint64 internal constant CURE_WINDOW = 1 days;
 
+    // ------------------------------------------------------------ the coupon
+
+    /// @notice The bond's spread over the reference rate, in basis points.
+    /// @dev The deployed instrument is `"kind": "bond, variable rate"`, which
+    ///      means the coupon resets against something. `PrimeOracle` publishes
+    ///      the reference leg and this is the issuer's margin over it, fixed at
+    ///      issuance because that is what a spread is.
+    uint16 internal constant COUPON_SPREAD_BPS = 75;
+
+    /// @notice Nominal value of one unit of the bond, in the cash token's
+    ///         smallest unit.
+    /// @dev `deployments/296-venue.json` says `nominalValue: "100.00"` and
+    ///      `currency: "USD"`. The cash asset carries two decimals, so one unit
+    ///      of face is ten thousand of them. This is the second place in this
+    ///      repository where a scale has to be right and cannot be inferred from
+    ///      the type, after `HBAR` above, and it is written out for the same
+    ///      reason that one is.
+    uint128 internal constant FACE_VALUE = 10_000;
+
+    /// @notice How many coupons the calendar carries, and how far apart.
+    /// @dev Quarterly to the 2028 maturity, near enough, and **not compressed
+    ///      the way `DELAY` and `ROUND` are**. The market constants are squeezed
+    ///      because somebody has to watch a round cross inside a session; a
+    ///      coupon calendar is not watched, it is read, and a bond with hourly
+    ///      coupons would be a bond that does not exist. What makes a coupon
+    ///      demonstrable instead is `FIRST_COUPON` below.
+    uint256 internal constant COUPONS = 8;
+    uint64 internal constant COUPON_PERIOD = 91 days;
+
+    /// @dev **The one compression, and it is at the front rather than
+    ///      throughout.** `CouponDistributor.declare` refuses a coupon that has
+    ///      not fallen due, so a calendar whose first date is three months out
+    ///      is a distributor nobody can exercise until March. One hour in makes
+    ///      the first coupon reachable in the session the venue is deployed in,
+    ///      and every date after it is a real quarter. The accrual is ACT/365
+    ///      either way, so the first coupon is simply a small one: an hour of a
+    ///      year at the reference rate, which is the arithmetic being correct
+    ///      rather than the arithmetic being bypassed.
+    uint64 internal constant FIRST_COUPON = 1 hours;
+
+    // The calendar is deployed here and the distributor is not, because the
+    // distributor needs a cash token and an HTS fungible token with a fractional
+    // custom fee is made by a receipted HTS transaction rather than by a
+    // Solidity `new`. `script/DeployCoupon.s.sol` takes the schedule address
+    // this script prints, plus `CASH_TOKEN`, and carries `CLAIM_WINDOW` and
+    // `PAYING_AGENT_FEE_BPS` with the reasoning behind both numbers. Holding
+    // them in one place keeps a redeployment from publishing a tariff rate that
+    // disagrees with the one `docs/RULEBOOK.md` §8 reconciles against.
+
+    /// @notice Quarterly coupon dates from now, with the first one an hour out.
+    /// @dev A function and not a literal array, because the dates are relative
+    ///      to the deployment and a committed array would be a calendar that
+    ///      went stale the moment it was written.
+    function _couponDates(uint64 from) internal pure returns (uint64[] memory dates) {
+        dates = new uint64[](COUPONS);
+        dates[0] = from + FIRST_COUPON;
+        for (uint256 i = 1; i < COUPONS; ++i) {
+            dates[i] = dates[i - 1] + COUPON_PERIOD;
+        }
+    }
+
     // ------------------------------------------------------------ the oracle
 
     /// @notice Chainlink's HBAR/USD aggregator on Hedera testnet.
@@ -138,8 +202,7 @@ contract DeployVenue is Script {
     ///      override a chain that permits contract reads would use, and because
     ///      a decision this expensive to rediscover should be written where the
     ///      next person looks.
-    address internal constant CHAINLINK_HBAR_USD =
-        0xd4DC5F0a891381D09d6437482a0E4E2dca4ACCAa;
+    address internal constant CHAINLINK_HBAR_USD = 0xd4DC5F0a891381D09d6437482a0E4E2dca4ACCAa;
 
     /// @dev Kept at Chainlink's own 86,400 second heartbeat plus slack, even
     ///      though the seat holds `HederaRateFeed`, which is consensus state and
@@ -193,29 +256,29 @@ contract DeployVenue is Script {
         SeamJournal journal = _existing("VENUE_JOURNAL") != address(0)
             ? SeamJournal(_existing("VENUE_JOURNAL"))
             : new SeamJournal(
-                me,
-                token,
-                registry,
-                clock.epochZero(),
-                clock.epochLength(),
-                L.TOP,
-                _row()
+                me, token, registry, clock.epochZero(), clock.epochLength(), L.TOP, _row()
             );
 
         MatchingEngine engine = new MatchingEngine(
-            DELAY, WINDOW, BOND, FEE, params, ROUND, REST,
-            IHoldByPartition(token), PARTITION, ICompliance(address(journal))
+            DELAY,
+            WINDOW,
+            BOND,
+            FEE,
+            params,
+            ROUND,
+            REST,
+            IHoldByPartition(token),
+            PARTITION,
+            ICompliance(address(journal))
         );
 
-        VolumeCap cap = new VolumeCap(
-            regime, address(engine), CAP_BPS, L.point(L.G_EXACT, L.T_IMM)
-        );
+        VolumeCap cap =
+            new VolumeCap(regime, address(engine), CAP_BPS, L.point(L.G_EXACT, L.T_IMM));
         regime.bootstrapSupervisor(address(cap));
         engine.attachVolumeCap(cap);
 
-        TradingHalt halt = new TradingHalt(
-            regime, address(engine), MAX_HALT, HALT_BUDGET, BAND_BPS, BREAKER
-        );
+        TradingHalt halt =
+            new TradingHalt(regime, address(engine), MAX_HALT, HALT_BUDGET, BAND_BPS, BREAKER);
         engine.attachTradingHalt(halt);
 
         // --- the feed. This is the line that closes the note the previous
@@ -245,10 +308,19 @@ contract DeployVenue is Script {
         // --- `me` is still the margin engine, and that seat is now the
         //     degradation rather than the mechanism: `postMark` refuses while
         //     the feed is live and opens when it goes dark.
+        CouponSchedule schedule = new CouponSchedule(
+            uint64(block.timestamp),
+            _couponDates(uint64(block.timestamp)),
+            COUPON_SPREAD_BPS,
+            FACE_VALUE,
+            CouponMath.Basis.ACT_365
+        );
+
         RepoVault vault = new RepoVault(
             IHoldByPartition(token),
             me,
             IPrimeOracle(address(oracle)),
+            ICouponSchedule(address(schedule)),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -275,6 +347,11 @@ contract DeployVenue is Script {
         console2.log("  cashFeed       ", address(oracle.cashFeed()));
         console2.log("  publishers     ", oracle.publisherCount());
         console2.log("  quorum         ", oracle.quorum());
+        console2.log("couponSchedule   ", address(schedule));
+        console2.log("  coupons        ", schedule.count());
+        console2.log("  spreadBps      ", schedule.spreadBps());
+        console2.log("  faceValue      ", schedule.faceValue());
+        console2.log("  firstCoupon    ", schedule.dateOf(0));
         console2.log("repoVault        ", address(vault));
         console2.log("marginWatch      ", address(watch));
         console2.log("rulebook         ", address(rulebook));
@@ -294,9 +371,8 @@ contract DeployVenue is Script {
     ///      them. They are fixture numbers on a live deployment too, and saying
     ///      so here is cheaper than being asked.
     function _row() internal pure returns (DisclosureBudget.Row memory) {
-        return DisclosureBudget.Row({
-            domainBits: 32, aggBits: 8, bucketBits: 16, budgetBits: 20
-        });
+        return
+            DisclosureBudget.Row({domainBits: 32, aggBits: 8, bucketBits: 16, budgetBits: 20});
     }
 
     // ------------------------------------------------------------- the panel

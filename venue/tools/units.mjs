@@ -257,6 +257,86 @@ export function deviationBps(a, b) {
     return (d * 10_000n) / y;
 }
 
+// ------------------------------------------------------------------ the coupon
+
+/// Basis points in one hundred percent.
+export const BPS = 10_000n;
+
+/// The year `CouponMath` accrues against. ACT/365, so a fixed 365 days and never
+/// a calendar year: 2028 is a leap year and the bond's coupon does not know it.
+export const COUPON_YEAR = 365n * 24n * 60n * 60n;
+
+/// The largest coupon `CouponMath` will accrue at. One hundred percent.
+export const MAX_RATE_BPS = BPS;
+
+/// `CouponMath.couponBps`, transcribed. The published reference plus the
+/// schedule's spread, which is the whole of what makes this bond variable rate.
+/// @dev Refuses over the cap rather than saturating at it, because a schedule
+///      that quietly clamped would pay a coupon nobody agreed to. `CouponSchedule`
+///      calls this in its constructor so a spread that could never accrue is a
+///      schedule that cannot be deployed.
+export function couponBps(refRateBps, spreadBps) {
+    const r = big(refRateBps, "refRateBps") + big(spreadBps, "spreadBps");
+    if (r > MAX_RATE_BPS) {
+        throw new UnitError(
+            `coupon rate ${r} bps is over the ${MAX_RATE_BPS} bp cap. ` +
+            "CouponMath.RateTooLarge refuses this rather than clamping to it."
+        );
+    }
+    return r;
+}
+
+/// `CouponMath.accrue`, transcribed. The coupon on `lot` units over `[from, to)`.
+///
+/// @dev **Rounds down, where `RepoMath.accrued` and this file's repo arithmetic
+///      round up, and the difference is not an inconsistency.** `RepoMath` prices
+///      what a borrower owes and rounds so the borrower never repays less than
+///      the contract says. This prices what an issuer owes out of a pool funded
+///      in advance, and rounding up there means a set of entitlements whose sum
+///      exceeds what was funded: a rounding choice turning into a payment that
+///      fails at the last claimant. `CouponDistributor` bounds each coupon by its
+///      own pool for the same reason from the other side.
+///
+///      **The multiplication order is the contract's and not a convenience.**
+///      Every factor first, one division last. Dividing early throws away a
+///      fraction the remaining factors would have recovered, and on the bond's
+///      `maxSupply` of a million that is a missing coupon rather than a rounding
+///      error. JavaScript `bigint` has no overflow to trade against, so the only
+///      reason to keep the order is that a client which divided in a different
+///      place would answer a different number than the chain, which is the whole
+///      point of this file.
+export function couponAccrual({lot, faceValue, rateBps, from, to}) {
+    const l = big(lot, "lot");
+    const f = big(faceValue, "faceValue");
+    const r = big(rateBps, "rateBps");
+    const a = big(from, "from");
+    const b = big(to, "to");
+    if (b < a) {
+        throw new UnitError(
+            `period runs backwards: ${a} to ${b}. CouponMath.PeriodNotOrdered.`
+        );
+    }
+    if (r > MAX_RATE_BPS) {
+        throw new UnitError(`rate ${r} bps is over the ${MAX_RATE_BPS} bp cap.`);
+    }
+    return (l * f * r * (b - a)) / (BPS * COUPON_YEAR);
+}
+
+/// The coupon on one repo's lot, given what the feed published.
+/// @dev The four reads `RepoVault.noteCoupon` makes, in the order it makes them,
+///      so a screen can show what a `noteCoupon` will find before anybody sends
+///      one. `couponOwed` on the vault answers the same number from the chain and
+///      this is what a client compares it against.
+export function couponOnLot({lot, faceValue, spreadBps, refRateBps, accrualStart, dueAt}) {
+    return couponAccrual({
+        lot,
+        faceValue,
+        rateBps: couponBps(refRateBps, spreadBps),
+        from: accrualStart,
+        to: dueAt,
+    });
+}
+
 // ------------------------------------------------------------- the diagnosis
 
 /// Reads a `WrongBond(sent, want)` and names which of the three units mistakes

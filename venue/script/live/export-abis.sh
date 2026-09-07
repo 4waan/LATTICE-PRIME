@@ -34,6 +34,13 @@ emit OrderBook.sol        OrderBook
 emit RepoVault.sol        RepoVault
 emit PrimeOracle.sol      PrimeOracle
 emit MarginWatch.sol      MarginWatch
+# The coupon leg. The schedule is instrument reference data a client reads to
+# show a calendar; the distributor is the one contract a holder sends a
+# transaction to, and its `claim` takes a positional merkle proof rather than a
+# sorted-pair one, so a client that guesses the shape from a library builds
+# proofs it refuses. Exporting the ABI is how the shape stops being a guess.
+emit CouponSchedule.sol    CouponSchedule
+emit CouponDistributor.sol CouponDistributor
 emit SeamJournal.sol      SeamJournal
 emit Rulebook.sol         Rulebook
 emit VolumeCap.sol        VolumeCap

@@ -64,6 +64,17 @@ being wrong.
 it is `sure: false` and excluded by name rather than by omission. That loses a
 silence rather than inventing one.
 
+`RepoVault.noteCoupon` joined it, and for a reason worth writing down because
+the flag had been correct until the code changed under it. The call used to take
+the coupon commitment as an argument and every guard in it reverted, so a
+successful transaction with no row 14 charge could only be a withheld
+disclosure. It now derives the commitment, and deriving brought an idempotence
+guard: a coupon already noted **returns zero** rather than reverting, because
+`docs/BUILD-REMAINING.md` §3 puts this call behind a HIP-1215 `scheduleCall` and
+a scheduled call that fires after somebody made it by hand has to be a no-op.
+Under scheduling that second call is the ordinary case rather than the rare one,
+so `sure: true` would have printed a silence on nearly every scheduled coupon.
+
 **The row has to be metered.** `DisclosureMeter.spend` returns early on
 `budgetBits == 0` and emits nothing, entirely legitimately, so absence of a
 charge on an unmetered row means nothing at all. The deployed set meters rows 13,
@@ -145,6 +156,15 @@ change who may write to it. The cost of that choice is that a leaked submit key
 cannot be rotated, which is survivable only because a record written by somebody
 else fails the same test a forged one would.
 
+**Cannot make a public tree private.** A `CouponDistributor` entitlement root is
+published to declare a coupon, and Hedera balances are readable from the mirror
+node, so an observer who already reads balances can test candidate leaves against
+the root and reconstruct who held what at the record date. The tree itself names
+no address and this venue emits none, but that is a property of a public ledger
+and not of this design, and no disclosure policy here reaches it. Row 14's
+ceiling constrains what the venue says; it does not constrain what the ledger
+already shows. `docs/RULEBOOK.md` §11.
+
 **Can stall.** Nothing forces liveness. Turn the relay off and the topic stops.
 The gap is visible in the sequence numbers and in the checkpoint series and
 cannot be prevented. That is inherent to HIP-478 and to every oracle pattern, and
@@ -160,7 +180,21 @@ own `spentBits(uint64)` keyed by epoch alone, and its own explicit
 shape for a contract that already publishes its own withholding, so it is out of
 v1 and named here rather than quietly missing.
 
-**One conditional site is excluded.** `RepoVault.postMark`'s row 14, above.
+**Two conditional sites are excluded.** `RepoVault.postMark`'s row 14 and
+`RepoVault.noteCoupon`'s, both above.
+
+**The coupon leg's own claim path is outside this entirely.**
+`CouponDistributor.claim` does not meter. Paying somebody what a published root
+already says they are owed discloses nothing the root did not, and a claim that
+could exhaust a budget is a coupon a holder cannot collect because other holders
+collected first. `declare` is metered on row 7 and a ceiling breach there
+reverts, because a venue that may not publish a corporate action must not
+declare one, and nothing is stranded when it refuses. The payment is not
+metered, and the asymmetry is deliberate rather than an omission:
+`test_aCouponPaysWhateverTheMatrixSays` narrows row 7 after a declaration and
+requires every holder of it to still be paid to the last unit, while
+`test_aNarrowedRowFourteenStopsTheNote` shows the other side, where
+`RepoVault.noteCoupon` does stop.
 
 **Checkpoints are not one per epoch unconditionally.** Every epoch that carried a
 record gets one, because that is the epoch a verifier reconciles, plus the latest

@@ -253,6 +253,76 @@ mechanism that does not actually prevent it.
 
 ---
 
+### What actually happened
+
+Five things the plan did not know, in the order the build taught them.
+
+**"The same tree machinery as `ParameterRoot`" was not a reuse, it was an
+extraction.** `ParameterRoot` had the tree inlined, so honouring the rule meant
+lifting it into `src/merkle/MerkleSet.sol` and moving the policy root onto the
+library first, before a coupon existed to use it. That refactor is the reason
+the repo has one merkle discipline rather than two, and it is also where the
+discipline turned out to have a sharp edge worth naming: the tree **promotes**
+an odd node rather than duplicating it, so a proof is positional. It carries a
+position and the tree's width, and it is not the sorted-pair proof every
+OpenZeppelin-shaped client library produces. A client that assumes sorted pairs
+builds proofs this contract refuses, which is why `test/CouponFixture.sol`
+carries the reference builder and calls itself that.
+
+**`noteCoupon` was taking the caller's word for the number.** The old shape was
+`noteCoupon(bytes32 id, bytes32 commitment)`, selector `0x2df30366`, and the
+commitment was an argument. The vault has the lot, the schedule has the dates
+and the spread, and the oracle has the reference rate, so the vault can compute
+the coupon itself and the argument was a place for a caller to put a different
+one. It now derives, at selector `0x2bae2cde`, and
+`test_theOldShapeThatTookACallersWordIsGone` calls the old selector low level
+and requires the call to fail.
+
+**Deriving it brought an idempotence guard, and the guard changed what a silent
+transaction means.** A coupon already noted returns zero rather than reverting,
+because §3 puts this call behind a HIP-1215 `scheduleCall` and a scheduled call
+that fires after somebody made it by hand has to be a no-op. That is a
+successful transaction that reaches no `_emitUnder` and is not a withheld
+disclosure, so `tools/hcs.mjs` flipped this selector's `sure` flag to false.
+Under scheduling the second call is the ordinary case and not the rare one, and
+leaving the flag set would have printed a silence that did not happen, which
+that file's header names as the failure the venue cannot have.
+
+**A fractional fee has a disposition that inverts who pays it.** The ordinary
+case deducts from the amount transferred, so the holder receives the coupon less
+the fee and the distributor's balance falls by exactly what it committed. A fee
+schedule with `netOfTransfers` set charges the **sender** on top, and then every
+payment costs the distributor more than it declared. The funding check at
+`declare` cannot see it, and the shortfall would surface at the last claimant of
+the last coupon, furthest from the schedule that caused it. `_pay` measures its
+own balance either side of the transfer and refuses on the first claim, naming
+the fee. Two extra reads on a path that already makes an external call.
+
+**The invariant campaign measured nothing three times before it measured
+anything.** `targetContract` exposes every external function, including the
+handler's own `wire` setter, and the fuzzer spent 1826 calls, about eleven
+percent of a campaign's depth, on re-wiring attempts that reverted;
+`targetSelector` naming the eight drivers fixed it. Blind index draws over twelve
+coupons rarely landed on one whose claim window was open, so the handler now
+walks its own record of declared indices to the first coupon that is still
+claimable. And the counters printed by `afterInvariant` come from the **shrunk**
+replay rather than from the campaign, so they read zero whatever happened, which
+is a diagnostic that looks like a result. All three are recorded in the handler
+next to the measurement that motivated them.
+
+The tariff line landed with the counterparty as payee, so `netOperatorTake` is
+still zero and §9's headline survives. What §9 gained instead is a boundary: the
+coupon leg puts a second HTS asset in the venue and that one's fractional fee is
+on, which does not reopen the trading no-leak result because the coupon path has
+no circuit, no proof and no order book on it.
+
+Not live. The distributor needs a cash token with a fee schedule, and creating
+that is a receipted HTS transaction rather than a Solidity `new`, so
+`script/DeployCoupon.s.sol` takes `CASH_TOKEN` from the environment and refuses
+to deploy without it.
+
+---
+
 ## 3. `ScheduledSettlement` — the spike, shipped
 
 ### What is wrong today

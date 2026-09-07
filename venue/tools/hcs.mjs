@@ -79,7 +79,22 @@ export const SITES = {
     "0x9fcdeba6": {src: "vault", fn: "cure", rows: [{row: 14, g: 1, sure: true}]},
     "0xb3dc49a0": {src: "vault", fn: "markFailing", rows: [{row: 14, g: 1, sure: true}]},
     "0xdaf79598": {src: "vault", fn: "declareDefault", rows: [{row: 14, g: 1, sure: true}]},
-    "0x2df30366": {src: "vault", fn: "noteCoupon", rows: [{row: 14, g: 1, sure: true}]},
+    // **`sure` flipped to false here, and the selector moved, in the same
+    // change.** `noteCoupon` used to take the commitment as an argument and
+    // every guard in it reverted, so a SUCCESS with no row 14 charge could only
+    // be a withheld disclosure. Deriving the commitment brought an idempotence
+    // guard with it: a second call for a coupon already noted *returns zero*
+    // rather than reverting, because `docs/BUILD-REMAINING.md` §3 puts this
+    // behind a HIP-1215 `scheduleCall` and a scheduled call that fires after
+    // somebody already made it by hand has to be a no-op.
+    //
+    // That is a successful transaction that reaches no `_emitUnder` and is not
+    // a silence. Leaving this `true` would print one every time a scheduled
+    // coupon call landed second, which under HIP-1215 scheduling is the
+    // ordinary case and not the rare one. The cost of `false` is a missed
+    // silence at this site; the cost of `true` is a silence that did not
+    // happen, and this file's header says which of those the venue cannot have.
+    "0x2bae2cde": {src: "vault", fn: "noteCoupon", rows: [{row: 14, g: 1, sure: false}]},
     "0x1c6a825c": {src: "vault", fn: "payThrough", rows: [{row: 14, g: 1, sure: true}]},
     "0xe68a8171": {src: "vault", fn: "settleAuction", rows: [{row: 14, g: 1, sure: true}]},
     // Row 16 always; row 14 only when `breach` and the repo was OPEN. The second

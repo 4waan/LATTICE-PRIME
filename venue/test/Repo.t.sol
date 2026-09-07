@@ -8,6 +8,7 @@ import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
+import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 
 /// @dev Records the ATS calls rather than simulating them. The point of a mock
@@ -136,7 +137,7 @@ contract RepoMathTest is Test {
     }
 }
 
-contract RepoVaultTest is Test, PolicyFixture {
+contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -159,14 +160,28 @@ contract RepoVaultTest is Test, PolicyFixture {
     address constant ENGINE = address(0xE49);
     bytes32 constant ID = keccak256("repo-1");
     bytes32 constant PARTITION = bytes32(uint256(1));
-    /// A commitment to 12,500, not the number. See `manufacturedCommitment`.
-    bytes32 constant COUPON = keccak256("coupon: 12500");
+    /// @dev The coupon `_noteCoupon` reaches for. Index and not an amount:
+    ///      `noteCoupon` derives the amount now. See `RepoVault.noteCoupon`.
+    uint256 constant COUPON_INDEX = 0;
+    /// @dev The reference rate the stub publishes. Four hundred and twenty five
+    ///      basis points, which is the number round one on chain 296 medianed
+    ///      to. `deployments/296-venue.json` `venue.feed`.
+    uint64 constant REF_RATE_BPS = 425;
 
     function setUp() public {
         feed = new StubOracle();
         holds = new MockHolds();
         _deployPolicy(asDeployed());
-        vault = new RepoVault(holds, ENGINE, feed, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW);
+        vault = new RepoVault(
+            holds,
+            ENGINE,
+            feed,
+            _deploySchedule(uint64(block.timestamp)),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
     }
 
     function _open() internal returns (uint256 principal) {
@@ -184,6 +199,19 @@ contract RepoVaultTest is Test, PolicyFixture {
                 term: 30 days
             })
         );
+    }
+
+    /// @dev Turns the feed on and warps to the first coupon date, because
+    ///      `noteCoupon` now needs both: a coupon that has fallen due, and a
+    ///      published reference rate to accrue against. The feed is left dark in
+    ///      `setUp` on purpose (see `OracleFixture.StubOracle`), so every other
+    ///      test in this suite keeps running against the venue it was written
+    ///      for, where `postMark` is the reachable seat.
+    function _noteCoupon() internal returns (uint256 owed) {
+        feed.setTerms(100e8, REF_RATE_BPS);
+        feed.setMark(1);
+        vm.warp(couponSchedule.dateOf(COUPON_INDEX));
+        owed = vault.noteCoupon(ID, COUPON_INDEX);
     }
 
     // ------------------------------------------------------------------ T1
@@ -294,7 +322,7 @@ contract RepoVaultTest is Test, PolicyFixture {
     /// through.
     function test_manufacturedPaymentBlocksTheCloseUntilItIsPaid() public {
         _open();
-        vault.noteCoupon(ID, COUPON);
+        _noteCoupon();
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MANUFACTURED));
 
         vm.prank(BORROWER);
@@ -312,7 +340,7 @@ contract RepoVaultTest is Test, PolicyFixture {
 
     function test_onlyTheLenderPaysThrough() public {
         _open();
-        vault.noteCoupon(ID, COUPON);
+        _noteCoupon();
         vm.prank(BORROWER);
         vm.expectRevert(RepoVaultBase.NotParty.selector);
         vault.payThrough(ID);
@@ -387,24 +415,36 @@ contract RepoVaultTest is Test, PolicyFixture {
     ///      rate is public instrument data, so the old `CouponObserved(id,
     ///      uint256)` divided out to the exact position. Row 14 puts that at
     ///      `(none, {}, never)`.
+    ///
+    ///      **The amount this test hunts for is derived now rather than
+    ///      hard-coded**, which is the whole of what changed underneath it. It
+    ///      used to look for 12,500 because a caller had handed 12,500 in; it
+    ///      looks for whatever `noteCoupon` computed, because nobody hands
+    ///      anything in any more. The claim is unchanged and it is now a claim
+    ///      about a number the contract chose.
     function test_theCouponAmountIsNotInAnyLogOrInTheStruct() public {
         _open();
+        feed.setTerms(100e8, REF_RATE_BPS);
+        feed.setMark(1);
+        vm.warp(couponSchedule.dateOf(COUPON_INDEX));
+
         vm.recordLogs();
-        vault.noteCoupon(ID, COUPON);
+        uint256 owed = vault.noteCoupon(ID, COUPON_INDEX);
+        assertGt(owed, 0, "a coupon that accrued nothing would pass this test vacuously");
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         for (uint256 i = 0; i < logs.length; ++i) {
             for (uint256 j = 0; j < logs[i].topics.length; ++j) {
-                assertTrue(uint256(logs[i].topics[j]) != 12_500, "amount leaked in a topic");
+                assertTrue(uint256(logs[i].topics[j]) != owed, "amount leaked in a topic");
             }
             if (logs[i].data.length >= 32) {
-                assertTrue(
-                    abi.decode(logs[i].data, (uint256)) != 12_500, "amount leaked in data"
-                );
+                assertTrue(abi.decode(logs[i].data, (uint256)) != owed, "amount leaked in data");
             }
         }
         assertEq(
-            vault.repo(ID).manufacturedCommitment, COUPON, "the commitment, not the number"
+            vault.repo(ID).manufacturedCommitment,
+            vault.commitmentOf(ID, COUPON_INDEX, owed),
+            "the commitment, not the number"
         );
     }
 }

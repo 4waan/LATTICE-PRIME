@@ -1,0 +1,406 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "issuedAt_",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "dates_",
+    "type": "uint64[]",
+    "internalType": "uint64[]"
+   },
+   {
+    "name": "spreadBps_",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "faceValue_",
+    "type": "uint128",
+    "internalType": "uint128"
+   },
+   {
+    "name": "basis_",
+    "type": "uint8",
+    "internalType": "enum CouponMath.Basis"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "DOMAIN_LEAF",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "DOMAIN_NODE",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "MAX_COUPONS",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "accrualStart",
+  "inputs": [
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "amountFor",
+  "inputs": [
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "refRateBps",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "lot",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "basis",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "enum CouponMath.Basis"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "count",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "dateOf",
+  "inputs": [
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "dates",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64[]",
+    "internalType": "uint64[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "faceValue",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint128",
+    "internalType": "uint128"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "issuedAt",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "root",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "rootOf",
+  "inputs": [
+   {
+    "name": "issuedAt_",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "dates_",
+    "type": "uint64[]",
+    "internalType": "uint64[]"
+   },
+   {
+    "name": "spreadBps_",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "faceValue_",
+    "type": "uint128",
+    "internalType": "uint128"
+   },
+   {
+    "name": "basis_",
+    "type": "uint8",
+    "internalType": "enum CouponMath.Basis"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "spreadBps",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "event",
+  "name": "ScheduleFixed",
+  "inputs": [
+   {
+    "name": "root",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "issuedAt",
+    "type": "uint64",
+    "indexed": false,
+    "internalType": "uint64"
+   },
+   {
+    "name": "coupons",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "error",
+  "name": "DatesNotAscending",
+  "inputs": [
+   {
+    "name": "previous",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "next",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "FirstCouponBeforeIssue",
+  "inputs": [
+   {
+    "name": "issuedAt_",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "first",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NoCoupons",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NoSuchCoupon",
+  "inputs": [
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "count_",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "PeriodNotOrdered",
+  "inputs": [
+   {
+    "name": "from",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "to",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "RateTooLarge",
+  "inputs": [
+   {
+    "name": "bps",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "TooManyCoupons",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "max",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "UnsupportedBasis",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint8",
+    "internalType": "enum CouponMath.Basis"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "ZeroFaceValue",
+  "inputs": []
+ }
+]

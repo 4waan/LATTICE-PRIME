@@ -18,6 +18,11 @@
     "internalType": "contract IPrimeOracle"
    },
    {
+    "name": "schedule_",
+    "type": "address",
+    "internalType": "contract ICouponSchedule"
+   },
+   {
     "name": "policy_",
     "type": "address",
     "internalType": "contract IDisclosurePolicy"
@@ -39,6 +44,19 @@
    }
   ],
   "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "DOMAIN_MANUFACTURED",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
  },
  {
   "type": "function",
@@ -101,6 +119,69 @@
    }
   ],
   "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "commitmentOf",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "couponOwed",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "owed",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dark",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "noted",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
  },
  {
   "type": "function",
@@ -209,13 +290,43 @@
     "internalType": "bytes32"
    },
    {
-    "name": "commitment",
-    "type": "bytes32",
-    "internalType": "bytes32"
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
    }
   ],
-  "outputs": [],
+  "outputs": [
+   {
+    "name": "owed",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
   "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "notedCoupon",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
  },
  {
   "type": "function",
@@ -498,6 +609,19 @@
     "name": "",
     "type": "uint256",
     "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "schedule",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract ICouponSchedule"
    }
   ],
   "stateMutability": "view"
@@ -910,6 +1034,48 @@
  },
  {
   "type": "error",
+  "name": "CouponNotYetDue",
+  "inputs": [
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "due",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "CouponOutsideTerm",
+  "inputs": [
+   {
+    "name": "index",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "due",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "openedAt",
+    "type": "uint64",
+    "internalType": "uint64"
+   },
+   {
+    "name": "maturity",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
   "name": "CureWindowOpen",
   "inputs": [
    {
@@ -948,6 +1114,11 @@
  },
  {
   "type": "error",
+  "name": "FeedIsDark",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "FeedIsLive",
   "inputs": []
  },
@@ -965,6 +1136,11 @@
  {
   "type": "error",
   "name": "NoFeed",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NoSchedule",
   "inputs": []
  },
  {

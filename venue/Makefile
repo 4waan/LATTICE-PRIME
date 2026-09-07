@@ -85,6 +85,10 @@ census:
 #   lattice.mjs    -> the five DisclosureView getters  test/ReceiptVectors.t.sol
 #   units.mjs      -> CallAuction.notional and the market parameters
 #                                                test/UnitVectors.t.sol
+#   entitlements.mjs -> MerkleSet as CouponDistributor uses it: the tree is
+#                      positional and promotes its odd node, so a sorted-pair
+#                      library builds roots it will not recognise
+#                                                test/UnitVectors.t.sol
 #   hcs.mjs        -> the topic record schema, the silence table, and the audit
 #                      that says a record matches the chain
 #                                                 deployments/abi/*.json
@@ -93,6 +97,7 @@ vectors:
 	$(NODE) node tools/commitment.test.mjs
 	$(NODE) node tools/lattice.test.mjs
 	$(NODE) node tools/units.test.mjs
+	$(NODE) node tools/entitlements.test.mjs
 	$(NODE) node tools/hcs.test.mjs
 
 # The two pages a trader reads: the commitment before signing `commit(bytes32)`,
