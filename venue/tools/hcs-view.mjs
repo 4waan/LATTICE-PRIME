@@ -200,7 +200,7 @@ Venue.auditTopic = async function () {
     for (const row of wanted) {
         const res = results.get(row.rec.tx);
         const ctx = {
-            address: CLIENT.addresses[SOURCE_ADDRESS_KEY[row.rec.c]],
+            address: row.rec.a || CLIENT.addresses[SOURCE_ADDRESS_KEY[row.rec.c]],
             epoch: res && res.timestamp
                 ? Math.max(0, Math.floor(
                     (Number(String(res.timestamp).split(".")[0]) -

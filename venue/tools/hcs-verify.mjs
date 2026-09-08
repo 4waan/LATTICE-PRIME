@@ -55,10 +55,17 @@ const EPOCH_ORIGIN = Number(c.clocks.disclosure.origin);
 const EPOCH_PERIOD = Number(c.clocks.disclosure.period);
 
 const chain = reader(c.network.rpc, c.network.chainId);
-const meters = {
-    engine: chain.at(c.addresses.MatchingEngine, "MatchingEngine"),
-    vault: chain.at(c.addresses.RepoVault, "RepoVault"),
-};
+const meterCache = new Map();
+function meterAt(src, address) {
+    const key = `${src}:${String(address).toLowerCase()}`;
+    if (!meterCache.has(key)) {
+        meterCache.set(
+            key,
+            chain.at(address, SOURCE_ADDRESS_KEY[src]),
+        );
+    }
+    return meterCache.get(key);
+}
 const params = chain.at(c.addresses.ParameterRoot, "ParameterRoot");
 
 // The epoch the parameter set in force took effect. `budgetFor` reads current
@@ -140,10 +147,13 @@ async function resultOf(hash) {
     return txCache.get(hash);
 }
 await Promise.all([...new Set(records
-    .filter(({rec}) => rec.k === "charge" || rec.k === "refusal" || rec.k === "silence")
+    .filter(({rec}) =>
+        rec.k === "charge" || rec.k === "refusal"
+            || rec.k === "ceiling" || rec.k === "silence")
     .map(({rec}) => rec.tx))].map(resultOf));
 
-const addressOf = (src) => String(c.addresses[SOURCE_ADDRESS_KEY[src]]).toLowerCase();
+const addressOf = (rec) =>
+    String(rec.a || c.addresses[SOURCE_ADDRESS_KEY[rec.c]]).toLowerCase();
 
 const budgetCache = new Map();
 async function budgetOf(row) {
@@ -164,7 +174,14 @@ for (const {seq, rec} of records) {
     if (rec.k === "checkpoint") continue;
     const where = `sequence ${seq} (${rec.k})`;
     const res = await resultOf(rec.tx);
-    const ctx = {address: addressOf(rec.c), epoch: epochAt(res.timestamp, EPOCH_ORIGIN, EPOCH_PERIOD)};
+    if (res.__error) {
+        note(`${where} names a transaction the mirror node has`, false, res.__error);
+        continue;
+    }
+    const ctx = {address: addressOf(rec)};
+    if (rec.k !== "ceiling") {
+        ctx.epoch = epochAt(res.timestamp, EPOCH_ORIGIN, EPOCH_PERIOD);
+    }
     if (rec.k === "silence") {
         const b = await budgetOf(rec.r);
         ctx.budgetBits = b.budgetBits;
@@ -175,7 +192,6 @@ for (const {seq, rec} of records) {
         note(`${where} is not before the parameter set took effect`, rec.e >= POLICY_FROM,
             `adopted at epoch ${POLICY_FROM}`);
     }
-    if (res.__error) { note(`${where} names a transaction the mirror node has`, false, res.__error); continue; }
     for (const x of auditRecord(rec, res, ctx)) note(`${where} ${x.name}`, x.pass, x.detail);
 }
 
@@ -187,18 +203,20 @@ for (const {seq, rec} of records) {
 const byMeter = new Map();
 for (const {seq, rec} of records) {
     if (rec.k !== "charge") continue;
-    const k = `${rec.c}:${rec.r}:${rec.e}`;
+    const k = `${rec.c}:${addressOf(rec)}:${rec.r}:${rec.e}`;
     if (!byMeter.has(k)) byMeter.set(k, []);
     byMeter.get(k).push({seq, ...rec});
 }
 
 const checkpoints = new Map();
 for (const {rec} of records) {
-    if (rec.k === "checkpoint") checkpoints.set(`${rec.c}:${rec.e}`, rec);
+    if (rec.k === "checkpoint") {
+        checkpoints.set(`${rec.c}:${addressOf(rec)}:${rec.e}`, rec);
+    }
 }
 
 for (const [k, list] of byMeter) {
-    const [src, row, epoch] = k.split(":");
+    const [src, address, row, epoch] = k.split(":");
     list.sort((a, b) => a.after - b.after);
     // The running totals in the logs themselves have to form an unbroken chain
     // from zero. A gap is a charge the topic does not carry.
@@ -211,8 +229,9 @@ for (const [k, list] of byMeter) {
     note(`${src} row ${row} epoch ${epoch}: the running totals chain from zero`, chained,
         chained ? `${list.length} charge${list.length === 1 ? "" : "s"}, ${running} bits` : "a charge is missing");
 
-    const onChain = Number(await meters[src].spentBits(Number(row), Number(epoch)));
-    const cp = checkpoints.get(`${src}:${epoch}`);
+    const onChain =
+        Number(await meterAt(src, address).spentBits(Number(row), Number(epoch)));
+    const cp = checkpoints.get(`${src}:${address}:${epoch}`);
     if (cp) {
         // The omission check. A closed epoch the topic checkpointed has to add
         // up, exactly, against a number the relay does not write.
@@ -233,7 +252,8 @@ for (const [k, list] of byMeter) {
 // dressed differently.
 for (const cp of checkpoints.values()) {
     for (const row of Object.keys(cp.rows)) {
-        const onChain = Number(await meters[cp.c].spentBits(Number(row), cp.e));
+        const onChain =
+            Number(await meterAt(cp.c, addressOf(cp)).spentBits(Number(row), cp.e));
         note(`${cp.c} checkpoint epoch ${cp.e} row ${row}`, Number(cp.rows[row]) === onChain,
             `checkpoint ${cp.rows[row]}, spentBits ${onChain}`);
     }

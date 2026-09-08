@@ -16,11 +16,6 @@ abstract contract DisclosureView {
     /// @notice Bits spent per row per epoch against the governed coalition budget.
     DisclosureMeter.Meter internal _meter;
 
-    /// @notice A disclosure was refused by the row's ceiling. Emitted with the
-    ///         revert, so the refusal is in the trace even though the state is
-    ///         rolled back.
-    event DisclosureRefused(bytes32 indexed id, uint16 row, uint32 excess);
-
     /// @notice The cells by which a disclosure exceeded `row`'s ceiling.
     error DisclosureExceedsCeiling(uint16 row, uint32 excess);
 
@@ -33,13 +28,12 @@ abstract contract DisclosureView {
     ///      configuration error and reverts; an exhausted budget is the mechanism
     ///      working, so the event is withheld and the transaction completes.
     /// @return afforded Whether the caller should emit.
-    function _emitUnder(bytes32 id, uint16 row, uint8 g, uint8 t)
+    function _emitUnder(bytes32, uint16 row, uint8 g, uint8 t)
         internal
         returns (bool afforded)
     {
         uint32 over = L.excess(policy.ceilingFor(row), L.point(g, t));
         if (over != 0) {
-            emit DisclosureRefused(id, row, over);
             revert DisclosureExceedsCeiling(row, over);
         }
         return DisclosureMeter.spend(_meter, policy, row, g);

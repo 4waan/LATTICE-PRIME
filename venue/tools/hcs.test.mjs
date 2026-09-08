@@ -1,7 +1,7 @@
 // The vectors for `tools/hcs.mjs`, in the two kinds `units.test.mjs` uses.
 //
 // **The pinned vectors are the deployed contracts' own numbers.** Every selector
-// in `SITES` and both event topic hashes are recomputed here from
+// in `SITES`, the charge topic, and the ceiling-error selector are recomputed here from
 // `deployments/abi/*.json`, which `script/live/export-abis.sh` writes out of
 // `out/`. So the silence table cannot drift from the chain by a rename, an
 // argument reorder, or a stale copy: rebuilding the ABIs and running `make
@@ -18,14 +18,16 @@ import {fileURLToPath} from "node:url";
 import {Interface, id as keccakId} from "ethers";
 import {
     MAX_CHUNK, SCHEMA_VERSION, SITES, SOURCES, SOURCE_ADDRESS_KEY,
-    TOPIC_CHARGED, TOPIC_REFUSED, FIELDS,
+    TOPIC_CHARGED, TOPIC_REFUSED, ERROR_CEILING, FIELDS, LEGACY_FIELDS,
     encode, decode, validate, keyOf, describe, auditRecord,
-    decodeChargeLog, decodeRefusalLog, RecordError,
+    decodeChargeLog, decodeRefusalLog, decodeCeilingError, RecordError,
 } from "./hcs.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const abi = (name) => JSON.parse(readFileSync(join(root, "deployments/abi", name + ".json"), "utf8"));
 const client = JSON.parse(readFileSync(join(root, "deployments/client.json"), "utf8"));
+const ENGINE = client.addresses.MatchingEngine.toLowerCase();
+const VAULT = client.addresses.RepoVault.toLowerCase();
 
 let bad = 0;
 const eq = (what, got, want) => {
@@ -59,17 +61,25 @@ const refuses = (what, fn, match) => {
 
 // ---------------------------------------------------------------- the chain
 
-// Both event hashes, off the deployed ABIs rather than off a comment.
+// Event and error selectors, off the deployed ABIs rather than off a comment.
 {
     const seen = {};
+    let ceilingError = null;
     for (const name of ["MatchingEngine", "RepoVault"]) {
         const i = new Interface(abi(name));
         i.forEachEvent((ev) => { seen[ev.name] = ev.topicHash; });
+        if (name === "RepoVault") {
+            ceilingError = i.getError("DisclosureExceedsCeiling").selector;
+        }
     }
     eq("DisclosureCharged topic hash", seen.DisclosureCharged, TOPIC_CHARGED);
-    eq("DisclosureRefused topic hash", seen.DisclosureRefused, TOPIC_REFUSED);
+    eq("DisclosureExceedsCeiling selector", ceilingError, ERROR_CEILING);
     eq("TOPIC_CHARGED is the signature it claims", TOPIC_CHARGED,
         keccakId("DisclosureCharged(uint16,uint64,uint8,uint32,uint32)"));
+    eq("ERROR_CEILING is the signature it claims", ERROR_CEILING,
+        keccakId("DisclosureExceedsCeiling(uint16,uint32)").slice(0, 10));
+    eq("TOPIC_REFUSED retains its legacy signature", TOPIC_REFUSED,
+        keccakId("DisclosureRefused(bytes32,uint16,uint32)"));
 }
 
 // Every silence site is a real external function on the contract it names, and
@@ -143,10 +153,16 @@ const REFUSAL = {
     tx: "0x" + "11".repeat(32), li: 3,
     id: "0x" + "22".repeat(32), r: 14, x: 2,
 };
+const CEILING = {
+    v: SCHEMA_VERSION, k: "ceiling", c: "vault", a: VAULT,
+    tx: "0x" + "11".repeat(32),
+    sel: "0x778ae762", fn: "open", r: 7, x: 2,
+};
 const CHECKPOINT = {
     v: 1, k: "checkpoint", c: "engine", e: 39, blk: 40154879,
     rows: {3: 0, 4: 0, 5: 0, 7: 0, 12: 0, 13: 0, 14: 0, 15: 1, 16: 0, 17: 0},
 };
+const CHARGE_V2 = {...CHARGE, v: SCHEMA_VERSION, a: ENGINE};
 
 eq("a charge encodes to its canonical bytes", encode(CHARGE),
     '{"v":1,"k":"charge","c":"engine","tx":"0xa7e2287bec0fadcdeccc3c3484acab1d081eae2a6eca219b20b76b80c41950f3",'
@@ -154,9 +170,14 @@ eq("a charge encodes to its canonical bytes", encode(CHARGE),
 eq("a silence encodes to its canonical bytes", encode(SILENCE),
     '{"v":1,"k":"silence","c":"engine","tx":"0x2885d8da867b1cab43863698895a2bf78fb35114743a33849ba5f771cc707594",'
     + '"sel":"0xc4d252f5","fn":"cancel","r":15,"e":39,"spent":1,"budget":1}');
+eq("a legacy refusal keeps its canonical bytes", encode(REFUSAL),
+    '{"v":1,"k":"refusal","c":"vault","tx":"0x1111111111111111111111111111111111111111111111111111111111111111",'
+    + '"li":3,"id":"0x2222222222222222222222222222222222222222222222222222222222222222","r":14,"x":2}');
 
 for (const [name, rec] of [["charge", CHARGE], ["silence", SILENCE],
-                           ["refusal", REFUSAL], ["checkpoint", CHECKPOINT]]) {
+                           ["legacy refusal", REFUSAL], ["ceiling", CEILING],
+                           ["checkpoint", CHECKPOINT],
+                           ["address-bound charge", CHARGE_V2]]) {
     const text = encode(rec);
     const back = decode(text);
     eq(`${name} survives a round trip`, encode(back), text);
@@ -172,21 +193,35 @@ for (const [name, rec] of [["charge", CHARGE], ["silence", SILENCE],
 {
     const rows = {};
     for (const r of [3, 4, 5, 7, 12, 13, 14, 15, 16, 17]) rows[r] = 0xffffffff;
-    const wide = encode({v: 1, k: "checkpoint", c: "vault", e: 9007199254740991, blk: 9007199254740991, rows});
+    const wide = encode({
+        v: SCHEMA_VERSION, k: "checkpoint", c: "vault", a: VAULT,
+        e: 9007199254740991, blk: 9007199254740991, rows,
+    });
     const size = new TextEncoder().encode(wide).length;
     ok(`the widest checkpoint is one chunk (${size} bytes)`, size <= MAX_CHUNK);
 }
 
-eq("the record order is the schema's", FIELDS.charge.join(","), "v,k,c,tx,li,r,e,g,cost,after");
-eq("the schema version is 1", SCHEMA_VERSION, 1);
+eq("the current record order binds its address", FIELDS.charge.join(","),
+    "v,k,c,a,tx,li,r,e,g,cost,after");
+eq("the legacy record order stays decodable", LEGACY_FIELDS.charge.join(","),
+    "v,k,c,tx,li,r,e,g,cost,after");
+eq("the legacy refusal shape stays decodable", LEGACY_FIELDS.refusal.join(","),
+    "v,k,c,tx,li,id,r,x");
+eq("the schema version is 2", SCHEMA_VERSION, 2);
 
 // ------------------------------------------------------------- the refusals
 
 refuses("a bare string is not a record", () => decode("hello"), "not JSON");
 refuses("an array is not a record", () => decode("[1,2,3]"), "must be a JSON object");
 refuses("null is not a record", () => decode("null"), "must be a JSON object");
-refuses("an unknown version is refused", () => decode('{"v":2,"k":"charge"}'), "unknown schema version");
+refuses("an unknown version is refused", () => decode('{"v":3,"k":"charge"}'), "unknown schema version");
+refuses("a current record without its source address is refused",
+    () => validate({...CHARGE, v: SCHEMA_VERSION}), "missing field a");
 refuses("an unknown kind is refused", () => validate({...CHARGE, k: "shout"}), "unknown kind");
+refuses("a legacy ceiling kind is refused",
+    () => validate({...CEILING, v: 1, a: undefined}), "unknown kind");
+refuses("a current refusal kind is refused",
+    () => validate({...REFUSAL, v: SCHEMA_VERSION, a: VAULT}), "unknown kind");
 
 refuses("an extra field is refused, not ignored",
     () => validate({...CHARGE, extra: 1}), "unexpected field");
@@ -212,6 +247,15 @@ refuses("a granularity above the lattice is refused", () => validate({...CHARGE,
 refuses("a charge whose running total is below its own cost is refused",
     () => validate({...CHARGE, cost: 2, after: 1}), "below the charge");
 refuses("an unknown contract is refused", () => validate({...CHARGE, c: "axeboard"}), "c must be one of");
+
+refuses("a ceiling record at an unknown selector is refused",
+    () => validate({...CEILING, sel: "0xdeadbeef"}), "not a disclosing entry point");
+refuses("a ceiling record whose name does not match is refused",
+    () => validate({...CEILING, fn: "close"}), "does not match");
+refuses("a ceiling record on another row is refused",
+    () => validate({...CEILING, r: 13}), "does not disclose row");
+refuses("a ceiling record with zero excess is refused",
+    () => validate({...CEILING, x: 0}), "non-zero excess");
 
 refuses("a silence at an unknown selector is refused",
     () => validate({...SILENCE, sel: "0xdeadbeef"}), "not a disclosing entry point");
@@ -264,8 +308,6 @@ refuses("a checkpoint with more than 64 rows is refused", () => {
 // `auditRecord` reads, so the vectors run offline and cannot pass because a
 // network call quietly returned nothing.
 
-const ENGINE = "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae";
-
 /// `cancel` that charged row 15. HashScan carries it under this hash.
 const RES_CHARGE = {
     hash: "0xa7e2287bec0fadcdeccc3c3484acab1d081eae2a6eca219b20b76b80c41950f3",
@@ -304,8 +346,20 @@ const RES_SILENCE = {
     logs: [],
 };
 
+const word = (value) => BigInt(value).toString(16).padStart(64, "0");
+const RES_CEILING = {
+    hash: CEILING.tx,
+    address: VAULT,
+    result: "CONTRACT_REVERT_EXECUTED",
+    error_message: ERROR_CEILING + word(7) + word(2),
+    timestamp: "1788643907.000000000",
+    function_parameters: CEILING.sel + "00".repeat(128),
+    logs: [],
+};
+
 const CTX_CHARGE = {address: ENGINE, epoch: 39};
 const CTX_SILENCE = {address: ENGINE, epoch: 39, budgetBits: 1, cost: 1};
+const CTX_CEILING = {address: VAULT};
 
 const audits = (what, rec, res, ctx, wantPass) => {
     const rows = auditRecord(rec, res, ctx);
@@ -324,7 +378,11 @@ const audits = (what, rec, res, ctx, wantPass) => {
 // The two real records audit clean against the two real transactions. Without
 // this the refusals below would pass for the wrong reason.
 audits("the real charge audits clean", decode(encode(CHARGE)), RES_CHARGE, CTX_CHARGE, true);
+audits("an address-bound charge audits clean",
+    decode(encode(CHARGE_V2)), RES_CHARGE, CTX_CHARGE, true);
 audits("the real silence audits clean", decode(encode(SILENCE)), RES_SILENCE, CTX_SILENCE, true);
+audits("a typed ceiling refusal audits clean",
+    decode(encode(CEILING)), RES_CEILING, CTX_CEILING, true);
 
 // One field at a time, against the log that says otherwise.
 for (const [field, value] of [["r", 13], ["e", 40], ["g", 4], ["cost", 2], ["after", 3]]) {
@@ -338,6 +396,9 @@ audits("a charge pointing at a log index that does not exist is caught",
     validate({...CHARGE, li: 9}), RES_CHARGE, CTX_CHARGE, false);
 audits("a charge attributed to the wrong contract is caught",
     validate(CHARGE), RES_CHARGE, {...CTX_CHARGE, address: "0x" + "ab".repeat(20)}, false);
+audits("an address-bound record cannot be audited against a replacement",
+    validate(CHARGE_V2), RES_CHARGE,
+    {...CTX_CHARGE, address: "0x" + "ab".repeat(20)}, false);
 
 // An audit handed less than it needs must fail, not pass vacuously. Without
 // these, comparing an absent address to an absent address reads as a match, and
@@ -371,18 +432,44 @@ audits("a silence with room left in the row is caught",
     validate({...SILENCE, spent: 4, budget: 4}), RES_SILENCE,
     {...CTX_SILENCE, budgetBits: 4, cost: 0}, false);
 
+audits("a ceiling record on a successful transaction is caught",
+    validate(CEILING), {...RES_CEILING, result: "SUCCESS"}, CTX_CEILING, false);
+audits("a ceiling record whose selector is not the calldata's is caught",
+    validate(CEILING), {...RES_CEILING, function_parameters: "0x39c79e0c"},
+    CTX_CEILING, false);
+audits("a ceiling record with a changed row is caught",
+    validate(CEILING),
+    {...RES_CEILING, error_message: ERROR_CEILING + word(13) + word(2)},
+    CTX_CEILING, false);
+audits("a ceiling record without the typed revert data is caught",
+    validate(CEILING), {...RES_CEILING, error_message: "0x"}, CTX_CEILING, false);
+
 // The log decoders refuse a shape that is not the event, rather than reading
 // five numbers out of whatever is there.
 refuses("a charge log with one indexed field is refused",
     () => decodeChargeLog({topics: [TOPIC_CHARGED, "0x00"], data: "0x"}), "two indexed fields");
 refuses("a charge log with short data is refused",
     () => decodeChargeLog({topics: [TOPIC_CHARGED, "0x0f", "0x27"], data: "0x00"}), "want 96");
-refuses("a refusal log with short data is refused",
-    () => decodeRefusalLog({topics: [TOPIC_REFUSED, "0x00"], data: "0x00"}), "want 64");
+refuses("a legacy refusal log with short data is refused",
+    () => decodeRefusalLog({topics: [TOPIC_REFUSED, REFUSAL.id], data: "0x00"}), "want 64");
+refuses("a short ceiling error is refused",
+    () => decodeCeilingError(ERROR_CEILING), "want 68");
+refuses("another custom error is not a ceiling refusal",
+    () => decodeCeilingError("0xdeadbeef" + word(14) + word(2)),
+    "not DisclosureExceedsCeiling");
 
 eq("a charge log decodes to the event it carries",
     JSON.stringify(decodeChargeLog(RES_CHARGE.logs[0])),
     JSON.stringify({row: 15, epoch: 39, g: 1, cost: 1, after: 1}));
+eq("a legacy refusal log decodes to the event it carries",
+    JSON.stringify(decodeRefusalLog({
+        topics: [TOPIC_REFUSED, REFUSAL.id],
+        data: "0x" + word(14) + word(2),
+    })),
+    JSON.stringify({id: REFUSAL.id, row: 14, x: 2}));
+eq("a ceiling error decodes to the refusal it carries",
+    JSON.stringify(decodeCeilingError(RES_CEILING.error_message)),
+    JSON.stringify({row: 7, x: 2}));
 
 // ------------------------------------------------------------------ verdict
 
@@ -390,4 +477,4 @@ if (bad) {
     console.error(`\n${bad} hcs vector${bad === 1 ? "" : "s"} failed`);
     process.exit(1);
 }
-console.log("hcs.mjs: schema, silence table and refusals agree with the deployed ABIs");
+console.log("hcs.mjs: schema, silence table and ceiling errors agree with the deployed ABIs");

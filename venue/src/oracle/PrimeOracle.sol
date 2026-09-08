@@ -423,17 +423,24 @@ contract PrimeOracle is IPrimeOracle, AggregatorV3Interface, DisclosureView {
         AggregatorV3Interface f = cashFeed;
         if (address(f) == address(0)) return (false, 0, 0);
         try f.latestRoundData() returns (
-            uint80 roundId, int256 answer, uint256, uint256 updatedAt, uint80 answeredInRound
+            uint80 roundId,
+            int256 answer,
+            uint256,
+            uint256 feedUpdatedAt,
+            uint80 answeredInRound
         ) {
             if (answer <= 0) return (false, 0, 0);
             // An in-progress round carries a zero timestamp, and an answer
             // carried over from an earlier round answers an older question than
             // the id claims.
-            if (updatedAt == 0 || answeredInRound < roundId) return (false, 0, 0);
-            if (block.timestamp > updatedAt + cashHeartbeat) return (false, 0, 0);
-            // Safe: guarded non-negative directly above.
+            if (
+                feedUpdatedAt == 0 || feedUpdatedAt > block.timestamp
+                    || feedUpdatedAt > type(uint64).max || answeredInRound < roundId
+            ) return (false, 0, 0);
+            if (block.timestamp - feedUpdatedAt > cashHeartbeat) return (false, 0, 0);
+            // Safe: the answer and timestamp bounds are guarded above.
             // forge-lint: disable-next-line(unsafe-typecast)
-            return (true, uint256(answer), uint64(updatedAt));
+            return (true, uint256(answer), uint64(feedUpdatedAt));
         } catch {
             return (false, 0, 0);
         }
