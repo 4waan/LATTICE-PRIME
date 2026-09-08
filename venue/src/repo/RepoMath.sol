@@ -80,7 +80,7 @@ library RepoMath {
         uint256 maintenanceBps
     ) internal pure returns (bool) {
         uint256 exposure = repurchasePrice(principal, repoRateBps, openedAt, at);
-        uint256 required = _mulDiv(exposure, BPS + maintenanceBps, BPS);
+        uint256 required = _mulDivUp(exposure, BPS + maintenanceBps, BPS);
         return markValue < required;
     }
 
@@ -138,6 +138,18 @@ library RepoMath {
         uint256 remainder = mulmod(x, y, denominator);
         result = _mulDiv(quotient, z, 1) + _mulDiv(remainder, z, denominator);
         if (mulmod(remainder, z, denominator) != 0) {
+            if (result == type(uint256).max) revert MulDivOverflow();
+            result += 1;
+        }
+    }
+
+    function _mulDivUp(uint256 x, uint256 y, uint256 denominator)
+        private
+        pure
+        returns (uint256 result)
+    {
+        result = _mulDiv(x, y, denominator);
+        if (mulmod(x, y, denominator) != 0) {
             if (result == type(uint256).max) revert MulDivOverflow();
             result += 1;
         }
