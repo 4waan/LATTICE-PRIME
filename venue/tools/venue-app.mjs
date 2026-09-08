@@ -260,6 +260,12 @@ Venue.contracts = function (runner) {
         oracle: A.PrimeOracle
             ? new ethers.Contract(A.PrimeOracle, ABI.PrimeOracle, runner)
             : null,
+        couponSchedule: A.CouponSchedule
+            ? new ethers.Contract(A.CouponSchedule, ABI.CouponSchedule, runner)
+            : null,
+        couponDistributor: A.CouponDistributor
+            ? new ethers.Contract(A.CouponDistributor, ABI.CouponDistributor, runner)
+            : null,
     };
 };
 
@@ -370,9 +376,18 @@ Venue.block = function (msg) {
 };
 
 Venue.assertWiring = async function () {
-    const {engine, token} = Venue.c;
+    const {engine, token, vault, watch, couponDistributor} = Venue.c;
     const A = CLIENT.addresses;
-    const [sec, comp, pol, cap, halt, tcomp, kyc, feedOf] = await Promise.all([
+    const couponChecks = A.CouponSchedule
+        ? Promise.all([
+            vault.schedule(),
+            watch.vault(),
+            couponDistributor.policy(),
+            couponDistributor.schedule(),
+            couponDistributor.cash(),
+        ])
+        : Promise.resolve(null);
+    const [sec, comp, pol, cap, halt, tcomp, kyc, feedOf, couponOf] = await Promise.all([
         engine.security(),
         engine.compliance(),
         engine.policy(),
@@ -380,7 +395,8 @@ Venue.assertWiring = async function () {
         engine.tradingHalt(),
         token.compliance(),
         token.isExternalKycList(A.ZkKycRegistry),
-        A.PrimeOracle ? Venue.c.vault.oracle() : Promise.resolve(null),
+        A.PrimeOracle ? vault.oracle() : Promise.resolve(null),
+        couponChecks,
     ]);
     const fails = [];
     if (!addrEq(sec, A.token)) fails.push("engine.security() is not the bond");
@@ -394,6 +410,23 @@ Venue.assertWiring = async function () {
     // a price this screen cannot show you, which is worse than showing nothing.
     if (feedOf !== null && !addrEq(feedOf, A.PrimeOracle)) {
         fails.push("vault.oracle() is not the PrimeOracle in this address book");
+    }
+    if (couponOf) {
+        if (!addrEq(couponOf[0], A.CouponSchedule)) {
+            fails.push("vault.schedule() is not CouponSchedule");
+        }
+        if (!addrEq(couponOf[1], A.RepoVault)) {
+            fails.push("watch.vault() is not RepoVault");
+        }
+        if (!addrEq(couponOf[2], A.ParameterRoot)) {
+            fails.push("distributor.policy() is not ParameterRoot");
+        }
+        if (!addrEq(couponOf[3], A.CouponSchedule)) {
+            fails.push("distributor.schedule() is not CouponSchedule");
+        }
+        if (!addrEq(couponOf[4], A.couponCashToken)) {
+            fails.push("distributor.cash() is not couponCashToken");
+        }
     }
     if (fails.length) throw new Error(fails.join("; "));
 };

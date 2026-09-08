@@ -143,8 +143,10 @@
   "VolumeCap": "0x875b9B9F76678DD38D90AB5a400cA17d6E50aBB3",
   "TradingHalt": "0x79ed68512Cd554f3Ef33A3ECd57aEE643f916177",
   "PrimeOracle": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
-  "RepoVault": "0xeD38ed697EcdEc0572b1F52a2409322858D71990",
-  "MarginWatch": "0x73A24d0DF087E18D4b8cbDB9734Cb607d33D30D2",
+  "CouponSchedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
+  "RepoVault": "0xEC8A6F6De7c1882EF2661F4dEdB9bD30E0b94964",
+  "MarginWatch": "0x2c2bF19AD702C92C0b947fd11D8c71625318Ef9b",
+  "CouponDistributor": "0x2DC04508Fa7FEde1BaAEBe4a525D63bef509C341",
   "Rulebook": "0x28Bacf68849dcAdFedf8826D20892a0FA1CC555f",
   "wiring": {
    "engine.security": "the ATS bond",
@@ -153,7 +155,12 @@
    "journal.registry": "ZkKycRegistry",
    "regime.supervisor": "VolumeCap, so suspension is arithmetic rather than a person",
    "cap.venue": "MatchingEngine, checked by attachVolumeCap",
-   "vault.oracle": "PrimeOracle, so postMark is only reachable while the feed is dark"
+   "vault.oracle": "PrimeOracle, so postMark is only reachable while the feed is dark",
+   "vault.schedule": "CouponSchedule, so every coupon obligation comes from the fixed calendar",
+   "watch.vault": "the current RepoVault",
+   "distributor.schedule": "CouponSchedule",
+   "distributor.policy": "ParameterRoot",
+   "distributor.cash": "LPCASH 0.0.10419905"
   },
   "market": {
    "note": "Amounts are in the unit msg.value carries inside the Hedera EVM, which is tinybars: 1 HBAR is 1e8.",
@@ -170,8 +177,10 @@
    "SeamJournal": "0.0.10381694",
    "VolumeCap": "0.0.10381842",
    "TradingHalt": "0.0.10381850",
-   "RepoVault": "0.0.10407431",
-   "MarginWatch": "0.0.10407435",
+   "CouponSchedule": "0.0.10419923",
+   "RepoVault": "0.0.10419927",
+   "MarginWatch": "0.0.10419958",
+   "CouponDistributor": "0.0.10419985",
    "Rulebook": "0.0.10381856",
    "PrimeOracle": "0.0.10407426",
    "HederaRateFeed": "0.0.10407248",
@@ -229,9 +238,77 @@
     "refRateBps": 425,
     "markPerUnitTinybar": "124005891271, which is 1240.06 HBAR per unit of face",
     "finalizeTx": "0xc8fe3e7cd13d7a01f504b4d14970844500b28635894b40d233b6be42b36d5723"
+   },
+   "latestRefresh": {
+    "note": "Published after the scheduled settlement deployment so the UI and permissionless mark-to-market path start with a live feed.",
+    "round": 2,
+    "price": "100.00 USD per unit of face, 10000000000 at eight decimals",
+    "refRateBps": 425,
+    "publishedAt": 1788863105,
+    "markPerUnitTinybar": "125005218967",
+    "submitTx": [
+     "0x5976369d54fb4b4b1bad399dccfefd689536dd193b178a1cdfb2dac0f4b1c976",
+     "0x1dba7147b4bf8458b135a3c963f00c319003afce5643d1997548dfb7fc5cff97",
+     "0x4fd0d270bd4bbe6eb7beafede1d0f64c4b71ac27332a12e7c77229706cbf2c99"
+    ],
+    "finalizeTx": "0x86ab616963bf9010c2edc0614f84262c5726aa5d942077bfdc0c87e35f1bd3f3"
    }
   },
   "HederaRateFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+ },
+ "coupon": {
+  "note": "Deployed 2026-09-08. CouponSchedule fixes the eight-date ACT/365 calendar. CouponDistributor accepts only fully funded declarations and pays claims in native HTS cash. RepoVault derives manufactured coupon obligations from this calendar and attempts HIP-1215 native scheduling when Hedera reports capacity.",
+  "CouponSchedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
+  "CouponDistributor": "0x2DC04508Fa7FEde1BaAEBe4a525D63bef509C341",
+  "contractIds": {
+   "CouponSchedule": "0.0.10419923",
+   "CouponDistributor": "0.0.10419985"
+  },
+  "terms": {
+   "issuedAt": 1788862481,
+   "firstCoupon": 1788866081,
+   "coupons": 8,
+   "periodSecondsAfterFirst": 7862400,
+   "spreadBps": 75,
+   "faceValueSmallestCashUnits": 10000,
+   "basis": "ACT/365",
+   "root": "0x0f77c97c6633cc8f178af5d3b3449f112020457fe51bd2789c1419d257e310ca",
+   "claimWindowSeconds": 2592000
+  },
+  "cashToken": {
+   "tokenId": "0.0.10419905",
+   "address": "0x00000000000000000000000000000000009efec1",
+   "name": "Lattice Prime Coupon Cash",
+   "symbol": "LPCASH",
+   "decimals": 2,
+   "initialSupply": "100000000",
+   "treasury": "0.0.10301312",
+   "fee": {
+    "numerator": 25,
+    "denominator": 10000,
+    "basisPoints": 25,
+    "minimum": 1,
+    "maximum": null,
+    "netOfTransfers": false,
+    "collector": "0.0.10301312"
+   }
+  },
+  "scheduledSettlement": {
+   "hss": "0x000000000000000000000000000000000000016b",
+   "gasLimit": 750000,
+   "fundingPerCallTinybar": 500000000,
+   "vaultFundingHbar": 100,
+   "fundedCallsAtDeployment": 20,
+   "firstCouponCapacity": "available when checked before deployment; later quarterly dates use the permissionless manual fallback if Hedera reports no native capacity"
+  },
+  "deployTx": {
+   "cashToken": "0x3b681ebca0410ededbb1b6e285312939b277dfbbe02d23bd7ae05fa898056000fe2ac3d56ed3c3db103a464ac3c34f16",
+   "CouponSchedule": "0xcbad7095536092603ad15402efb26d2c0de7e7be89290944611168dc48e4e3ab",
+   "RepoVault": "0x98fe4d47163c03b4d0b789f56a15d577537d5325763a25a9fb3020478dabac52",
+   "MarginWatch": "0xff44e20c1ceda1e85c020684f9dc5c039de07fa7adbd288676054a1c8015585f",
+   "CouponDistributor": "0xc7f47c2dec2bb32798941d98dab6ae2ea95f65ec8d01cf97bd043ee982bff632",
+   "fundVault": "0xf0b9cd857d0daf7d3cab699329f8fdc4a8e943c6b66bd05807a76752799b3f46"
+  }
  },
  "superseded": {
   "why": "The first venue set commitBond to 0.01 ether, meaning 1e16. msg.value inside the Hedera EVM is tinybars, not weibars, so that asked for a hundred million HBAR and every commit reverted WrongBond(1000000, 10000000000000000). The ratio was then measured at two points: 1e18 weibar arrives as 1e8, 5e18 as 5e8. Nothing in src/ was wrong; the deployment parameter was. Regime.bootstrapSupervisor is single-use by design, so the regime, the parameter root and everything seated under them had to be redeployed.",
@@ -244,6 +321,12 @@
   "MarginWatch": "0x44A576680e6f19E307A7c88F49460d5375f15ef2",
   "Rulebook": "0xdd0D15FaF78AB99959aF5F361610416B18306970",
   "strandedHold": "Hold id 1 on the bond names the superseded engine as escrow and still encumbers 1,000 of the seller's units. Left in place: releasing it needs the escrow, and the seller holds enough besides.",
+  "repoVaultBeforeScheduledSettlement": {
+   "why": "RepoVault holds its coupon schedule as an immutable, and MarginWatch holds its vault as one, so adding the fixed coupon calendar and HIP-1215 settlement rail moved both. The oracle, policy, market, journal, bond, and governance stack retain their addresses and state.",
+   "stranded": "Nothing. The outgoing vault's mirror-node log index was empty before the move, so no repo position or collateral hold required migration.",
+   "RepoVault": "0xeD38ed697EcdEc0572b1F52a2409322858D71990",
+   "MarginWatch": "0x73A24d0DF087E18D4b8cbDB9734Cb607d33D30D2"
+  },
   "repoVaultBeforeTheFeed": {
    "why": "RepoVault holds its oracle and its cure window as immutables, and MarginWatch holds its vault as one, so adding a feed moved both. Nothing else in the venue moved: the parameter root, the regime, the clock, the journal, the engine and the bond all keep their addresses, and script/DeployOracle.s.sol exists rather than DeployVenue precisely so that adding a feed did not spend a governance cycle on a parameter set nobody wanted to change.",
    "stranded": "Nothing. The outgoing vault's log index on the mirror node was empty before the move: no repo was ever opened on it, so there is nothing to migrate. Had there been one, the swap would have needed a different shape.",
@@ -339,7 +422,7 @@
  "sourcify": {
   "server": "https://sourcify.dev/server",
   "match": "match",
-  "allTenVerified": true,
+  "listedContractsVerified": true,
   "contracts": [
    "EpochClock",
    "Regime",
@@ -348,11 +431,13 @@
    "MatchingEngine",
    "VolumeCap",
    "TradingHalt",
+   "CouponSchedule",
    "RepoVault",
    "MarginWatch",
+   "CouponDistributor",
    "Rulebook"
   ],
-  "note": "The verifier URL needs its trailing slash. Forge appends v2 to whatever it is given, so https://sourcify.dev/server becomes https://sourcify.dev/serverv2 and fails with a DNS error that says nothing about the cause. script/live/verify.sh has it right."
+  "note": "Every contract listed above, including the four deployed for coupon and scheduled settlement, matched on Sourcify. LPCASH is a native HTS token rather than Solidity bytecode. The verifier URL needs its trailing slash. Forge appends v2 to whatever it is given, so https://sourcify.dev/server becomes https://sourcify.dev/serverv2 and fails with a DNS error that says nothing about the cause."
  },
  "spend": {
   "startHbar": 996.2589,

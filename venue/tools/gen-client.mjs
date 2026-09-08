@@ -16,7 +16,7 @@
 //
 // **Every number here is a read.** The point is not convenience, it is that a
 // generated file has a provenance and a hand-maintained one has a history of
-// edits. `checkedAt` records when, and `wiring` records the seven assertions the
+// edits. `checkedAt` records when, and `wiring` records the assertions the
 // client is told to run at load, with the answers this run got.
 //
 // The generator only ever sends `eth_call`, so every request is safe to retry and
@@ -33,6 +33,7 @@ const arg = (k, d) => {
     return i === -1 ? d : argv[i + 1];
 };
 const RPC = arg("--rpc", process.env.HEDERA_TESTNET_RPC ?? "https://testnet.hashio.io/api");
+const MIRROR = arg("--mirror", process.env.HEDERA_MIRROR_URL ?? "https://testnet.mirrornode.hedera.com");
 const OUT = arg("--out", "deployments/client.json");
 
 const venue = JSON.parse(readFileSync("deployments/296-venue.json", "utf8"));
@@ -95,6 +96,26 @@ async function call(to, sig, args = []) {
     throw new Error(`${sig} on ${to}: gave up after ${RETRIES} attempts. ${last?.message ?? ""}`);
 }
 
+async function mirror(path) {
+    let last;
+    for (let attempt = 0; attempt < RETRIES; attempt++) {
+        if (attempt > 0) await sleep(500 * 2 ** (attempt - 1));
+        try {
+            const res = await fetch(MIRROR + path, {headers: {accept: "application/json"}});
+            if (res.status === 429 || res.status >= 500) {
+                last = new Error(`${path}: HTTP ${res.status}`);
+                continue;
+            }
+            if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+            return await res.json();
+        } catch (e) {
+            last = e;
+            if (!RETRYABLE.test(`${e.message} ${e.cause?.code ?? ""}`)) throw e;
+        }
+    }
+    throw new Error(`${path}: gave up after ${RETRIES} attempts. ${last?.message ?? ""}`);
+}
+
 function word(v) {
     if (typeof v === "string" && v.startsWith("0x")) {
         return v.slice(2).toLowerCase().padStart(64, "0");
@@ -141,6 +162,15 @@ const addresses = {
     RegistrationGate: venue.kyc.RegistrationGate,
     KycVerifier: venue.kyc.KycVerifier,
     token: venue.token.address,
+    ...(venue.coupon?.CouponSchedule
+        ? {CouponSchedule: venue.coupon.CouponSchedule}
+        : {}),
+    ...(venue.coupon?.CouponDistributor
+        ? {CouponDistributor: venue.coupon.CouponDistributor}
+        : {}),
+    ...(venue.coupon?.cashToken?.address
+        ? {couponCashToken: venue.coupon.cashToken.address}
+        : {}),
 };
 
 const E = addresses.MatchingEngine;
@@ -187,8 +217,8 @@ const out = {
     network: {
         chainId: venue.chainId,
         chainIdHex: "0x" + venue.chainId.toString(16),
-        rpc: "https://testnet.hashio.io/api",
-        mirror: "https://testnet.mirrornode.hedera.com",
+        rpc: RPC,
+        mirror: MIRROR,
         explorer: "https://hashscan.io/testnet",
         keyType: "ECDSA secp256k1. An ED25519 Hedera key cannot sign an EVM transaction.",
     },
@@ -266,6 +296,87 @@ if (addresses.PrimeOracle) {
     };
 }
 
+// ------------------------------------------------------------- the coupon
+//
+// The calendar and distributor are optional only for old deployment records.
+// Once either is named, every other coupon address is required and their
+// wiring becomes part of the same fail-closed check as the trading stack.
+if (addresses.CouponSchedule || addresses.CouponDistributor || addresses.couponCashToken) {
+    if (!addresses.CouponSchedule || !addresses.CouponDistributor || !addresses.couponCashToken) {
+        throw new Error("the coupon deployment record is incomplete");
+    }
+
+    const S = addresses.CouponSchedule;
+    const D = addresses.CouponDistributor;
+    const cashRecord = venue.coupon.cashToken;
+    const count = Number(asUint(await call(S, "count()")));
+    const dates = [];
+    for (let index = 0; index < count; index++) {
+        dates.push({
+            index,
+            accrualStart: asUint(await call(S, "accrualStart(uint256)", [index])),
+            dueAt: asUint(await call(S, "dateOf(uint256)", [index])),
+        });
+    }
+
+    const token = await mirror(`/api/v1/tokens/${encodeURIComponent(cashRecord.tokenId)}`);
+    const fees = token.custom_fees?.fractional_fees ?? [];
+    if (fees.length !== 1) {
+        throw new Error(`coupon cash token has ${fees.length} fractional fees, want exactly one`);
+    }
+    const fee = fees[0];
+    const numerator = BigInt(fee.amount?.numerator ?? 0);
+    const denominator = BigInt(fee.amount?.denominator ?? 0);
+    if (denominator === 0n || numerator * 10_000n % denominator !== 0n) {
+        throw new Error("coupon cash token fee is not exactly representable in basis points");
+    }
+
+    out.coupon = {
+        schedule: {
+            address: S,
+            issuedAt: asUint(await call(S, "issuedAt()")),
+            count,
+            spreadBps: asUint(await call(S, "spreadBps()")),
+            faceValue: asUint(await call(S, "faceValue()")),
+            basis: asUint(await call(S, "basis()")),
+            root: await call(S, "root()"),
+            dates,
+        },
+        distributor: {
+            address: D,
+            issuer: asAddr(await call(D, "issuer()")),
+            claimWindow: asUint(await call(D, "claimWindow()")),
+            payingAgentFeeBps: asUint(await call(D, "payingAgentFeeBps()")),
+        },
+        cashToken: {
+            address: addresses.couponCashToken,
+            tokenId: token.token_id,
+            name: token.name,
+            symbol: token.symbol,
+            decimals: Number(token.decimals),
+            treasury: token.treasury_account_id,
+            totalSupply: token.total_supply,
+            fractionalFee: {
+                numerator: numerator.toString(),
+                denominator: denominator.toString(),
+                basisPoints: (numerator * 10_000n / denominator).toString(),
+                minimum: String(fee.minimum ?? 0),
+                maximum: String(fee.maximum ?? 0),
+                netOfTransfers: Boolean(fee.net_of_transfers),
+                collector: fee.collector_account_id,
+            },
+        },
+    };
+
+    out.schedule = {
+        hss: asAddr(await call(addresses.RepoVault, "HSS()")),
+        gasLimit: asUint(await call(addresses.RepoVault, "SCHEDULE_GAS_LIMIT()")),
+        fundingPerCallTinybar: asUint(await call(addresses.RepoVault, "FUNDING_PER_CALL()")),
+        reservedFundingTinybar: asUint(await call(addresses.RepoVault, "reservedFunding()")),
+        additionalCallsFunded: asUint(await call(addresses.RepoVault, "fundedFor()")),
+    };
+}
+
 // Three clocks, each read from its own getter. **Never derive one from
 // another.** Two of them share a period of 300 seconds and none of them shares
 // an origin, so `epoch = round + 3` is true today and is an artefact of two
@@ -335,6 +446,31 @@ const wiring = {
             "vault.oracle() == PrimeOracle":
                 asAddr(await call(addresses.RepoVault, "oracle()")).toLowerCase()
                     === addresses.PrimeOracle.toLowerCase(),
+        }
+        : {}),
+    ...(addresses.CouponSchedule
+        ? {
+            "vault.schedule() == CouponSchedule":
+                asAddr(await call(addresses.RepoVault, "schedule()")).toLowerCase()
+                    === addresses.CouponSchedule.toLowerCase(),
+            "watch.vault() == RepoVault":
+                asAddr(await call(addresses.MarginWatch, "vault()")).toLowerCase()
+                    === addresses.RepoVault.toLowerCase(),
+            "distributor.policy() == ParameterRoot":
+                asAddr(await call(addresses.CouponDistributor, "policy()")).toLowerCase()
+                    === addresses.ParameterRoot.toLowerCase(),
+            "distributor.schedule() == CouponSchedule":
+                asAddr(await call(addresses.CouponDistributor, "schedule()")).toLowerCase()
+                    === addresses.CouponSchedule.toLowerCase(),
+            "distributor.cash() == couponCashToken":
+                asAddr(await call(addresses.CouponDistributor, "cash()")).toLowerCase()
+                    === addresses.couponCashToken.toLowerCase(),
+            "coupon cash decimals == 2":
+                asUint(await call(addresses.couponCashToken, "decimals()")) === "2",
+            "coupon fee is inclusive and matches tariff":
+                !out.coupon.cashToken.fractionalFee.netOfTransfers
+                    && out.coupon.cashToken.fractionalFee.basisPoints
+                        === out.coupon.distributor.payingAgentFeeBps,
         }
         : {}),
 };

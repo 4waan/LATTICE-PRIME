@@ -47,6 +47,8 @@ const LOG_ABI = {
     ZkKycRegistry: "ZkKycRegistry",
     RegistrationGate: "RegistrationGate",
     PrimeOracle: "PrimeOracle",
+    CouponSchedule: "CouponSchedule",
+    CouponDistributor: "CouponDistributor",
 };
 
 Venue.iface = function (name) {
@@ -224,6 +226,7 @@ Venue.refreshVenue = async function () {
         Venue.refreshParamRow(),
         Venue.refreshParamSet(),
         Venue.refreshImmutables(),
+        Venue.refreshCoupon(),
     ]);
     const [rPermits, cStart] = await Promise.all([
         regime.permits(rCur),
@@ -382,6 +385,86 @@ Venue.refreshCharges = async function (n) {
         (n > capN ? '<p class="note">' + (n - capN) + " further charges not shown.</p>" : "");
 };
 
+// The bond calendar and its payment rail. Contract terms are read live and the
+// cash fee is read from the mirror node, where HTS keeps the authoritative fee
+// schedule. The generated bundle carries the same values only as a consistency
+// check performed at build time.
+Venue.refreshCoupon = async function () {
+    const el = $("coupon-out");
+    if (!el) return;
+    const {couponSchedule: schedule, couponDistributor: distributor, vault} = Venue.c;
+    const bundled = CLIENT.coupon;
+    if (!schedule || !distributor || !bundled) {
+        el.innerHTML = '<div class="empty">No coupon payment rail is named in this address book.</div>';
+        return;
+    }
+
+    const tokenId = bundled.cashToken.tokenId;
+    const [issuedAt, count, spread, face, basis, root, dates, issuer, claimWindow,
+        feeBps, committed, hss, scheduleGas, fundingPerCall, reserved, funded, token] =
+        await Promise.all([
+            schedule.issuedAt(), schedule.count(), schedule.spreadBps(),
+            schedule.faceValue(), schedule.basis(), schedule.root(), schedule.dates(),
+            distributor.issuer(), distributor.claimWindow(), distributor.payingAgentFeeBps(),
+            distributor.committed(), vault.HSS(), vault.SCHEDULE_GAS_LIMIT(),
+            vault.FUNDING_PER_CALL(), vault.reservedFunding(), vault.fundedFor(),
+            Venue.mirror("/api/v1/tokens/" + encodeURIComponent(tokenId)),
+        ]);
+
+    const at = (ts) => new Date(Number(ts) * 1000).toISOString().slice(0, 10);
+    const fee = token.custom_fees?.fractional_fees?.[0];
+    const numerator = BigInt(fee?.amount?.numerator ?? 0);
+    const denominator = BigInt(fee?.amount?.denominator ?? 1);
+    const liveFeeBps = denominator ? numerator * 10_000n / denominator : 0n;
+    const feeMatches = liveFeeBps === asBig(feeBps) && !fee?.net_of_transfers;
+    const calendar = [...dates].map((dueAt, index) =>
+        '<div class="rowline pset"><span>Coupon ' + index + "</span><span>" +
+        esc(index === 0 ? at(issuedAt) : at(dates[index - 1])) + " to " +
+        esc(at(dueAt)) + '</span><span class="mono">' + esc(String(dueAt)) +
+        "</span></div>").join("");
+
+    el.innerHTML = '<div class="cols"><section class="panel"><div class="top">' +
+        '<h2>Fixed calendar</h2><span class="src">CouponSchedule</span></div><div class="body">' +
+        '<ul class="readout">' +
+        '<li><span class="k">address</span><span class="v"><a href="' +
+        explorerAddr(CLIENT.addresses.CouponSchedule) + '" target="_blank" rel="noopener">' +
+        esc(shortAddr(CLIENT.addresses.CouponSchedule)) + "</a></span></li>" +
+        '<li><span class="k">root</span><span class="v">' + esc(shortId(root)) + "</span></li>" +
+        '<li><span class="k">issuedAt</span><span class="v">' + esc(at(issuedAt)) + "</span></li>" +
+        '<li><span class="k">coupons</span><span class="v">' + esc(String(count)) + "</span></li>" +
+        '<li><span class="k">spread</span><span class="v">' + esc(String(spread)) + " bps</span></li>" +
+        '<li><span class="k">faceValue</span><span class="v">' + esc(String(face)) +
+        " cash units</span></li>" +
+        '<li><span class="k">basis</span><span class="v">' +
+        (Number(basis) === 1 ? "ACT/365" : esc(String(basis))) + "</span></li></ul>" +
+        '<div class="rows">' + calendar + "</div></div></section>" +
+        '<section class="panel"><div class="top"><h2>Payment rail</h2>' +
+        '<span class="src">CouponDistributor and HTS</span></div><div class="body">' +
+        '<ul class="readout">' +
+        '<li><span class="k">distributor</span><span class="v"><a href="' +
+        explorerAddr(CLIENT.addresses.CouponDistributor) + '" target="_blank" rel="noopener">' +
+        esc(shortAddr(CLIENT.addresses.CouponDistributor)) + "</a></span></li>" +
+        '<li><span class="k">issuer</span><span class="v">' + esc(shortAddr(issuer)) + "</span></li>" +
+        '<li><span class="k">claimWindow</span><span class="v">' +
+        esc(String(claimWindow)) + " s</span></li>" +
+        '<li><span class="k">committed</span><span class="v">' +
+        esc(String(committed)) + " smallest cash units</span></li>" +
+        '<li><span class="k">cash</span><span class="v">' + esc(token.name) + " (" +
+        esc(token.symbol) + ") · " + esc(token.token_id) + "</span></li>" +
+        '<li><span class="k">decimals</span><span class="v">' + esc(String(token.decimals)) + "</span></li>" +
+        '<li><span class="k">paying agent fee</span><span class="v ' +
+        (feeMatches ? "ok" : "bad") + '">' + esc(String(liveFeeBps)) +
+        " bps · inclusive · " + (feeMatches ? "matches tariff" : "MISMATCH") + "</span></li>" +
+        '<li><span class="k">HSS</span><span class="v">' + esc(shortAddr(hss)) + "</span></li>" +
+        '<li><span class="k">schedule gas</span><span class="v">' + esc(String(scheduleGas)) + "</span></li>" +
+        '<li><span class="k">funding per call</span><span class="v">' +
+        esc(formatHbar(asBig(fundingPerCall))) + " HBAR</span></li>" +
+        '<li><span class="k">reserved</span><span class="v">' +
+        esc(formatHbar(asBig(reserved))) + " HBAR</span></li>" +
+        '<li><span class="k">additional calls funded</span><span class="v">' +
+        esc(String(funded)) + "</span></li></ul></div></section></div>";
+};
+
 // One row of the parameter set, read off ParameterRoot rather than off the
 // bundle. client.json records what these were when it was generated; the point
 // of a governance window is that they change without the bundle knowing.
@@ -446,7 +529,7 @@ Venue.refreshTape = async function () {
             ? ["MatchingEngine", "SeamJournal"]
             : ["Regime", "ParameterRoot", "Rulebook", "TradingHalt", "VolumeCap",
                 "MatchingEngine", "SeamJournal", "RepoVault", "PrimeOracle",
-                "ZkKycRegistry", "RegistrationGate"];
+                "ZkKycRegistry", "RegistrationGate", "CouponSchedule", "CouponDistributor"];
     Venue.paintTape("tape", await Venue.historyOf(names, {limit: 20}),
         "Read from the Hedera mirror node, not from eth_getLogs. Newest first.");
 };
