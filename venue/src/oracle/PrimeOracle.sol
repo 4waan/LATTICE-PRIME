@@ -362,6 +362,32 @@ contract PrimeOracle is IPrimeOracle, AggregatorV3Interface, DisclosureView {
         return (r.price, r.rate, r.publishedAt, round);
     }
 
+    /// @inheritdoc IPrimeOracle
+    function referenceRateBefore(uint64 cutoff)
+        external
+        view
+        returns (uint64 refRateBps, uint64 publishedAt, uint64 round)
+    {
+        uint64 high = lastRound;
+        if (high == 0 || _rounds[1].publishedAt >= cutoff) revert NoData();
+
+        uint64 low = 1;
+        while (low < high) {
+            uint64 middle = low + (high - low + 1) / 2;
+            if (_rounds[middle].publishedAt < cutoff) {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+
+        Round storage r = _rounds[low];
+        if (uint256(cutoff) > uint256(r.publishedAt) + heartbeat) {
+            revert FeedStale(r.publishedAt, heartbeat);
+        }
+        return (r.rate, r.publishedAt, low);
+    }
+
     /// @notice The venue's own leg, without the upstream one.
     /// @dev Split out because the two go dark for different reasons and a client
     ///      showing "the feed is down" should be able to say which half.
