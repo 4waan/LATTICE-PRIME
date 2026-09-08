@@ -6,7 +6,7 @@ import {DisclosureMeter} from "./DisclosureMeter.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 
 /// @title DisclosureView
-/// @notice Policy + meter + the one path disclosing events pass through.
+/// @notice Policy, meter, and the strict and non-blocking event gates.
 /// @dev Ceiling breach reverts (misconfig). Exhausted budget withholds (Rule A)
 ///      and the tx completes. Five getters are the receipt surface.
 abstract contract DisclosureView {
@@ -36,6 +36,20 @@ abstract contract DisclosureView {
         if (over != 0) {
             revert DisclosureExceedsCeiling(row, over);
         }
+        return DisclosureMeter.spend(_meter, policy, row, g);
+    }
+
+    /// @notice Gate an event without allowing publication policy to block an action.
+    /// @dev Cash repayment, collateral recovery, margin enforcement, cure, and
+    ///      default enforcement must remain live even after a ceiling narrows.
+    ///      In that case the venue emits nothing here. This controls only the
+    ///      venue event; transaction calldata, storage, transfers, and upstream
+    ///      token events remain public.
+    function _emitWithoutBlocking(uint16 row, uint8 g, uint8 t)
+        internal
+        returns (bool afforded)
+    {
+        if (L.excess(policy.ceilingFor(row), L.point(g, t)) != 0) return false;
         return DisclosureMeter.spend(_meter, policy, row, g);
     }
 

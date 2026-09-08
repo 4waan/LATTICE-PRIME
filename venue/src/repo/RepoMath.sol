@@ -8,6 +8,7 @@ pragma solidity ^0.8.24;
 library RepoMath {
     uint256 internal constant BPS = 10_000;
     uint256 internal constant YEAR = 365 days;
+    uint256 internal constant MAX_REPO_RATE_BPS = BPS;
 
     /// @notice Hundredths of a basis point, the unit CSDR penalty rates need.
     /// @dev The delegated act writes its rates to one decimal place of a basis
@@ -17,6 +18,7 @@ library RepoMath {
     uint256 internal constant BP_HUNDREDTHS = 1_000_000;
 
     error HaircutTooLarge(uint256 haircutBps);
+    error RepoRateTooLarge(uint256 repoRateBps);
     error TermNotStarted();
     error PenaltyRateTooLarge(uint256 rate);
     error MulDivOverflow();
