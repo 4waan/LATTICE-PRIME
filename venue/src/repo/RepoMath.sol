@@ -19,6 +19,7 @@ library RepoMath {
     error HaircutTooLarge(uint256 haircutBps);
     error TermNotStarted();
     error PenaltyRateTooLarge(uint256 rate);
+    error MulDivOverflow();
 
     /// @notice Purchase price after the haircut.
     /// @dev The haircut is the lender's protection against the collateral falling
@@ -30,7 +31,12 @@ library RepoMath {
         returns (uint256)
     {
         if (haircutBps >= BPS) revert HaircutTooLarge(haircutBps);
-        return (markValue * (BPS - haircutBps)) / BPS;
+        return _mulDiv(markValue, BPS - haircutBps, BPS);
+    }
+
+    /// @notice Value of `amount` units at `markPerUnit`.
+    function markedValue(uint256 markPerUnit, uint256 amount) internal pure returns (uint256) {
+        return _mulDiv(markPerUnit, amount, 1);
     }
 
     /// @notice Interest accrued on ACT/365 from `openedAt` to `at`.
@@ -42,9 +48,8 @@ library RepoMath {
     {
         if (at < openedAt) revert TermNotStarted();
         uint256 elapsed = at - openedAt;
-        uint256 num = principal * repoRateBps * elapsed;
-        uint256 den = BPS * YEAR;
-        return (num + den - 1) / den;
+        if (elapsed == 0 || principal == 0 || repoRateBps == 0) return 0;
+        return _mulDiv3Up(principal, repoRateBps, elapsed, BPS * YEAR);
     }
 
     /// @notice What the borrower owes to close, at time `at`.
@@ -54,7 +59,9 @@ library RepoMath {
         uint256 openedAt,
         uint256 at
     ) internal pure returns (uint256) {
-        return principal + accrued(principal, repoRateBps, openedAt, at);
+        uint256 interest = accrued(principal, repoRateBps, openedAt, at);
+        if (interest > type(uint256).max - principal) revert MulDivOverflow();
+        return principal + interest;
     }
 
     /// @notice True when the collateral no longer covers the exposure.
@@ -73,7 +80,7 @@ library RepoMath {
         uint256 maintenanceBps
     ) internal pure returns (bool) {
         uint256 exposure = repurchasePrice(principal, repoRateBps, openedAt, at);
-        uint256 required = (exposure * (BPS + maintenanceBps)) / BPS;
+        uint256 required = _mulDiv(exposure, BPS + maintenanceBps, BPS);
         return markValue < required;
     }
 
@@ -119,7 +126,64 @@ library RepoMath {
         }
         uint256 d = failDays(intendedAt, at);
         if (d == 0) return 0;
-        uint256 num = referenceValue * penaltyRate * d;
-        return (num + BP_HUNDREDTHS - 1) / BP_HUNDREDTHS;
+        return _mulDiv3Up(referenceValue, penaltyRate, d, BP_HUNDREDTHS);
+    }
+
+    function _mulDiv3Up(uint256 x, uint256 y, uint256 z, uint256 denominator)
+        private
+        pure
+        returns (uint256 result)
+    {
+        uint256 quotient = _mulDiv(x, y, denominator);
+        uint256 remainder = mulmod(x, y, denominator);
+        result = _mulDiv(quotient, z, 1) + _mulDiv(remainder, z, denominator);
+        if (mulmod(remainder, z, denominator) != 0) {
+            if (result == type(uint256).max) revert MulDivOverflow();
+            result += 1;
+        }
+    }
+
+    /// @dev Full-precision floor of `x * y / denominator`.
+    function _mulDiv(uint256 x, uint256 y, uint256 denominator)
+        private
+        pure
+        returns (uint256 result)
+    {
+        unchecked {
+            uint256 low;
+            uint256 high;
+            assembly ("memory-safe") {
+                let mm := mulmod(x, y, not(0))
+                low := mul(x, y)
+                high := sub(sub(mm, low), lt(mm, low))
+            }
+
+            if (high == 0) return low / denominator;
+            if (denominator <= high) revert MulDivOverflow();
+
+            uint256 remainder;
+            assembly ("memory-safe") {
+                remainder := mulmod(x, y, denominator)
+                high := sub(high, gt(remainder, low))
+                low := sub(low, remainder)
+            }
+
+            uint256 twos = denominator & (0 - denominator);
+            assembly ("memory-safe") {
+                denominator := div(denominator, twos)
+                low := div(low, twos)
+                twos := add(div(sub(0, twos), twos), 1)
+            }
+            low |= high * twos;
+
+            uint256 inverse = (3 * denominator) ^ 2;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            inverse *= 2 - denominator * inverse;
+            result = low * inverse;
+        }
     }
 }

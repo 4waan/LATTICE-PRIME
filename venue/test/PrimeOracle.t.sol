@@ -562,6 +562,12 @@ contract PrimeOracleTest is Test, PolicyFixture {
         assertTrue(oracle.stale(), "a zero updatedAt is a round in progress");
     }
 
+    function test_aFutureUpstreamTimestampIsDarkWithoutOverflowing() public {
+        _round(PAR, PAR, PAR);
+        cash.set(HBAR_USD, type(uint256).max);
+        assertTrue(oracle.stale(), "an untrusted future timestamp is not fresh data");
+    }
+
     /// @notice An upstream past its own heartbeat is dark.
     function test_anUpstreamPastItsOwnHeartbeatIsDark() public {
         _round(PAR, PAR, PAR);

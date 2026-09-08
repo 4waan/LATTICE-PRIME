@@ -450,10 +450,9 @@ contract AxeBoard is DisclosureView {
         return uint8(v);
     }
 
-    function _incurUnder(bytes32 id, uint16 row, uint8 g, uint8 t) internal {
+    function _incurUnder(bytes32, uint16 row, uint8 g, uint8 t) internal {
         uint32 over = L.excess(policy.ceilingFor(row), L.point(g, t));
         if (over != 0) {
-            emit DisclosureRefused(id, row, over);
             revert DisclosureExceedsCeiling(row, over);
         }
         if (!DisclosureMeter.spend(_meter, policy, row, g)) {

@@ -29,9 +29,10 @@
 /// receipt. `encode` refuses rather than letting the SDK chunk it silently.
 export const MAX_CHUNK = 1024;
 
-/// Bumped only when a field changes meaning. A consumer that does not know a
-/// version must drop the record, not guess at it.
-export const SCHEMA_VERSION = 1;
+/// Version 2 binds each record to the contract address that produced it. The
+/// topic survives deployments, so a source label alone is not enough.
+export const SCHEMA_VERSION = 2;
+export const LEGACY_SCHEMA_VERSION = 1;
 
 /// The contracts the relay publishes for, keyed by the short name a record
 /// carries in `c`. Both are `DisclosureView`s with their own `DisclosureMeter`,
@@ -46,11 +47,12 @@ export const SOURCE_ADDRESS_KEY = {engine: "MatchingEngine", vault: "RepoVault"}
 /// The disclosing entry points, and the rows each one charges.
 ///
 /// `sure` is the field silence detection turns on. A site is `sure: true` only
-/// when reaching the function body guarantees reaching `_emitUnder`: every
-/// earlier guard reverts, so a transaction with status SUCCESS and no charge on
-/// that row is a withheld disclosure and nothing else. A site behind an `if`
-/// inside the body is `sure: false` and is excluded, because "no charge" there
-/// is ambiguous between silence and a branch not taken. Getting this wrong in
+/// when success guarantees reaching the strict `_emitUnder` gate. A
+/// transaction with status SUCCESS and no charge on that row is then a
+/// budget-withheld disclosure and nothing else. Mandatory exit paths use the
+/// non-blocking gate, where no charge can also mean that the ceiling narrowed;
+/// those sites are `sure: false`. A conditional site is false for the same
+/// reason: no charge may mean its branch was not taken. Getting this wrong in
 /// the `false` direction costs a missed silence; getting it wrong in the `true`
 /// direction would print a silence that did not happen, which is the failure
 /// this venue cannot have. `tools/hcs.test.mjs` pins every selector against the
@@ -74,6 +76,9 @@ export const SITES = {
     },
 
     // RepoVault.
+    // These selectors describe the bound deployment in `deployments/client.json`.
+    // Local source changes do not move this table until a new deployment and
+    // matching client record are committed together.
     "0x778ae762": {src: "vault", fn: "open", rows: [{row: 7, g: 4, sure: true}]},
     "0x39c79e0c": {src: "vault", fn: "close", rows: [{row: 14, g: 1, sure: true}]},
     "0x9fcdeba6": {src: "vault", fn: "cure", rows: [{row: 14, g: 1, sure: true}]},
@@ -101,9 +106,7 @@ export const SITES = {
     "0x987757dd": {src: "vault", fn: "settle", rows: [{row: 14, g: 1, sure: false}]},
     "0x1c6a825c": {src: "vault", fn: "payThrough", rows: [{row: 14, g: 1, sure: true}]},
     "0xe68a8171": {src: "vault", fn: "settleAuction", rows: [{row: 14, g: 1, sure: true}]},
-    // Row 16 always; row 14 only when `breach` and the repo was OPEN. The second
-    // is the one conditional metered site in the venue and it is excluded by
-    // name rather than by omission, so a reader can see the hole.
+    // Row 16 always; row 14 only when `breach` and the repo was OPEN.
     "0x8dcf2bd0": {
         src: "vault",
         fn: "postMark",
@@ -114,9 +117,13 @@ export const SITES = {
 /// `keccak256("DisclosureCharged(uint16,uint64,uint8,uint32,uint32)")`.
 export const TOPIC_CHARGED =
     "0xc2c92b58279430965bba4609e31c0ecd1ce733209db3c64f1a61e9b6dc9e0709";
-/// `keccak256("DisclosureRefused(bytes32,uint16,uint32)")`.
+/// Legacy v1 `keccak256("DisclosureRefused(bytes32,uint16,uint32)")`.
 export const TOPIC_REFUSED =
     "0x4e9fd7bd9893a596148f01db9643366d229c0852b59efefa78e291c3a8c0730f";
+/// First four bytes of `keccak256("DisclosureExceedsCeiling(uint16,uint32)")`.
+/// Reverted EVM logs do not survive into a receipt. A ceiling record therefore
+/// proves the custom error returned by the failed transaction, not an event.
+export const ERROR_CEILING = "0x52e2f8c2";
 
 /// The record kinds, and the exact field order each one is serialised in.
 ///
@@ -124,14 +131,26 @@ export const TOPIC_REFUSED =
 /// verifier re-encodes what it read and compares bytes, so two encoders that
 /// agreed on content but not on key order would fail against each other, and a
 /// record whose bytes are reproducible is one a third party can hash.
-export const FIELDS = {
+export const LEGACY_FIELDS = {
     charge: ["v", "k", "c", "tx", "li", "r", "e", "g", "cost", "after"],
     refusal: ["v", "k", "c", "tx", "li", "id", "r", "x"],
     silence: ["v", "k", "c", "tx", "sel", "fn", "r", "e", "spent", "budget"],
     checkpoint: ["v", "k", "c", "e", "blk", "rows"],
 };
 
-export const KINDS = Object.keys(FIELDS);
+export const FIELDS = {
+    charge: ["v", "k", "c", "a", "tx", "li", "r", "e", "g", "cost", "after"],
+    ceiling: ["v", "k", "c", "a", "tx", "sel", "fn", "r", "x"],
+    silence: ["v", "k", "c", "a", "tx", "sel", "fn", "r", "e", "spent", "budget"],
+    checkpoint: ["v", "k", "c", "a", "e", "blk", "rows"],
+};
+
+export const KINDS = [...new Set([...Object.keys(LEGACY_FIELDS), ...Object.keys(FIELDS)])];
+
+const fieldsFor = (version) =>
+    version === SCHEMA_VERSION ? FIELDS
+        : version === LEGACY_SCHEMA_VERSION ? LEGACY_FIELDS
+            : null;
 
 export class RecordError extends Error {
     constructor(message) {
@@ -201,13 +220,16 @@ export function validate(raw) {
     if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
         throw new RecordError("a record must be a JSON object");
     }
-    if (raw.v !== SCHEMA_VERSION) {
+    const schema = fieldsFor(raw.v);
+    if (!schema) {
         throw new RecordError(`unknown schema version ${JSON.stringify(raw.v)}`);
     }
     const kind = raw.k;
-    if (!KINDS.includes(kind)) throw new RecordError(`unknown kind ${JSON.stringify(kind)}`);
+    if (!Object.prototype.hasOwnProperty.call(schema, kind)) {
+        throw new RecordError(`unknown kind ${JSON.stringify(kind)} for schema ${raw.v}`);
+    }
 
-    const want = FIELDS[kind];
+    const want = schema[kind];
     const got = Object.keys(raw);
     for (const k of got) {
         if (!isPlainKey(k)) throw new RecordError(`refusing key ${JSON.stringify(k)}`);
@@ -220,9 +242,10 @@ export function validate(raw) {
     }
 
     const r = Object.create(null);
-    r.v = SCHEMA_VERSION;
+    r.v = raw.v;
     r.k = kind;
     r.c = sourceField(raw.c);
+    if (r.v === SCHEMA_VERSION) r.a = hexField("a", raw.a, 20);
 
     if (kind === "charge") {
         r.tx = hexField("tx", raw.tx, 32);
@@ -239,6 +262,24 @@ export function validate(raw) {
         r.id = hexField("id", raw.id, 32);
         r.r = uintField("r", raw.r, U16);
         r.x = uintField("x", raw.x, U32);
+    } else if (kind === "ceiling") {
+        r.tx = hexField("tx", raw.tx, 32);
+        r.sel = hexField("sel", raw.sel, 4);
+        if (!Object.prototype.hasOwnProperty.call(SITES, r.sel)) {
+            throw new RecordError(`sel ${r.sel} is not a disclosing entry point`);
+        }
+        const site = SITES[r.sel];
+        if (site.src !== r.c) throw new RecordError(`sel ${r.sel} does not belong to ${r.c}`);
+        r.fn = raw.fn;
+        if (r.fn !== site.fn) {
+            throw new RecordError(`fn ${JSON.stringify(raw.fn)} does not match ${r.sel}`);
+        }
+        r.r = uintField("r", raw.r, U16);
+        if (!site.rows.some((row) => row.row === r.r)) {
+            throw new RecordError(`${site.fn} does not disclose row ${r.r}`);
+        }
+        r.x = uintField("x", raw.x, U32);
+        if (r.x === 0) throw new RecordError("a ceiling breach must carry non-zero excess");
     } else if (kind === "silence") {
         r.tx = hexField("tx", raw.tx, 32);
         r.sel = hexField("sel", raw.sel, 4);
@@ -273,7 +314,7 @@ export function validate(raw) {
 export function encode(record) {
     const r = validate(record);
     const parts = [];
-    for (const k of FIELDS[r.k]) {
+    for (const k of fieldsFor(r.v)[r.k]) {
         let v = r[k];
         if (k === "rows") {
             // Rows ascending and numeric, so two relays over the same epoch
@@ -316,9 +357,12 @@ export function decode(text) {
 /// The dedupe key. Every record names something that happened exactly once, so
 /// a consumer can drop a repeat without keeping a cursor of its own.
 export function keyOf(r) {
-    if (r.k === "charge" || r.k === "refusal") return `${r.k}:${r.c}:${r.tx}:${r.li}`;
-    if (r.k === "silence") return `silence:${r.c}:${r.tx}:${r.r}`;
-    return `checkpoint:${r.c}:${r.e}`;
+    const source = r.a ? `${r.c}:${r.a}` : r.c;
+    if (r.k === "charge") return `charge:${r.tx}:${r.li}`;
+    if (r.k === "refusal") return `refusal:${r.tx}:${r.li}`;
+    if (r.k === "ceiling") return `ceiling:${r.tx}`;
+    if (r.k === "silence") return `silence:${r.tx}:${r.r}`;
+    return `checkpoint:${source}:${r.e}`;
 }
 
 /// One line of English per record, for a screen and for the verifier's table.
@@ -329,6 +373,9 @@ export function describe(r) {
         return `charged ${r.cost} bit${r.cost === 1 ? "" : "s"} to row ${r.r} in epoch ${r.e}, ${r.after} spent after`;
     }
     if (r.k === "refusal") {
+        return `legacy refusal on row ${r.r}: over the ceiling by ${r.x}`;
+    }
+    if (r.k === "ceiling") {
         return `refused a disclosure on row ${r.r}: over the ceiling by ${r.x}`;
     }
     if (r.k === "silence") {
@@ -372,7 +419,8 @@ export function decodeChargeLog(log) {
     };
 }
 
-/// `DisclosureRefused(bytes32 indexed id, uint16 row, uint32 excess)`.
+/// Decode the v1 `DisclosureRefused` event shape. New records use typed revert
+/// data because a reverted EVM log does not survive in a receipt.
 export function decodeRefusalLog(log) {
     if (!log || !Array.isArray(log.topics) || log.topics.length !== 2) {
         throw new RecordError("DisclosureRefused carries one indexed field");
@@ -381,7 +429,34 @@ export function decodeRefusalLog(log) {
     if (data.length !== 128) {
         throw new RecordError(`DisclosureRefused data is ${data.length / 2} bytes, want 64`);
     }
-    return {id: "0x" + strip(log.topics[1]), row: uintOf(wordAt(data, 0)), x: uintOf(wordAt(data, 1))};
+    return {
+        id: "0x" + strip(log.topics[1]),
+        row: uintOf(wordAt(data, 0)),
+        x: uintOf(wordAt(data, 1)),
+    };
+}
+
+/// Decode `DisclosureExceedsCeiling(uint16,uint32)` from a failed contract
+/// result's `error_message`. ABI width is checked before either word is read.
+export function decodeCeilingError(errorMessage) {
+    const data = strip(errorMessage);
+    if (data.length !== 136) {
+        throw new RecordError(
+            `DisclosureExceedsCeiling data is ${data.length / 2} bytes, want 68`
+        );
+    }
+    if (data.slice(0, 8) !== strip(ERROR_CEILING)) {
+        throw new RecordError("error is not DisclosureExceedsCeiling");
+    }
+    const rowWord = data.slice(8, 72);
+    const excessWord = data.slice(72, 136);
+    if (!/^0{60}[0-9a-f]{4}$/.test(rowWord)) {
+        throw new RecordError("DisclosureExceedsCeiling row is not a uint16");
+    }
+    if (!/^0{56}[0-9a-f]{8}$/.test(excessWord)) {
+        throw new RecordError("DisclosureExceedsCeiling excess is not a uint32");
+    }
+    return {row: uintOf(rowWord), x: uintOf(excessWord)};
 }
 
 /// Check one record against the transaction it names.
@@ -408,7 +483,15 @@ export function auditRecord(rec, res, ctx) {
         say("the audit was given an address to check against", false, `got ${ctx && ctx.address}`);
         return out;
     }
-    if (!Number.isInteger(ctx.epoch) || ctx.epoch < 0) {
+    if (rec.a && strip(rec.a) !== strip(ctx.address)) {
+        say("the audit uses the contract address bound into the record", false,
+            `record ${rec.a}, audit ${ctx.address}`);
+        return out;
+    }
+    if (
+        (rec.k === "charge" || rec.k === "silence")
+            && (!Number.isInteger(ctx.epoch) || ctx.epoch < 0)
+    ) {
         say("the audit was given an epoch to check against", false, `got ${ctx.epoch}`);
         return out;
     }
@@ -432,12 +515,28 @@ export function auditRecord(rec, res, ctx) {
     }
     const logs = Array.isArray(res.logs) ? res.logs : [];
 
-    if (rec.k === "silence") {
-        say("the transaction succeeded", res.result === "SUCCESS", `result ${res.result}`);
+    if (rec.k === "silence" || rec.k === "ceiling") {
         say("the calldata carries the selector the record names",
             strip(res.function_parameters).slice(0, 8) === strip(rec.sel),
             "calldata 0x" + strip(res.function_parameters).slice(0, 8));
         say(`it was sent to ${rec.c}`, strip(res.address) === strip(ctx.address), `to ${res.address}`);
+    }
+
+    if (rec.k === "ceiling") {
+        say("the transaction reverted", res.result !== "SUCCESS", `result ${res.result}`);
+        try {
+            const d = decodeCeilingError(res.error_message);
+            const same = d.row === rec.r && d.x === rec.x;
+            say("the returned custom error matches every field", same, same ? ""
+                : `error says row ${d.row} excess ${d.x}`);
+        } catch (e) {
+            say("the returned custom error decodes", false, e.message);
+        }
+        return out;
+    }
+
+    if (rec.k === "silence") {
+        say("the transaction succeeded", res.result === "SUCCESS", `result ${res.result}`);
         say("the epoch is the one its timestamp falls in", ctx.epoch === rec.e,
             `timestamp is epoch ${ctx.epoch}`);
         let charged = [];
@@ -464,13 +563,13 @@ export function auditRecord(rec, res, ctx) {
     }
     say(`it was emitted by ${rec.c}`, strip(log.address) === strip(ctx.address), `emitted by ${log.address}`);
 
-    const want = rec.k === "charge" ? TOPIC_CHARGED : TOPIC_REFUSED;
-    if (strip(log.topics && log.topics[0]) !== strip(want)) {
-        say(`log ${rec.li} is a ${rec.k === "charge" ? "DisclosureCharged" : "DisclosureRefused"}`,
-            false, String(log.topics && log.topics[0]));
+    const topic = rec.k === "charge" ? TOPIC_CHARGED : TOPIC_REFUSED;
+    const eventName = rec.k === "charge" ? "DisclosureCharged" : "DisclosureRefused";
+    if (strip(log.topics && log.topics[0]) !== strip(topic)) {
+        say(`log ${rec.li} is a ${eventName}`, false, String(log.topics && log.topics[0]));
         return out;
     }
-    say(`log ${rec.li} is a ${rec.k === "charge" ? "DisclosureCharged" : "DisclosureRefused"}`, true);
+    say(`log ${rec.li} is a ${eventName}`, true);
 
     try {
         if (rec.k === "charge") {
