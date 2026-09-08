@@ -637,6 +637,41 @@ Venue.discoverRepos = async function () {
     }
 };
 
+// RepoVault owns the repo id and term, while CouponSchedule owns only the
+// instrument calendar. Read both to reconstruct the exact obligations created
+// by `open`. A deployment from before ScheduledSettlement has no selectors for
+// these reads; the caller catches that and says so instead of hiding the rest of
+// the repo.
+Venue.repoSchedules = async function (vault, id, repo) {
+    const failId = await vault.failObligation(id);
+    const calendarAddress = await vault.schedule();
+    const calendar = new ethers.Contract(calendarAddress, ABI.CouponSchedule, Venue.reader);
+    const count = Number(await calendar.count());
+    const dates = await Promise.all(
+        Array.from({length: count}, (_, index) => calendar.dateOf(index)),
+    );
+    const openedAt = asBig(repo.openedAt);
+    const maturity = asBig(repo.maturity);
+    const inside = dates
+        .map((dueAt, index) => ({dueAt: asBig(dueAt), index}))
+        .filter(({dueAt}) => dueAt >= openedAt && dueAt <= maturity);
+    const ids = [failId, ...await Promise.all(
+        inside.map(({index}) => vault.couponObligation(id, index)),
+    )];
+    const obligations = await Promise.all(ids.map((obligationId) => vault.obligation(obligationId)));
+    const funded = await Promise.all(obligations.map((o, index) =>
+        Number(o.status) === 1 && !addrEq(o.scheduleAddress, ZERO)
+            ? vault["fundedFor(bytes32)"](ids[index]).catch(() => false)
+            : false,
+    ));
+    return obligations.map((obligation, index) => ({
+        id: ids[index],
+        label: index === 0 ? "maturity fail" : "coupon " + inside[index - 1].index,
+        obligation,
+        funded: Boolean(funded[index]),
+    }));
+};
+
 Venue.doRepo = async function () {
     const id = ($("repo-id").value || "").trim();
     const out = $("repo-out");
@@ -660,11 +695,12 @@ Venue.doRepo = async function () {
     // a margin call coming rather than reading about it afterwards. It is a
     // view and it is total, so a dark feed renders as a dark feed instead of
     // taking this panel down.
-    const [price, penalty, sub, mk] = await Promise.all([
+    const [price, penalty, sub, mk, schedules] = await Promise.all([
         vault.repurchasePriceNow(id).catch(() => null),
         vault.settlementPenaltyNow(id).catch(() => null),
         vault.substitute(id).catch(() => null),
         vault.previewMark(id).catch(() => null),
+        Venue.repoSchedules(vault, id, r).catch(() => null),
     ]);
     const at = (ts) => asBig(ts) === 0n ? "—"
         : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
@@ -709,7 +745,30 @@ Venue.doRepo = async function () {
         li("substitute", sub === null || addrEq(sub, ZERO)
             ? "none. RepoVault.substitute reverts SubstitutionRefused by design"
             : esc(String(sub))) +
-        "</ul>";
+        "</ul>" +
+        '<div class="shead" style="margin-top:1.35rem"><h3>Native settlements</h3>' +
+        '<span class="src">HIP-1215 · 0x16b</span></div>' +
+        (schedules === null
+            ? '<p class="note">This deployed vault predates native settlement obligations.</p>'
+            : '<ul class="readout">' + schedules.map(({id: obligationId, label, obligation, funded}) => {
+                const status = ["unknown", "pending", "running", "settled"][Number(obligation.status)]
+                    || String(obligation.status);
+                const hasNative = !addrEq(obligation.scheduleAddress, ZERO);
+                const route = status === "settled"
+                    ? "settled"
+                    : hasNative
+                        ? (funded ? "scheduled and funded" : "scheduled, reserve is short")
+                        : "manual fallback after due time";
+                const scheduleLink = hasNative
+                    ? ' · <a href="' + esc(explorerAddr(obligation.scheduleAddress)) +
+                      '" target="_blank" rel="noopener">' + esc(shortAddr(obligation.scheduleAddress)) + "</a>"
+                    : "";
+                return li(
+                    label,
+                    esc(at(obligation.dueAt)) + " · " + esc(route) + scheduleLink +
+                    ' <span class="meta">' + esc(shortId(obligationId)) + "</span>",
+                );
+            }).join("") + "</ul>");
 
     const tape = (await Venue.history("RepoVault", {limit: 100}))
         .filter((l) => l.args && String(l.args[0]).toLowerCase() === id.toLowerCase());
@@ -1079,4 +1138,3 @@ Venue.refreshImmutables = async function () {
     const mf = $("imm-minfee");
     if (mf) mf.textContent = minFee + " tinybar minimum, engine charges " + fee;
 };
-

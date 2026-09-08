@@ -9,13 +9,14 @@ import {RepoVaultBase} from "./RepoVaultBase.sol";
 import {DisclosureView} from "../lattice/DisclosureView.sol";
 import {IPrimeOracle} from "../interfaces/IPrimeOracle.sol";
 import {ICouponSchedule} from "../interfaces/ICouponSchedule.sol";
+import {ScheduledSettlement} from "../schedule/ScheduledSettlement.sol";
 
 /// @title RepoVault
 /// @notice Tokenised repo on ATS holds. Instrument only; eligibility is ATS's.
 /// @dev Row 14: mark is a commitment, public event is a boolean. Row 12 is
 ///      stated: close settles in the clear inside ATS. HTS and EVM share one
 ///      rollback boundary, so both legs move or neither.
-contract RepoVault is RepoVaultBase, DisclosureView {
+contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     using RepoMath for uint256;
 
     /// @dev Here and not in `RepoVaultBase` with the rest: an inherited enum does not
@@ -213,6 +214,14 @@ contract RepoVault is RepoVaultBase, DisclosureView {
         if (_emitUnder(id, ROW_ASSET, L.G_EXACT, L.T_IMM)) {
             emit Opened(id, r.maturity);
         }
+
+        _registerSettlement(failObligation(id), id, Kind.FAIL, r.maturity, 0);
+        uint256 coupons = schedule.count();
+        for (uint256 i = 0; i < coupons; ++i) {
+            uint64 due = schedule.dateOf(i);
+            if (due < r.openedAt || due > r.maturity) continue;
+            _registerSettlement(couponObligation(id, i), id, Kind.COUPON, due, i);
+        }
     }
 
     // ------------------------------------------------------------ T2: close
@@ -406,7 +415,12 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     ///      who would decline to record a fail is the one whose fail it is, because the
     ///      grace clock that ends in default starts here.
     function markFailing(bytes32 id) external {
+        _markFailing(id);
+    }
+
+    function _markFailing(bytes32 id) private {
         Repo storage r = repos[id];
+        if (r.state == State.FAILING) return;
         _require(r.state == State.OPEN, r.state, State.OPEN);
         if (block.timestamp < r.maturity) revert NotYetMature(r.maturity);
         r.state = State.FAILING;
@@ -490,9 +504,9 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     ///
     ///      **Idempotent in the coupon, on purpose.** A second call for an index this
     ///      repo has already noted returns rather than reverts. That is what a scheduled
-    ///      call needs: `docs/BUILD-REMAINING.md` §3 puts `noteCoupon` behind a
-    ///      HIP-1215 `scheduleCall` at each coupon date, and a scheduled call that fires
-    ///      after somebody already made it by hand must be a no-op and not a failure.
+    ///      call needs: `docs/BUILD-REMAINING.md` §3 puts `noteCoupon` behind the
+    ///      dispatcher targeted by HIP-1215 at each coupon date. A scheduled call that
+    ///      fires after somebody already made it by hand must be a no-op and not a failure.
     ///      Only one coupon may be *outstanding*, which is still the state check's job:
     ///      a second, different coupon before pay-through is refused rather than silently
     ///      summed.
@@ -500,6 +514,10 @@ contract RepoVault is RepoVaultBase, DisclosureView {
     /// @return owed The obligation, returned to the caller and written nowhere in the
     ///         clear. Zero when the call was a no-op.
     function noteCoupon(bytes32 id, uint256 index) external returns (uint256 owed) {
+        return _noteCoupon(id, index);
+    }
+
+    function _noteCoupon(bytes32 id, uint256 index) private returns (uint256 owed) {
         // Before the state check, so the no-op path is reachable from a repo that has
         // since moved on. A scheduled call is not entitled to know what happened to the
         // repo between being scheduled and firing.
@@ -529,6 +547,26 @@ contract RepoVault is RepoVaultBase, DisclosureView {
         r.state = State.MANUFACTURED;
         if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit CouponObserved(id, commitment);
+        }
+    }
+
+    /// @dev The HIP-1215 target and its manual fallback share these exact state
+    ///      transitions. A satisfied fail or coupon is a no-op when its native
+    ///      schedule lands second.
+    function _runSettlement(Kind kind, bytes32 id, uint256 index) internal override {
+        Repo storage r = repos[id];
+        if (kind == Kind.FAIL) {
+            if (
+                r.state == State.FAILING || r.state == State.DEFAULTED
+                    || r.state == State.CLOSED
+            ) return;
+            _markFailing(id);
+            return;
+        }
+        if (kind == Kind.COUPON) {
+            if (notedCoupon[id][index]) return;
+            if (r.state == State.DEFAULTED || r.state == State.CLOSED) return;
+            _noteCoupon(id, index);
         }
     }
 

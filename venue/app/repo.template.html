@@ -142,7 +142,9 @@ document.documentElement.setAttribute("data-theme",
       so they are read at the moment you ask and never derived from <code>openedAt</code> here.
       <b>Mark now</b> is <code>previewMark</code>: what <code>markToMarket</code> would find
       in this block, without sending anything, so a margin call can be seen before it lands
-      rather than read about afterwards.</p>
+      rather than read about afterwards. Native settlement obligations appear below the repo.
+      A scheduled one links to its HashScan record; an unscheduled one keeps the same
+      permissionless <code>settle</code> fallback after its due time.</p>
     <div class="field" style="padding:0 0 .65rem">
       <label for="repo-id">Repo id</label>
       <input id="repo-id" spellcheck="false" placeholder="0x… thirty-two bytes">
