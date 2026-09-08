@@ -96,7 +96,16 @@ contract DeployCoupon is Script {
         //     broadcast, and both fail before `vm.startBroadcast`.
         if (schedule.count() == 0) revert EmptySchedule(address(schedule));
 
-        uint8 decimals = cash.decimals();
+        // Foundry's local EVM does not implement Hedera's HTS redirect bytecode.
+        // Ask the selected RPC directly so this validates the real token rather
+        // than reverting inside the fork on the 0x167 system contract.
+        bytes memory decimalsResult = vm.rpc(
+            "eth_call",
+            string.concat(
+                '[{"to":"', vm.toString(address(cash)), '","data":"0x313ce567"},"latest"]'
+            )
+        );
+        uint8 decimals = abi.decode(decimalsResult, (uint8));
         if (decimals != CASH_DECIMALS) revert WrongDecimals(decimals, CASH_DECIMALS);
 
         vm.startBroadcast(pk);

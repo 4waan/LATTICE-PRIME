@@ -636,11 +636,19 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
 
     // ---------------------------------------------------------- T8: liquidation
 
-    /// @notice `DEFAULTED -> CLOSED`. The auction settles.
-    /// @dev The winner is decided by `SealedAuction`, the only caller that can name one.
-    ///      Shortfall is recorded rather than pursued: this contract has no claim on
-    ///      anything outside the collateral.
-    function settleAuction(bytes32 id, address winner, uint256 proceeds) external {
+    /// @notice `DEFAULTED -> CLOSED`. The liquidation engine settles.
+    /// @dev The margin engine is also the v1 liquidation seat. Until a sealed
+    ///      liquidation auction is built, no untrusted caller may name the
+    ///      recipient of a defaulted repo's collateral. `proceeds` is accepted
+    ///      for ABI continuity but remains undisclosed and unaccounted here.
+    function settleAuction(
+        bytes32 id,
+        address winner,
+        uint256 /* proceeds */
+    )
+        external
+    {
+        if (msg.sender != marginEngine) revert NotLiquidationEngine();
         Repo storage r = repos[id];
         _require(r.state == State.DEFAULTED, r.state, State.DEFAULTED);
 
