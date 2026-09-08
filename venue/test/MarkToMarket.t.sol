@@ -8,8 +8,11 @@ import {RepoMath} from "../src/repo/RepoMath.sol";
 import {PrimeOracle} from "../src/oracle/PrimeOracle.sol";
 import {IPrimeOracle} from "../src/interfaces/IPrimeOracle.sol";
 import {ICouponSchedule} from "../src/interfaces/ICouponSchedule.sol";
+import {IExternalKycList} from "../src/interfaces/IExternalKycList.sol";
 import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
-import {MockHolds} from "./Repo.t.sol";
+import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 import {MockAggregator} from "./OracleFixture.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
@@ -28,11 +31,12 @@ import {CouponFixture} from "./CouponFixture.sol";
 /// the cash leg is HBAR/USD at 0.08152235, which is what
 /// `probes/chainlink-hedera.out` read off chain 296. Nothing here is a round
 /// number chosen to make the arithmetic tidy.
-contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
+contract MarkToMarketTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     RepoVault internal vault;
     PrimeOracle internal oracle;
     MockAggregator internal cash;
     MockHolds internal holds;
+    IExternalKycList internal eligibility;
 
     address internal constant BORROWER = address(0xB0B);
     address internal constant LENDER = address(0x1EAD);
@@ -65,6 +69,7 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
         vm.warp(1_000_000);
         _deployPolicy(asDeployed());
         holds = new MockHolds();
+        eligibility = _newKycList();
         cash = new MockAggregator(HBAR_USD, block.timestamp);
 
         address[] memory panel = new address[](2);
@@ -86,6 +91,7 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             IPrimeOracle(address(oracle)),
             _deploySchedule(uint64(block.timestamp)),
+            eligibility,
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -117,20 +123,27 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
         // carries the same note about `rootOf`; this is the second time the trap
         // has cost a debugging cycle in this repository.
         uint256 markValue = oracle.markPerUnitTinybar() * LOT;
-        vm.prank(BORROWER);
-        principal = vault.open(
+        principal = RepoMath.purchasePrice(markValue, HAIRCUT_BPS);
+        vm.deal(LENDER, principal);
+        vm.prank(LENDER);
+        vault.fundOffer{value: principal}(
             ID,
-            LENDER,
+            BORROWER,
             RepoVault.Terms({
                 partition: PARTITION,
                 collateralAmount: LOT,
-                markValue: markValue,
                 haircutBps: HAIRCUT_BPS,
                 maintenanceBps: MAINTENANCE_BPS,
                 repoRateBps: REPO_RATE_BPS,
                 term: 30 days
-            })
+            }),
+            uint64(block.timestamp + 7 days)
         );
+        holds.mint(PARTITION, BORROWER, LOT);
+        vm.prank(BORROWER);
+        holds.approve(address(vault), LOT);
+        vm.prank(BORROWER);
+        vault.accept(ID);
     }
 
     /// @dev A price `bps` below par, within one round of the deviation cap.
@@ -157,6 +170,21 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
             uint64(block.timestamp) + CURE_WINDOW,
             "the published window, not one the caller chose"
         );
+    }
+
+    function test_aNarrowedPublicationCeilingCannotBlockAMarginCall() public {
+        _open();
+        _drop(MAX_DEVIATION_BPS);
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer margin events");
+
+        vm.recordLogs();
+        vm.prank(PASSERBY);
+        bool breach = vault.markToMarket(ID);
+
+        assertTrue(breach);
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
+        assertEq(vm.getRecordedLogs().length, 0, "risk moves while venue speech is withheld");
     }
 
     /// @notice A mark that does not breach changes nothing and says nothing.
@@ -235,8 +263,7 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
     function test_aRepoInAStateThatCannotBeMarkedIsRefused() public {
         _open();
         vm.warp(block.timestamp + 30 days);
-        vm.prank(BORROWER);
-        vault.close(ID);
+        _repayRepo(vault, BORROWER, ID);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -281,6 +308,24 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
         vm.prank(ENGINE);
         vault.postMark(ID, keccak256("mark"), true, 1 days);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
+    }
+
+    function test_aNarrowedCeilingCannotBlockTheDarkFeedFallback() public {
+        _open();
+        vm.warp(block.timestamp + HEARTBEAT + 1);
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer margin events");
+
+        bytes32 commitment = keccak256("dark-feed mark");
+        vm.recordLogs();
+        vm.prank(ENGINE);
+        vault.postMark(ID, commitment, true, 1 days);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(vault.repo(ID).markCommitment, commitment);
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
+        assertEq(logs.length, 1, "only the unwaived cadence event remains");
+        assertEq(logs[0].topics[0], keccak256("MarkPosted(bytes32,bytes32)"));
     }
 
     /// @notice A dark cash leg opens the seat as surely as a dark panel does.
@@ -366,6 +411,37 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             IPrimeOracle(address(0)),
             couponSchedule,
+            eligibility,
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
+    }
+
+    function test_aVaultWithNoSecurityIsRefusedAtConstruction() public {
+        vm.expectRevert(RepoVaultBase.ZeroAddress.selector);
+        new RepoVault(
+            MockHolds(address(0)),
+            ENGINE,
+            IPrimeOracle(address(oracle)),
+            couponSchedule,
+            eligibility,
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
+    }
+
+    function test_aVaultWithNoEligibilityRegistryIsRefusedAtConstruction() public {
+        vm.expectRevert(RepoVaultBase.ZeroAddress.selector);
+        new RepoVault(
+            holds,
+            ENGINE,
+            IPrimeOracle(address(oracle)),
+            couponSchedule,
+            IExternalKycList(address(0)),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -378,7 +454,7 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
     ///      whose only account of when a coupon fell due is whatever the caller
     ///      of `noteCoupon` said, which is the arrangement `CouponSchedule` was
     ///      built to end. Refused at construction rather than at the first
-    ///      coupon, because a bond that cannot record a manufactured payment is
+    ///      coupon, because a bond that cannot record its income dates is
     ///      a bond that cannot be repo'd, and finding that out mid-term is
     ///      finding it out too late.
     function test_aVaultWithNoScheduleIsRefusedAtConstruction() public {
@@ -388,6 +464,7 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             IPrimeOracle(address(oracle)),
             ICouponSchedule(address(0)),
+            eligibility,
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -418,5 +495,25 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture {
         vm.prank(PASSERBY);
         vault.declareDefault(ID);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.DEFAULTED));
+    }
+
+    function test_anOverflowingCureDeadlineCannotHalfOpenAMarginCall() public {
+        vault = new RepoVault(
+            holds,
+            ENGINE,
+            IPrimeOracle(address(oracle)),
+            _deploySchedule(uint64(block.timestamp)),
+            eligibility,
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            type(uint64).max
+        );
+        _open();
+        _drop(MAX_DEVIATION_BPS);
+
+        vm.expectRevert(RepoVaultBase.DeadlineOverflow.selector);
+        vault.markToMarket(ID);
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
     }
 }

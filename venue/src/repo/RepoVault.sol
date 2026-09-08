@@ -9,10 +9,12 @@ import {RepoVaultBase} from "./RepoVaultBase.sol";
 import {DisclosureView} from "../lattice/DisclosureView.sol";
 import {IPrimeOracle} from "../interfaces/IPrimeOracle.sol";
 import {ICouponSchedule} from "../interfaces/ICouponSchedule.sol";
+import {IExternalKycList} from "../interfaces/IExternalKycList.sol";
+import {IKyc} from "../interfaces/IKyc.sol";
 import {ScheduledSettlement} from "../schedule/ScheduledSettlement.sol";
 
 /// @title RepoVault
-/// @notice Tokenised repo on ATS holds. Instrument only; eligibility is ATS's.
+/// @notice Tokenised repo on ATS holds with venue and ATS eligibility checks.
 /// @dev Row 14: mark is a commitment, public event is a boolean. Row 12 is
 ///      stated: close settles in the clear inside ATS. HTS and EVM share one
 ///      rollback boundary, so both legs move or neither.
@@ -27,6 +29,8 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         PROPOSED,
         OPEN,
         MARGIN_CALL,
+        // Reserved so historical state numbers remain stable. Hold custody gives
+        // the issuer coupon directly to the borrower, so new repos never enter it.
         MANUFACTURED,
         FAILING,
         DEFAULTED,
@@ -35,17 +39,25 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
 
     error WrongState(State got, State want);
 
-    /// @notice The economic terms, agreed off chain at `PROPOSED` and fixed at T1.
-    /// @dev A struct because flat they do not fit on the EVM stack. That is a constraint
-    ///      and not a style choice: the alternative is `via_ir` for the whole project.
+    /// @notice The economic terms a lender funds and a borrower accepts.
+    /// @dev Mark is not a field. Principal is quoted from `PrimeOracle` at fund
+    ///      and checked again at accept. A struct because flat they do not fit
+    ///      on the EVM stack.
     struct Terms {
         bytes32 partition;
         uint256 collateralAmount;
-        uint256 markValue;
         uint16 haircutBps;
         uint16 maintenanceBps;
         uint256 repoRateBps;
         uint64 term;
+    }
+
+    struct Offer {
+        address lender;
+        address borrower;
+        Terms terms;
+        uint256 principal;
+        uint64 expiresAt;
     }
 
     struct Repo {
@@ -65,11 +77,10 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         ///      the clear, so an observer holding only the chain cannot derive the
         ///      liquidation price.
         bytes32 markCommitment;
-        /// @dev Manufactured payment owed by the lender to the borrower. A commitment and
-        ///      not an amount: it is the coupon rate times the collateral lot and the rate
-        ///      is public instrument data, so a cleartext amount divides out to the exact
-        ///      position size, which row 14 puts at `(none, {}, never)`.
-        bytes32 manufacturedCommitment;
+        /// @dev Latest in-term coupon observation. The amount is independently
+        ///      derivable from public terms; this binds the repo, index, and amount
+        ///      without inventing a second payment under hold custody.
+        bytes32 lastCouponCommitment;
     }
 
     IHoldByPartition public immutable security;
@@ -100,6 +111,13 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     ///      became due on a bond somebody had already bought.
     ///      `CouponSchedule`'s header carries the whole argument and the cost.
     ICouponSchedule public immutable schedule;
+
+    /// @notice The same external eligibility list configured on the ATS bond.
+    /// @dev ATS v8.0.0 does not check external KYC when creating an authorised
+    ///      hold, but it does check the recipient when executing one. The vault
+    ///      therefore checks both parties at offer and acceptance, then gives a
+    ///      clear, retryable refusal if the lender must renew before default.
+    IExternalKycList public immutable registry;
 
     /// @notice How long a borrower has to cure a call raised by `markToMarket`.
     /// @dev A published constant rather than an argument, because `markToMarket`
@@ -135,16 +153,33 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     ///      property a scheduled call needs. See there.
     mapping(bytes32 => mapping(uint256 => bool)) public notedCoupon;
 
-    /// @dev Domain tag on the manufactured payment commitment. Separate from every tree
-    ///      tag in `src/merkle`, because a commitment and a merkle leaf that shared one
-    ///      would be candidate preimages for each other.
-    bytes32 public constant DOMAIN_MANUFACTURED = keccak256("hedera2026.repo.manufactured.v1");
+    /// @dev Domain tag on a repo coupon observation. Separate from every tree
+    ///      tag in `src/merkle`, because the two shapes must not share preimages.
+    bytes32 public constant DOMAIN_COUPON_OBSERVATION =
+        keccak256("hedera2026.repo.coupon-observation.v1");
+
+    /// @notice Client capability gate. Historical vaults do not expose this getter.
+    uint8 public constant FINANCING_VERSION = 5;
+
+    /// @notice ATS collateral stays live until this vault resolves the repo.
+    /// @dev A short expiry turns keeper delay into an unsecured loan: after expiry
+    ///      ATS permits reclaim to the borrower and refuses execution to the lender.
+    ///      `uint64.max` is effectively open-ended on Hedera while remaining a valid
+    ///      future timestamp for ATS v8.0.0.
+    uint256 public constant HOLD_EXPIRY = type(uint64).max;
+
+    mapping(bytes32 => Offer) public offers;
+    mapping(address => uint256) public credit;
+    mapping(bytes32 => uint256[]) internal extraHolds;
+    uint256 public cashReserved;
+    uint256 private _lock = 1;
 
     constructor(
         IHoldByPartition security_,
         address marginEngine_,
         IPrimeOracle oracle_,
         ICouponSchedule schedule_,
+        IExternalKycList registry_,
         IDisclosurePolicy policy_,
         uint256 penaltyRate_,
         uint64 failGrace_,
@@ -153,64 +188,126 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         if (penaltyRate_ > RepoMath.BP_HUNDREDTHS) {
             revert RepoMath.PenaltyRateTooLarge(penaltyRate_);
         }
+        if (address(security_) == address(0)) revert ZeroAddress();
         if (address(oracle_) == address(0)) revert NoFeed();
         if (address(schedule_) == address(0)) revert NoSchedule();
+        if (address(registry_) == address(0)) revert ZeroAddress();
         security = security_;
         marginEngine = marginEngine_;
         oracle = oracle_;
         schedule = schedule_;
+        registry = registry_;
         penaltyRate = penaltyRate_;
         failGrace = failGrace_;
         cureWindow = cureWindow_;
     }
 
-    // ------------------------------------------------------------ T1: open
+    // ------------------------------------------------------------ T1: funded offer
 
-    /// @notice `PROPOSED -> OPEN`. Both legs in one frame.
-    /// @dev HTS and the EVM share a rollback boundary inside one EVM transaction, so the
-    ///      invariant that both legs move or neither is bought by one frame rather than by
-    ///      a two-phase protocol. The cash leg is deliberately not modelled here as a
-    ///      token call: it is an HTS transfer wired in the deploy script, and stubbing it
-    ///      as an interface would invite a mock that settles when the real thing does not.
-    function open(bytes32 id, address lender, Terms calldata t)
+    /// @notice Cashless `open` is refused. Use `fundOffer` then `accept`.
+    function open(bytes32, address, Terms calldata) external pure returns (uint256) {
+        revert UseFundedOffer();
+    }
+
+    /// @notice Lender deposits exact principal against terms. Quoted from the live feed.
+    function fundOffer(bytes32 id, address borrower, Terms calldata t, uint64 expiresAt)
         external
+        payable
         returns (uint256 principal)
     {
+        if (offers[id].lender != address(0)) revert AlreadyExists(id);
         if (repos[id].state != State.NONE) revert AlreadyExists(id);
+        if (expiresAt <= block.timestamp) revert OfferExpired(expiresAt);
+        if (borrower == address(0)) revert ZeroAddress();
+        if (borrower == msg.sender) revert SelfDeal();
+        _requireEligible(msg.sender);
+        _requireEligible(borrower);
+        if (t.collateralAmount == 0 || t.term == 0) revert ZeroAmount();
+        if (t.repoRateBps > RepoMath.MAX_REPO_RATE_BPS) {
+            revert RepoMath.RepoRateTooLarge(t.repoRateBps);
+        }
+        uint64 maturity = _checkedMaturity(t.term);
+        principal = _quote(t);
+        if (principal == 0) revert ZeroAmount();
+        RepoMath.repurchasePrice(principal, t.repoRateBps, block.timestamp, maturity);
+        if (msg.value != principal) revert InsufficientRepayment(msg.value, principal);
 
-        principal = RepoMath.purchasePrice(t.markValue, t.haircutBps);
+        offers[id] = Offer({
+            lender: msg.sender,
+            borrower: borrower,
+            terms: t,
+            principal: principal,
+            expiresAt: expiresAt
+        });
+        cashReserved += principal;
+        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            emit OfferFunded(id);
+        }
+    }
 
-        // `escrow` is this contract, so only this contract can execute or release the
-        // hold, and `to` is the lender, so execution at T2 or T8 moves the lot to the
-        // party the state machine says it moves to.
+    /// @notice Lender pulls the unused principal. The HBAR stays until `withdraw`.
+    function cancelOffer(bytes32 id) external {
+        Offer memory o = offers[id];
+        if (o.lender == address(0)) revert UnknownOffer(id);
+        if (msg.sender != o.lender) revert NotParty();
+        delete offers[id];
+        credit[o.lender] += o.principal;
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            emit OfferCancelled(id);
+        }
+    }
+
+    /// @notice Borrower locks collateral and is credited the funded principal.
+    /// @dev One reverting frame: a refused ATS hold returns the lender's HBAR
+    ///      to the offer (the offer is not consumed). Quoted again so a moved
+    ///      mark cannot close at yesterday's principal.
+    function accept(bytes32 id) external nonReentrant returns (uint256 principal) {
+        Offer memory o = offers[id];
+        if (o.lender == address(0)) revert UnknownOffer(id);
+        if (block.timestamp >= o.expiresAt) revert OfferExpired(o.expiresAt);
+        if (msg.sender != o.borrower) revert NotParty();
+        if (repos[id].state != State.NONE) revert AlreadyExists(id);
+        _requireEligible(o.lender);
+        _requireEligible(o.borrower);
+        uint64 maturity = _checkedMaturity(o.terms.term);
+
+        uint256 live = _quote(o.terms);
+        if (live != o.principal) revert MarkMoved(o.principal, live);
+        principal = o.principal;
+        RepoMath.repurchasePrice(
+            principal, o.terms.repoRateBps, block.timestamp, maturity
+        );
+
         (, uint256 holdId) = security.createHoldFromByPartition(
-            t.partition,
+            o.terms.partition,
             msg.sender,
             IHoldTypes.Hold({
-                amount: t.collateralAmount,
-                expirationTimestamp: block.timestamp + t.term,
+                amount: o.terms.collateralAmount,
+                expirationTimestamp: HOLD_EXPIRY,
                 escrow: address(this),
-                to: lender,
+                to: address(0),
                 data: ""
             }),
             ""
         );
 
+        delete offers[id];
+
         Repo storage r = repos[id];
         r.state = State.OPEN;
         r.borrower = msg.sender;
-        r.lender = lender;
-        r.partition = t.partition;
+        r.lender = o.lender;
+        r.partition = o.terms.partition;
         r.collateralHoldId = holdId;
-        r.collateralAmount = t.collateralAmount;
+        r.collateralAmount = o.terms.collateralAmount;
         r.principal = principal;
-        r.repoRateBps = t.repoRateBps;
+        r.repoRateBps = o.terms.repoRateBps;
         r.openedAt = uint64(block.timestamp);
-        r.maturity = uint64(block.timestamp) + t.term;
-        r.maintenanceBps = t.maintenanceBps;
+        r.maturity = maturity;
+        r.maintenanceBps = o.terms.maintenanceBps;
 
-        // Row 7. Maturity is a term of the instrument and is published the way instrument
-        // reference data is published: exactly, at once.
+        credit[msg.sender] += principal;
+
         if (_emitUnder(id, ROW_ASSET, L.G_EXACT, L.T_IMM)) {
             emit Opened(id, r.maturity);
         }
@@ -224,49 +321,66 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         }
     }
 
+    /// @notice Principal this vault would demand for `t` right now.
+    function quotePrincipal(Terms calldata t) external view returns (uint256) {
+        return _quote(t);
+    }
+
+    function _quote(Terms memory t) private view returns (uint256) {
+        if (oracle.stale()) revert FeedIsDark();
+        uint256 mark = RepoMath.markedValue(
+            oracle.markPerUnitTinybar(), t.collateralAmount
+        );
+        return RepoMath.purchasePrice(mark, t.haircutBps);
+    }
+
+    function _cashLiabilities() internal view override returns (uint256) {
+        return cashReserved;
+    }
+
+    modifier nonReentrant() {
+        require(_lock == 1, "reentrant");
+        _lock = 2;
+        _;
+        _lock = 1;
+    }
+
+    /// @notice Take HBAR this vault owes `msg.sender`.
+    function withdraw() external nonReentrant {
+        uint256 amount = credit[msg.sender];
+        if (amount == 0) revert NothingToWithdraw();
+        credit[msg.sender] = 0;
+        cashReserved -= amount;
+        emit Withdrawn(msg.sender);
+        (bool ok,) = msg.sender.call{value: amount}("");
+        require(ok, "withdraw failed");
+    }
+
     // ------------------------------------------------------------ T2: close
 
-    /// @notice `OPEN -> CLOSED`, or `FAILING -> CLOSED` with the penalty attached.
-    /// @dev Failure to deliver is the ordinary case, not an exotic one. If the borrower
-    ///      cannot pay, this call simply does not happen, the hold expires, and the repo
-    ///      reaches `DEFAULTED` through T9 and T10 rather than `CLOSED`. Any
-    ///      implementation that treats T2 as infallible is wrong about the instrument.
-    function close(bytes32 id) external returns (uint256 price) {
+    /// @notice An active repo closes when its borrower repays in full.
+    /// @dev Borrower pays at least the repurchase price (plus any fail penalty).
+    ///      Repayment before maturity includes interest through maturity, so an
+    ///      immediate close is an exit and not a free option on lender cash.
+    ///      Collateral is **released** to the borrower. The lender is credited
+    ///      the price and withdraws. Excess `msg.value` is credited back.
+    function close(bytes32 id) external payable nonReentrant returns (uint256 price) {
         Repo storage r = repos[id];
-        if (r.state != State.OPEN && r.state != State.FAILING) {
+        if (!_isCloseable(r.state)) {
             revert WrongState(r.state, State.OPEN);
         }
         if (msg.sender != r.borrower) revert NotParty();
-        if (r.manufacturedCommitment != bytes32(0)) revert NothingOwed();
+        price = _closePrice(r, block.timestamp) + _penaltyOf(r, block.timestamp);
+        if (msg.value < price) revert InsufficientRepayment(msg.value, price);
 
-        // The penalty runs from maturity and not from the declaration. Keyed off
-        // `FAILING`, a borrower would close late without ever being marked, and a charge
-        // nobody triggers is not a charge. It also covers the one path `markFailing`
-        // cannot reach, a repo sitting in `MANUFACTURED` when maturity passes. Interest
-        // accrues over the fail as well, which is the conservative direction and is stated
-        // because freezing the accrual at maturity is also defensible.
-        price = RepoMath.repurchasePrice(
-                r.principal, r.repoRateBps, r.openedAt, block.timestamp
-            ) + _penaltyOf(r, block.timestamp);
+        _releaseAll(r, id);
 
-        security.executeHoldByPartition(
-            IHoldTypes.HoldIdentifier({
-                partition: r.partition, tokenHolder: r.borrower, holdId: r.collateralHoldId
-            }),
-            r.borrower,
-            r.collateralAmount
-        );
+        cashReserved += msg.value;
+        credit[r.lender] += price;
+        if (msg.value > price) credit[msg.sender] += msg.value - price;
 
         r.state = State.CLOSED;
-        // Row 14, and the price is deliberately not in the event. Section 7.2 gives
-        // execution price `(exact, {pub}, +15m)` and the obvious build is a deferred
-        // publication, which cannot work here: the price is `repurchasePrice` over
-        // `principal`, `repoRateBps` and `openedAt`, and `open` takes all three in `Terms
-        // calldata`, so the ledger holds every input whatever this contract exposes.
-        // Deferring a number the public already computes is theatre. Row 5 is unreachable
-        // for this leg on this ledger, as a stated limit rather than a pending change, and
-        // The storage gap and the row 5 deferral are one defect and not two.
-        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Closed(id);
         }
     }
@@ -310,15 +424,16 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         // The commitment discloses nothing about the mark; the timing discloses that this
         // repo was marked, now, and marking is daily, so the sequence is a cadence
         // fingerprint. Carried as an open limit in the disclosure matrix and incurred here.
-        if (_emitUnder(id, ROW_CADENCE, L.G_EXACT, L.T_IMM)) {
+        if (_emitWithoutBlocking(ROW_CADENCE, L.G_EXACT, L.T_IMM)) {
             emit MarkPosted(id, commitment);
         }
 
         if (breach && r.state == State.OPEN) {
+            uint64 deadline = _checkedDeadline(window);
             r.state = State.MARGIN_CALL;
-            r.cureDeadline = uint64(block.timestamp) + window;
+            r.cureDeadline = deadline;
             // Row 14. A margin call is a predicate about a position.
-            if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
                 emit MarginCalled(id, r.cureDeadline);
             }
         }
@@ -354,12 +469,15 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
             revert WrongState(r.state, State.OPEN);
         }
 
-        breach = _short(r, oracle.markPerUnitTinybar() * r.collateralAmount);
+        breach = _short(
+            r, RepoMath.markedValue(oracle.markPerUnitTinybar(), r.collateralAmount)
+        );
 
         if (breach && r.state == State.OPEN) {
+            uint64 deadline = _checkedDeadline(cureWindow);
             r.state = State.MARGIN_CALL;
-            r.cureDeadline = uint64(block.timestamp) + cureWindow;
-            if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            r.cureDeadline = deadline;
+            if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
                 emit MarginCalled(id, r.cureDeadline);
             }
         }
@@ -382,7 +500,7 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     {
         Repo storage r = repos[id];
         if (oracle.stale()) return (0, false, true);
-        mark = oracle.markPerUnitTinybar() * r.collateralAmount;
+        mark = RepoMath.markedValue(oracle.markPerUnitTinybar(), r.collateralAmount);
         breach = _short(r, mark);
     }
 
@@ -398,15 +516,56 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
 
     // -------------------------------------------------------------- T4: cure
 
-    /// @notice `MARGIN_CALL -> OPEN`. The borrower posts more.
+    /// @notice `MARGIN_CALL -> OPEN` only when a live mark shows coverage restored.
     function cure(bytes32 id) external {
         Repo storage r = repos[id];
         _require(r.state == State.MARGIN_CALL, r.state, State.MARGIN_CALL);
         if (msg.sender != r.borrower) revert NotParty();
+        if (block.timestamp >= r.cureDeadline) {
+            revert CureWindowClosed(r.cureDeadline);
+        }
+        if (oracle.stale()) revert FeedIsDark();
+        if (
+            _short(
+                r, RepoMath.markedValue(oracle.markPerUnitTinybar(), r.collateralAmount)
+            )
+        ) revert EmptyCure();
         r.state = State.OPEN;
         r.cureDeadline = 0;
-        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Cured(id);
+        }
+    }
+
+    /// @notice Borrower posts more collateral while OPEN or MARGIN_CALL.
+    function addCollateral(bytes32 id, uint256 amount) external nonReentrant {
+        Repo storage r = repos[id];
+        if (r.state != State.OPEN && r.state != State.MARGIN_CALL) {
+            revert WrongState(r.state, State.OPEN);
+        }
+        if (msg.sender != r.borrower) revert NotParty();
+        if (amount == 0) revert ZeroAmount();
+        if (r.state == State.MARGIN_CALL && block.timestamp >= r.cureDeadline) {
+            revert CureWindowClosed(r.cureDeadline);
+        }
+        _requireEligible(msg.sender);
+
+        (, uint256 holdId) = security.createHoldFromByPartition(
+            r.partition,
+            msg.sender,
+            IHoldTypes.Hold({
+                amount: amount,
+                expirationTimestamp: HOLD_EXPIRY,
+                escrow: address(this),
+                to: address(0),
+                data: ""
+            }),
+            ""
+        );
+        extraHolds[id].push(holdId);
+        r.collateralAmount += amount;
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            emit CollateralAdded(id);
         }
     }
 
@@ -424,7 +583,7 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         _require(r.state == State.OPEN, r.state, State.OPEN);
         if (block.timestamp < r.maturity) revert NotYetMature(r.maturity);
         r.state = State.FAILING;
-        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Failing(id, r.maturity);
         }
     }
@@ -434,7 +593,9 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     ///      settlement price, so this discloses nothing the ledger does not hold, and the
     ///      event stream is the surface `_emitUnder` governs.
     function settlementPenaltyNow(bytes32 id) external view returns (uint256) {
-        return _penaltyOf(repos[id], block.timestamp);
+        Repo storage r = repos[id];
+        if (!_isCloseable(r.state)) revert WrongState(r.state, State.OPEN);
+        return _penaltyOf(r, block.timestamp);
     }
 
     /// @dev Reference value is what was owed at maturity, the cash that failed to arrive.
@@ -461,18 +622,18 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
             if (block.timestamp < r.cureDeadline) revert CureWindowOpen(r.cureDeadline);
         }
         r.state = State.DEFAULTED;
-        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Defaulted(id);
         }
     }
 
-    // ------------------------------------------ T5 and T6: manufactured payment
+    // ----------------------------------------------- T5 and T6: income record
 
-    /// @notice `OPEN -> MANUFACTURED`. A coupon fell due mid-repo.
-    /// @dev Title passed at T1, so ATS's coupon facet pays the holder of record, who is
-    ///      the lender and is not economically entitled to it. Changing who ATS pays would
-    ///      mean forking ATS, which is ruled out, so the venue records the obligation and
-    ///      settles it as a transfer at T6.
+    /// @notice Record that an issuer coupon fell due while this repo was active.
+    /// @dev Title stays with the borrower. ATS has no coupon facet that reroutes a
+    ///      mid-term payment to `hold.to`, so the issuer coupon is already the
+    ///      borrower's. This call records the observation without changing repo
+    ///      state or creating a second payment. See `docs/FINANCING-DECISIONS.md`.
     ///
     ///      **This used to take the commitment as an argument, from any caller, with no
     ///      check that a coupon had fallen due at all.** The scorecard read that as
@@ -484,35 +645,31 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     ///      - the **date** comes from `CouponSchedule`, fixed at issuance;
     ///      - the **period** comes from the same place, as `accrualStart`, so the caller
     ///        cannot pick a longer one;
-    ///      - the **rate** is `PrimeOracle`'s published reference plus the schedule's
-    ///        spread, which is what makes this bond's `"kind": "bond, variable rate"` a
-    ///        property of the contract rather than of the deployment record;
-    ///      - the **lot** is this vault's own `collateralAmount`, written at `open`.
+    ///      - the **rate** is the last valid `PrimeOracle` round strictly before
+    ///        the coupon date, plus the schedule's spread. A delayed manual or
+    ///        scheduled call therefore cannot substitute the then-current rate;
+    ///      - the **lot** is this vault's own `collateralAmount`, written at `accept`.
     ///
     ///      **The disclosure does not widen.** The event is the one it always was, a
     ///      predicate under row 14, and the amount stays out of it for the reason it
     ///      always did. What changed is behind the event, not in front of it.
     ///
-    ///      **A dark feed refuses, and this is the opposite door from `postMark`.** The
-    ///      manual mark seat opens when the feed goes dark, because a repo book that
-    ///      cannot be marked is a frozen book. A coupon is not like that: there is no
-    ///      discretionary substitute for a published reference rate, and a coupon accrued
-    ///      against a rate nobody published is an invented number. So `postMark` requires
-    ///      `stale()` and this requires the negation of `ourLegStale()`: our own leg,
-    ///      not the composite, because a coupon is denominated in the cash asset and
-    ///      never passes through the HBAR conversion `markPerUnitTinybar` performs.
+    ///      **A missing fixing refuses.** The manual mark seat opens when the live
+    ///      feed goes dark, because a repo book that cannot be marked is frozen.
+    ///      Coupon arithmetic instead reads the immutable historical round before
+    ///      the due date. If no round existed inside the oracle heartbeat, there is
+    ///      no discretionary substitute and the observation is refused.
     ///
     ///      **Idempotent in the coupon, on purpose.** A second call for an index this
     ///      repo has already noted returns rather than reverts. That is what a scheduled
     ///      call needs: `docs/BUILD-REMAINING.md` §3 puts `noteCoupon` behind the
     ///      dispatcher targeted by HIP-1215 at each coupon date. A scheduled call that
     ///      fires after somebody already made it by hand must be a no-op and not a failure.
-    ///      Only one coupon may be *outstanding*, which is still the state check's job:
-    ///      a second, different coupon before pay-through is refused rather than silently
-    ///      summed.
+    ///      Different coupon indices are independent observations, so delayed settlement
+    ///      of one cannot block a later coupon, margin action, repayment, or default.
     /// @param index The coupon, as `CouponSchedule` numbers it.
-    /// @return owed The obligation, returned to the caller and written nowhere in the
-    ///         clear. Zero when the call was a no-op.
+    /// @return owed The observed coupon amount, returned to the caller and written
+    ///         nowhere in the clear. Zero when the call was a no-op.
     function noteCoupon(bytes32 id, uint256 index) external returns (uint256 owed) {
         return _noteCoupon(id, index);
     }
@@ -524,27 +681,28 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         if (notedCoupon[id][index]) return 0;
 
         Repo storage r = repos[id];
-        _require(r.state == State.OPEN, r.state, State.OPEN);
+        if (
+            r.state != State.OPEN && r.state != State.MARGIN_CALL
+                && r.state != State.FAILING
+        ) {
+            revert WrongState(r.state, State.OPEN);
+        }
 
         uint64 due = schedule.dateOf(index);
-        // The coupon has to have fallen due *inside this repo's term*. A coupon before
-        // T1 was the borrower's own and a coupon after maturity is nobody's business of
-        // this vault's, and neither is a manufactured payment: the whole obligation
-        // exists because title sat with the lender when the issuer paid.
+        // The coupon has to have fallen due inside this repo's term. Outside that
+        // interval there is no repo-linked observation to record.
         if (due < r.openedAt || due > r.maturity) {
             revert CouponOutsideTerm(index, due, r.openedAt, r.maturity);
         }
         if (block.timestamp < due) revert CouponNotYetDue(index, due);
 
-        if (oracle.ourLegStale()) revert FeedIsDark();
-        (, uint64 refRateBps,,) = oracle.latest();
+        uint64 refRateBps = _referenceRateFor(due);
         owed = schedule.amountFor(index, refRateBps, r.collateralAmount);
         if (owed == 0) revert NothingOwed();
 
         notedCoupon[id][index] = true;
         bytes32 commitment = commitmentOf(id, index, owed);
-        r.manufacturedCommitment = commitment;
-        r.state = State.MANUFACTURED;
+        r.lastCouponCommitment = commitment;
         if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit CouponObserved(id, commitment);
         }
@@ -557,8 +715,8 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         Repo storage r = repos[id];
         if (kind == Kind.FAIL) {
             if (
-                r.state == State.FAILING || r.state == State.DEFAULTED
-                    || r.state == State.CLOSED
+                r.state == State.MARGIN_CALL || r.state == State.FAILING
+                    || r.state == State.DEFAULTED || r.state == State.CLOSED
             ) return;
             _markFailing(id);
             return;
@@ -574,17 +732,35 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     /// @dev A view and never an event, on `previewMark`'s argument, and total for the
     ///      same reason: a dark feed answers `dark` rather than reverting, so the Repo
     ///      screen can say the feed is down instead of failing to render.
-    /// @param dark The venue's own leg is stale, so there is no rate to accrue against.
+    /// @param dark No valid historical fixing exists before this coupon date.
     function couponOwed(bytes32 id, uint256 index)
         external
         view
         returns (uint256 owed, bool dark, bool noted)
     {
         noted = notedCoupon[id][index];
-        if (oracle.ourLegStale()) return (0, true, noted);
+        uint64 due = schedule.dateOf(index);
+        if (block.timestamp < due) return (0, false, noted);
+        uint64 refRateBps;
+        try oracle.referenceRateBefore(due) returns (
+            uint64 rate, uint64, uint64
+        ) {
+            refRateBps = rate;
+        } catch {
+            return (0, true, noted);
+        }
         Repo storage r = repos[id];
-        (, uint64 refRateBps,,) = oracle.latest();
         owed = schedule.amountFor(index, refRateBps, r.collateralAmount);
+    }
+
+    function _referenceRateFor(uint64 due) private view returns (uint64 refRateBps) {
+        try oracle.referenceRateBefore(due) returns (
+            uint64 rate, uint64, uint64
+        ) {
+            return rate;
+        } catch {
+            revert FeedIsDark();
+        }
     }
 
     /// @notice The commitment `noteCoupon` writes. Public and pure so the client and this
@@ -598,30 +774,21 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
     ///      It stays a commitment for two reasons that are worth more than the hiding.
     ///      Writing the amount into storage in the clear would be strictly worse, since
     ///      one `repo(id)` would make the position fall out with no arithmetic at all.
-    ///      And the field, the event and the client that reads both are already this
-    ///      shape, so the change that mattered lands without a client having to move.
-    ///      `markCommitment` carries the same limit under `markToMarket`'s header, and
-    ///      that one was answered by not storing the number; here the number is an
-    ///      obligation between two named parties and somebody has to hold it.
+    ///      The stored commitment also lets a client compare the latest observation
+    ///      with an independently calculated amount without treating it as a payment.
     function commitmentOf(bytes32 id, uint256 index, uint256 amount)
         public
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(DOMAIN_MANUFACTURED, id, index, amount));
+        return keccak256(abi.encode(DOMAIN_COUPON_OBSERVATION, id, index, amount));
     }
 
-    /// @notice `MANUFACTURED -> OPEN`. The lender pays through.
-    function payThrough(bytes32 id) external {
-        Repo storage r = repos[id];
-        _require(r.state == State.MANUFACTURED, r.state, State.MANUFACTURED);
-        if (msg.sender != r.lender) revert NotParty();
-        if (r.manufacturedCommitment == bytes32(0)) revert NothingOwed();
-        r.manufacturedCommitment = bytes32(0);
-        r.state = State.OPEN;
-        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
-            emit ManufacturedPaid(id);
-        }
+    /// @notice Explicitly refused under this vault's hold-custody model.
+    /// @dev The ATS token holder remains the borrower and receives the issuer
+    ///      coupon directly. A second lender payment would double-pay income.
+    function payThrough(bytes32) external pure {
+        revert NoManufacturedPayment();
     }
 
     // ------------------------------------------------------- T7: substitution
@@ -636,47 +803,87 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
 
     // ---------------------------------------------------------- T8: liquidation
 
-    /// @notice `DEFAULTED -> CLOSED`. The liquidation engine settles.
-    /// @dev The margin engine is also the v1 liquidation seat. Until a sealed
-    ///      liquidation auction is built, no untrusted caller may name the
-    ///      recipient of a defaulted repo's collateral. `proceeds` is accepted
-    ///      for ABI continuity but remains undisclosed and unaccounted here.
-    function settleAuction(
-        bytes32 id,
-        address winner,
-        uint256 /* proceeds */
-    )
-        external
-    {
-        if (msg.sender != marginEngine) revert NotLiquidationEngine();
+    /// @notice `DEFAULTED -> CLOSED`. Collateral executes to the lender.
+    function settleDefault(bytes32 id) external nonReentrant {
         Repo storage r = repos[id];
         _require(r.state == State.DEFAULTED, r.state, State.DEFAULTED);
-
-        security.executeHoldByPartition(
-            IHoldTypes.HoldIdentifier({
-                partition: r.partition, tokenHolder: r.borrower, holdId: r.collateralHoldId
-            }),
-            winner,
-            r.collateralAmount
-        );
-
+        _requireEligible(r.lender);
+        _executeAll(r, id, r.lender);
         r.state = State.CLOSED;
-        // Row 14, and the proceeds stay out of the event for `close`'s reason: an auction
-        // clearing price is an execution price under row 5, and row 5 wants `+15m`.
-        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
+        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit Closed(id);
         }
     }
 
+    /// @notice A sealed liquidation auction is not in this release.
+    function settleAuction(bytes32, address, uint256) external pure {
+        revert AuctionNotSupported();
+    }
+
+    function extraHoldCount(bytes32 id) external view returns (uint256) {
+        return extraHolds[id].length;
+    }
+
+    function extraHoldAt(bytes32 id, uint256 i) external view returns (uint256) {
+        return extraHolds[id][i];
+    }
+
+    function _releaseAll(Repo storage r, bytes32 id) private {
+        IHoldTypes.HoldIdentifier memory hid = IHoldTypes.HoldIdentifier({
+            partition: r.partition, tokenHolder: r.borrower, holdId: r.collateralHoldId
+        });
+        security.releaseHoldByPartition(hid, _holdRemaining(hid));
+        uint256 n = extraHolds[id].length;
+        for (uint256 i = 0; i < n; ++i) {
+            hid.holdId = extraHolds[id][i];
+            uint256 left = _holdRemaining(hid);
+            if (left != 0) security.releaseHoldByPartition(hid, left);
+        }
+    }
+
+    function _executeAll(Repo storage r, bytes32 id, address to) private {
+        IHoldTypes.HoldIdentifier memory hid = IHoldTypes.HoldIdentifier({
+            partition: r.partition, tokenHolder: r.borrower, holdId: r.collateralHoldId
+        });
+        uint256 left = _holdRemaining(hid);
+        if (left != 0) security.executeHoldByPartition(hid, to, left);
+        uint256 n = extraHolds[id].length;
+        for (uint256 i = 0; i < n; ++i) {
+            hid.holdId = extraHolds[id][i];
+            left = _holdRemaining(hid);
+            if (left != 0) security.executeHoldByPartition(hid, to, left);
+        }
+    }
+
+    function _holdRemaining(IHoldTypes.HoldIdentifier memory hid)
+        private
+        view
+        returns (uint256 amount)
+    {
+        (amount,,,,,,) = security.getHoldForByPartition(hid);
+    }
+
+    function _requireEligible(address account) private view {
+        (bool ok, bytes memory result) = address(registry).staticcall(
+            abi.encodeWithSelector(IExternalKycList.getKycStatus.selector, account)
+        );
+        if (!ok || result.length != 32) revert NotEligible(account);
+        uint256 status;
+        assembly ("memory-safe") {
+            status := mload(add(result, 0x20))
+        }
+        if (status != uint256(IKyc.KycStatus.GRANTED)) revert NotEligible(account);
+    }
+
     // ------------------------------------------------------------- helpers
 
-    /// @dev **The scope of `DisclosureView._emitUnder`, here, because this is the
-    ///      contract where the gap is widest.** It governs events. It does not govern
-    ///      storage, and `repo(id)` returns fourteen fields in the clear. No accessor
-    ///      change reaches that: `open` takes its terms as `Terms calldata`, so the inputs
-    ///      to the liquidation threshold sit in a transaction body too. What the helper
-    ///      does close is the emission path, by every `emit` above routing through it,
-    ///      which an earlier version of this contract did not do.
+    /// @dev The disclosure gates govern venue events, not storage or transaction
+    ///      calldata. `repo(id)` returns fourteen fields and `fundOffer` carries
+    ///      its terms in public calldata. Margin enforcement and mandatory exits
+    ///      use the non-blocking gate so publication policy cannot weaken risk
+    ///      controls or trap cash or collateral. `Withdrawn` is always emitted
+    ///      as a payment receipt but omits the amount already visible in the
+    ///      native transfer.
 
     function _require(bool ok, State got, State want) private pure {
         if (!ok) revert WrongState(got, want);
@@ -690,8 +897,46 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         return repos[id].state;
     }
 
+    /// @notice Current accrued exposure used for margin coverage.
+    function exposureNow(bytes32 id) external view returns (uint256) {
+        Repo storage r = repos[id];
+        if (!_isCloseable(r.state)) revert WrongState(r.state, State.OPEN);
+        return RepoMath.repurchasePrice(
+            r.principal, r.repoRateBps, r.openedAt, block.timestamp
+        );
+    }
+
+    /// @notice Cash required to close before any settlement-fail penalty.
+    /// @dev Early repayment is permitted but still pays interest through the
+    ///      agreed maturity. After maturity, interest continues to actual close.
     function repurchasePriceNow(bytes32 id) external view returns (uint256) {
         Repo storage r = repos[id];
-        return RepoMath.repurchasePrice(r.principal, r.repoRateBps, r.openedAt, block.timestamp);
+        if (!_isCloseable(r.state)) revert WrongState(r.state, State.OPEN);
+        return _closePrice(r, block.timestamp);
+    }
+
+    function _isCloseable(State state) private pure returns (bool) {
+        return state == State.OPEN || state == State.MARGIN_CALL || state == State.FAILING;
+    }
+
+    function _checkedMaturity(uint64 term) private view returns (uint64 maturity) {
+        uint256 end = block.timestamp + uint256(term);
+        if (end > type(uint64).max || uint256(failGrace) > type(uint64).max - end) {
+            revert MaturityOverflow();
+        }
+        maturity = uint64(end);
+    }
+
+    function _checkedDeadline(uint64 window) private view returns (uint64 deadline) {
+        uint256 end = block.timestamp + uint256(window);
+        if (end > type(uint64).max) revert DeadlineOverflow();
+        deadline = uint64(end);
+    }
+
+    function _closePrice(Repo storage r, uint256 at) private view returns (uint256) {
+        uint256 interestThrough = at < r.maturity ? r.maturity : at;
+        return RepoMath.repurchasePrice(
+            r.principal, r.repoRateBps, r.openedAt, interestThrough
+        );
     }
 }

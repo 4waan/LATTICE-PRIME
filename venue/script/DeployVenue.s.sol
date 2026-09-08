@@ -23,6 +23,7 @@ import {SeamJournal} from "../src/observatory/SeamJournal.sol";
 import {DisclosureBudget} from "../src/lattice/DisclosureBudget.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {IHoldByPartition} from "../src/interfaces/IHoldByPartition.sol";
+import {IExternalKycList} from "../src/interfaces/IExternalKycList.sol";
 import {ICompliance} from "../src/interfaces/ICompliance.sol";
 import {PolicySets} from "./PolicySets.sol";
 import {IAtsToken} from "./ats/IAtsFactory.sol";
@@ -227,6 +228,13 @@ contract DeployVenue is Script {
     /// @dev The sort in `finalize` is bounded by this and nothing else.
     uint8 internal constant MAX_PUBLISHERS = 7;
 
+    struct FinancingDeployment {
+        CouponSchedule schedule;
+        RepoVault vault;
+        MarginWatch watch;
+        Rulebook rulebook;
+    }
+
     function run() external {
         uint256 pk = vm.envUint("HEDERA_PRIVATE_KEY");
         address me = vm.addr(pk);
@@ -237,14 +245,15 @@ contract DeployVenue is Script {
         address token = vm.envAddress("ATS_TOKEN");
         address registry = vm.envAddress("ZK_KYC_REGISTRY");
 
-        ParameterRoot.Param[] memory set = PolicySets.asDeployed();
-
         vm.startBroadcast(pk);
 
         // --- the epoch has passed, so the commitment opens. Permissionless by
         //     design: if only the operator could open its own commitment the
         //     timing of adoption would be a second discretionary signal.
-        params.adopt(set);
+        {
+            ParameterRoot.Param[] memory set = PolicySets.asDeployed();
+            params.adopt(set);
+        }
 
         // --- seam C and C-prime. Built before the engine because the engine
         //     takes it, and after the token because `SeamJournal.token` is
@@ -292,42 +301,27 @@ contract DeployVenue is Script {
         //     HBAR/USD is not, so the cash-leg seat holds somebody else's
         //     number: `HederaRateFeed` over the network's own rate at `0x168`,
         //     or whatever `CASH_FEED` names on a chain with something better.
-        address[] memory panel = _publishers(me);
-        PrimeOracle oracle = new PrimeOracle(
-            params,
-            me,
-            _cashFeed(),
-            panel,
-            _quorum(panel.length),
-            MAX_PUBLISHERS,
-            FEED_HEARTBEAT,
-            CASH_HEARTBEAT,
-            MAX_DEVIATION_BPS
-        );
+        PrimeOracle oracle;
+        {
+            address[] memory panel = _publishers(me);
+            oracle = new PrimeOracle(
+                params,
+                me,
+                _cashFeed(),
+                panel,
+                _quorum(panel.length),
+                MAX_PUBLISHERS,
+                FEED_HEARTBEAT,
+                CASH_HEARTBEAT,
+                MAX_DEVIATION_BPS
+            );
+        }
 
         // --- `me` is still the margin engine, and that seat is now the
         //     degradation rather than the mechanism: `postMark` refuses while
         //     the feed is live and opens when it goes dark.
-        CouponSchedule schedule = new CouponSchedule(
-            uint64(block.timestamp),
-            _couponDates(uint64(block.timestamp)),
-            COUPON_SPREAD_BPS,
-            FACE_VALUE,
-            CouponMath.Basis.ACT_365
-        );
-
-        RepoVault vault = new RepoVault(
-            IHoldByPartition(token),
-            me,
-            IPrimeOracle(address(oracle)),
-            ICouponSchedule(address(schedule)),
-            params,
-            PENALTY_RATE,
-            FAIL_GRACE,
-            CURE_WINDOW
-        );
-        MarginWatch watch = new MarginWatch(vault);
-        Rulebook rulebook = new Rulebook(regime);
+        FinancingDeployment memory financing =
+            _deployFinancing(token, me, oracle, registry, params, regime);
 
         // --- and the call that closes the loop. From here the bond's every
         //     balance write passes through the journal. Skipped when the token
@@ -347,16 +341,46 @@ contract DeployVenue is Script {
         console2.log("  cashFeed       ", address(oracle.cashFeed()));
         console2.log("  publishers     ", oracle.publisherCount());
         console2.log("  quorum         ", oracle.quorum());
-        console2.log("couponSchedule   ", address(schedule));
-        console2.log("  coupons        ", schedule.count());
-        console2.log("  spreadBps      ", schedule.spreadBps());
-        console2.log("  faceValue      ", schedule.faceValue());
-        console2.log("  firstCoupon    ", schedule.dateOf(0));
-        console2.log("repoVault        ", address(vault));
-        console2.log("marginWatch      ", address(watch));
-        console2.log("rulebook         ", address(rulebook));
+        console2.log("couponSchedule   ", address(financing.schedule));
+        console2.log("  coupons        ", financing.schedule.count());
+        console2.log("  spreadBps      ", financing.schedule.spreadBps());
+        console2.log("  faceValue      ", financing.schedule.faceValue());
+        console2.log("  firstCoupon    ", financing.schedule.dateOf(0));
+        console2.log("repoVault        ", address(financing.vault));
+        console2.log("marginWatch      ", address(financing.watch));
+        console2.log("rulebook         ", address(financing.rulebook));
         console2.log("token.compliance ", IAtsToken(token).compliance());
         console2.log("adopted epoch    ", params.currentEpoch());
+    }
+
+    function _deployFinancing(
+        address token,
+        address marginEngine,
+        PrimeOracle oracle,
+        address registry,
+        ParameterRoot params,
+        Regime regime
+    ) internal returns (FinancingDeployment memory out) {
+        out.schedule = new CouponSchedule(
+            uint64(block.timestamp),
+            _couponDates(uint64(block.timestamp)),
+            COUPON_SPREAD_BPS,
+            FACE_VALUE,
+            CouponMath.Basis.ACT_365
+        );
+        out.vault = new RepoVault(
+            IHoldByPartition(token),
+            marginEngine,
+            IPrimeOracle(address(oracle)),
+            ICouponSchedule(address(out.schedule)),
+            IExternalKycList(registry),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
+        );
+        out.watch = new MarginWatch(out.vault);
+        out.rulebook = new Rulebook(regime);
     }
 
     /// @dev An address from the environment, or zero when the variable is unset.

@@ -108,17 +108,19 @@ interface IAtsFactory is IAtsTypes {
     ) external returns (address bondAddress_);
 }
 
-/// @notice The post-deployment calls the venue's operator makes on the token.
-/// @dev Read as a list of the powers a token issuer holds over this venue, which
-///      is the point: the venue cannot mint, cannot set its own compliance
-///      module and cannot grant itself a role. It is a counterparty to the
-///      token, not its owner.
+/// @notice The ATS token surface used by the operator and the static client.
+/// @dev Read as a list of the powers a token issuer holds over this venue, plus
+///      the holder allowance needed to let RepoVault create an ATS hold. The
+///      venue cannot mint, cannot set its own compliance module and cannot grant
+///      itself a role. It is a counterparty to the token, not its owner.
 interface IAtsToken {
     function grantRole(bytes32 role, address account) external returns (bool success_);
     function hasRole(bytes32 role, address account) external view returns (bool);
     function setCompliance(address compliance) external;
     function compliance() external view returns (address);
     function issue(address tokenHolder, uint256 value, bytes calldata data) external;
+    function approve(address spender, uint256 value) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
     function balanceOfByPartition(bytes32 partition, address account) external view returns (uint256);
     function totalSupply() external view returns (uint256);

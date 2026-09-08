@@ -72,18 +72,21 @@ abstract contract ScheduledSettlement {
     /// @notice The scheduler is its own payer, so it must be able to hold HBAR.
     receive() external payable {}
 
+    /// @notice HBAR owed as repo cash (offers + credits). Scheduler gas is separate.
+    function _cashLiabilities() internal view virtual returns (uint256) {
+        return 0;
+    }
+
     /// @notice Number of additional calls backed by unreserved HBAR.
     function fundedFor() public view returns (uint256) {
-        uint256 balance = address(this).balance;
-        if (balance <= reservedFunding) return 0;
-        return (balance - reservedFunding) / FUNDING_PER_CALL;
+        return _unreservedBalance() / FUNDING_PER_CALL;
     }
 
     /// @notice Whether a scheduled obligation remains covered by the reserve.
     function fundedFor(bytes32 id) public view returns (bool) {
         Obligation storage o = _obligations[id];
         return o.status == Status.PENDING && o.scheduleAddress != address(0)
-            && address(this).balance >= reservedFunding;
+            && _reservesCovered();
     }
 
     function obligation(bytes32 id) external view returns (Obligation memory) {
@@ -162,7 +165,7 @@ abstract contract ScheduledSettlement {
             emit Unscheduled(id, REASON_NO_CAPACITY);
             return;
         }
-        if (address(this).balance < reservedFunding + FUNDING_PER_CALL) {
+        if (_unreservedBalance() < FUNDING_PER_CALL) {
             emit Unscheduled(id, REASON_UNFUNDED);
             return;
         }
@@ -213,6 +216,22 @@ abstract contract ScheduledSettlement {
         _obligations[id].scheduleAddress = scheduleAddress;
         reservedFunding += FUNDING_PER_CALL;
         emit Scheduled(id, scheduleAddress, dueAt);
+    }
+
+    function _reservesCovered() private view returns (bool) {
+        uint256 balance = address(this).balance;
+        uint256 cash = _cashLiabilities();
+        if (cash > balance) return false;
+        return reservedFunding <= balance - cash;
+    }
+
+    function _unreservedBalance() private view returns (uint256) {
+        uint256 balance = address(this).balance;
+        uint256 cash = _cashLiabilities();
+        if (cash >= balance) return 0;
+        uint256 afterCash = balance - cash;
+        if (reservedFunding >= afterCash) return 0;
+        return afterCash - reservedFunding;
     }
 
     function _runSettlement(Kind kind, bytes32 repoId, uint256 index) internal virtual;

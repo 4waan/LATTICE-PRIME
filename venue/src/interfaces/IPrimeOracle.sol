@@ -12,9 +12,9 @@ import {AggregatorV3Interface} from "./AggregatorV3Interface.sol";
 ///      worth in the unit this venue settles in", which is a question about two
 ///      feeds at once and has no standard shape.
 ///
-///      Two consumers and one interface. `RepoVault` uses `stale` and
-///      `markPerUnitTinybar` and nothing else, which is the whole of what
-///      pricing a repo needs. `MarginWatch` uses the rest, because a client
+///      Two consumers and one interface. `RepoVault` uses the live composite
+///      for collateral and `referenceRateBefore` for dated coupon fixings.
+///      `MarginWatch` uses the diagnostic reads, because a client
 ///      cannot act on "the feed is dark" without being told which half of it
 ///      went dark and when. Splitting these into two interfaces was the
 ///      alternative and it buys a smaller dependency for the vault at the cost
@@ -45,6 +45,14 @@ interface IPrimeOracle {
         external
         view
         returns (uint128 cleanPrice, uint64 refRateBps, uint64 publishedAt, uint64 round);
+
+    /// @notice The last valid reference-rate round strictly before `cutoff`.
+    /// @dev Strictly before avoids a same-second race in which two callers could
+    ///      observe different rounds finalized at the coupon timestamp.
+    function referenceRateBefore(uint64 cutoff)
+        external
+        view
+        returns (uint64 refRateBps, uint64 publishedAt, uint64 round);
 
     /// @notice Tinybars per unit of face, both legs composed.
     /// @dev Reverts rather than returning a number when either leg is dark.

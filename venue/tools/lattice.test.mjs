@@ -1,6 +1,9 @@
 // The vectors `test/ReceiptVectors.t.sol` asserts against the deployed getters.
 // Both files carry the same literals; neither computes the other's.
-import {bits, breakingSize, earliest, excess, G, permits, point, receiptFor, spend, T, TOP}
+import {
+    bits, breakingSize, earliest, excess, G, hasContractEvent, permits, point,
+    receiptFor, spend, T, TOP,
+}
     from "./lattice.mjs";
 
 let bad = 0;
@@ -65,6 +68,25 @@ eq("receipt wouldAfford", r.wouldAfford, false);
 eq("receipt spent/budget", `${r.spentBits}/${r.budgetBits}`, "1/1");
 eq("receipt breakingSize", r.breakingSize, 2);
 
+// Post-state affordability is not evidence about the event that just landed.
+// The first cancel consumed the final bit, so the getter now says false while
+// its exact event remains present in the transaction receipt.
+const engine = "0x00000000000000000000000000000000000000e1";
+const cancelled = "0x" + "ca".repeat(32);
+const charged = "0x" + "dc".repeat(32);
+const logs = [
+    {address: engine, topics: [charged]},
+    {address: engine, topics: [cancelled]},
+];
+eq("last-bit post-state is unaffordable", r.wouldAfford, false);
+eq("the receipt still proves publication", hasContractEvent(logs, engine, cancelled), true);
+eq("a charge is not the named event", hasContractEvent(logs, engine, "0x" + "ff".repeat(32)), false);
+eq(
+    "an identical topic from another contract is not the venue event",
+    hasContractEvent(logs, "0x00000000000000000000000000000000000000e2", cancelled),
+    false,
+);
+
 // An unmetered row: rows 3, 4, 7, 16 and 17 all publish at exact, and Rule B
 // refuses a budget on each. Unmetered affords forever and costs nothing.
 const unmetered = {domainBits: 16, aggBits: 2, bucketBits: 4, budgetBits: 0};
@@ -72,5 +94,5 @@ eq("unmetered breakingSize", breakingSize(unmetered, G.EXACT), 0);
 eq("unmetered always affords", spend(unmetered, 999, G.EXACT).afforded, true);
 eq("unmetered costs nothing", spend(unmetered, 999, G.EXACT).cost, 0);
 
-console.log(bad ? `lattice: ${bad} FAILED` : "lattice: 28 vectors ok");
+console.log(bad ? `lattice: ${bad} FAILED` : "lattice: 32 vectors ok");
 process.exit(bad ? 1 : 0);

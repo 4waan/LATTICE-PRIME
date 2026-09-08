@@ -12,6 +12,8 @@ import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 
 contract HoldsStub is IHoldByPartition {
     /// @dev Row 12 of the call list. No contract calls it; the client does, and
@@ -80,7 +82,7 @@ contract HoldsStub is IHoldByPartition {
 /// meter are pinned here as tests rather than left as prose, in
 /// `test_theBooksExactRowsAreUnmeterableByConstruction` and
 /// `test_everyMeterableRowCarriesABudgetAndNoOtherRowDoes`.
-contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
+contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -97,7 +99,7 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
 
     RepoVault internal vault;
     OrderBook internal book;
-    HoldsStub internal holds;
+    MockHolds internal holds;
 
     address internal constant BORROWER = address(0xB0);
     address internal constant LENDER = address(0x1E);
@@ -118,12 +120,13 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         feed.setTerms(100e8, 425);
         feed.setMark(1);
         _deployPolicy(withBudgets());
-        holds = new HoldsStub();
+        holds = new MockHolds();
         vault = new RepoVault(
             holds,
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            _newKycList(),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -139,7 +142,6 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         return RepoVault.Terms({
             partition: PARTITION,
             collateralAmount: 1_000e18,
-            markValue: 1_000e18,
             haircutBps: 200,
             maintenanceBps: 500,
             repoRateBps: 300,
@@ -148,8 +150,7 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
     }
 
     function _open(bytes32 id) internal {
-        vm.prank(BORROWER);
-        vault.open(id, LENDER, _terms());
+        _openRepo(vault, feed, LENDER, BORROWER, id, _terms());
     }
 
     /// @dev Coupons are consumed in order across a suite, because `noteCoupon`
@@ -172,13 +173,9 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         vault.noteCoupon(id, index);
     }
 
-    /// @dev One coupon cycle costs two `(pred, imm)` disclosures on row 14:
-    ///      `noteCoupon` moves `OPEN -> MANUFACTURED` and `payThrough` moves it
-    ///      back. Used to spend the budget a bit at a time.
+    /// @dev One coupon observation costs one `(pred, imm)` disclosure on row 14.
     function _cycle(bytes32 id) internal {
         _note(id);
-        vm.prank(LENDER);
-        vault.payThrough(id);
     }
 
     // ------------------------------------------------------- the parameters
@@ -302,28 +299,24 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         _open(id);
         uint64 e = params.currentEpoch();
 
-        assertEq(vault.spentBits(ROW_POSITION, e), 0, "nothing spent yet");
+        assertEq(vault.spentBits(ROW_POSITION, e), 1, "the funded-offer predicate spent one bit");
         assertTrue(vault.wouldAfford(ROW_POSITION, L.G_PRED), "affordable at the start");
 
-        // Three `(pred, imm)` disclosures fit in a budget of three bits.
+        // Two more `(pred, imm)` disclosures fit after the funded offer.
         _note(id);
-        assertEq(vault.spentBits(ROW_POSITION, e), 1, "one bit");
-        vm.prank(LENDER);
-        vault.payThrough(id);
         assertEq(vault.spentBits(ROW_POSITION, e), 2, "two bits");
         _note(id);
         assertEq(vault.spentBits(ROW_POSITION, e), 3, "three bits, spent");
 
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "the row is now quiet");
 
-        // The fourth disclosure is withheld. The transition still happens.
+        // The next disclosure is withheld. The observation still records.
         vm.recordLogs();
-        vm.prank(LENDER);
-        vault.payThrough(id);
+        _note(id);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         for (uint256 i = 0; i < logs.length; ++i) {
             assertTrue(
-                logs[i].topics[0] != keccak256("ManufacturedPaid(bytes32)"),
+                logs[i].topics[0] != keccak256("CouponObserved(bytes32,bytes32)"),
                 "the disclosure was withheld"
             );
         }
@@ -342,13 +335,12 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         _open(id);
         _cycle(id);
         _note(id);
-        vm.prank(LENDER);
-        vault.payThrough(id); // withheld, budget already at three
+        _note(id);
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "row is spent");
+        _note(id); // withheld, but the observation still records
 
-        vm.warp(block.timestamp + 31 days);
-        vm.prank(BORROWER);
-        vault.close(id);
+        vm.warp(vault.repo(id).maturity);
+        _repayRepo(vault, BORROWER, id);
         assertEq(uint8(vault.stateOf(id)), uint8(RepoVault.State.CLOSED), "closed regardless");
     }
 
@@ -362,16 +354,11 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         bytes32 id = keccak256("r3");
         _open(id);
         uint256 admitted;
-        for (uint256 i = 0; i < 8; ++i) {
+        for (uint256 i = 0; i < 4; ++i) {
             if (vault.wouldAfford(ROW_POSITION, L.G_PRED)) admitted++;
-            if (i % 2 == 0) {
-                _note(id);
-            } else {
-                vm.prank(LENDER);
-                vault.payThrough(id);
-            }
+            _note(id);
         }
-        assertEq(admitted, 3, "three fit, so the fourth breaks it");
+        assertEq(admitted, 2, "the offer used one bit, so two further observations fit");
     }
 
     /// @notice The budget is per epoch. A lifetime cap on a venue that trades
@@ -380,6 +367,7 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         bytes32 id = keccak256("r4");
         _open(id);
         _cycle(id);
+        _note(id);
         _note(id);
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "spent in this epoch");
         clock.tick();
@@ -434,27 +422,23 @@ contract DisclosureMeterTest is Test, PolicyFixture, CouponFixture {
         _open(a);
         _open(b);
 
-        // Both repos reach MANUFACTURED. The first `payThrough` is charged, and
-        // by then the row has one bit left; the second is withheld.
-        _note(a); // 1 bit
-        _note(b); // 2 bits
-
+        // Funding the two offers costs two bits. The next observation is
+        // charged and the following one records with its venue event withheld.
         uint256 g0 = gasleft();
-        vm.prank(LENDER);
-        vault.payThrough(a); // 3 bits, the last that fits
+        _note(a); // 3 bits, the last that fits
         uint256 charged = g0 - gasleft();
 
         assertFalse(vault.wouldAfford(ROW_POSITION, L.G_PRED), "row spent");
 
         uint256 g1 = gasleft();
-        vm.prank(LENDER);
-        vault.payThrough(b); // withheld
+        _note(b); // withheld
         uint256 withheld = g1 - gasleft();
 
-        emit log_named_uint("payThrough, disclosure charged ", charged);
-        emit log_named_uint("payThrough, disclosure withheld", withheld);
+        emit log_named_uint("coupon observation, disclosure charged ", charged);
+        emit log_named_uint("coupon observation, disclosure withheld", withheld);
         emit log_named_uint("the meter's visible gas delta   ", charged - withheld);
-        assertLt(charged, 60_000, "a metered disclosure is not a governance vote");
+        assertLt(charged, 120_000, "the complete observation remains a bounded write");
         assertGt(charged, withheld, "withholding is cheaper, and that is measurable");
+        assertLt(charged - withheld, 40_000, "the meter is not the bulk of the operation");
     }
 }

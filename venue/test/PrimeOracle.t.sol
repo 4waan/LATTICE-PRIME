@@ -97,6 +97,17 @@ contract PrimeOracleTest is Test, PolicyFixture {
         oracle.finalize(r);
     }
 
+    function _roundAtRate(uint64 rate) internal returns (uint64 r) {
+        r = oracle.openRound();
+        vm.prank(P1);
+        oracle.submit(r, PAR, rate);
+        vm.prank(P2);
+        oracle.submit(r, PAR, rate);
+        vm.prank(P3);
+        oracle.submit(r, PAR, rate);
+        oracle.finalize(r);
+    }
+
     // ------------------------------------------------ 1. the median is a median
 
     /// @notice Every vector `probes/oracle-median.py` wrote, replayed.
@@ -190,6 +201,39 @@ contract PrimeOracleTest is Test, PolicyFixture {
         assertTrue(oracle.stale(), "one second past it is not");
         vm.expectRevert();
         oracle.markPerUnitTinybar();
+    }
+
+    function test_referenceRateUsesTheLastRoundStrictlyBeforeTheCutoff() public {
+        uint64 first = _roundAtRate(COUPON_BPS);
+        uint64 firstAt = oracle.roundOf(first).publishedAt;
+        vm.warp(block.timestamp + 60);
+        uint64 second = _roundAtRate(COUPON_BPS + 25);
+        uint64 secondAt = oracle.roundOf(second).publishedAt;
+
+        (uint64 beforeSecond, uint64 publishedAt, uint64 picked) =
+            oracle.referenceRateBefore(secondAt);
+        assertEq(beforeSecond, COUPON_BPS);
+        assertEq(publishedAt, firstAt);
+        assertEq(picked, first);
+
+        (uint64 afterSecond,, uint64 pickedAfter) =
+            oracle.referenceRateBefore(secondAt + 1);
+        assertEq(afterSecond, COUPON_BPS + 25);
+        assertEq(pickedAfter, second);
+    }
+
+    function test_referenceRateRefusesNoRoundOrAStaleFixing() public {
+        _roundAtRate(COUPON_BPS);
+        (,, uint64 publishedAt,) = oracle.latest();
+
+        vm.expectRevert(PrimeOracle.NoData.selector);
+        oracle.referenceRateBefore(publishedAt);
+
+        oracle.referenceRateBefore(publishedAt + HEARTBEAT);
+        vm.expectRevert(
+            abi.encodeWithSelector(PrimeOracle.FeedStale.selector, publishedAt, HEARTBEAT)
+        );
+        oracle.referenceRateBefore(publishedAt + HEARTBEAT + 1);
     }
 
     /// @notice **Mutation.** Delete the staleness gate and this test fails.
@@ -560,6 +604,12 @@ contract PrimeOracleTest is Test, PolicyFixture {
         _round(PAR, PAR, PAR);
         cash.set(HBAR_USD, 0);
         assertTrue(oracle.stale(), "a zero updatedAt is a round in progress");
+    }
+
+    function test_aFutureUpstreamTimestampIsDarkWithoutOverflowing() public {
+        _round(PAR, PAR, PAR);
+        cash.set(HBAR_USD, type(uint256).max);
+        assertTrue(oracle.stale(), "an untrusted future timestamp is not fresh data");
     }
 
     /// @notice An upstream past its own heartbeat is dark.
