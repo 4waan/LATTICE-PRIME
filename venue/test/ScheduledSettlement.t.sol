@@ -8,7 +8,8 @@ import {ScheduledSettlement} from "../src/schedule/ScheduledSettlement.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
-import {MockHolds} from "./Repo.t.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 
 contract HssSuccessMock is IHederaScheduleService {
     address internal constant CREATED = address(0x5CED);
@@ -88,7 +89,7 @@ contract HssNoCapacityMock is IHederaScheduleService {
 ///      no EVM bytecode at the address, so a code-size mock would assert the
 ///      wrong availability rule. These mocks exercise the returned values that
 ///      the production integration actually validates.
-contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
+contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     StubOracle internal feed;
     MockHolds internal holds;
     RepoVault internal vault;
@@ -104,6 +105,7 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
 
     uint64 internal constant TERM = 30 days;
     uint256 internal constant INSIDE_COUPONS = 4;
+    bool internal restoreDarkAfterAccept;
 
     event Scheduled(bytes32 indexed id, address indexed scheduleAddress, uint64 dueAt);
     event Unscheduled(bytes32 indexed id, int64 reason);
@@ -118,6 +120,7 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            _newKycList(),
             params,
             10,
             5 days,
@@ -125,21 +128,34 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         );
     }
 
-    function _open() internal {
+    function _terms() internal pure returns (RepoVault.Terms memory) {
+        return RepoVault.Terms({
+            partition: PARTITION,
+            collateralAmount: 1_000e8,
+            haircutBps: 200,
+            maintenanceBps: 200,
+            repoRateBps: 450,
+            term: TERM
+        });
+    }
+
+    function _fund() internal {
+        restoreDarkAfterAccept = feed.stale();
+        _fundRepo(vault, feed, LENDER, BORROWER, ID, _terms());
+        holds.mint(PARTITION, BORROWER, _terms().collateralAmount);
         vm.prank(BORROWER);
-        vault.open(
-            ID,
-            LENDER,
-            RepoVault.Terms({
-                partition: PARTITION,
-                collateralAmount: 1_000e8,
-                markValue: 1_000_000,
-                haircutBps: 200,
-                maintenanceBps: 200,
-                repoRateBps: 450,
-                term: TERM
-            })
-        );
+        holds.approve(address(vault), _terms().collateralAmount);
+    }
+
+    function _accept() internal {
+        vm.prank(BORROWER);
+        vault.accept(ID);
+        if (restoreDarkAfterAccept) feed.setDark(true);
+    }
+
+    function _open() internal {
+        _fund();
+        _accept();
     }
 
     function _install(address implementation) internal {
@@ -157,9 +173,10 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
 
         uint64 maturity = uint64(block.timestamp) + TERM;
         bytes32 failId = vault.failObligation(ID);
+        _fund();
         vm.expectEmit(true, true, false, true, address(vault));
         emit Scheduled(failId, CREATED_SCHEDULE, maturity);
-        _open();
+        _accept();
 
         ScheduledSettlement.Obligation memory fail = vault.obligation(failId);
         assertEq(fail.scheduleAddress, CREATED_SCHEDULE);
@@ -195,9 +212,10 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         _fundAllCalls();
 
         bytes32 failId = vault.failObligation(ID);
+        _fund();
         vm.expectEmit(true, false, false, true, address(vault));
         emit Unscheduled(failId, 370);
-        _open();
+        _accept();
 
         assertEq(vault.obligation(failId).scheduleAddress, address(0));
         vm.warp(vault.repo(ID).maturity);
@@ -208,9 +226,10 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
 
     function test_absentServiceIsRecordedAndTheFailCanStillSettle() public {
         bytes32 failId = vault.failObligation(ID);
+        _fund();
         vm.expectEmit(true, false, false, true, address(vault));
         emit Unscheduled(failId, vault.REASON_UNAVAILABLE());
-        _open();
+        _accept();
 
         vm.warp(vault.repo(ID).maturity);
         vm.prank(PASSERBY);
@@ -224,9 +243,10 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         _fundAllCalls();
 
         bytes32 failId = vault.failObligation(ID);
+        _fund();
         vm.expectEmit(true, false, false, true, address(vault));
         emit Unscheduled(failId, vault.REASON_BAD_RESPONSE());
-        _open();
+        _accept();
 
         assertEq(vault.obligation(failId).scheduleAddress, address(0));
         vm.warp(vault.repo(ID).maturity);
@@ -241,9 +261,10 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         _fundAllCalls();
 
         bytes32 failId = vault.failObligation(ID);
+        _fund();
         vm.expectEmit(true, false, false, true, address(vault));
         emit Unscheduled(failId, vault.REASON_NO_CAPACITY());
-        _open();
+        _accept();
 
         assertEq(vault.obligation(failId).scheduleAddress, address(0));
         assertEq(vault.reservedFunding(), 0);
@@ -254,14 +275,38 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         _install(address(hss));
 
         bytes32 failId = vault.failObligation(ID);
+        _fund();
         vm.expectEmit(true, false, false, true, address(vault));
         emit Unscheduled(failId, vault.REASON_UNFUNDED());
-        _open();
+        _accept();
 
         vm.warp(vault.repo(ID).maturity);
         vm.prank(PASSERBY);
         assertTrue(vault.settle(failId));
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.FAILING));
+    }
+
+    function test_maxCashLiabilityCannotMakeOptionalSchedulingOverflow() public {
+        HssSuccessMock hss = new HssSuccessMock();
+        _install(address(hss));
+
+        RepoVault.Terms memory terms = _terms();
+        terms.collateralAmount = 1;
+        terms.haircutBps = 0;
+        terms.repoRateBps = 0;
+        feed.setMark(type(uint256).max);
+
+        _fundRepo(vault, feed, LENDER, BORROWER, ID, terms);
+        holds.mint(PARTITION, BORROWER, 1);
+        vm.prank(BORROWER);
+        holds.approve(address(vault), 1);
+        vm.prank(BORROWER);
+        vault.accept(ID);
+
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
+        assertEq(vault.cashReserved(), type(uint256).max);
+        assertEq(vault.reservedFunding(), 0, "there is no unencumbered scheduler cash");
+        assertEq(vault.fundedFor(), 0, "the total read remains defined at the bound");
     }
 
     function test_couponHasPermissionlessFallbackWhenHssIsAbsent() public {
@@ -275,7 +320,8 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         assertTrue(vault.settle(couponId));
 
         assertTrue(vault.notedCoupon(ID, 0));
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MANUFACTURED));
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
+        assertTrue(vault.repo(ID).lastCouponCommitment != bytes32(0));
         assertEq(
             uint8(vault.obligation(couponId).status), uint8(ScheduledSettlement.Status.SETTLED)
         );
@@ -294,8 +340,6 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         vault.noteCoupon(ID, 0);
         assertTrue(vault.settle(couponId), "late coupon schedule is a no-op success");
 
-        vm.prank(LENDER);
-        vault.payThrough(ID);
         bytes32 failId = vault.failObligation(ID);
         vm.warp(vault.repo(ID).maturity);
         vault.markFailing(ID);
@@ -303,6 +347,37 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture {
         assertTrue(vault.settle(failId), "late fail schedule is a no-op success");
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.FAILING));
         assertFalse(vault.fundedFor(failId), "settled reserve is released");
+    }
+
+    function test_failScheduleSettlesWhenTheMarginClockAlreadyControlsDefault() public {
+        _open();
+        vm.prank(ENGINE);
+        vault.postMark(ID, keccak256("short"), true, 1 days);
+
+        bytes32 failId = vault.failObligation(ID);
+        vm.warp(vault.repo(ID).maturity);
+        assertTrue(vault.settle(failId));
+
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
+        assertEq(
+            uint8(vault.obligation(failId).status),
+            uint8(ScheduledSettlement.Status.SETTLED)
+        );
+    }
+
+    function test_delayedCouponObservationDoesNotDisplaceAFailingRepo() public {
+        _open();
+        feed.setTerms(100e8, 425);
+        feed.setMark(1);
+        vm.warp(vault.repo(ID).maturity);
+        vault.markFailing(ID);
+
+        uint256 index = INSIDE_COUPONS - 1;
+        bytes32 couponId = vault.couponObligation(ID, index);
+        assertTrue(vault.settle(couponId));
+
+        assertTrue(vault.notedCoupon(ID, index));
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.FAILING));
     }
 
     function test_manualFallbackCannotRunBeforeDueTime() public {

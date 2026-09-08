@@ -5,10 +5,11 @@ import {Test, Vm} from "forge-std/Test.sol";
 import {RepoMath} from "../src/repo/RepoMath.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
-import {MockHolds} from "./Repo.t.sol";
+import {MockHolds} from "./AtsHolds.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
+import {RepoFunding, KycListStub} from "./RepoFunding.sol";
 
 /// @title RepoFailTest
 /// @notice A settlement fail is not a default, and before `FAILING` it was not
@@ -21,7 +22,7 @@ import {StubOracle} from "./OracleFixture.sol";
 /// and the lender had no remedy unless the collateral happened to move.
 /// `test_theOldMachineHadNoRouteOutOfAFail` is that hole, written as the thing
 /// that now works.
-contract RepoFailTest is Test, PolicyFixture, CouponFixture {
+contract RepoFailTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -32,6 +33,7 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
     uint64 internal constant CURE_WINDOW = 1 days;
 
     MockHolds internal holds;
+    KycListStub internal eligibility;
     RepoVault internal vault;
 
     address internal constant BORROWER = address(0xB0B);
@@ -52,12 +54,14 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
     function setUp() public {
         feed = new StubOracle();
         holds = new MockHolds();
+        eligibility = _newKycList();
         _deployPolicy(asDeployed());
         vault = new RepoVault(
             holds,
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            eligibility,
             params,
             RATE,
             GRACE,
@@ -66,21 +70,19 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
         vm.warp(1_000_000);
     }
 
+    function _terms() internal pure returns (RepoVault.Terms memory) {
+        return RepoVault.Terms({
+            partition: PARTITION,
+            collateralAmount: 1_000e8,
+            haircutBps: 200,
+            maintenanceBps: 200,
+            repoRateBps: 450,
+            term: TERM
+        });
+    }
+
     function _open() internal returns (uint256 principal) {
-        vm.prank(BORROWER);
-        principal = vault.open(
-            ID,
-            LENDER,
-            RepoVault.Terms({
-                partition: PARTITION,
-                collateralAmount: 1_000e8,
-                markValue: 1_000_000,
-                haircutBps: 200,
-                maintenanceBps: 200,
-                repoRateBps: 450,
-                term: TERM
-            })
-        );
+        principal = _openRepo(vault, feed, LENDER, BORROWER, ID, _terms());
         openedAt = uint64(block.timestamp);
         maturity = openedAt + TERM;
     }
@@ -149,8 +151,7 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
         assertEq(vault.settlementPenaltyNow(ID), expected);
 
         uint256 accrual = RepoMath.repurchasePrice(principal, 450, openedAt, block.timestamp);
-        vm.prank(BORROWER);
-        assertEq(vault.close(ID), accrual + expected, "the accrual plus the penalty");
+        assertEq(_repayRepo(vault, BORROWER, ID), accrual + expected, "the accrual plus the penalty");
     }
 
     /// @notice A fail of any length costs a day.
@@ -198,21 +199,18 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
     ///         penalty looks like. The rulebook then has to say so.
     function test_aZeroRateIsLegalAndCostsNothing() public {
         RepoVault free =
-            new RepoVault(holds, ENGINE, feed, couponSchedule, params, 0, GRACE, CURE_WINDOW);
-        vm.prank(BORROWER);
-        free.open(
-            ID,
-            LENDER,
-            RepoVault.Terms({
-                partition: PARTITION,
-                collateralAmount: 1_000e8,
-                markValue: 1_000_000,
-                haircutBps: 200,
-                maintenanceBps: 200,
-                repoRateBps: 450,
-                term: TERM
-            })
-        );
+            new RepoVault(
+                holds,
+                ENGINE,
+                feed,
+                couponSchedule,
+                eligibility,
+                params,
+                0,
+                GRACE,
+                CURE_WINDOW
+            );
+        _openRepo(free, feed, LENDER, BORROWER, ID, _terms());
         vm.warp(block.timestamp + TERM + 90 days);
         assertEq(free.settlementPenaltyNow(ID), 0);
     }
@@ -220,7 +218,17 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
     function test_aRateAboveOneHundredPercentIsRefusedAtDeployment() public {
         uint256 tooBig = RepoMath.BP_HUNDREDTHS + 1;
         vm.expectRevert(abi.encodeWithSelector(RepoMath.PenaltyRateTooLarge.selector, tooBig));
-        new RepoVault(holds, ENGINE, feed, couponSchedule, params, tooBig, GRACE, CURE_WINDOW);
+        new RepoVault(
+            holds,
+            ENGINE,
+            feed,
+            couponSchedule,
+            eligibility,
+            params,
+            tooBig,
+            GRACE,
+            CURE_WINDOW
+        );
     }
 
     // ------------------------------------------------------ the grace and out
@@ -236,10 +244,10 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
                 _owedAtMaturity(principal), RATE, maturity, block.timestamp
             );
 
-        vm.prank(BORROWER);
-        assertEq(vault.close(ID), expected);
+        assertEq(_repayRepo(vault, BORROWER, ID), expected);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
-        assertEq(holds.lastExecutedTo(), BORROWER, "the collateral still goes back");
+        assertEq(holds.released(), 1, "the collateral still goes back");
+        assertEq(holds.executed(), 0);
     }
 
     /// @notice Article 7's escalation follows the penalty rather than replacing
@@ -288,7 +296,7 @@ contract RepoFailTest is Test, PolicyFixture, CouponFixture {
     // ------------------------------------------------------- the disclosure
 
     /// @notice The fail is published and its amount is not.
-    /// @dev Row 14, and the same reason `manufacturedCommitment` is a
+    /// @dev Row 14, and the same reason `lastCouponCommitment` is a
     ///      commitment. The penalty is `value * rate * days` with rate and days
     ///      both public, so an amount in the event divides out to the position.
     function test_theFailIsPublishedWithoutItsAmount() public {

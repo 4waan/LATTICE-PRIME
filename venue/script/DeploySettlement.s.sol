@@ -11,20 +11,25 @@ import {CouponSchedule} from "../src/coupon/CouponSchedule.sol";
 import {MarginWatch} from "../src/observatory/MarginWatch.sol";
 import {IPrimeOracle} from "../src/interfaces/IPrimeOracle.sol";
 import {IHoldByPartition} from "../src/interfaces/IHoldByPartition.sol";
+import {IExternalKycList} from "../src/interfaces/IExternalKycList.sol";
 
 /// @title DeploySettlement
-/// @notice Replaces only the contracts whose immutable wiring changed when the
-///         coupon calendar and HIP-1215 settlement obligations were added.
-/// @dev The live oracle, policy, ATS bond, market and compliance stack are
-///      reused. This preserves their state and avoids publishing another feed
-///      round merely to move a vault that has no repo history.
+/// @notice Replaces RepoVault and MarginWatch. Historical vaults stay in
+///         `superseded`; this does not migrate their state.
+/// @dev `FINANCING_VERSION` on the new vault is 5: funded HBAR offers bound to
+///      one eligible borrower, fixed-term economics, pull credits, collateral
+///      held until close or default, and due-date historical coupon fixings.
+///      The live oracle, policy,
+///      ATS bond, market and compliance stack are reused. Do not regenerate
+///      `client.json` until this script has actually been broadcast.
 ///
 /// Required environment:
 ///
 /// ```
 /// ATS_TOKEN       the existing ATS bond
 /// VENUE_PARAMS    the existing ParameterRoot
-/// PRIME_ORACLE    the existing PrimeOracle
+/// PRIME_ORACLE    a PrimeOracle with `referenceRateBefore` and a finalized round
+/// ZK_KYC_REGISTRY the external list configured on the ATS bond
 /// MARGIN_ENGINE   optional manual mark and liquidation seat, defaults to deployer
 /// ```
 contract DeploySettlement is Script {
@@ -39,6 +44,7 @@ contract DeploySettlement is Script {
     uint64 internal constant FIRST_COUPON = 1 hours;
 
     error FeedIsNotReady(address oracle);
+    error HistoricalFeedIsNotReady(address oracle);
 
     function run() external {
         uint256 pk = vm.envUint("HEDERA_PRIVATE_KEY");
@@ -47,6 +53,8 @@ contract DeploySettlement is Script {
         IHoldByPartition token = IHoldByPartition(vm.envAddress("ATS_TOKEN"));
         ParameterRoot params = ParameterRoot(vm.envAddress("VENUE_PARAMS"));
         IPrimeOracle oracle = IPrimeOracle(vm.envAddress("PRIME_ORACLE"));
+        IExternalKycList registry =
+            IExternalKycList(vm.envAddress("ZK_KYC_REGISTRY"));
         address marginEngine = vm.envOr("MARGIN_ENGINE", me);
 
         // A wrong oracle address should fail before any deployment is broadcast.
@@ -55,6 +63,16 @@ contract DeploySettlement is Script {
         (bool ok, bytes memory result) =
             address(oracle).staticcall(abi.encodeCall(IPrimeOracle.stale, ()));
         if (!ok || result.length != 32) revert FeedIsNotReady(address(oracle));
+        (ok, result) = address(oracle).staticcall(abi.encodeCall(IPrimeOracle.latest, ()));
+        if (!ok || result.length != 128) revert HistoricalFeedIsNotReady(address(oracle));
+        (,, uint64 publishedAt,) = abi.decode(result, (uint128, uint64, uint64, uint64));
+        if (publishedAt == 0 || publishedAt == type(uint64).max) {
+            revert HistoricalFeedIsNotReady(address(oracle));
+        }
+        (ok, result) = address(oracle).staticcall(
+            abi.encodeCall(IPrimeOracle.referenceRateBefore, (publishedAt + 1))
+        );
+        if (!ok || result.length != 96) revert HistoricalFeedIsNotReady(address(oracle));
 
         vm.startBroadcast(pk);
 
@@ -71,6 +89,7 @@ contract DeploySettlement is Script {
             marginEngine,
             oracle,
             ICouponSchedule(address(schedule)),
+            registry,
             params,
             PENALTY_RATE,
             FAIL_GRACE,
