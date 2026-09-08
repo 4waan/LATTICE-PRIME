@@ -30,6 +30,7 @@ abstract contract RepoVaultBase {
 
     error NotParty();
     error NotMarginEngine();
+    error NotLiquidationEngine();
     error CureWindowOpen(uint64 until);
     error NothingOwed();
     error NotYetMature(uint64 maturity);
