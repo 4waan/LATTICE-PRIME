@@ -86,10 +86,17 @@ contract MockAggregator is AggregatorV3Interface {
 ///      move. Turning the feed on is one call, and the suites that do it are the
 ///      ones making a claim about the feed.
 contract StubOracle is IPrimeOracle {
+    struct RateRound {
+        uint64 rate;
+        uint64 publishedAt;
+    }
+
     bool private _stale = true;
     uint256 private _mark;
     uint128 private _price;
     uint64 private _rate;
+    uint64 private _ratePublishedAt;
+    RateRound[] private _rates;
 
     function setDark(bool v) external {
         _stale = v;
@@ -104,6 +111,8 @@ contract StubOracle is IPrimeOracle {
     function setTerms(uint128 cleanPrice, uint64 refRateBps) external {
         _price = cleanPrice;
         _rate = refRateBps;
+        _ratePublishedAt = uint64(block.timestamp);
+        _rates.push(RateRound({rate: refRateBps, publishedAt: _ratePublishedAt}));
     }
 
     function stale() external view returns (bool) {
@@ -111,7 +120,17 @@ contract StubOracle is IPrimeOracle {
     }
 
     function latest() external view returns (uint128, uint64, uint64, uint64) {
-        return (_price, _rate, uint64(block.timestamp), 1);
+        return (_price, _rate, _ratePublishedAt, 1);
+    }
+
+    function referenceRateBefore(uint64 cutoff) external view returns (uint64, uint64, uint64) {
+        for (uint256 i = _rates.length; i > 0; --i) {
+            RateRound storage r = _rates[i - 1];
+            // Test fixtures never approach uint64 rounds.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            if (r.publishedAt < cutoff) return (r.rate, r.publishedAt, uint64(i));
+        }
+        revert("no historical rate");
     }
 
     function markPerUnitTinybar() external view returns (uint256) {

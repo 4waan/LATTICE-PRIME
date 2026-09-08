@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
+import {RepoMath} from "../src/repo/RepoMath.sol";
 import {CouponSchedule} from "../src/coupon/CouponSchedule.sol";
 import {CouponMath} from "../src/coupon/CouponMath.sol";
 import {DisclosureView} from "../src/lattice/DisclosureView.sol";
@@ -11,7 +12,8 @@ import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
-import {MockHolds} from "./Repo.t.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 
 /// @title NoteCouponTest
 /// @notice The other half of section 02: what `RepoVault.noteCoupon` became once
@@ -38,7 +40,7 @@ import {MockHolds} from "./Repo.t.sol";
 ///
 /// `Repo.t.sol` keeps the lifecycle tests that route through a coupon.
 /// `DisclosureMeter.t.sol` keeps the metering. This file is about the derivation.
-contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
+contract NoteCouponTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     StubOracle internal feed;
     MockHolds internal holds;
     RepoVault internal vault;
@@ -77,6 +79,7 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            _newKycList(),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -87,14 +90,15 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
     // ------------------------------------------------------- the fixtures
 
     function _open(bytes32 id, uint256 lot) internal {
-        vm.prank(BORROWER);
-        vault.open(
-            id,
+        _openRepo(
+            vault,
+            feed,
             LENDER,
+            BORROWER,
+            id,
             RepoVault.Terms({
                 partition: PARTITION,
                 collateralAmount: lot,
-                markValue: 1_000_000,
                 haircutBps: 200,
                 maintenanceBps: 200,
                 repoRateBps: 450,
@@ -142,11 +146,11 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
         assertEq(owed, _expected(LOT, REF_RATE_BPS, COUPON_PERIOD), "longhand");
         assertGt(owed, 0, "and a coupon that accrued nothing would pass vacuously");
         assertEq(
-            vault.repo(ID).manufacturedCommitment,
+            vault.repo(ID).lastCouponCommitment,
             vault.commitmentOf(ID, 0, owed),
             "the commitment binds the index and the amount together"
         );
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MANUFACTURED));
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
     }
 
     /// @notice **The shape that took a caller's word is gone from the ABI.**
@@ -166,27 +170,26 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
         assertEq(RepoVault.noteCoupon.selector, bytes4(0x2bae2cde), "tools/hcs.mjs line 82");
     }
 
-    /// @notice **The rate is read per call, which is what makes the bond variable.**
-    /// @dev `deployments/296-venue.json` says `"kind": "bond, variable rate"`. That
-    ///      was a string in a deployment record and nothing on chain made it true:
-    ///      the amount arrived from a caller and could have been anything. Two
-    ///      repos, identical in every term, under two published references, is the
-    ///      assertion that the string now describes the contract.
-    function test_movingTheReferenceMovesTheCoupon() public {
+    /// @notice A delayed caller cannot replace the coupon-date fixing.
+    /// @dev Both repos share one bond and one coupon. A newer rate published
+    ///      after the due date may price a later coupon, but it cannot make this
+    ///      coupon depend on which repo somebody happened to note first.
+    function test_aRatePublishedAfterTheCouponDateCannotRewriteTheCoupon() public {
         bytes32 second = keccak256("repo-coupon-2");
         _open(ID, LOT);
         _open(second, LOT);
-        vm.warp(couponSchedule.dateOf(0));
-
+        uint64 due = couponSchedule.dateOf(0);
+        vm.warp(due - 1);
         _liveFeed(REF_RATE_BPS);
+        vm.warp(due);
         uint256 low = vault.noteCoupon(ID, 0);
 
+        vm.warp(due + 1);
         _liveFeed(REF_RATE_BPS * 2);
-        uint256 high = vault.noteCoupon(second, 0);
+        uint256 delayed = vault.noteCoupon(second, 0);
 
         assertEq(low, _expected(LOT, REF_RATE_BPS, COUPON_PERIOD));
-        assertEq(high, _expected(LOT, REF_RATE_BPS * 2, COUPON_PERIOD));
-        assertGt(high, low, "the same bond, a different reference, a different coupon");
+        assertEq(delayed, low, "one coupon has one historical fixing");
     }
 
     /// @notice The lot is the vault's own, so two repos on one bond differ.
@@ -225,9 +228,7 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
     ///      fixture: a weekly period on a lot of a thousand units accrues
     ///      hundreds of billions of the cash token's smallest unit. Make the
     ///      period one second and the lot one unit and `CouponMath.accrue` floors
-    ///      to zero, which is a state transition into `MANUFACTURED` over an
-    ///      obligation of nothing, blocking the close until a lender pays through
-    ///      a payment that does not exist.
+    ///      to zero. Recording an observation of nothing would still be false.
     function test_aCouponThatAccruesToNothingIsRefused() public {
         uint64[] memory dates = new uint64[](1);
         dates[0] = uint64(block.timestamp) + 1;
@@ -235,23 +236,41 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
             uint64(block.timestamp), dates, SPREAD_BPS, FACE_VALUE, CouponMath.Basis.ACT_365
         );
         RepoVault dust = new RepoVault(
-            holds, ENGINE, feed, tiny, params, PENALTY_RATE, FAIL_GRACE, CURE_WINDOW
+            holds,
+            ENGINE,
+            feed,
+            tiny,
+            _newKycList(),
+            params,
+            PENALTY_RATE,
+            FAIL_GRACE,
+            CURE_WINDOW
         );
 
-        vm.prank(BORROWER);
-        dust.open(
+        uint256 dustMark = 100;
+        uint256 principal = RepoMath.purchasePrice(dustMark, 200);
+        vm.deal(LENDER, principal);
+        feed.setMark(dustMark);
+        vm.prank(LENDER);
+        dust.fundOffer{value: principal}(
             ID,
-            LENDER,
+            BORROWER,
             RepoVault.Terms({
                 partition: PARTITION,
                 collateralAmount: 1,
-                markValue: 1_000_000,
                 haircutBps: 200,
                 maintenanceBps: 200,
                 repoRateBps: 450,
                 term: TERM
-            })
+            }),
+            uint64(block.timestamp + 7 days)
         );
+        holds.mint(PARTITION, BORROWER, 1);
+        vm.prank(BORROWER);
+        holds.approve(address(dust), 1);
+        vm.prank(BORROWER);
+        dust.accept(ID);
+        feed.setDark(true);
         _liveFeed(REF_RATE_BPS);
         vm.warp(block.timestamp + 1);
 
@@ -351,32 +370,24 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN), "nothing moved");
     }
 
-    /// @notice **This is the opposite door from `postMark`, and both are shut at
-    ///         once only by design.**
-    /// @dev The manual mark seat opens when the feed goes dark, because a repo
-    ///      book that cannot be marked is a frozen book and somebody has to be
-    ///      able to say what the collateral is worth. A coupon is not like that.
-    ///      There is no discretionary substitute for a published reference rate,
-    ///      and a coupon accrued against a rate nobody published is an invented
-    ///      number that one of the two parties would have chosen. So the two
-    ///      seats are exact complements, and this is the assertion that they are:
-    ///      in each state exactly one of them answers.
-    function test_theCouponAndTheManualMarkAreExactComplements() public {
+    /// @notice A current outage does not erase a valid historical fixing.
+    /// @dev Manual marking needs the feed to be dark now. Coupon observation
+    ///      needs a valid round before the due date. Those are different clocks,
+    ///      so both operations can correctly be available at once.
+    function test_aHistoricalFixingSurvivesACurrentFeedOutage() public {
         _open(ID, LOT);
-        vm.warp(couponSchedule.dateOf(0));
-
-        // Dark: the manual seat is open and the coupon is shut.
-        vm.prank(ENGINE);
-        vault.postMark(ID, keccak256("mark"), false, 0);
-        vm.expectRevert(RepoVaultBase.FeedIsDark.selector);
-        vault.noteCoupon(ID, 0);
-
-        // Live: the coupon is open and the manual seat is shut.
+        uint64 due = couponSchedule.dateOf(0);
+        vm.warp(due - 1);
         _liveFeed(REF_RATE_BPS);
+        feed.setDark(true);
+        vm.warp(due);
+
         vm.prank(ENGINE);
-        vm.expectRevert(RepoVaultBase.FeedIsLive.selector);
         vault.postMark(ID, keccak256("mark"), false, 0);
-        assertGt(vault.noteCoupon(ID, 0), 0);
+        assertEq(
+            vault.noteCoupon(ID, 0),
+            _expected(LOT, REF_RATE_BPS, COUPON_PERIOD)
+        );
     }
 
     // ========================================== 4. idempotence and state
@@ -393,17 +404,17 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
         vm.warp(couponSchedule.dateOf(0));
 
         uint256 owed = vault.noteCoupon(ID, 0);
-        bytes32 commitment = vault.repo(ID).manufacturedCommitment;
+        bytes32 commitment = vault.repo(ID).lastCouponCommitment;
 
         assertEq(vault.noteCoupon(ID, 0), 0, "zero, and no revert");
-        assertEq(vault.repo(ID).manufacturedCommitment, commitment, "and nothing moved");
+        assertEq(vault.repo(ID).lastCouponCommitment, commitment, "and nothing moved");
         assertGt(owed, 0);
     }
 
     /// @notice The no-op survives the repo moving on underneath it.
     /// @dev A scheduled call is not entitled to know what happened between being
-    ///      scheduled and firing. Here the coupon is noted, paid through and the
-    ///      repo closed before the scheduled call lands: the state check would
+    ///      scheduled and firing. Here the coupon is noted and the repo closed
+    ///      before the scheduled call lands: the state check would
     ///      refuse a closed repo, and the idempotence guard sits in front of it
     ///      precisely so that this is a no-op rather than a failure.
     function test_theNoOpSurvivesTheRepoBeingClosedUnderneathIt() public {
@@ -412,66 +423,43 @@ contract NoteCouponTest is Test, PolicyFixture, CouponFixture {
         vm.warp(couponSchedule.dateOf(0));
         vault.noteCoupon(ID, 0);
 
-        vm.prank(LENDER);
-        vault.payThrough(ID);
         vm.warp(vault.repo(ID).maturity);
-        vm.prank(BORROWER);
-        vault.close(ID);
+        _repayRepo(vault, BORROWER, ID);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
 
         assertEq(vault.noteCoupon(ID, 0), 0, "the late scheduled call lands quietly");
     }
 
-    /// @notice Only one coupon may be outstanding, and that is still the state
-    ///         check's job rather than the idempotence guard's.
-    /// @dev A second, different coupon before pay-through is refused rather than
-    ///      silently summed into the first. Two obligations under one commitment
-    ///      is a commitment that no longer identifies what is owed.
-    function test_aSecondDifferentCouponBeforePayThroughIsRefused() public {
+    /// @notice Different coupon indices are independent observations.
+    function test_aSecondDifferentCouponDoesNotWaitForAFakePayThrough() public {
         _open(ID, LOT);
         _liveFeed(REF_RATE_BPS);
-        vm.warp(couponSchedule.dateOf(0));
-        vault.noteCoupon(ID, 0);
-
-        vm.warp(couponSchedule.dateOf(1));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RepoVault.WrongState.selector,
-                RepoVault.State.MANUFACTURED,
-                RepoVault.State.OPEN
-            )
-        );
-        vault.noteCoupon(ID, 1);
-    }
-
-    /// @notice **Both legs of the pass-through now exist.**
-    /// @dev Before section 02 the venue had `payThrough` and nothing on the other
-    ///      side of it: the pass-through existed and the payment it passed
-    ///      through did not. Two coupons in sequence is the assertion that the
-    ///      cycle closes and reopens rather than working once.
-    function test_twoCouponsPassThroughInSequence() public {
-        _open(ID, LOT);
-        _liveFeed(REF_RATE_BPS);
-
         vm.warp(couponSchedule.dateOf(0));
         uint256 first = vault.noteCoupon(ID, 0);
-        vm.prank(LENDER);
-        vault.payThrough(ID);
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
-        assertEq(vault.repo(ID).manufacturedCommitment, bytes32(0), "settled");
 
         vm.warp(couponSchedule.dateOf(1));
         uint256 second = vault.noteCoupon(ID, 1);
-        assertEq(second, first, "same lot, same rate, same period");
-        assertEq(
-            vault.repo(ID).manufacturedCommitment,
-            vault.commitmentOf(ID, 1, second),
-            "and the second commitment names the second index"
-        );
 
-        vm.prank(LENDER);
-        vault.payThrough(ID);
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
+        assertTrue(vault.notedCoupon(ID, 0));
+        assertTrue(vault.notedCoupon(ID, 1));
+        assertEq(first, second);
+        assertEq(
+            vault.repo(ID).lastCouponCommitment,
+            vault.commitmentOf(ID, 1, second),
+            "latest observation identifies its own index"
+        );
+    }
+
+    /// @notice Coupon observation never clears or blocks an existing margin call.
+    function test_couponObservationPreservesAMarginCall() public {
+        _open(ID, LOT);
+        vm.prank(ENGINE);
+        vault.postMark(ID, keccak256("short"), true, 1 days);
+        _liveFeed(REF_RATE_BPS);
+
+        vm.warp(couponSchedule.dateOf(0));
+        assertGt(vault.noteCoupon(ID, 0), 0);
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
     }
 
     /// @notice A commitment from one coupon is not a commitment for another.

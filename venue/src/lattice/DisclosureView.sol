@@ -6,7 +6,7 @@ import {DisclosureMeter} from "./DisclosureMeter.sol";
 import {IDisclosurePolicy} from "../interfaces/IDisclosurePolicy.sol";
 
 /// @title DisclosureView
-/// @notice Policy + meter + the one path disclosing events pass through.
+/// @notice Policy, meter, and the strict and non-blocking event gates.
 /// @dev Ceiling breach reverts (misconfig). Exhausted budget withholds (Rule A)
 ///      and the tx completes. Five getters are the receipt surface.
 abstract contract DisclosureView {
@@ -15,11 +15,6 @@ abstract contract DisclosureView {
 
     /// @notice Bits spent per row per epoch against the governed coalition budget.
     DisclosureMeter.Meter internal _meter;
-
-    /// @notice A disclosure was refused by the row's ceiling. Emitted with the
-    ///         revert, so the refusal is in the trace even though the state is
-    ///         rolled back.
-    event DisclosureRefused(bytes32 indexed id, uint16 row, uint32 excess);
 
     /// @notice The cells by which a disclosure exceeded `row`'s ceiling.
     error DisclosureExceedsCeiling(uint16 row, uint32 excess);
@@ -33,15 +28,28 @@ abstract contract DisclosureView {
     ///      configuration error and reverts; an exhausted budget is the mechanism
     ///      working, so the event is withheld and the transaction completes.
     /// @return afforded Whether the caller should emit.
-    function _emitUnder(bytes32 id, uint16 row, uint8 g, uint8 t)
+    function _emitUnder(bytes32, uint16 row, uint8 g, uint8 t)
         internal
         returns (bool afforded)
     {
         uint32 over = L.excess(policy.ceilingFor(row), L.point(g, t));
         if (over != 0) {
-            emit DisclosureRefused(id, row, over);
             revert DisclosureExceedsCeiling(row, over);
         }
+        return DisclosureMeter.spend(_meter, policy, row, g);
+    }
+
+    /// @notice Gate an event without allowing publication policy to block an action.
+    /// @dev Cash repayment, collateral recovery, margin enforcement, cure, and
+    ///      default enforcement must remain live even after a ceiling narrows.
+    ///      In that case the venue emits nothing here. This controls only the
+    ///      venue event; transaction calldata, storage, transfers, and upstream
+    ///      token events remain public.
+    function _emitWithoutBlocking(uint16 row, uint8 g, uint8 t)
+        internal
+        returns (bool afforded)
+    {
+        if (L.excess(policy.ceilingFor(row), L.point(g, t)) != 0) return false;
         return DisclosureMeter.spend(_meter, policy, row, g);
     }
 

@@ -89,9 +89,11 @@ export function spend(row, spent, g) {
     return {afforded: true, cost, spentAfter: spent + cost, metered: true};
 }
 
-/// The five getters, against one row, as one object. This is the receipt: it is
-/// `ceilingFor`, `wouldDisclose`, `spentBits`, `wouldAfford` and `breakingSize`,
-/// which is every question the venue can be asked about what it just published.
+/// The five getters, against one row, as one object. This is a post-transaction
+/// policy snapshot. It cannot by itself prove whether the preceding transaction
+/// emitted its event: spending the final available bit makes `wouldAfford`
+/// false immediately after a successful publication. The transaction receipt
+/// supplies that historical fact via `hasContractEvent`.
 export function receiptFor(ceiling, row, spent, g, t) {
     const asked = point(g, t);
     const over = excess(ceiling, asked);
@@ -108,4 +110,17 @@ export function receiptFor(ceiling, row, spent, g, t) {
         wouldAfford: !isMetered(row) || spent + bits(row, g) <= row.budgetBits,
         breakingSize: breakingSize(row, g),
     };
+}
+
+/// Whether a transaction receipt contains one named event from one contract.
+/// Address and topic are both required because ATS and scheduler calls can emit
+/// unrelated logs in the same transaction.
+export function hasContractEvent(logs, address, topic) {
+    const wantAddress = String(address || "").toLowerCase();
+    const wantTopic = String(topic || "").toLowerCase();
+    if (!wantAddress || !wantTopic) return false;
+    return (logs || []).some((log) =>
+        String(log?.address || "").toLowerCase() === wantAddress &&
+        String(log?.topics?.[0] || "").toLowerCase() === wantTopic
+    );
 }

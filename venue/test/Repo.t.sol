@@ -10,75 +10,8 @@ import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
-
-/// @dev Records the ATS calls rather than simulating them. The point of a mock
-///      here is to assert that the vault makes exactly the calls the seam call
-///      list permits and no others, not to pretend to be ATS. Real hold behaviour
-///      is verified against testnet, not here.
-contract MockHolds is IHoldByPartition {
-    /// @dev Row 12 of the call list. No contract calls it; the client does, and
-    ///      nothing in this suite is a client, so it answers zero rather than a
-    ///      plausible number. `AtsHolds` in `MatchingEngine.t.sol` keeps a real
-    ///      sum, which is where the read is exercised.
-    function getHeldAmountForByPartition(bytes32, address) external pure returns (uint256) {
-        return 0;
-    }
-
-    /// @dev Row 11 of the call list, added with `MatchingEngine`. This suite does
-    ///      not exercise the read, so it answers with a hold that would pass no
-    ///      check; a stub that returned something plausible would be a stub
-    ///      asserting the engine's precondition on the engine's behalf.
-    function getHoldForByPartition(IHoldTypes.HoldIdentifier calldata)
-        external
-        pure
-        returns (uint256, uint256, address, address, bytes memory, bytes memory, uint8)
-    {
-        return (0, 0, address(0), address(0), "", "", 0);
-    }
-
-    uint256 public nextId = 1;
-    uint256 public created;
-    uint256 public executed;
-    address public lastExecutedTo;
-    uint256 public lastExecutedAmount;
-
-    function createHoldByPartition(bytes32, IHoldTypes.Hold calldata)
-        external
-        returns (bool, uint256)
-    {
-        created++;
-        return (true, nextId++);
-    }
-
-    function createHoldFromByPartition(
-        bytes32,
-        address,
-        IHoldTypes.Hold calldata,
-        bytes calldata
-    ) external returns (bool, uint256) {
-        created++;
-        return (true, nextId++);
-    }
-
-    function executeHoldByPartition(
-        IHoldTypes.HoldIdentifier calldata id,
-        address to,
-        uint256 amount
-    ) external returns (bool, bytes32) {
-        executed++;
-        lastExecutedTo = to;
-        lastExecutedAmount = amount;
-        return (true, id.partition);
-    }
-
-    function releaseHoldByPartition(IHoldTypes.HoldIdentifier calldata, uint256)
-        external
-        pure
-        returns (bool)
-    {
-        return true;
-    }
-}
+import {AtsHolds, MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 
 contract RepoMathTest is Test {
     /// A sterling gilt repo: one million units of cash, 4.50 percent, thirty days.
@@ -135,9 +68,60 @@ contract RepoMathTest is Test {
             "one unit below is not"
         );
     }
+
+    function test_fractionalMaintenanceRequirementRoundsTowardTheLender() public pure {
+        _assertMaintenanceBoundary(1, 1, 2);
+        _assertMaintenanceBoundary(9_999, 1, 10_000);
+        _assertMaintenanceBoundary(10_000, 1, 10_001);
+        _assertMaintenanceBoundary(1_000_001, 200, 1_020_002);
+    }
+
+    function test_fullPrecisionPathsDoNotOverflowBeforeDivision() public pure {
+        uint256 max = type(uint256).max;
+        assertEq(RepoMath.purchasePrice(max, 0), max, "purchase");
+        assertEq(
+            RepoMath.accrued(max, 10_000, 0, 365 days),
+            max,
+            "one year at one hundred percent"
+        );
+        assertEq(
+            RepoMath.settlementPenalty(max, 1_000_000, 0, 1),
+            max,
+            "one full-rate fail day"
+        );
+
+        uint256 exposure = max / 2;
+        assertTrue(
+            RepoMath.isUndercollateralised(max - 2, exposure, 0, 0, 0, 10_000),
+            "one below the doubled requirement"
+        );
+        assertFalse(
+            RepoMath.isUndercollateralised(max - 1, exposure, 0, 0, 0, 10_000),
+            "the doubled requirement is covered"
+        );
+    }
+
+    /// @dev Expected values come from `probes/repo-cash.py`, whose formula
+    ///      decomposes exposure and margin instead of copying this implementation.
+    function _assertMaintenanceBoundary(
+        uint256 exposure,
+        uint256 maintenanceBps,
+        uint256 required
+    ) private pure {
+        assertTrue(
+            RepoMath.isUndercollateralised(
+                required - 1, exposure, 0, 0, 0, maintenanceBps
+            ),
+            "one tinybar below the independent requirement is short"
+        );
+        assertFalse(
+            RepoMath.isUndercollateralised(required, exposure, 0, 0, 0, maintenanceBps),
+            "the independent requirement is covered"
+        );
+    }
 }
 
-contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
+contract RepoVaultTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -177,6 +161,7 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            _newKycList(),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -184,21 +169,19 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
         );
     }
 
+    function _terms() internal pure returns (RepoVault.Terms memory) {
+        return RepoVault.Terms({
+            partition: PARTITION,
+            collateralAmount: 1_000e8,
+            haircutBps: 200,
+            maintenanceBps: 200,
+            repoRateBps: 450,
+            term: 30 days
+        });
+    }
+
     function _open() internal returns (uint256 principal) {
-        vm.prank(BORROWER);
-        principal = vault.open(
-            ID,
-            LENDER,
-            RepoVault.Terms({
-                partition: PARTITION,
-                collateralAmount: 1_000e8,
-                markValue: 1_000_000,
-                haircutBps: 200,
-                maintenanceBps: 200,
-                repoRateBps: 450,
-                term: 30 days
-            })
-        );
+        return _openRepo(vault, feed, LENDER, BORROWER, ID, _terms());
     }
 
     /// @dev Turns the feed on and warps to the first coupon date, because
@@ -218,9 +201,15 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
 
     function test_openTakesOneHoldAndAdvancesTheHaircutPrice() public {
         uint256 principal = _open();
-        assertEq(principal, 980_000, "mark less the two percent haircut");
+        assertEq(
+            principal,
+            RepoMath.purchasePrice(DEFAULT_MARK_PER_UNIT * 1_000e8, 200),
+            "mark less the two percent haircut"
+        );
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
         assertEq(holds.created(), 1, "exactly one ATS hold, not a reimplementation");
+        assertEq(holds.lastHoldTo(), address(0), "destination is open so close can release");
+        assertEq(vault.credit(BORROWER), principal);
     }
 
     // ------------------------------------------------------------------ T2
@@ -234,12 +223,14 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
         );
 
         vm.prank(BORROWER);
-        uint256 price = vault.close(ID);
+        uint256 price = _repayRepo(vault, BORROWER, ID);
 
         assertEq(price, expected);
         assertGt(price, principal, "interest accrued");
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
-        assertEq(holds.lastExecutedTo(), BORROWER, "collateral goes back to the seller");
+        assertEq(holds.released(), 1, "collateral is released, not executed");
+        assertEq(holds.executed(), 0);
+        assertEq(vault.credit(LENDER), price);
     }
 
     function test_onlyTheBorrowerCloses() public {
@@ -289,9 +280,42 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
         _open();
         vm.prank(ENGINE);
         vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
+        feed.setMark(DEFAULT_MARK_PER_UNIT);
         vm.prank(BORROWER);
         vault.cure(ID);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
+    }
+
+    function test_emptyCureIsRefusedWhileStillShort() public {
+        _open();
+        vm.prank(ENGINE);
+        vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
+        feed.setMark(0);
+        vm.prank(BORROWER);
+        vm.expectRevert(RepoVaultBase.EmptyCure.selector);
+        vault.cure(ID);
+    }
+
+    function test_cureAndNewCollateralStopAtThePublishedDeadline() public {
+        _open();
+        vm.prank(ENGINE);
+        vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
+        uint64 deadline = vault.repo(ID).cureDeadline;
+        vm.warp(deadline);
+        feed.setMark(DEFAULT_MARK_PER_UNIT);
+
+        vm.prank(BORROWER);
+        vm.expectRevert(
+            abi.encodeWithSelector(RepoVaultBase.CureWindowClosed.selector, deadline)
+        );
+        vault.cure(ID);
+
+        vm.prank(BORROWER);
+        vm.expectRevert(
+            abi.encodeWithSelector(RepoVaultBase.CureWindowClosed.selector, deadline)
+        );
+        vault.addCollateral(ID, 1);
+        assertEq(vault.extraHoldCount(ID), 0, "late collateral was not trapped");
     }
 
     function test_defaultIsPermissionlessButOnlyAfterTheWindow() public {
@@ -316,33 +340,22 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
 
     // ------------------------------------------------------------- T5 and T6
 
-    /// @notice The transition that proves the design understands the instrument.
-    /// Title passed at T1, so ATS pays the mid-term coupon to the lender, who is
-    /// not economically entitled to it. The repo cannot close until it is passed
-    /// through.
-    function test_manufacturedPaymentBlocksTheCloseUntilItIsPaid() public {
+    /// @notice Hold custody leaves issuer income with the borrower, so observing
+    ///         a coupon neither invents another payment nor blocks repayment.
+    function test_couponObservationDoesNotInventAPaymentOrBlockTheClose() public {
         _open();
         _noteCoupon();
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MANUFACTURED));
-
-        vm.prank(BORROWER);
-        vm.expectRevert();
-        vault.close(ID);
-
-        vm.prank(LENDER);
-        vault.payThrough(ID);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
 
-        vm.prank(BORROWER);
-        vault.close(ID);
+        _repayRepo(vault, BORROWER, ID);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
     }
 
-    function test_onlyTheLenderPaysThrough() public {
+    function test_manufacturedPayThroughIsExplicitlyRefused() public {
         _open();
         _noteCoupon();
-        vm.prank(BORROWER);
-        vm.expectRevert(RepoVaultBase.NotParty.selector);
+        vm.prank(LENDER);
+        vm.expectRevert(RepoVaultBase.NoManufacturedPayment.selector);
         vault.payThrough(ID);
     }
 
@@ -358,31 +371,27 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
 
     // ------------------------------------------------------------------ T8
 
-    function test_auctionSettlesToTheWinner() public {
+    function test_defaultSendsCollateralToTheLender() public {
         _open();
         vm.prank(ENGINE);
         vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
         vm.warp(block.timestamp + 1 days + 1);
         vault.declareDefault(ID);
 
-        vm.prank(ENGINE);
-        vault.settleAuction(ID, address(0x111), 900_000);
-        assertEq(holds.lastExecutedTo(), address(0x111));
+        vault.settleDefault(ID);
+        assertEq(holds.lastExecutedTo(), LENDER);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
     }
 
-    function test_aStrangerCannotNameTheLiquidationWinner() public {
+    function test_settleAuctionIsRefused() public {
         _open();
         vm.prank(ENGINE);
         vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
         vm.warp(block.timestamp + 1 days + 1);
         vault.declareDefault(ID);
 
-        vm.prank(address(0xBAD));
-        vm.expectRevert(RepoVaultBase.NotLiquidationEngine.selector);
+        vm.expectRevert(RepoVaultBase.AuctionNotSupported.selector);
         vault.settleAuction(ID, address(0xBAD), 0);
-
-        assertEq(holds.executed(), 0);
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.DEFAULTED));
     }
 
@@ -426,7 +435,59 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
         );
     }
 
-    /// @notice The manufactured payment no longer publishes the position size.
+    function test_aNarrowedPublicationCeilingCannotBlockRepayment() public {
+        _open();
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer position events");
+
+        vm.recordLogs();
+        _repayRepo(vault, BORROWER, ID);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
+        assertEq(holds.released(), 1, "the publication rule did not trap collateral");
+        _assertNoEvent(logs, keccak256("Closed(bytes32)"));
+    }
+
+    function test_aNarrowedPublicationCeilingCannotBlockCure() public {
+        _open();
+        vm.prank(ENGINE);
+        vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
+        feed.setMark(DEFAULT_MARK_PER_UNIT);
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer position events");
+
+        vm.recordLogs();
+        vm.prank(BORROWER);
+        vault.cure(ID);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
+        _assertNoEvent(logs, keccak256("Cured(bytes32)"));
+    }
+
+    function test_aNarrowedPublicationCeilingCannotBlockDefaultRecovery() public {
+        _open();
+        uint64 maturity = vault.repo(ID).maturity;
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer position events");
+
+        vm.warp(maturity);
+        vm.recordLogs();
+        vault.markFailing(ID);
+        vm.warp(uint256(maturity) + FAIL_GRACE + 1);
+        vault.declareDefault(ID);
+        vault.settleDefault(ID);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
+        assertEq(holds.lastExecutedTo(), LENDER, "the lender still receives the collateral");
+        _assertNoEvent(logs, keccak256("Failing(bytes32,uint64)"));
+        _assertNoEvent(logs, keccak256("Defaulted(bytes32)"));
+        _assertNoEvent(logs, keccak256("Closed(bytes32)"));
+    }
+
+    /// @notice The coupon observation does not publish the position size.
     /// @dev A coupon amount is the coupon rate times the collateral lot, and the
     ///      rate is public instrument data, so the old `CouponObserved(id,
     ///      uint256)` divided out to the exact position. Row 14 puts that at
@@ -458,9 +519,17 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
             }
         }
         assertEq(
-            vault.repo(ID).manufacturedCommitment,
+            vault.repo(ID).lastCouponCommitment,
             vault.commitmentOf(ID, COUPON_INDEX, owed),
             "the commitment, not the number"
         );
+    }
+
+    function _assertNoEvent(Vm.Log[] memory logs, bytes32 signature) private pure {
+        for (uint256 i = 0; i < logs.length; ++i) {
+            if (logs[i].topics.length != 0) {
+                assertTrue(logs[i].topics[0] != signature, "forbidden venue event was emitted");
+            }
+        }
     }
 }

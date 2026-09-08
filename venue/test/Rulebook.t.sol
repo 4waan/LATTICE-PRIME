@@ -8,7 +8,8 @@ import {AxeBoard} from "../src/market/AxeBoard.sol";
 import {ISealedOrderBook} from "../src/interfaces/ISealedOrderBook.sol";
 import {IRespondentRegistry} from "../src/interfaces/IRespondentRegistry.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
-import {MockHolds} from "./Repo.t.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {KycListStub} from "./RepoFunding.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {CouponDistributor} from "../src/coupon/CouponDistributor.sol";
@@ -154,6 +155,7 @@ contract RulebookTest is Test, PolicyFixture, CouponFixture {
             address(0xE49),
             new StubOracle(),
             _deploySchedule(uint64(block.timestamp)),
+            new KycListStub(),
             params,
             PENALTY_RATE,
             5 days,

@@ -6,13 +6,14 @@ import {RepoMath} from "../src/repo/RepoMath.sol";
 import {RepoVault} from "../src/repo/RepoVault.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
-import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
 import {ParameterRoot} from "../src/policy/ParameterRoot.sol";
 import {DisclosureBudget as B} from "../src/lattice/DisclosureBudget.sol";
 import {ZkKycRegistry} from "../src/kyc/ZkKycRegistry.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 
 /// @title MarketAbuse
 /// @notice The integrity adversary, executed rather than argued.
@@ -76,7 +77,7 @@ contract Holds is IHoldByPartition {
     }
 }
 
-contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
+contract MarketAbuseTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -89,7 +90,7 @@ contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
     uint256 internal constant PENALTY_RATE = 10;
     uint64 internal constant FAIL_GRACE = 5 days;
 
-    Holds holds;
+    MockHolds holds;
     RepoVault vault;
 
     address constant BORROWER = address(0xB0B);
@@ -110,27 +111,29 @@ contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
 
     function setUp() public {
         feed = new StubOracle();
-        holds = new Holds();
+        holds = new MockHolds();
         _deployPolicy(asDeployed());
         vault = new RepoVault(
             holds,
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            _newKycList(),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
             CURE_WINDOW
         );
         vm.warp(1_760_000_000);
-        vm.prank(BORROWER);
-        vault.open(
-            ID,
+        _openRepo(
+            vault,
+            feed,
             LENDER,
+            BORROWER,
+            ID,
             RepoVault.Terms({
                 partition: PARTITION,
                 collateralAmount: 1_000e8,
-                markValue: MARK_AT_OPEN,
                 haircutBps: HAIRCUT_BPS,
                 maintenanceBps: MAINTENANCE_BPS,
                 repoRateBps: RATE_BPS,
@@ -150,8 +153,18 @@ contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
     ///      privileged access, no events, no mark.
     function _thresholdFromPublicAbiOnly(bytes32 id) internal view returns (uint256) {
         RepoVault.Repo memory r = vault.repo(id); // public accessor
-        uint256 exposure = vault.repurchasePriceNow(id); // public accessor
-        return (exposure * (10_000 + uint256(r.maintenanceBps))) / 10_000;
+        uint256 exposure = vault.exposureNow(id); // public accessor
+        return _grossUp(exposure, r.maintenanceBps);
+    }
+
+    function _grossUp(uint256 exposure, uint256 maintenanceBps)
+        private
+        pure
+        returns (uint256)
+    {
+        uint256 numerator = exposure * (10_000 + maintenanceBps);
+        uint256 required = numerator / 10_000;
+        return required + (numerator % 10_000 == 0 ? 0 : 1);
     }
 
     function test_MA01_liquidationThresholdIsPublicToTheUnit() public {
@@ -184,11 +197,12 @@ contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
             "the derived threshold itself must not be a breach"
         );
 
-        emit log_named_uint("MA-01 mark at open              ", MARK_AT_OPEN);
+        uint256 markAtOpen = DEFAULT_MARK_PER_UNIT * 1_000e8;
+        emit log_named_uint("MA-01 mark at open              ", markAtOpen);
         emit log_named_uint("MA-01 liquidation threshold, t+15d", attacker);
         emit log_named_uint(
             "MA-01 fall required, bps        ",
-            (MARK_AT_OPEN - attacker) * 10_000 / MARK_AT_OPEN
+            (markAtOpen - attacker) * 10_000 / markAtOpen
         );
     }
 
@@ -202,16 +216,17 @@ contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
         for (uint64 d = 1; d <= 30; ++d) {
             uint256 at = t0 + uint256(d) * 1 days;
             // Computed at open, using only values already public at open.
-            uint256 predicted =
-                (RepoMath.repurchasePrice(r.principal, r.repoRateBps, r.openedAt, at)
-                        * (10_000 + uint256(r.maintenanceBps))) / 10_000;
+            uint256 predicted = _grossUp(
+                RepoMath.repurchasePrice(r.principal, r.repoRateBps, r.openedAt, at),
+                r.maintenanceBps
+            );
 
             vm.warp(at);
             assertEq(predicted, _thresholdFromPublicAbiOnly(ID), "trajectory diverged");
         }
     }
 
-    function test_MA03_theOracleAndTheEmitAgree() public {
+    function test_MA03_aNarrowedEventCannotBlockAnOracleProvenCure() public {
         assertTrue(vault.wouldDisclose(14, L.G_PRED, L.T_IMM), "row 14 admits it");
         vm.prank(ENGINE);
         vault.postMark(ID, keccak256("mark"), true, 1 days);
@@ -222,15 +237,21 @@ contract MarketAbuseTest is Test, PolicyFixture, CouponFixture {
         _publish(set);
 
         assertFalse(vault.wouldDisclose(14, L.G_PRED, L.T_IMM), "row 14 now refuses it");
+        feed.setMark(DEFAULT_MARK_PER_UNIT);
+        vm.recordLogs();
         vm.prank(BORROWER);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DisclosureView.DisclosureExceedsCeiling.selector,
-                uint16(14), // position risk
-                L.excess(L.point(L.G_PRED, L.T_EOD), L.point(L.G_PRED, L.T_IMM))
-            )
-        );
         vault.cure(ID);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
+        for (uint256 i = 0; i < logs.length; ++i) {
+            if (logs[i].topics.length != 0) {
+                assertTrue(
+                    logs[i].topics[0] != keccak256("Cured(bytes32)"),
+                    "the forbidden venue event was emitted"
+                );
+            }
+        }
     }
 
     function _row14() internal pure returns (B.Row memory) {

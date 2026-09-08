@@ -14,6 +14,7 @@ import {IPrimeOracle} from "../src/interfaces/IPrimeOracle.sol";
 import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
 import {HederaRateFeed} from "../src/oracle/HederaRateFeed.sol";
 import {IHoldByPartition} from "../src/interfaces/IHoldByPartition.sol";
+import {IExternalKycList} from "../src/interfaces/IExternalKycList.sol";
 
 /// @title DeployOracle
 /// @notice The feed, and the two contracts that had to move to reach it.
@@ -142,6 +143,8 @@ contract DeployOracle is Script {
 
         ParameterRoot params = ParameterRoot(vm.envAddress("VENUE_PARAMS"));
         address token = vm.envAddress("ATS_TOKEN");
+        IExternalKycList registry =
+            IExternalKycList(vm.envAddress("ZK_KYC_REGISTRY"));
         address[] memory panel = _publishers(me);
 
         vm.startBroadcast(pk);
@@ -171,6 +174,7 @@ contract DeployOracle is Script {
             me,
             IPrimeOracle(address(oracle)),
             ICouponSchedule(address(schedule)),
+            registry,
             params,
             PENALTY_RATE,
             FAIL_GRACE,

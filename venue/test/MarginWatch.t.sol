@@ -8,11 +8,12 @@ import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
-import {MockHolds} from "./Repo.t.sol";
+import {MockHolds} from "./AtsHolds.sol";
+import {RepoFunding} from "./RepoFunding.sol";
 
 /// @notice One claim: the alert survives the silence. `Repo.t.sol` covers the
 ///         transitions, so nothing here re-tests one.
-contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
+contract MarginWatchTest is Test, PolicyFixture, CouponFixture, RepoFunding {
     /// @dev Dark by default, which is the venue this suite was written against:
     ///      `postMark` is reachable and `markToMarket` is not. See `OracleFixture`.
     StubOracle internal feed;
@@ -49,6 +50,7 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
             ENGINE,
             feed,
             _deploySchedule(uint64(block.timestamp)),
+            _newKycList(),
             params,
             PENALTY_RATE,
             FAIL_GRACE,
@@ -58,14 +60,15 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
     }
 
     function _open(bytes32 id) internal {
-        vm.prank(BORROWER);
-        vault.open(
-            id,
+        _openRepo(
+            vault,
+            feed,
             LENDER,
+            BORROWER,
+            id,
             RepoVault.Terms({
                 partition: PARTITION,
                 collateralAmount: 1_000e8,
-                markValue: 1_000_000,
                 haircutBps: 200,
                 maintenanceBps: 200,
                 repoRateBps: 450,
@@ -83,8 +86,7 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
     ///      spends all three and leaves the position called.
     function _spendToTheBrim(bytes32 id) internal {
         _call(id);
-        vm.prank(BORROWER);
-        vault.cure(id);
+        _cureCovered(vault, feed, BORROWER, id);
         _call(id);
         assertEq(vault.spentBits(14, params.currentEpoch()), 3, "at the bound");
     }
@@ -100,8 +102,7 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
         _open(ID);
         _spendToTheBrim(ID);
 
-        vm.prank(BORROWER);
-        vault.cure(ID); // the fourth disclosure, withheld
+        _cureCovered(vault, feed, BORROWER, ID); // the fourth disclosure, withheld
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN), "cured, quietly");
 
         vm.recordLogs();
@@ -127,8 +128,7 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
         _publish(withBudgets());
         _open(ID);
         _spendToTheBrim(ID);
-        vm.prank(BORROWER);
-        vault.cure(ID);
+        _cureCovered(vault, feed, BORROWER, ID);
 
         vm.recordLogs();
         _call(ID);
@@ -170,7 +170,8 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
     ///
     /// `domainBits` is 3, the cardinality of `RepoVault.State`, and `budgetBits`
     /// is 2, so the third position disclosure of an epoch is the one withheld.
-    /// `open` does not disclose on this row; `postMark` and `cure` do.
+    /// The funded offer is first, the margin call is second, and cure is the
+    /// first state transition whose venue event is withheld.
     function test_underTheDeployedSetTheThirdCallIsWithheld() public {
         _open(ID);
 
@@ -178,16 +179,16 @@ contract MarginWatchTest is Test, PolicyFixture, CouponFixture {
         assertTrue(s.metered, "a ceiling and a budget");
         assertEq(s.budgetBits, 2, "domainBits 3, so the largest binding bound is 2");
         assertEq(s.breakingSize, 3, "the third call is the one withheld");
-        assertTrue(s.audible, "nothing spent yet");
+        assertEq(s.spentBits, 1, "the funded offer used the first bit");
+        assertTrue(s.audible, "the margin call still fits");
 
         vm.recordLogs();
         _call(ID);
         assertEq(_countTopic(vm.getRecordedLogs(), MARGIN_CALLED), 1, "the event fires");
         assertTrue(watcher.alertOf(ID).called, "and agrees with the watcher");
-        assertEq(watcher.stream().spentBits, 1, "one bit of the two");
+        assertEq(watcher.stream().spentBits, 2, "the margin call used the second bit");
 
-        vm.prank(BORROWER);
-        vault.cure(ID); // the second, and the row is now at its bound
+        _cureCovered(vault, feed, BORROWER, ID); // the third publication is withheld
 
         s = watcher.stream();
         assertEq(s.spentBits, 2);
