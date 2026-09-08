@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat hcs-topic hcs-relay hcs-verify
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -138,6 +138,12 @@ beat:
 client:
 	bash script/live/export-abis.sh
 	$(NODE) node tools/gen-client.mjs
+
+# A native HTS cash token for a coupon deployment. This sends one transaction
+# and is intentionally absent from `all`. The resulting JSON is the deployment
+# record to add under `coupon.cashToken` before deploying CouponDistributor.
+coupon-cash:
+	$(NODE) node tools/create-coupon-cash.mjs
 
 # The disclosure record on a Hedera Consensus Service topic. `docs/HCS-SCOPE.md`
 # is the argument and `docs/HCS.md` is what was built.

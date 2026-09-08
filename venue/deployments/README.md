@@ -76,3 +76,16 @@ writes.
 The token is not ours. It is an Asset Tokenization Studio bond over the resolver
 Hashgraph deployed, and a client should read balances from it directly with
 `abi/IAtsToken.json`.
+
+The coupon cash token is native HTS token `0.0.10419905`, exposed to the EVM at
+`0x00000000000000000000000000000000009efec1`. It has two decimals and one
+inclusive fractional fee of 25 basis points with a minimum of one smallest
+unit. `CouponDistributor` publishes the same number through
+`payingAgentFeeBps()`. `make client` checks the contract value against the live
+HTS fee schedule and fails on drift.
+
+The current RepoVault is the scheduled-settlement deployment. It points to the
+fixed CouponSchedule and holds a 100 HBAR operating reserve. Its immutable
+funding requirement is five HBAR per HSS call at `0x16b`, so the initial reserve
+funds 20 additional calls. Every obligation remains manually settleable after
+its due time when native HSS capacity is unavailable.

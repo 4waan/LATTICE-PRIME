@@ -365,9 +365,25 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture {
         vm.warp(block.timestamp + 1 days + 1);
         vault.declareDefault(ID);
 
+        vm.prank(ENGINE);
         vault.settleAuction(ID, address(0x111), 900_000);
         assertEq(holds.lastExecutedTo(), address(0x111));
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.CLOSED));
+    }
+
+    function test_aStrangerCannotNameTheLiquidationWinner() public {
+        _open();
+        vm.prank(ENGINE);
+        vault.postMark(ID, bytes32(uint256(1)), true, 1 days);
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.declareDefault(ID);
+
+        vm.prank(address(0xBAD));
+        vm.expectRevert(RepoVaultBase.NotLiquidationEngine.selector);
+        vault.settleAuction(ID, address(0xBAD), 0);
+
+        assertEq(holds.executed(), 0);
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.DEFAULTED));
     }
 
     // ---------------------------------------------------------- the ceiling
