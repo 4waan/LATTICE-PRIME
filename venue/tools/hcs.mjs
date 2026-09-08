@@ -85,8 +85,8 @@ export const SITES = {
     // be a withheld disclosure. Deriving the commitment brought an idempotence
     // guard with it: a second call for a coupon already noted *returns zero*
     // rather than reverting, because `docs/BUILD-REMAINING.md` §3 puts this
-    // behind a HIP-1215 `scheduleCall` and a scheduled call that fires after
-    // somebody already made it by hand has to be a no-op.
+    // behind the dispatcher a HIP-1215 `scheduleCall` targets. A scheduled
+    // call that fires after somebody already made it by hand has to be a no-op.
     //
     // That is a successful transaction that reaches no `_emitUnder` and is not
     // a silence. Leaving this `true` would print one every time a scheduled
@@ -95,6 +95,10 @@ export const SITES = {
     // silence at this site; the cost of `true` is a silence that did not
     // happen, and this file's header says which of those the venue cannot have.
     "0x2bae2cde": {src: "vault", fn: "noteCoupon", rows: [{row: 14, g: 1, sure: false}]},
+    // One obligation id can dispatch to a fail or a coupon, and both can no-op
+    // after a manual call or a terminal repo transition. Its charged events are
+    // still relayed, but absence of one can never prove a withheld disclosure.
+    "0x987757dd": {src: "vault", fn: "settle", rows: [{row: 14, g: 1, sure: false}]},
     "0x1c6a825c": {src: "vault", fn: "payThrough", rows: [{row: 14, g: 1, sure: true}]},
     "0xe68a8171": {src: "vault", fn: "settleAuction", rows: [{row: 14, g: 1, sure: true}]},
     // Row 16 always; row 14 only when `breach` and the repo was OPEN. The second
