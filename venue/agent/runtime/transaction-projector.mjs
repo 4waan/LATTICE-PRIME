@@ -1,7 +1,11 @@
 import {Interface, getAddress} from "ethers";
 import {commitmentOf, SIDE} from "../../tools/commitment.mjs";
 import {buyEscrow, toWeibar} from "../../tools/units.mjs";
-import {assertContextAuthorized, MandateError} from "./mandate.mjs";
+import {
+    assertContextAuthorized,
+    assertOutstandingAuthorized,
+    MandateError,
+} from "./mandate.mjs";
 
 const ABI = [
     "function commit(bytes32 id) payable",
@@ -78,7 +82,7 @@ export function projectCommit(mandateValue, contextValue, request) {
 }
 
 export function projectReveal(mandateValue, contextValue, request) {
-    const {mandate, context} = assertContextAuthorized(mandateValue, contextValue);
+    const {mandate, context} = assertOutstandingAuthorized(mandateValue, contextValue);
     if (
         request === null ||
         typeof request !== "object" ||
@@ -111,6 +115,66 @@ export function projectReveal(mandateValue, contextValue, request) {
             revealSalt
         ),
     };
+}
+
+function projectCommitmentAction(mandateValue, contextValue, request, method) {
+    const {mandate, context} = assertOutstandingAuthorized(mandateValue, contextValue);
+    if (
+        request === null ||
+        typeof request !== "object" ||
+        Array.isArray(request) ||
+        Object.keys(request).sort().join(",") !== "salt"
+    ) {
+        throw new ProjectionError(
+            "INVALID_RECOVERY_REQUEST",
+            `${method} request permits only the persisted salt`
+        );
+    }
+    const persistedSalt = salt(request.salt);
+    const commitment = commitmentOf(
+        context.executionAccount,
+        SIDE.BUY,
+        BigInt(context.price),
+        BigInt(context.quantity),
+        persistedSalt
+    );
+    return {
+        ...baseProjection(
+            mandate,
+            context,
+            method,
+            iface.encodeFunctionData(method, [commitment]),
+            0n
+        ),
+        commitment,
+    };
+}
+
+export function projectCancel(mandateValue, contextValue, request) {
+    return projectCommitmentAction(mandateValue, contextValue, request, "cancel");
+}
+
+export function projectExpire(mandateValue, contextValue, request) {
+    return projectCommitmentAction(mandateValue, contextValue, request, "expire");
+}
+
+export function projectWithdraw(mandateValue, contextValue, request) {
+    const {mandate, context} = assertOutstandingAuthorized(mandateValue, contextValue);
+    if (
+        request === null ||
+        typeof request !== "object" ||
+        Array.isArray(request) ||
+        Object.keys(request).length !== 0
+    ) {
+        throw new ProjectionError("INVALID_WITHDRAW_REQUEST", "withdraw request must be empty");
+    }
+    return baseProjection(
+        mandate,
+        context,
+        "withdraw",
+        iface.encodeFunctionData("withdraw"),
+        0n
+    );
 }
 
 export function assertTransactionMatchesProjection(transaction, projection) {
@@ -150,6 +214,9 @@ export function projectionForApproval(mandateValue, contextValue, stage, request
     try {
         if (stage === "commit") return projectCommit(mandateValue, contextValue, request);
         if (stage === "reveal") return projectReveal(mandateValue, contextValue, request);
+        if (stage === "cancel") return projectCancel(mandateValue, contextValue, request);
+        if (stage === "expire") return projectExpire(mandateValue, contextValue, request);
+        if (stage === "withdraw") return projectWithdraw(mandateValue, contextValue, request);
     } catch (error) {
         if (error instanceof MandateError || error instanceof ProjectionError) throw error;
         throw new ProjectionError("PROJECTION_FAILED", "transaction projection failed");

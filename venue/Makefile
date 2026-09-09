@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-evm-verifier-build agent-evm-verifier-live
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -227,6 +227,28 @@ agent-worker-test: agent-proof agent-worker
 
 agent-e2e: agent-worker-test
 	$(NODE) node agent/packaging/test-e2e.mjs
+
+# Phase 2 uses the pinned live Hedera deployment. The plan target is read-only.
+# The live target sends real testnet transactions, waits through the contract's
+# reveal and resting windows, and writes sanitized evidence only after all
+# filled, partial-fill, no-fill, refusal, restart, expiry, and credit checks pass.
+agent-phase2-plan: agent-test
+	$(NODE) node agent/packaging/test-phase2-live.mjs
+
+agent-phase2-live: agent-proof agent-worker
+	LATTICE_AGENT_LIVE_RUN=1 $(NODE) node agent/packaging/test-phase2-live.mjs
+
+agent-phase2-pause-live: agent-proof agent-worker
+	LATTICE_AGENT_LIVE_RUN=1 $(NODE) node agent/packaging/test-phase2-pause-live.mjs
+
+agent-evm-verifier-build: agent-proof
+	.venv/bin/python agent/proof/build_evm_verifier.py \
+		--bundle agent/artifacts/proof \
+		--proof agent/artifacts/proof/proof.json \
+		--report agent/artifacts/evidence/evm-verifier-build.json
+
+agent-evm-verifier-live: agent-evm-verifier-build
+	LATTICE_AGENT_LIVE_RUN=1 $(NODE) node agent/packaging/test-ezkl-evm-live.mjs
 
 report:
 	@echo

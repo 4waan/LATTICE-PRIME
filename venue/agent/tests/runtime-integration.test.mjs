@@ -162,10 +162,17 @@ test("typed signer persists tickets before signing and retries exact bytes", asy
         store,
         feePolicy: FEES,
         commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
     });
     assert.equal(await signer.initializeAccount(PASSPHRASE, PRIVATE_KEY), ACCOUNT);
     const m = mandate();
     const c = context();
+    const underfunded = structuredClone(m);
+    underfunded.limits.feeReserve = "199999";
+    await assert.rejects(
+        () => signer.activateMandate(PASSPHRASE, underfunded),
+        {code: "FEE_RESERVE_INSUFFICIENT"}
+    );
     await signer.activateMandate(PASSPHRASE, m);
     await signer.reserveEvaluation(PASSPHRASE, m, c);
     const approval = {
@@ -207,16 +214,126 @@ test("typed signer persists tickets before signing and retries exact bytes", asy
         store: new EncryptedJournalStore({rootDir}),
         feePolicy: FEES,
         commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
     });
     const recovered = await recoveredSigner.prepareReveal(PASSPHRASE, m, c, {nonce: 1});
     assert.equal(recovered.signedTransaction, reveal.signedTransaction);
+});
+
+test("local pause refuses new work and preserves outstanding recovery", async () => {
+    const rootDir = await temporaryDirectory();
+    const store = new EncryptedJournalStore({rootDir});
+    await store.initialize(PASSPHRASE);
+    const signer = new LocalTypedSigner({
+        store,
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
+    await signer.initializeAccount(PASSPHRASE, PRIVATE_KEY);
+    const m = mandate();
+    const c = context();
+    const activation = await signer.activateMandate(PASSPHRASE, m);
+    await signer.pauseMandate(PASSPHRASE, {
+        mandateId: activation.mandateId,
+        paused: true,
+    });
+    await assert.rejects(
+        () => signer.reserveEvaluation(PASSPHRASE, m, c),
+        {code: "MANDATE_PAUSED"}
+    );
+    await signer.pauseMandate(PASSPHRASE, {
+        mandateId: activation.mandateId,
+        paused: false,
+    });
+    await signer.reserveEvaluation(PASSPHRASE, m, c);
+    await signer.prepareCommit(PASSPHRASE, m, c, {
+        nonce: 0,
+        approval: {
+            actionId: contextId(c),
+            commitBond: "1000000",
+            decision: "EXECUTE",
+            proofVerified: true,
+        },
+    });
+    await signer.pauseMandate(PASSPHRASE, {
+        mandateId: activation.mandateId,
+        paused: true,
+    });
+    const reveal = await signer.prepareOutstanding(PASSPHRASE, {
+        actionId: contextId(c),
+        stage: "reveal",
+        nonce: 1,
+    });
+    assert.equal(reveal.stage, "reveal");
+});
+
+test("typed cancel reserves the pinned fee within the mandate budget", async () => {
+    const rootDir = await temporaryDirectory();
+    const store = new EncryptedJournalStore({rootDir});
+    await store.initialize(PASSPHRASE);
+    const signer = new LocalTypedSigner({
+        store,
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
+    await signer.initializeAccount(PASSPHRASE, PRIVATE_KEY);
+    const underfunded = mandate();
+    underfunded.limits.cancellationBudget = "99999";
+    await assert.rejects(
+        () => signer.activateMandate(PASSPHRASE, underfunded),
+        {code: "CANCELLATION_BUDGET"}
+    );
+    const m = mandate();
+    const c = context();
+    await signer.activateMandate(PASSPHRASE, m);
+    await signer.reserveEvaluation(PASSPHRASE, m, c);
+    await signer.prepareCommit(PASSPHRASE, m, c, {
+        nonce: 0,
+        approval: {
+            actionId: contextId(c),
+            commitBond: "1000000",
+            decision: "EXECUTE",
+            proofVerified: true,
+        },
+    });
+    await assert.rejects(
+        () => signer.prepareOutstanding(PASSPHRASE, {
+            actionId: contextId(c),
+            stage: "cancel",
+            nonce: 0,
+        }),
+        {code: "NONCE_RESERVED"}
+    );
+    const cancel = await signer.prepareOutstanding(PASSPHRASE, {
+        actionId: contextId(c),
+        stage: "cancel",
+        nonce: 1,
+    });
+    const retry = await signer.prepareOutstanding(PASSPHRASE, {
+        actionId: contextId(c),
+        stage: "cancel",
+        nonce: 1,
+    });
+    assert.equal(retry.signedTransaction, cancel.signedTransaction);
+    const state = await store.read(PASSPHRASE);
+    assert.equal(
+        state.authority[state.tickets[contextId(c)].mandateId].cumulativeCancellationSpent,
+        "100000"
+    );
 });
 
 test("deterministic adapter distinguishes unknown broadcast from rejection", async () => {
     const rootDir = await temporaryDirectory();
     const store = new EncryptedJournalStore({rootDir});
     await store.initialize(PASSPHRASE);
-    const signer = new LocalTypedSigner({store, feePolicy: FEES, commitBondTinybar: "1000000"});
+    const signer = new LocalTypedSigner({
+        store,
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
     await signer.initializeAccount(PASSPHRASE, PRIVATE_KEY);
     const m = mandate();
     const c = context();
@@ -253,7 +370,12 @@ test("headless runtime completes verified decision to reconciled commitment", as
     const rootDir = await temporaryDirectory();
     const store = new EncryptedJournalStore({rootDir});
     await store.initialize(PASSPHRASE);
-    const typedSigner = new LocalTypedSigner({store, feePolicy: FEES, commitBondTinybar: "1000000"});
+    const typedSigner = new LocalTypedSigner({
+        store,
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
     await typedSigner.initializeAccount(PASSPHRASE, PRIVATE_KEY);
     const m = mandate();
     const c = context();
@@ -320,12 +442,58 @@ test("headless runtime completes verified decision to reconciled commitment", as
     assert.equal((await typedSigner.summary(PASSPHRASE)).tickets[0].lifecycle, "SEALED");
 });
 
+test("reveal rechecks protocol eligibility before signing", async () => {
+    const m = mandate();
+    const c = context();
+    let signingRequested = false;
+    const runtime = new AgentRuntime({
+        signer: {
+            async call(method) {
+                if (method === "action") {
+                    return {
+                        actionId: contextId(c),
+                        mandate: m,
+                        context: c,
+                        commitment: `0x${"11".repeat(32)}`,
+                        transactions: {reveal: null},
+                    };
+                }
+                signingRequested = true;
+                throw new Error("signing must not be reached");
+            },
+        },
+        adapter: {
+            async preflight() {
+                return {
+                    checkedAtTimestamp: c.publicSlot,
+                    identityMatches: true,
+                    eligible: false,
+                    halted: false,
+                    feeBalanceSufficient: true,
+                };
+            },
+        },
+        worker: {},
+        verifier: {},
+    });
+    await assert.rejects(
+        () => runtime.continueAction({
+            actionId: contextId(c),
+            stage: "reveal",
+            nonce: 1,
+        }),
+        {code: "REVEAL_PREFLIGHT_REFUSED"}
+    );
+    assert.equal(signingRequested, false);
+});
+
 test("loopback supervisor requires exact origin, pairing, session, and CSRF", async () => {
     const rootDir = await temporaryDirectory();
     const signer = new SignerProcess({
         stateDir: rootDir,
         feePolicy: FEES,
         commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
     });
     const adapter = new DeterministicProtocolAdapter({
         chainId: "296",

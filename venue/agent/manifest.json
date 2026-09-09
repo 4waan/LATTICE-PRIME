@@ -1,18 +1,44 @@
 {
-  "schemaVersion": "lattice.agent.bundle.v1",
-  "bundleVersion": "0.2.0-trained-local",
-  "releaseStatus": "phase1-local-demo",
-  "liveTradingEnabled": false,
-  "capabilities": {
-    "decisionProof": "trained-synthetic-model-local-verification",
-    "strictMandateValidation": true,
-    "replayAndBudgetPolicy": "encrypted-atomic-journal",
-    "transactionProjection": ["commit", "buy-reveal"],
-    "durableEncryptedStore": "aes-256-gcm-user-unlocked",
-    "isolatedWorker": "docker-network-none-tested",
-    "localSigner": "separate-typed-process",
-    "pairedLocalApi": "loopback-origin-session-csrf",
-    "protocolAdapter": "deterministic-harness-only"
+  "schemaVersion": "lattice.agent.capabilities.v1",
+  "bundleVersion": "0.3.0-phase2-testnet",
+  "releaseStatus": "phase2-testnet-passed",
+  "network": {
+    "name": "hedera-testnet",
+    "chainId": "296",
+    "deploymentHash": "0xbfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
+    "deploymentBinding": "protocol/manifest.json",
+    "matchingEngine": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+    "token": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2"
+  },
+  "execution": {
+    "side": "BUY",
+    "accountModel": "dedicated local-signer EOA",
+    "perMandateNewOrderLimit": 1,
+    "methods": [
+      "commit",
+      "reveal",
+      "cancel",
+      "expire",
+      "withdraw"
+    ],
+    "testedOutcomes": [
+      "filled",
+      "partial-fill",
+      "no-fill",
+      "paused-cancel-recovery"
+    ],
+    "productUiEnabled": false
+  },
+  "model": {
+    "claim": "Synthetic decision consistency only; not profitability or validated financial prediction.",
+    "onnxSha256": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
+    "weightsSha256": "sha256:5bd29c9515e7428832e354d0b865d5209d48f2b47763027edbf19d6ba2ffa18e",
+    "cloudBranch": "cursor/lattice-prime-model-training-3c95",
+    "cloudTrainingCommit": "d39cd53da23ae47c435b25592e473491c72cdea5",
+    "seed": 20260909,
+    "quantizationScale": 256,
+    "privateContextMode": "excluded",
+    "localProofRequiredBeforeCommit": true
   },
   "toolchain": {
     "node": "22.21.1",
@@ -26,11 +52,7 @@
     "numpy": "2.0.2",
     "z3Solver": "4.15.3.0",
     "ethers": "6.17.x",
-    "containerRuntime": {
-      "colima": "0.10.3",
-      "docker": "29.8.0",
-      "workerImage": "lattice-agent-worker@sha256:6e064bc5d6141df238b3e39a7fb8fa05893d3e69440a6d58a23eeb6cbfd1eee4"
-    }
+    "workerImage": "lattice-agent-worker@sha256:6e064bc5d6141df238b3e39a7fb8fa05893d3e69440a6d58a23eeb6cbfd1eee4"
   },
   "baseline": {
     "gitCommit": "f81a727d10b4666128463284521e2cee1b8fea7a",
@@ -46,27 +68,63 @@
       "agent/proof/instances.json": "sha256:cb5accf2e8373b2767ce56ef88b0e0f11d5506d5427180ada3c41c9366d8c97f"
     }
   },
-  "deployment": {
-    "chainId": "296",
-    "matchingEngine": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
-    "token": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2",
-    "identitySource": "deployments/client.json",
-    "checkedAt": "2026-09-08T15:32:57.179Z",
-    "liveCodeRechecked": false
-  },
   "privacy": {
     "defaultMode": "excluded",
     "optionalPrivatePreferencesEnabled": false,
     "proofPackagePublication": "local-only-before-reveal"
   },
-  "model": {
-    "claim": "Synthetic decision consistency only; not profitability or validated financial prediction.",
-    "cloudBranch": "cursor/lattice-prime-model-training-3c95",
-    "cloudFloatReferenceCommit": "e80404c6c9685a12276042ad480ae61ec4d1b832",
-    "cloudTrainingCommit": "d39cd53da23ae47c435b25592e473491c72cdea5",
-    "onnxSha256": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
-    "quantizationScale": 256,
-    "seed": 20260909,
-    "weightsSha256": "sha256:5bd29c9515e7428832e354d0b865d5209d48f2b47763027edbf19d6ba2ffa18e"
-  }
+  "protocolAuthority": {
+    "deploymentCodeAndAbiPinned": true,
+    "snapshotOriginHmac": true,
+    "snapshotTicketAndWallClockFreshnessChecked": true,
+    "eligibilityReadFromProtocol": true,
+    "eligibilityAndFundingRecheckedBeforeReveal": true,
+    "haltReadFromProtocol": true,
+    "backingAndAccountingReadFromProtocol": true,
+    "localMandateOnlyNarrowsProtocolAuthority": true
+  },
+  "recovery": {
+    "encryptedJournalRestartTested": true,
+    "pauseRefusesNewEvaluations": true,
+    "pausePreservesOutstandingRecovery": true,
+    "pinnedCancellationFeeBudgetEnforced": true,
+    "maximumTransactionFeeReserveEnforced": true,
+    "accountNonceReservationsReplaySafe": true,
+    "unknownBroadcastReconciliationTestedLocally": true
+  },
+  "receipts": {
+    "schemaVersion": "lattice.order-receipt.v1",
+    "sameProtocolOrderIdentifier": true,
+    "inferenceChainDisclosureAndRuntimeScopesSeparated": true,
+    "sanitizedByDefault": true
+  },
+  "onChainInferenceVerification": {
+    "role": "optional evidence sidecar",
+    "matchingEngineDependency": false,
+    "testnetVerifier": "0x9f035f847a0840e8d6ccdf7ab31c15cbd04cd9dc",
+    "validProofTransactionPassed": true,
+    "alteredProofRefused": true,
+    "perOrderPublicationEnabled": false,
+    "reason": "A proof is published only after its order reveals and only when the user explicitly selects that evidence release."
+  },
+  "hcs": {
+    "agentEvidenceSubmitted": false,
+    "privateWitnessSubmitted": false,
+    "unrevealedTicketSubmitted": false,
+    "proofPackageSubmitted": false
+  },
+  "evidence": [
+    "../deployments/agent-phase2.json",
+    "../deployments/agent-phase2-partial.json",
+    "../deployments/agent-phase2-pause.json",
+    "../deployments/agent-ezkl-verifier.json"
+  ],
+  "limitations": [
+    "Phase 3 application controls and receipt rendering are not implemented.",
+    "Optional private preference categories remain disabled.",
+    "The local container boundary is not remote attestation.",
+    "The optional EVM verifier is not an execution or settlement gate.",
+    "Per-order proof publication is disabled by default and was not used for the recorded orders.",
+    "The v1 mandate does not sign permissionless forfeit after a missed reveal window."
+  ]
 }

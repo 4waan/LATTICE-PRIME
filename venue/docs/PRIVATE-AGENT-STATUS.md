@@ -1,8 +1,9 @@
 # Private agent implementation status
 
-Evidence snapshot: 9 September 2026. Phase 1 now has a cloud-trained synthetic
+Evidence snapshot: 9 September 2026. Phase 1 has a cloud-trained synthetic
 model and a local proof, authority, signer, isolation, API, and deterministic
-protocol harness. Live trading remains disabled.
+protocol harness. Phase 2 has passed against the pinned Hedera testnet
+deployment. Product UI activation remains disabled until Phase 3.
 
 ## Result
 
@@ -24,7 +25,7 @@ The trained-model gate passes:
   executions, and exact quantized-graph correspondence.
 - EZKL 23.0.5 generated and verified the trained-model proof. Altered public
   output, expected context, verification key, and model identity were refused.
-- Twelve Node tests and six Python tests pass.
+- Seventeen Node tests and six Python tests pass.
 
 The local runtime gate also passes:
 
@@ -46,6 +47,57 @@ The local runtime gate also passes:
 These results measure synthetic decision consistency and implementation
 correspondence. They do not measure profitability or validated financial
 prediction.
+
+## Phase 2 testnet result
+
+The live protocol gate passes on chain 296:
+
+- The adapter pinned the deployment JSON and six ABIs by SHA-256, checked
+  MatchingEngine and ATS token runtime code by Keccak, found all 13 required
+  engine selectors, and checked live wiring and market immutables.
+- Protocol preflight authenticated the execution account, KYC status, halt
+  state, native fee balance, policy epoch, KYC epoch, and latest block.
+- Reveal performs a second authoritative identity, KYC, funding, and mandate
+  deadline preflight before the signer may post BUY principal. Halt is reported
+  but does not block reveal because the deployed protocol permits reveal during
+  a halt and locally suppressing it could forfeit the posted bond.
+- Every decision context used an adapter-created single-block market snapshot
+  whose block hash, timestamp, feature values, and snapshot hash were checked
+  again before proving. Post-run hardening added a process-local HMAC, exact
+  ticket comparison, and wall-clock freshness check; a changed-feature
+  snapshot was refused in the read-only live preflight.
+- A real BUY filled 10 of 10 units. The ordinary ATS partition balances moved
+  from 1,000 to 1,010 for the buyer and 2,000 to 1,990 for the seller.
+- A second BUY filled 0 of 7 units, rested for the configured two rounds,
+  expired, released all backing, and left both actors with zero protocol credit
+  after withdrawal.
+- A third BUY filled 4 of 10 units, retired the remaining 6 after two resting
+  rounds, moved exactly 4 ATS units, and recovered both actors' credits.
+- A paused signer refused a new evaluation but preserved outstanding recovery.
+  It cancelled a sealed order, recovered 900,000 tinybar after the configured
+  100,000 tinybar fee, and withdrew the credit.
+- The signer restarted from the encrypted journal between commit and reveal.
+  A changed signed projection and cancel after reveal were refused before
+  broadcast.
+- Combined receipts use the protocol commitment as their order identifier and
+  label inference, authoritative chain state, venue disclosure, and local
+  runtime observations separately. Sanitized receipts contain no key, signed
+  bytes, salt, witness, or proof body.
+- Independent Foundry readback confirmed transaction status, selectors,
+  contract destination, order quantities and fills, retirement, credits, and
+  final ATS partition balances.
+
+The optional EZKL EVM verifier is deployed at
+`0x9f035f847a0840e8d6ccdf7ab31c15cbd04cd9dc`. Its 10,027-byte runtime
+accepted the valid released proof in a 712,013-gas testnet transaction and
+refused an altered proof. It is an evidence sidecar. MatchingEngine does not
+call it, and per-order proof publication remains disabled by default.
+
+Tracked evidence is in `deployments/agent-phase2.json`,
+`deployments/agent-phase2-partial.json`,
+`deployments/agent-phase2-pause.json`, and
+`deployments/agent-ezkl-verifier.json`. `agent/manifest.json` is the exact
+capability statement.
 
 ## Cloud provenance
 
@@ -113,13 +165,13 @@ change on a clean run. The model and quantized-weight hashes remain fixed.
 - A direct no-network probe failed to resolve an external host as expected and
   confirmed that no user `.env` path was mounted.
 - The trained-model isolated worker plus independent verifier completed in
-  9,715 milliseconds with a 44,688 KiB Node process high-water RSS.
-- The complete local headless execution completed in 13,827 milliseconds with
-  a 78,224 KiB Node process high-water RSS and
+  14,023 milliseconds.
+- The complete local headless execution completed in 9,486 milliseconds and
   reconciled a simulated timeout after transaction acceptance.
 
-Machine-readable proof, correspondence, worker, and end-to-end records are
-stored under the ignored `agent/artifacts/` directory.
+Machine-readable proof, correspondence, worker, and local end-to-end records
+are stored under the ignored `agent/artifacts/` directory. Sanitized Phase 2
+chain evidence is tracked under `deployments/`.
 
 ## Implemented boundary
 
@@ -130,20 +182,24 @@ stored under the ignored `agent/artifacts/` directory.
   evaluator, executable correspondence, and Z3 release checks.
 - `agent/proof/`: independent context codec, EZKL lifecycle, expected-instance
   validation, negative mutations, pinned verifier bundle, and receipt verifier.
-- `agent/runtime/`: mandate and policy enforcement, encrypted journal, typed
-  signer process, exact transaction decoder, isolated worker launcher,
-  independent verifier, loopback supervisor, deterministic adapter, and
-  headless orchestration.
+- `agent/runtime/`: mandate and policy enforcement, local pause control,
+  encrypted journal, typed signer process, exact transaction decoder, isolated
+  worker launcher, independent verifier, loopback supervisor, deterministic
+  adapter, pinned Hedera adapter, combined receipt, and headless orchestration.
 - `agent/packaging/`: pinned worker image, closed entrypoint, isolation test,
-  and end-to-end test.
+  local end-to-end test, testnet lifecycle tests, pause recovery test, and
+  optional EVM-verifier deployment probe.
 
 ## Remaining limitations
 
-- `liveTradingEnabled` remains `false`.
-- The protocol adapter is a deterministic harness. It does not authenticate a
-  Hedera snapshot, deployment bytecode, balances, eligibility, or live
-  receipts.
-- No live chain transaction was sent.
+- Phase 3 application controls, Portfolio read model, and combined receipt
+  rendering are not implemented, so product UI activation remains disabled.
+- Per-order proof publication to the optional EVM verifier is disabled by
+  default and was not used for the recorded orders. The verifier probe used the
+  released synthetic proof bundle.
+- The v1 mandate does not sign the protocol's permissionless `forfeit` method
+  after a missed reveal window. Timely reveal scheduling is therefore still a
+  critical local-runtime obligation.
 - Optional private preference categories remain disabled by mandate v1 even
   though equal-category correspondence passed.
 - Container isolation is local enforcement, not remote attestation and not a

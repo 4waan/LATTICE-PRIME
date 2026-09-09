@@ -224,7 +224,7 @@ export function validateMandate(value) {
     };
 }
 
-export function assertContextAuthorized(mandateValue, contextValue) {
+function assertContextBound(mandateValue, contextValue) {
     const mandate = validateMandate(mandateValue);
     const context = canonicalizeContext(contextValue);
     const checks = [
@@ -269,8 +269,24 @@ export function assertContextAuthorized(mandateValue, contextValue) {
     ) {
         throw new MandateError("CONTEXT_TIME", "decision context is outside the new-entry window");
     }
+    return {mandate, context};
+}
+
+export function assertContextAuthorized(mandateValue, contextValue) {
+    const {mandate, context} = assertContextBound(mandateValue, contextValue);
     if (mandate.control.paused) {
         throw new MandateError("MANDATE_PAUSED", "the mandate is paused for new orders");
+    }
+    return {mandate, context};
+}
+
+export function assertOutstandingAuthorized(mandateValue, contextValue) {
+    const {mandate, context} = assertContextBound(mandateValue, contextValue);
+    if (!mandate.control.completeOutstandingObligations) {
+        throw new MandateError(
+            "OUTSTANDING_ACTIONS_PAUSED",
+            "mandate does not authorize completion or recovery of outstanding actions"
+        );
     }
     return {mandate, context};
 }

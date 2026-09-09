@@ -1,9 +1,10 @@
 # Lattice Prime private agent
 
-This directory contains the Phase 1 private-agent infrastructure. Synthetic
-model training ran in Cursor cloud. Context binding, formal checks, proving,
-state, signing, isolation, API security, transaction projection, and protocol
-harness work run locally. Live trading remains disabled.
+This directory contains the Phase 1 private-agent infrastructure and the
+Phase 2 Hedera testnet integration. Synthetic model training ran in Cursor
+cloud. Proving, verification, policy, signing, storage, isolation, protocol
+reads, transaction submission, recovery, and receipt construction run locally.
+The Phase 3 product UI remains disabled.
 
 ## Commands
 
@@ -16,6 +17,10 @@ make agent-proof      generate and verify a real EZKL proof and negative cases
 make agent-worker     build the pinned network-disabled proving image
 make agent-worker-test  prove in isolation and verify outside the worker
 make agent-e2e        run the complete local deterministic execution harness
+make agent-phase2-plan  authenticate the pinned testnet deployment without sending
+make agent-phase2-live  run filled, partial-fill, and no-fill testnet lifecycles
+make agent-phase2-pause-live  pause new work and recover a sealed order on testnet
+make agent-evm-verifier-live  deploy and probe the optional proof sidecar
 ```
 
 `agent/artifacts/` is ignored. It contains the ONNX build, SRS, proving and
@@ -39,6 +44,12 @@ these files belong in the public application directory.
   accepts only typed agent operations.
 - `runtime/supervisor.mjs` exposes a paired loopback API with exact origin,
   session, CSRF, request-schema, and body-size checks.
+- `runtime/hedera-protocol-adapter.mjs` pins deployment files, ABIs, runtime
+  code, wiring, and market immutables before it authenticates snapshots,
+  submits projected transactions, or reports authoritative chain state.
+- `runtime/order-receipt.mjs` joins the local decision to the existing protocol
+  order identifier while keeping inference, chain, venue-disclosure, and local
+  runtime evidence scopes distinct.
 - `runtime/worker.mjs` invokes the pinned non-root container with no network,
   a read-only root, dropped capabilities, bounded resources, and no wallet
   mount.
@@ -56,8 +67,10 @@ these files belong in the public application directory.
 
 The model is trained only against a transparent synthetic rule. Its metrics
 measure consistency with that rule, not profitability or validated financial
-prediction. The current protocol adapter is a deterministic harness. Snapshot
-and deployment authentication plus live Hedera submission remain later work.
+prediction. The deterministic adapter remains for local tests; the Hedera
+adapter completed filled, partial-fill, no-fill, expiry, withdrawal, restart,
+and paused recovery paths against the pinned testnet deployment. See
+`agent/manifest.json` and the tracked `deployments/agent-phase2*.json` records.
 
 ## Security properties
 
@@ -68,6 +81,7 @@ whoever receives the proof. Proof packages therefore remain local before an
 order reveal.
 
 These checks cover the declared graph, proof, policy, local isolation, signer,
-and transaction projection. They do not prove that every process on the host
-was silent, authenticate a market snapshot, or enforce delegation in a
-contract.
+transaction projection, authenticated testnet snapshot, and observed protocol
+outcome. They do not prove that every process on the host was silent or enforce
+delegation in a contract. The optional EVM proof verifier is an evidence
+sidecar and does not authorize or settle an order.

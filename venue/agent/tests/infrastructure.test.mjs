@@ -4,8 +4,15 @@ import path from "node:path";
 import test from "node:test";
 import {fileURLToPath} from "node:url";
 
+import {Interface} from "ethers";
+
 import {encodeContext, contextId, ContextError} from "../runtime/context.mjs";
 import {assertContextAuthorized, validateMandate, MandateError} from "../runtime/mandate.mjs";
+import {
+    buildOrderReceipt,
+    disclosureEvidence,
+    verifyOrderReceiptShape,
+} from "../runtime/order-receipt.mjs";
 import {
     createAuthorityState,
     reserveApprovedBuy,
@@ -13,8 +20,11 @@ import {
 } from "../runtime/policy.mjs";
 import {
     assertTransactionMatchesProjection,
+    projectCancel,
     projectCommit,
+    projectExpire,
     projectReveal,
+    projectWithdraw,
     ProjectionError,
 } from "../runtime/transaction-projector.mjs";
 
@@ -302,4 +312,85 @@ test("projector rejects arbitrary stages and malformed requests", async () => {
     });
     assert.ok(MandateError);
     assert.ok(ProjectionError);
+});
+
+test("outstanding projections remain exact during pause and refuse disabled recovery", () => {
+    const c = context();
+    const paused = mandate();
+    paused.control.paused = true;
+    assert.throws(
+        () => projectCommit(paused, c, {salt: H.salt, commitBond: "1000000"}),
+        {code: "MANDATE_PAUSED"}
+    );
+    assert.equal(projectReveal(paused, c, {salt: H.salt}).method, "reveal");
+    assert.equal(projectCancel(paused, c, {salt: H.salt}).valueWeibar, "0");
+    assert.equal(projectExpire(paused, c, {salt: H.salt}).valueWeibar, "0");
+    assert.equal(projectWithdraw(paused, c, {}).valueWeibar, "0");
+
+    paused.control.completeOutstandingObligations = false;
+    assert.throws(
+        () => projectReveal(paused, c, {salt: H.salt}),
+        {code: "OUTSTANDING_ACTIONS_PAUSED"}
+    );
+});
+
+test("combined order receipt labels evidence scopes and excludes private material", () => {
+    const c = context();
+    const eventAbi = [
+        "event Committed(bytes32 indexed id,address indexed committer)",
+    ];
+    const iface = new Interface(eventAbi);
+    const commitment = projectCommit(mandate(), c, {
+        salt: H.salt,
+        commitBond: "1000000",
+    }).commitment;
+    const encoded = iface.encodeEventLog(iface.getEvent("Committed"), [
+        commitment,
+        c.executionAccount,
+    ]);
+    const transactions = [{
+        stage: "commit",
+        transactionHash: `0x${"12".repeat(32)}`,
+        status: "confirmed",
+        blockNumber: 123,
+        gasUsed: "456",
+        exactProjectionMatched: true,
+        logs: [{
+            address: c.engine,
+            topics: encoded.topics,
+            data: encoded.data,
+            index: 0,
+        }],
+    }];
+    const disclosure = disclosureEvidence(transactions, eventAbi, c.engine);
+    const receipt = buildOrderReceipt({
+        context: c,
+        mandateId: `sha256:${"13".repeat(32)}`,
+        commitment,
+        decision: "EXECUTE",
+        inference: {
+            modelHash: `sha256:${"14".repeat(32)}`,
+            settingsHash: `sha256:${"15".repeat(32)}`,
+            verificationKeyHash: `sha256:${"16".repeat(32)}`,
+            expectedContextMatched: true,
+        },
+        worker: {networking: "none"},
+        snapshot: {
+            blockNumber: 123,
+            blockHash: `0x${"17".repeat(32)}`,
+            publicSlot: c.publicSlot,
+            currentRound: "4",
+            features: c.features,
+            authenticatedAgainstChain: true,
+        },
+        transactions,
+        actionState: {lifecycle: "SEALED"},
+        venueDisclosure: disclosure,
+        proofHash: `sha256:${"18".repeat(32)}`,
+    });
+    assert.equal(verifyOrderReceiptShape(receipt), true);
+    assert.equal(receipt.orderIdentifier, commitment);
+    assert.equal(receipt.venueDisclosure.events[0].event, "Committed");
+    assert.equal(receipt.venueDisclosure.hcs.submitted, false);
+    assert.equal(JSON.stringify(receipt).includes(H.salt), false);
 });

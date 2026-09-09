@@ -22,6 +22,7 @@ export function createAuthorityState(mandateValue) {
         schemaVersion: AUTHORITY_STATE_VERSION,
         mandateId: mandateId(mandate),
         revocationGeneration: mandate.control.revocationGeneration,
+        paused: mandate.control.paused,
         evaluationsUsed: 0,
         evaluatedSlots: [],
         newOrdersUsed: 0,
@@ -40,6 +41,7 @@ function assertState(mandate, state) {
         "schemaVersion",
         "mandateId",
         "revocationGeneration",
+        "paused",
         "evaluationsUsed",
         "evaluatedSlots",
         "newOrdersUsed",
@@ -63,6 +65,7 @@ function assertState(mandate, state) {
         state.evaluationsUsed < 0 ||
         !Number.isSafeInteger(state.newOrdersUsed) ||
         state.newOrdersUsed < 0 ||
+        typeof state.paused !== "boolean" ||
         !Array.isArray(state.evaluatedSlots) ||
         !Array.isArray(state.pendingActionIds)
     ) {
@@ -90,6 +93,9 @@ function assertState(mandate, state) {
 export function reserveEvaluation(mandateValue, state, contextValue) {
     const {mandate, context} = assertContextAuthorized(mandateValue, contextValue);
     assertState(mandate, state);
+    if (state.paused) {
+        throw new MandateError("MANDATE_PAUSED", "authority is paused for new evaluations");
+    }
     if (state.evaluationsUsed >= mandate.limits.maxEvaluations) {
         throw new MandateError("EVALUATIONS_EXHAUSTED", "the mandate has no decision evaluations left");
     }
@@ -109,6 +115,9 @@ export function reserveEvaluation(mandateValue, state, contextValue) {
 export function reserveApprovedBuy(mandateValue, state, contextValue, approval) {
     const {mandate, context} = assertContextAuthorized(mandateValue, contextValue);
     assertState(mandate, state);
+    if (state.paused) {
+        throw new MandateError("MANDATE_PAUSED", "authority is paused for new orders");
+    }
     if (
         approval === null ||
         typeof approval !== "object" ||
@@ -159,4 +168,29 @@ export function reserveApprovedBuy(mandateValue, state, contextValue, approval) 
         cumulativePrincipalReserved: nextPrincipal.toString(),
         cumulativeBondReserved: nextBond.toString(),
     };
+}
+
+export function setAuthorityPaused(mandateValue, state, paused) {
+    const mandate = validateMandate(mandateValue);
+    assertState(mandate, state);
+    if (typeof paused !== "boolean") {
+        throw new MandateError("INVALID_CONTROL", "paused state must be boolean");
+    }
+    return {...state, paused};
+}
+
+export function reserveCancellation(mandateValue, state, feeTinybar) {
+    const mandate = validateMandate(mandateValue);
+    assertState(mandate, state);
+    if (typeof feeTinybar !== "string" || !/^(0|[1-9][0-9]*)$/.test(feeTinybar)) {
+        throw new MandateError("INVALID_CANCELLATION_FEE", "cancellation fee must be a decimal string");
+    }
+    const next = BigInt(state.cumulativeCancellationSpent) + BigInt(feeTinybar);
+    if (next > BigInt(mandate.limits.cancellationBudget)) {
+        throw new MandateError(
+            "CANCELLATION_BUDGET",
+            "cancellation would exceed the mandate budget"
+        );
+    }
+    return {...state, cumulativeCancellationSpent: next.toString()};
 }
