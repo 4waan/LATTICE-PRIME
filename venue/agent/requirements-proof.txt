@@ -1,0 +1,5 @@
+# Phase 1 proof spike. These versions passed on macOS arm64 with Python 3.9.
+ezkl==23.0.5
+numpy==2.0.2
+onnx==1.17.0
+z3-solver==4.15.3.0

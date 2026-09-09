@@ -121,3 +121,4 @@ mkdirSync(join(root, "app"), {recursive: true});
 for (const name of ["index", "prove", "trade", "position", "venue", "repo"]) {
     build("app/" + name + ".template.html", "app/" + name + ".html");
 }
+build("app/claw/index.template.html", "app/claw/index.html");

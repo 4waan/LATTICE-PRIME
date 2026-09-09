@@ -1,0 +1,93 @@
+{
+  "artifacts": {
+    "boundaryCorpus": {
+      "path": "boundary-corpus.json",
+      "sha256": "sha256:6bf8832c22e02681ca110ba48a9640caa9587e94fa571a922221f13c5ba1e68c"
+    },
+    "evaluationReport": {
+      "path": "evaluation-report.json",
+      "sha256": "sha256:c133527f5a2b7a41c51f9daf16a702bbfcf1dba89eaa3f28443a83f12c127724"
+    },
+    "floatCorrespondence": {
+      "path": "float-correspondence.json",
+      "sha256": "sha256:93f0abb329220f8d8a82c511327fb47ac85b296ef52782d4e027d3e3c3e438fc"
+    },
+    "network": {
+      "opset": 17,
+      "path": "network.onnx",
+      "sha256": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503"
+    },
+    "trainingConfig": {
+      "path": "training_config.json",
+      "sha256": "sha256:a2d18e4bab2ac53cee5f4b5c4d11abff38d1739ca03139bbe295eda51cad5c99"
+    },
+    "weights": {
+      "path": "weights.json",
+      "sha256": "sha256:5bd29c9515e7428832e354d0b865d5209d48f2b47763027edbf19d6ba2ffa18e"
+    }
+  },
+  "claim": "Metrics measure synthetic decision consistency only; they do not measure profitability or validated financial prediction.",
+  "cloudTraining": {
+    "branch": "cursor/lattice-prime-model-training-3c95",
+    "floatReferenceCommit": "e80404c6c9685a12276042ad480ae61ec4d1b832",
+    "foundationCommit": "2792b9da7eb930dfa4a9cfb6e2eecd01c5e8a5a5",
+    "provider": "Cursor cloud agent",
+    "trainingArtifactCommit": "d39cd53da23ae47c435b25592e473491c72cdea5"
+  },
+  "graph": {
+    "activation": "ReLU",
+    "allowedOperators": [
+      "Add",
+      "Gather",
+      "Greater",
+      "Identity",
+      "MatMul",
+      "Relu"
+    ],
+    "contextInputShape": [
+      1,
+      173
+    ],
+    "decisionInputLimbs": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "hiddenUnits": 8,
+    "logits": [
+      "WAIT",
+      "EXECUTE"
+    ],
+    "outputs": [
+      "decision",
+      "bound_context"
+    ],
+    "parameterVisibility": "fixed",
+    "tieRule": "WAIT"
+  },
+  "liveTradingEnabled": false,
+  "modelVersion": "lattice.agent.synthetic-decision-model.v1",
+  "quantization": {
+    "floatVersusQuantizedDisagreementCount": 0,
+    "scale": 256,
+    "schemeVersion": "lattice.dyadic-parameter-quantization.v1"
+  },
+  "releaseStatus": "trained-model-candidate-local-verification-required",
+  "schemaVersion": "lattice.agent.model-source.v2",
+  "training": {
+    "dataset": "generated in memory and not committed",
+    "dependencies": {
+      "numpy": "2.5.3",
+      "onnx": "1.22.0",
+      "onnxruntime": "1.29.0",
+      "python": "3.12.3",
+      "pytorch": "2.14.0+cu130"
+    },
+    "labelRuleId": "lattice.synthetic-decision-rule.v1",
+    "sampleCount": 18000,
+    "seed": 20260909
+  }
+}

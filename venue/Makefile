@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -107,16 +107,17 @@ pages: vectors
 	$(NODE) node tools/gen-preview.mjs
 	$(NODE) node tools/gen-receipt.mjs
 
-# The live client: a front door and the three screens behind it, written to
-# app/. Templates in, one self-contained HTML file per screen out. No bundler
-# and no backend, and nothing fetched at run time but ethers and the chain.
+# The live client: the Prime front door and screens plus the separate Claw
+# coming-soon route, written to app/. Templates in, one self-contained HTML file
+# per screen out. No bundler and no backend, and nothing fetched at run time but
+# ethers and the chain on Prime pages.
 #
 # Reads deployments/client.json and deployments/abi/*, both committed, so this
 # builds offline. `make client` is what regenerates those off chain 296, and it
 # is deliberately not a prerequisite: rebuilding the UI must never be able to
 # move the address book underneath it.
 app: vectors
-	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/landing.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs
+	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
 	$(NODE) node tools/gen-app.mjs
 
 # The receipt beat, on chain: two sealed orders committed and both withdrawn
@@ -189,6 +190,72 @@ hcs-relay:
 hcs-verify: vectors
 	$(NODE) node tools/hcs-verify.mjs
 	$(NODE) node tools/hcs-verify.mjs --json > deployments/hcs-verify.json
+
+# The private-agent layer stays an explicit build until its release gate passes.
+# Generated keys, witnesses, proofs, and local state remain under ignored paths.
+agent-bootstrap:
+	python3 -m venv .venv
+	.venv/bin/python -m pip install --upgrade pip==25.2
+	.venv/bin/python -m pip install -r agent/requirements-proof.txt
+
+agent-model:
+	@test -x .venv/bin/python || { echo "run make agent-bootstrap first"; exit 1; }
+	.venv/bin/python agent/model/build_model.py
+
+agent-formal: agent-model
+	.venv/bin/python agent/formal/check_graph.py agent/artifacts/model/network.onnx
+	.venv/bin/python agent/formal/check_release.py
+	.venv/bin/python agent/formal/decision_relation.py \
+		--output agent/artifacts/model/correspondence-report.json
+
+agent-test:
+	@test -x .venv/bin/python || { echo "run make agent-bootstrap first"; exit 1; }
+	$(NODE) node --test agent/tests/*.test.mjs
+	.venv/bin/python -m unittest discover -s agent/tests -p '*_test.py'
+	.venv/bin/python -m compileall -q agent/model agent/proof agent/formal
+
+agent-proof: agent-formal agent-test
+	.venv/bin/python agent/proof/run_spike.py
+
+agent-worker:
+	docker build --platform linux/arm64 -f agent/packaging/Dockerfile.worker \
+		-t lattice-agent-worker:23.0.5 .
+	@test "$$(docker image inspect lattice-agent-worker:23.0.5 --format '{{.Id}}')" = \
+		"sha256:6e064bc5d6141df238b3e39a7fb8fa05893d3e69440a6d58a23eeb6cbfd1eee4"
+
+agent-worker-test: agent-proof agent-worker
+	$(NODE) node agent/packaging/test-worker.mjs
+
+agent-e2e: agent-worker-test
+	$(NODE) node agent/packaging/test-e2e.mjs
+
+agent-launch: app agent-proof agent-worker
+	$(NODE) node agent/launch.mjs
+
+agent-phase3-local: app agent-test
+	$(NODE) node agent/packaging/test-phase3-local.mjs
+
+# Phase 2 uses the pinned live Hedera deployment. The plan target is read-only.
+# The live target sends real testnet transactions, waits through the contract's
+# reveal and resting windows, and writes sanitized evidence only after all
+# filled, partial-fill, no-fill, refusal, restart, expiry, and credit checks pass.
+agent-phase2-plan: agent-test
+	$(NODE) node agent/packaging/test-phase2-live.mjs
+
+agent-phase2-live: agent-proof agent-worker
+	LATTICE_AGENT_LIVE_RUN=1 $(NODE) node agent/packaging/test-phase2-live.mjs
+
+agent-phase2-pause-live: agent-proof agent-worker
+	LATTICE_AGENT_LIVE_RUN=1 $(NODE) node agent/packaging/test-phase2-pause-live.mjs
+
+agent-evm-verifier-build: agent-proof
+	.venv/bin/python agent/proof/build_evm_verifier.py \
+		--bundle agent/artifacts/proof \
+		--proof agent/artifacts/proof/proof.json \
+		--report agent/artifacts/evidence/evm-verifier-build.json
+
+agent-evm-verifier-live: agent-evm-verifier-build
+	LATTICE_AGENT_LIVE_RUN=1 $(NODE) node agent/packaging/test-ezkl-evm-live.mjs
 
 report:
 	@echo

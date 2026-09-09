@@ -1,0 +1,923 @@
+{
+  "cases": [
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 0,
+        "horizonCategory": 0,
+        "limitRoomBps": 0,
+        "recentMoveOffsetBps": 0,
+        "roundProgressBps": 0
+      },
+      "id": "boundary-000",
+      "ruleScore": -14300,
+      "tags": [
+        "all-minima",
+        "representative-WAIT"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 300,
+        "horizonCategory": 2,
+        "limitRoomBps": 2000,
+        "recentMoveOffsetBps": 2000,
+        "roundProgressBps": 10000
+      },
+      "id": "boundary-001",
+      "ruleScore": 14300,
+      "tags": [
+        "all-maxima",
+        "representative-EXECUTE"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-002",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "exact-rule-tie",
+        "freshnessSeconds-threshold-neighborhood",
+        "limitRoomBps-threshold-neighborhood",
+        "offset-+0",
+        "recentMoveOffsetBps-threshold-neighborhood",
+        "representative-WAIT",
+        "roundProgressBps-threshold-neighborhood",
+        "rule-score-+0",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 0,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-003",
+      "ruleScore": -6000,
+      "tags": [
+        "feature-extremum",
+        "limitRoomBps-minimum"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 2000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-004",
+      "ruleScore": 6000,
+      "tags": [
+        "feature-extremum",
+        "limitRoomBps-maximum"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 0,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-005",
+      "ruleScore": -4000,
+      "tags": [
+        "feature-extremum",
+        "recentMoveOffsetBps-minimum"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 2000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-006",
+      "ruleScore": 4000,
+      "tags": [
+        "feature-extremum",
+        "recentMoveOffsetBps-maximum"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 0
+      },
+      "id": "boundary-007",
+      "ruleScore": -5000,
+      "tags": [
+        "feature-extremum",
+        "roundProgressBps-minimum"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 10000
+      },
+      "id": "boundary-008",
+      "ruleScore": 5000,
+      "tags": [
+        "feature-extremum",
+        "roundProgressBps-maximum"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 0,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-009",
+      "ruleScore": 2400,
+      "tags": [
+        "feature-extremum",
+        "freshnessSeconds-minimum"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 300,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-010",
+      "ruleScore": -2400,
+      "tags": [
+        "feature-extremum",
+        "freshnessSeconds-maximum"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-011",
+      "ruleScore": -1000,
+      "tags": [
+        "bufferCategory-minimum",
+        "feature-extremum"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-012",
+      "ruleScore": 1000,
+      "tags": [
+        "bufferCategory-maximum",
+        "feature-extremum"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-013",
+      "ruleScore": -700,
+      "tags": [
+        "feature-extremum",
+        "horizonCategory-minimum"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-014",
+      "ruleScore": 700,
+      "tags": [
+        "feature-extremum",
+        "horizonCategory-maximum"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 999,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-015",
+      "ruleScore": -6,
+      "tags": [
+        "limitRoomBps-threshold-neighborhood",
+        "offset--1"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1001,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-016",
+      "ruleScore": 6,
+      "tags": [
+        "limitRoomBps-threshold-neighborhood",
+        "offset-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 999,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-017",
+      "ruleScore": -4,
+      "tags": [
+        "offset--1",
+        "recentMoveOffsetBps-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1001,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-018",
+      "ruleScore": 4,
+      "tags": [
+        "offset-+1",
+        "recentMoveOffsetBps-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4999
+      },
+      "id": "boundary-019",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "offset--1",
+        "roundProgressBps-threshold-neighborhood",
+        "rule-score--1",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5001
+      },
+      "id": "boundary-020",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "offset-+1",
+        "roundProgressBps-threshold-neighborhood",
+        "rule-score-+1",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 149,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-021",
+      "ruleScore": 16,
+      "tags": [
+        "freshnessSeconds-threshold-neighborhood",
+        "offset--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 151,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5000
+      },
+      "id": "boundary-022",
+      "ruleScore": -16,
+      "tags": [
+        "freshnessSeconds-threshold-neighborhood",
+        "offset-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4487
+      },
+      "id": "boundary-023",
+      "ruleScore": -513,
+      "tags": [
+        "rule-score--513",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4488
+      },
+      "id": "boundary-024",
+      "ruleScore": -512,
+      "tags": [
+        "rule-score--512",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5512
+      },
+      "id": "boundary-025",
+      "ruleScore": 512,
+      "tags": [
+        "rule-score-+512",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5513
+      },
+      "id": "boundary-026",
+      "ruleScore": 513,
+      "tags": [
+        "rule-score-+513",
+        "rule-score-threshold-neighborhood"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 6699
+      },
+      "id": "boundary-027",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 6700
+      },
+      "id": "boundary-028",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 6701
+      },
+      "id": "boundary-029",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5999
+      },
+      "id": "boundary-030",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 6000
+      },
+      "id": "boundary-031",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 6001
+      },
+      "id": "boundary-032",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5299
+      },
+      "id": "boundary-033",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5300
+      },
+      "id": "boundary-034",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 0,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5301
+      },
+      "id": "boundary-035",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5699
+      },
+      "id": "boundary-036",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5700
+      },
+      "id": "boundary-037",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 5701
+      },
+      "id": "boundary-038",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4299
+      },
+      "id": "boundary-039",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4300
+      },
+      "id": "boundary-040",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 1,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4301
+      },
+      "id": "boundary-041",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4699
+      },
+      "id": "boundary-042",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4700
+      },
+      "id": "boundary-043",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 0,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4701
+      },
+      "id": "boundary-044",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 3999
+      },
+      "id": "boundary-045",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4000
+      },
+      "id": "boundary-046",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 1,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 4001
+      },
+      "id": "boundary-047",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 3299
+      },
+      "id": "boundary-048",
+      "ruleScore": -1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score--1"
+      ]
+    },
+    {
+      "expectedDecision": "WAIT",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 3300
+      },
+      "id": "boundary-049",
+      "ruleScore": 0,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+0"
+      ]
+    },
+    {
+      "expectedDecision": "EXECUTE",
+      "features": {
+        "bufferCategory": 2,
+        "freshnessSeconds": 150,
+        "horizonCategory": 2,
+        "limitRoomBps": 1000,
+        "recentMoveOffsetBps": 1000,
+        "roundProgressBps": 3301
+      },
+      "id": "boundary-050",
+      "ruleScore": 1,
+      "tags": [
+        "all-category-values",
+        "category-conditioned-threshold",
+        "rule-score-+1"
+      ]
+    }
+  ],
+  "featureOrder": [
+    "limitRoomBps",
+    "recentMoveOffsetBps",
+    "roundProgressBps",
+    "freshnessSeconds",
+    "bufferCategory",
+    "horizonCategory"
+  ],
+  "labelRuleId": "lattice.synthetic-decision-rule.v1",
+  "modelVersion": "lattice.agent.synthetic-decision-model.v1",
+  "schemaVersion": "lattice.agent.synthetic-boundary-corpus.v1"
+}

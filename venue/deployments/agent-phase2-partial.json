@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "lattice.agent.phase2-testnet-evidence.v1",
+  "status": "passed",
+  "startedAt": "2026-09-09T04:24:38.837Z",
+  "completedAt": "2026-09-09T04:41:29.715Z",
+  "network": {
+    "chainId": "296",
+    "rpc": "https://testnet.hashio.io/api"
+  },
+  "deployment": {
+    "schemaVersion": "lattice.agent.deployment-evidence.v1",
+    "checkedAt": "2026-09-09T04:24:35.371Z",
+    "chainId": "296",
+    "deploymentHash": "0xbfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
+    "engine": {
+      "address": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+      "runtimeCodeHash": "0x0bbb8a0b0d640f6ff4a9a0d2b23c277fea44d864d8b54451ae778d6e955262ff",
+      "requiredSelectors": [
+        {
+          "signature": "commit(bytes32)",
+          "selector": "0xf14fcbc8",
+          "present": true
+        },
+        {
+          "signature": "reveal(uint8,uint128,uint128,bytes32,uint256)",
+          "selector": "0x59c94e62",
+          "present": true
+        },
+        {
+          "signature": "cancel(bytes32)",
+          "selector": "0xc4d252f5",
+          "present": true
+        },
+        {
+          "signature": "expire(bytes32)",
+          "selector": "0xc6441798",
+          "present": true
+        },
+        {
+          "signature": "withdraw()",
+          "selector": "0x3ccfd60b",
+          "present": true
+        },
+        {
+          "signature": "commitments(bytes32)",
+          "selector": "0x839df945",
+          "present": true
+        },
+        {
+          "signature": "orders(bytes32)",
+          "selector": "0x9c3f1e90",
+          "present": true
+        },
+        {
+          "signature": "backingOf(bytes32)",
+          "selector": "0xb2eac4b5",
+          "present": true
+        },
+        {
+          "signature": "credit(address)",
+          "selector": "0xd5d44d80",
+          "present": true
+        },
+        {
+          "signature": "currentRound()",
+          "selector": "0x8a19c8bc",
+          "present": true
+        },
+        {
+          "signature": "roundEnd(uint64)",
+          "selector": "0x58f0e07a",
+          "present": true
+        },
+        {
+          "signature": "quote(uint64)",
+          "selector": "0x8ff62c96",
+          "present": true
+        },
+        {
+          "signature": "eligibleIn(bytes32,uint64)",
+          "selector": "0x3c4ec006",
+          "present": true
+        }
+      ]
+    },
+    "token": {
+      "address": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2",
+      "runtimeCodeHash": "0x6b1112b5a03efe29e5b2284f93c63c1881fb3e866e5db2f6065c6d4623124c85",
+      "proxyInterfaceValidatedFromPinnedAbi": true
+    },
+    "wiring": {
+      "security": true,
+      "compliance": true,
+      "policy": true,
+      "volumeCap": true,
+      "tradingHalt": true,
+      "tokenCompliance": true,
+      "registryInstalled": true
+    },
+    "immutables": {
+      "commitBondTinybar": true,
+      "cancelFeeTinybar": true,
+      "revealDelaySeconds": true,
+      "revealWindowSeconds": true,
+      "roundLengthSeconds": true,
+      "restRounds": true,
+      "partition": true
+    }
+  },
+  "actors": {
+    "agentBuyer": "0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d",
+    "preparedSeller": "0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397"
+  },
+  "modelHash": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
+  "policyHash": "0x7a99d335fe3def6fba77933efc1c464cfc11a4533028cd0335827c32c58ea6ac",
+  "feePolicy": {
+    "gasLimit": "1200000",
+    "maxFeePerGas": "2260000000000",
+    "maxPriorityFeePerGas": "0"
+  },
+  "selection": "partial",
+  "checks": {
+    "restartedFromEncryptedJournal": true,
+    "changedProjectionRefusedBeforeBroadcast": true,
+    "cancelAfterRevealRefusedBeforeSigning": true,
+    "filledPathSettled": false,
+    "filledPathCreditsRecovered": false,
+    "partialFillObserved": true,
+    "partialFillExpired": true,
+    "partialFillCreditsRecovered": true,
+    "noFillObserved": false,
+    "noFillExpired": false,
+    "noFillCreditsRecovered": false,
+    "sameProtocolPositionVisible": true,
+    "receiptsAreSanitized": true
+  },
+  "cases": [
+    {
+      "name": "partial",
+      "agentOrder": "0xae46a8a293b70d3c57e22ff4e258961fe67058b3d0a1254822b9106def60f79d",
+      "sellerOrder": "0x7866a0f95a44a552902900f5485c791d958b97675fe08e56e8a09f8a5e0a8507",
+      "round": "983",
+      "expectedOutcome": "partial",
+      "finalLifecycle": "RETIRED_PARTIAL",
+      "creditsBefore": {
+        "buyer": "0",
+        "seller": "0"
+      },
+      "creditBeforeWithdrawTotalTinybar": "1000790",
+      "agentCreditDeltaTinybar": "1000790",
+      "sellerCreditDeltaTinybar": "1000400",
+      "balancesBefore": {
+        "buyer": "1010",
+        "seller": "1990"
+      },
+      "balancesAfter": {
+        "buyer": "1014",
+        "seller": "1986"
+      },
+      "agentTransactions": {
+        "commit": "0x46687ba06f139a74ca5c20d30217a4e6bbbe60acfada3478a61745d2f06045f4",
+        "reveal": "0xb6d12254ca306b19500e87edc507df80be9edb895fb7d87e9cbcbbe0ce324b98",
+        "expire": "0x75146267f346e053bc9d361a6b60de3d200aa39d35f581338d41e7a096bd7b01",
+        "withdraw": "0xc9adcb2f453426ba6de1adb4d52c57911d16ad62f8ad0d37616341836d30b458"
+      },
+      "sellerTransactions": {
+        "partial-seller-hold": "0x5f8c35ad72efdc627b2138f65e2f681607f4caa53a217eee55d53e11c8486d8a",
+        "partial-seller-commit": "0xeadbbe39b27fc30096a4e1e69a236203b207b93b202314546510517ee428b296",
+        "partial-seller-reveal": "0xa5b6181fbbdb2a2aa1ea8a1e8f153ccf678dd4ba85605e4988afc9d941165aa8",
+        "partial-seller-withdraw": "0xea9429ac961fa43bed8ac6c824f8cf79cc013c76047ee97d0cfe427ef678d2c0"
+      },
+      "crossTransaction": "0xbb5b89c21122e672ccb46df5d9a35dc3af8e3a3ede0d0ad642f8fc35f05144a1",
+      "receiptHash": "0x1d326a2466a51c183e3a7d4ff038494abb90033c406ec36284bb52b720c8548d"
+    }
+  ],
+  "independentVerification": {
+    "status": "passed",
+    "method": "Foundry cast read the transaction receipts, order mapping, credits, and ATS partition balances directly from chain 296 after the run",
+    "transactionsChecked": 5,
+    "order": {
+      "quantity": "10",
+      "filled": "4",
+      "retired": true
+    },
+    "final": {
+      "buyerCreditTinybar": "0",
+      "sellerCreditTinybar": "0",
+      "buyerBondUnits": "1014",
+      "sellerBondUnits": "1986"
+    }
+  },
+  "postRunHardening": {
+    "checkedAt": "2026-09-09T04:47:06Z",
+    "status": "passed",
+    "snapshotOriginAuthentication": "A read-only test against the pinned deployment confirmed that changing a feature in an adapter-issued HMAC-authenticated snapshot is refused before proving."
+  },
+  "privacy": "Sanitized evidence contains no signing key, reveal salt, proof body, signed bytes, or private witness. No agent evidence was submitted to HCS."
+}
