@@ -6,7 +6,6 @@
   --claw-copy:#596273;
   --claw-rule:rgba(17,21,29,.1);
   --claw-primary:#4f46e5;
-  --claw-primary-soft:#ecebff;
   --claw-accent:#ff7a59;
   --claw-shadow:0 28px 90px rgba(54,48,154,.14);
   --claw-font:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -21,7 +20,6 @@
     --claw-copy:#aeb5c2;
     --claw-rule:rgba(255,255,255,.1);
     --claw-primary:#9271f8;
-    --claw-primary-soft:#282244;
     --claw-accent:#ff987d;
     --claw-shadow:0 32px 100px rgba(0,0,0,.32);
   }
@@ -89,8 +87,16 @@ body{
   font-weight:750;
   letter-spacing:-.045em;
   line-height:1;
+}
+
+.claw-brand a{
+  display:inline-flex;
+  align-items:center;
+  color:inherit;
   text-decoration:none;
 }
+
+.claw-brand-switch:hover .brand-mark{opacity:.7}
 
 .claw-brand .brand-mark{
   width:1.08rem;
@@ -125,18 +131,13 @@ body{
   text-align:center;
 }
 
-.coming-blob{
+.coming-soon{
   margin:0 0 1.5rem;
-  padding:.55rem 1rem .5rem;
   color:var(--claw-primary);
-  background:var(--claw-primary-soft);
-  border:1px solid color-mix(in srgb,var(--claw-primary) 22%,transparent);
-  border-radius:47% 53% 44% 56% / 58% 41% 59% 42%;
-  font-size:.72rem;
+  font-size:.78rem;
   font-weight:800;
   letter-spacing:.14em;
   line-height:1;
-  transform:rotate(-1.5deg);
 }
 
 .claw-kicker{
@@ -194,7 +195,7 @@ body{
   min-width:0;
   min-height:3.6rem;
   padding:0 1rem;
-  color:var(--claw-copy);
+  color:var(--claw-ink);
   background:transparent;
   border:0;
   outline:0;
@@ -212,12 +213,16 @@ body{
   padding:0;
   display:grid;
   place-items:center;
-  color:color-mix(in srgb,var(--claw-copy) 70%,transparent);
-  background:color-mix(in srgb,var(--claw-ink) 7%,transparent);
+  color:#fff;
+  background:var(--claw-primary);
   border:0;
   border-radius:1rem;
-  cursor:not-allowed;
+  cursor:pointer;
 }
+
+.chat-shell button:hover{background:color-mix(in srgb,var(--claw-primary) 86%,#000)}
+
+.chat-shell button:active{transform:scale(.96)}
 
 .chat-shell svg{width:1.2rem;height:1.2rem}
 
@@ -257,10 +262,10 @@ body{
 }
 
 @media(prefers-reduced-motion:no-preference){
-  .coming-blob{animation:claw-float 5s ease-in-out infinite}
+  .coming-soon{animation:claw-float 5s ease-in-out infinite}
 }
 
 @keyframes claw-float{
-  0%,100%{transform:rotate(-1.5deg) translateY(0)}
-  50%{transform:rotate(1deg) translateY(-5px)}
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-5px)}
 }

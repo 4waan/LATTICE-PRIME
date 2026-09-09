@@ -12,16 +12,18 @@
 <body>
   <div class="claw-page">
     <header class="claw-mast">
-      <a class="claw-brand" href="../index.html" aria-label="Switch to Lattice Prime" title="Switch to Lattice Prime">
+      <span class="claw-brand">
+        <a class="claw-brand-switch" href="../index.html" aria-label="Switch to Lattice Prime" title="Switch to Lattice Prime">
 /*INLINE app/logo.svg*/
-        <span>Lattice Claw</span>
-      </a>
+        </a>
+        <a class="claw-brand-home" href="index.html">Lattice Claw</a>
+      </span>
       <span class="claw-switch">Private market agent</span>
     </header>
 
     <main class="claw-frame">
       <section class="claw-hero" aria-labelledby="claw-title">
-        <p class="coming-blob">COMING SOON</p>
+        <p class="coming-soon">COMING SOON 🚀</p>
         <p class="claw-kicker">Private execution for tokenised markets</p>
         <h1 class="claw-title" id="claw-title">Keep hold of every <span>move.</span></h1>
         <p class="claw-description">
@@ -29,27 +31,50 @@
           and leave a verifiable trail for every decision.
         </p>
 
-        <div class="claw-chat" aria-label="Lattice Claw chat preview">
+        <div class="claw-chat" aria-label="Lattice Claw chat">
           <label class="sr-only" for="claw-prompt">Ask Lattice Claw</label>
-          <div class="chat-shell">
+          <form class="chat-shell" id="claw-chat">
             <input
               id="claw-prompt"
               type="text"
               placeholder="Ask Lattice Claw..."
               aria-describedby="claw-chat-note"
-              readonly
+              autocomplete="off"
+              maxlength="280"
             >
-            <button type="button" aria-label="Send message, coming soon" disabled>
+            <button type="submit" aria-label="Send message">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m5 12 14-7-4.5 14-3-5.5L5 12Z"/>
                 <path d="m11.5 13.5 3-3"/>
               </svg>
             </button>
-          </div>
-          <p class="chat-note" id="claw-chat-note">Chat opens when Lattice Claw is ready.</p>
+          </form>
+          <p class="chat-note" id="claw-chat-note" aria-live="polite">The decision model is trained. Replies are previews until launch.</p>
         </div>
       </section>
     </main>
   </div>
+
+  <script>
+    (() => {
+      const form = document.getElementById("claw-chat");
+      const input = document.getElementById("claw-prompt");
+      const note = document.getElementById("claw-chat-note");
+      const replies = [
+        "Claw heard you. The decision model is trained; execution unlocks at launch.",
+        "Logged. Mandates, receipts, and the Prime hookup are in final checks.",
+        "Soon. Every answer will ship with a verifiable receipt.",
+      ];
+      let turn = 0;
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (input.value.trim() === "") return;
+        note.textContent = replies[turn % replies.length];
+        turn += 1;
+        input.value = "";
+        input.focus();
+      });
+    })();
+  </script>
 </body>
 </html>
