@@ -32,6 +32,7 @@
         </p>
 
         <div class="claw-chat" aria-label="Lattice Claw chat">
+          <div class="chat-log" id="claw-log" aria-live="polite"></div>
           <label class="sr-only" for="claw-prompt">Ask Lattice Claw</label>
           <form class="chat-shell" id="claw-chat">
             <input
@@ -49,7 +50,7 @@
               </svg>
             </button>
           </form>
-          <p class="chat-note" id="claw-chat-note" aria-live="polite">The decision model is trained. Replies are previews until launch.</p>
+          <p class="chat-note" id="claw-chat-note">The decision model is trained. Replies are previews until launch.</p>
         </div>
       </section>
     </main>
@@ -59,20 +60,70 @@
     (() => {
       const form = document.getElementById("claw-chat");
       const input = document.getElementById("claw-prompt");
-      const note = document.getElementById("claw-chat-note");
-      const replies = [
-        "Claw heard you. The decision model is trained; execution unlocks at launch.",
-        "Logged. Mandates, receipts, and the Prime hookup are in final checks.",
-        "Soon. Every answer will ship with a verifiable receipt.",
+      const log = document.getElementById("claw-log");
+
+      // Claw answers offline. Nothing typed here leaves the page: the pairs
+      // below are the whole brain until the venue hookup goes live.
+      const answers = [
+        [/\b(hi|hello|hey|gm|yo|sup)\b/, "Hey. I am Claw, the execution agent for Lattice Prime. Ask me about mandates, receipts, or the model."],
+        [/\bhelp\b|what can i ask/, "Ask what I do, how mandates keep me on a leash, what receipts prove, or when I go live."],
+        [/when|launch|live|ready|soon|eta/, "Soon. The decision model is trained and formally checked; the venue hookup is in final review."],
+        [/claw|who are you|what do you do|what are you/, "I watch Lattice Prime and execute only inside a mandate you sign. Private by default, with a receipt for every move."],
+        [/prime|venue|market|trade|bond/, "Lattice Prime is the venue: sealed orders, tokenised bonds, disclosure you can audit. The logo up top switches you over."],
+        [/mandate|limit|control|permission|leash/, "A mandate is our contract: price and size limits, a horizon, a budget. I act inside it and never outside it."],
+        [/receipt|proof|verif|trust|audit/, "Every action leaves a signed receipt you can check independently. You never have to take my word for anything."],
+        [/model|train|network|onnx|decision|brain|ai\b/, "My core is a small decision network, deterministically trained and evaluated at every boundary. It answers one question: execute or wait."],
+        [/hedera|hcs|chain|testnet|consensus/, "I run against Lattice Prime on Hedera testnet, and consensus timestamps keep the clocks honest."],
+        [/price|cost|fee|pay/, "Pricing lands at launch. The venue publishes its tariff; mine will sit right next to it."],
       ];
-      let turn = 0;
+      const fallbacks = [
+        "That one waits for launch. Ask me about mandates, receipts, or the model.",
+        "Outside my mandate for now. Try asking what I do or when I go live.",
+        "I keep answers small until launch. Mandates, receipts, the model: pick one.",
+      ];
+
+      let fallbackTurn = 0;
+      let typing = null;
+      let timer = 0;
+
+      const bubble = (who, text) => {
+        const p = document.createElement("p");
+        p.className = "msg " + who;
+        p.textContent = text;
+        log.appendChild(p);
+        log.scrollTop = log.scrollHeight;
+        return p;
+      };
+
+      const replyTo = (text) => {
+        const asked = text.toLowerCase();
+        const hit = answers.find(([pattern]) => pattern.test(asked));
+        if (hit) return hit[1];
+        fallbackTurn += 1;
+        return fallbacks[(fallbackTurn - 1) % fallbacks.length];
+      };
+
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        if (input.value.trim() === "") return;
-        note.textContent = replies[turn % replies.length];
-        turn += 1;
+        const text = input.value.trim();
+        if (text === "") return;
         input.value = "";
         input.focus();
+        bubble("you", text);
+        if (typing === null) {
+          typing = bubble("claw", "");
+          typing.className = "msg claw typing";
+          for (let dot = 0; dot < 3; dot += 1) typing.appendChild(document.createElement("i"));
+        }
+        clearTimeout(timer);
+        const answer = replyTo(text);
+        timer = setTimeout(() => {
+          typing.className = "msg claw";
+          typing.replaceChildren();
+          typing.textContent = answer;
+          typing = null;
+          log.scrollTop = log.scrollHeight;
+        }, 700);
       });
     })();
   </script>
