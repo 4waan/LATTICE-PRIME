@@ -2304,6 +2304,764 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   .markets-page #market-tape{max-height:min(58vh,24rem)}
 }
 
+/* ============================================================
+   PORTFOLIO: position first, supporting evidence second
+   ============================================================ */
+
+body[data-screen="position"]{
+  --screen:#087f5b;
+  --portfolio-green:#087f5b;
+  --portfolio-on-green:#ffffff;
+  --portfolio-mint:#34d399;
+  --portfolio-soft:#ecfdf5;
+  --portfolio-wash:#f4fbf8;
+  --portfolio-blue:#2563a9;
+  --portfolio-blue-soft:#eef6ff;
+  --portfolio-amber:#985c0b;
+  --portfolio-amber-soft:#fff7e8;
+  --portfolio-red:#b42318;
+  --portfolio-red-soft:#fff1ef;
+}
+:root[data-theme="dark"] body[data-screen="position"]{
+  --screen:#19775e;
+  --portfolio-green:#5ee9b5;
+  --portfolio-on-green:#06261d;
+  --portfolio-mint:#34d399;
+  --portfolio-soft:#12372c;
+  --portfolio-wash:#152720;
+  --portfolio-blue:#8bbcff;
+  --portfolio-blue-soft:#172a42;
+  --portfolio-amber:#ffd07a;
+  --portfolio-amber-soft:#352711;
+  --portfolio-red:#ff9b8f;
+  --portfolio-red-soft:#3b201f;
+}
+
+.portfolio-page{
+  max-width:1180px;
+  padding-top:1.1rem;
+  padding-bottom:5rem;
+}
+.portfolio-page :focus-visible{outline-color:var(--portfolio-green)}
+.portfolio-page .flow{margin-bottom:.9rem}
+.portfolio-page .flow a,
+.portfolio-page .flow > li > span{
+  min-height:30px;padding:.22rem .65rem;font-size:.72rem;
+}
+.portfolio-page .flow b{font-size:.59rem}
+
+.portfolio-hero{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;
+  padding:.1rem 0 1rem;border-bottom:1px solid var(--rule);
+}
+.portfolio-hero .section-kicker{color:var(--portfolio-green)}
+.portfolio-hero h1{
+  margin:0 0 .2rem;font-size:clamp(1.55rem,3vw,2rem);
+  letter-spacing:-.045em;
+}
+.portfolio-hero p{
+  max-width:40rem;margin:0;color:var(--slate);font-size:.82rem;line-height:1.5;
+}
+.portfolio-refresh,.text-action{
+  min-height:36px;padding:0 .72rem;border:1px solid var(--rule);
+  border-radius:10px;background:var(--surface);color:var(--ink-2);font-size:.7rem;
+}
+.portfolio-page .text-action{position:static}
+.portfolio-refresh:hover,.text-action:hover{
+  border-color:color-mix(in srgb,var(--portfolio-green) 45%,var(--rule));
+  color:var(--portfolio-green);filter:none;
+}
+.portfolio-status-slot{min-height:1.7rem}
+.portfolio-status-slot .status{margin:.36rem 0 0;font-size:.7rem}
+
+.portfolio-summary{
+  margin:.25rem 0 1.25rem;border:1px solid var(--rule);border-radius:17px;
+  background:var(--surface);overflow:hidden;
+  box-shadow:0 1px 0 color-mix(in srgb,var(--ink) 4%,transparent);
+}
+.portfolio-summary-grid{
+  display:grid;grid-template-columns:1.15fr 1fr 1fr;
+}
+.portfolio-summary-grid:has(#finance-credit-summary:not([hidden])){
+  grid-template-columns:1.15fr repeat(3,1fr);
+}
+.summary-item{
+  position:relative;display:flex;flex-direction:column;min-width:0;min-height:12rem;
+  padding:1.05rem 1.1rem;border-right:1px solid var(--rule);
+}
+.summary-item:last-child{border-right:0}
+.summary-holding{
+  background:linear-gradient(145deg,var(--portfolio-soft),color-mix(in srgb,var(--surface) 88%,var(--portfolio-soft)));
+}
+.summary-holding::before{
+  content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--portfolio-mint);
+}
+.summary-label{
+  color:var(--slate);font-size:.67rem;font-weight:650;letter-spacing:.015em;
+}
+.summary-value{
+  display:flex;align-items:baseline;gap:.42rem;min-width:0;margin:.3rem 0 .36rem;
+  font-variant-numeric:tabular-nums;
+}
+.summary-value strong{
+  min-width:0;overflow-wrap:anywhere;font-size:clamp(1.35rem,2.2vw,1.9rem);
+  line-height:1.08;font-weight:700;letter-spacing:-.045em;
+}
+.summary-value span{
+  color:var(--slate);font-size:.66rem;font-weight:700;letter-spacing:.04em;
+}
+.summary-split{
+  display:flex;flex-wrap:wrap;gap:.28rem .7rem;margin:0;color:var(--slate);
+  font-size:.64rem;font-variant-numeric:tabular-nums;
+}
+.summary-split b{font-size:.71rem}
+.summary-reference,.summary-note{
+  margin:.48rem 0 .75rem;color:var(--slate);font-size:.62rem;line-height:1.45;
+}
+.summary-reference{color:var(--ink-2)}
+.summary-item > :is(button,.summary-link){
+  align-self:flex-start;margin-top:auto;min-height:34px;padding:0 .68rem;
+  border-radius:9px;font-size:.65rem;
+}
+.summary-item > button{
+  border:1px solid var(--rule);background:var(--paper);
+}
+.summary-item > button:not(:disabled){
+  border-color:color-mix(in srgb,var(--portfolio-green) 26%,var(--rule));
+  background:var(--portfolio-soft);color:var(--portfolio-green);
+}
+.summary-item > button[aria-busy="true"]{cursor:progress}
+.summary-link{
+  display:inline-flex;align-items:center;color:var(--portfolio-green);
+  font-weight:650;text-decoration:none;
+}
+.summary-link:hover{text-decoration:underline}
+
+.portfolio-section-heading{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;
+  margin-bottom:.7rem;
+}
+.portfolio-section-heading .section-kicker{
+  margin-bottom:.12rem;color:var(--slate);font-size:.62rem;
+}
+.portfolio-section-heading h2{
+  font-size:1.08rem;font-weight:720;letter-spacing:-.03em;
+}
+.portfolio-section-heading > a,.activity-panel-head > a{
+  color:var(--portfolio-green);font-size:.68rem;font-weight:650;text-decoration:none;
+}
+.portfolio-section-heading > a:hover,.activity-panel-head > a:hover{text-decoration:underline}
+
+.portfolio-attention{margin:0 0 1.25rem}
+.portfolio-attention .portfolio-section-heading{margin-bottom:.45rem}
+.portfolio-attention .section-kicker{color:var(--portfolio-amber)}
+.attention-list{
+  overflow:hidden;border:1px solid color-mix(in srgb,var(--portfolio-amber) 24%,var(--rule));
+  border-radius:14px;background:var(--surface);
+}
+.attention-item{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.72rem .85rem;border-bottom:1px solid var(--rule);
+}
+.attention-item:last-child{border-bottom:0}
+.attention-item::before{
+  content:"";align-self:stretch;flex:0 0 3px;border-radius:4px;background:var(--portfolio-blue);
+}
+.attention-item.warning::before{background:var(--portfolio-amber)}
+.attention-item.danger::before{background:var(--portfolio-red)}
+.attention-item > div{min-width:0;margin-right:auto}
+.attention-item strong{display:block;font-size:.72rem}
+.attention-item p{margin:.05rem 0 0;color:var(--slate);font-size:.65rem;line-height:1.45}
+.attention-item a{
+  flex:0 0 auto;color:var(--ink);font-size:.64rem;font-weight:650;text-decoration:none;
+  padding:.36rem .56rem;border:1px solid var(--rule);border-radius:8px;
+}
+.attention-item a:hover{border-color:var(--portfolio-amber)}
+
+.portfolio-core{
+  display:grid;grid-template-columns:minmax(0,1.52fr) minmax(310px,.86fr);
+  grid-template-areas:"holdings income" "financing income";
+  gap:1rem;align-items:start;
+}
+.portfolio-section{min-width:0}
+.holdings-section{grid-area:holdings}
+.portfolio-page .income-section{
+  grid-area:income;
+  padding:1.2rem 1.3rem;border:1px solid var(--rule);border-radius:16px;background:var(--surface);
+  box-shadow:0 1px 0 color-mix(in srgb,var(--ink) 4%,transparent);
+}
+.portfolio-core .financing-section{grid-area:financing;margin-top:.15rem}
+.portfolio-empty.compact{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  min-height:3.5rem;padding:.72rem .82rem;border:1px dashed var(--rule-hard);
+  border-radius:12px;color:var(--slate);font-size:.68rem;line-height:1.45;
+}
+.portfolio-empty.compact strong{display:block;font-size:.71rem}
+.portfolio-empty.compact span{display:block;margin-top:.08rem}
+.portfolio-button{
+  flex:0 0 auto;padding:.45rem .65rem;border-radius:8px;background:var(--portfolio-soft);
+  color:var(--portfolio-green);font-size:.64rem;font-weight:650;text-decoration:none;
+}
+
+.holding-card{
+  overflow:hidden;border:1px solid var(--rule);border-radius:16px;background:var(--surface);
+  box-shadow:0 1px 0 color-mix(in srgb,var(--ink) 4%,transparent);
+}
+.holding-card > summary{
+  position:relative;display:grid;
+  grid-template-columns:3.2rem minmax(11rem,1fr) minmax(7rem,.62fr) minmax(10rem,.85fr) auto;
+  gap:.8rem;align-items:center;min-height:7.25rem;padding:1rem;
+  cursor:pointer;list-style:none;
+}
+.holding-card > summary::-webkit-details-marker{display:none}
+.holding-card > summary:hover{background:color-mix(in srgb,var(--portfolio-soft) 38%,transparent)}
+.holding-symbol{
+  display:grid;place-items:center;width:3rem;height:3rem;border-radius:12px;
+  background:var(--portfolio-green);color:var(--portfolio-on-green);font-size:.62rem;font-weight:750;
+  letter-spacing:.04em;
+}
+.holding-identity{display:flex;flex-direction:column;min-width:0}
+.holding-identity strong{font-size:.84rem;line-height:1.35}
+.holding-identity small,.holding-quantity small,.holding-breakdown small{
+  color:var(--slate);font-size:.58rem;font-weight:550;
+}
+.holding-quantity{
+  display:grid;grid-template-columns:auto auto;align-items:baseline;gap:0 .32rem;
+  font-variant-numeric:tabular-nums;
+}
+.holding-quantity small{grid-column:1/-1}
+.holding-quantity strong{font-size:1.12rem;letter-spacing:-.035em}
+.holding-quantity > span:last-child{
+  color:var(--slate);font-size:.57rem;font-weight:700;
+}
+.holding-breakdown{
+  display:grid;grid-template-columns:1fr 1fr;gap:.55rem;padding-left:.8rem;
+  border-left:1px solid var(--rule);
+}
+.holding-breakdown > span{display:flex;flex-direction:column;min-width:0}
+.holding-breakdown b{
+  overflow-wrap:anywhere;font-size:.75rem;font-variant-numeric:tabular-nums;
+}
+.holding-expand{
+  color:var(--slate);font-size:.61rem;font-weight:650;
+}
+.holding-expand::after{content:" ↓";color:var(--portfolio-green)}
+.holding-card[open] .holding-expand::after{content:" ↑"}
+.holding-details{
+  padding:1rem;border-top:1px solid var(--rule);background:var(--portfolio-wash);
+}
+@media(prefers-reduced-motion:no-preference){
+  .holding-card[open] .holding-details{animation:portfolio-reveal .2s var(--ease) both}
+  @keyframes portfolio-reveal{from{opacity:.3;transform:translateY(-4px)}}
+}
+.holding-reference{
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;
+  gap:.05rem 1rem;margin-bottom:.9rem;padding:.72rem .8rem;
+  border:1px solid color-mix(in srgb,var(--portfolio-green) 18%,var(--rule));
+  border-radius:11px;background:var(--surface);
+}
+.holding-reference > span{color:var(--slate);font-size:.61rem}
+.holding-reference > strong{text-align:right;font-size:.8rem}
+.holding-reference > small{
+  grid-column:1/-1;color:var(--slate);font-size:.58rem;line-height:1.5;
+}
+.holding-detail-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:.75rem;
+}
+.holding-detail-grid > section{
+  min-width:0;padding:.78rem;border:1px solid var(--rule);border-radius:11px;
+  background:var(--surface);
+}
+.holding-detail-grid h3{
+  margin-bottom:.52rem;color:var(--slate);font-size:.65rem;letter-spacing:0;
+}
+.detail-list{margin:0}
+.detail-list > div{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;
+  padding:.38rem 0;border-bottom:1px solid var(--rule);
+}
+.detail-list > div:last-child{border-bottom:0}
+.detail-list dt{flex:0 0 34%;color:var(--slate);font-size:.58rem}
+.detail-list dd{
+  margin:0;min-width:0;text-align:right;overflow-wrap:anywhere;
+  color:var(--ink);font-size:.61rem;line-height:1.45;
+}
+#holding-reserve-detail{display:flex;flex-direction:column;gap:.25rem}
+#holding-reserve-detail span{display:block}
+.detail-copy{color:var(--slate);font-size:.61rem;line-height:1.55}
+.technical-list dd,.technical-list code{font-size:.57rem}
+
+.income-overview{
+  display:grid;grid-template-columns:1fr;border-block:1px solid var(--rule);
+}
+.income-overview > div{
+  display:flex;align-items:baseline;justify-content:space-between;gap:.7rem;
+  min-width:0;padding:.7rem .3rem;border-bottom:1px solid var(--rule);
+}
+.income-overview > div:last-child{border-bottom:0}
+.income-overview span{color:var(--slate);font-size:.6rem}
+.income-overview strong{
+  min-width:0;text-align:right;overflow-wrap:anywhere;font-size:.71rem;
+  font-variant-numeric:tabular-nums;
+}
+.income-prerequisites{
+  display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin-top:.72rem;
+}
+.income-prerequisites button,.portfolio-file{
+  min-height:34px;padding:0 .62rem;border-radius:8px;font-size:.62rem;
+}
+.income-prerequisites button:not(:disabled){
+  background:var(--portfolio-soft);color:var(--portfolio-green);
+}
+.portfolio-file{
+  position:relative;border:1px solid var(--rule);background:var(--paper);color:var(--ink-2);
+}
+.portfolio-file input{
+  display:block;position:absolute;width:1px;height:1px;overflow:hidden;
+  opacity:0;pointer-events:none;
+}
+.portfolio-file:focus-within{outline:2px solid var(--portfolio-green);outline-offset:2px}
+.income-help{
+  margin:.55rem 0 .8rem;color:var(--slate);font-size:.57rem;line-height:1.5;
+}
+.claim-review{
+  margin:.75rem 0;padding:.78rem;border:1px solid color-mix(in srgb,var(--portfolio-green) 28%,var(--rule));
+  border-radius:12px;background:var(--portfolio-soft);
+}
+.claim-review.invalid{
+  border-color:color-mix(in srgb,var(--portfolio-amber) 32%,var(--rule));
+  background:var(--portfolio-amber-soft);
+}
+.claim-review > header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;
+  margin-bottom:.58rem;
+}
+.claim-review > header span{display:block;color:var(--slate);font-size:.56rem}
+.claim-review > header strong{display:block;font-size:.72rem}
+.claim-review > header small{color:var(--slate);font-size:.55rem}
+.claim-review-values{
+  display:grid;grid-template-columns:1fr;gap:0;border-block:1px solid color-mix(in srgb,var(--portfolio-green) 16%,var(--rule));
+}
+.claim-review-values > div{
+  display:flex;justify-content:space-between;gap:.6rem;padding:.38rem 0;
+  border-bottom:1px solid color-mix(in srgb,var(--portfolio-green) 16%,var(--rule));
+}
+.claim-review-values > div:last-child{border-bottom:0}
+.claim-review-values span{color:var(--slate);font-size:.56rem}
+.claim-review-values strong{text-align:right;font-size:.62rem}
+.claim-review-status,.claim-review-warning{
+  margin:.52rem 0;color:var(--ink-2);font-size:.58rem;line-height:1.45;
+}
+.claim-review-warning{color:var(--portfolio-red)}
+.claim-review > button{
+  width:100%;min-height:38px;border-radius:9px;background:var(--portfolio-green);
+  color:var(--portfolio-on-green);font-size:.66rem;
+}
+.coupon-schedule-head{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  margin:.8rem 0 .28rem;padding-inline:.4rem;
+}
+.coupon-schedule-head h3{font-size:.72rem;letter-spacing:-.015em}
+.coupon-schedule-head span{color:var(--slate);font-size:.56rem}
+.coupon-row{
+  display:grid;grid-template-columns:4.7rem minmax(7rem,.85fr) minmax(9rem,1.15fr);
+  gap:.55rem;padding:.72rem .4rem;border-top:1px solid var(--rule);
+}
+.coupon-row:first-of-type{border-top:0}
+.coupon-row-date,.coupon-row-funding,.coupon-row-status{
+  display:flex;flex-direction:column;min-width:0;
+}
+.coupon-row :is(span,small){color:var(--slate);font-size:.53rem;line-height:1.4}
+.coupon-row :is(strong){font-size:.59rem;line-height:1.4;overflow-wrap:anywhere}
+.coupon-row-status strong{color:var(--ink)}
+.coupon-row.ready .coupon-row-status strong{color:var(--portfolio-green)}
+.coupon-row.waiting .coupon-row-status strong{color:var(--portfolio-amber)}
+.coupon-row.closed .coupon-row-status strong{color:var(--slate)}
+.coupon-row.claimed .coupon-row-status strong{color:var(--portfolio-blue)}
+.coupon-all{margin-top:.25rem;border-top:1px solid var(--rule)}
+.coupon-all > summary{
+  display:flex;align-items:center;min-height:36px;cursor:pointer;list-style:none;
+  padding-inline:.4rem;color:var(--portfolio-green);font-size:.6rem;font-weight:650;
+}
+.coupon-all > summary::-webkit-details-marker{display:none}
+.coupon-all > summary::after{content:"+";margin-left:auto}
+.coupon-all[open] > summary::after{content:"−"}
+.coupon-all > div{border-top:1px solid var(--rule)}
+
+.financing-section,.activity-section{margin-top:1.45rem}
+.feature-note{
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:.08rem .7rem;
+  margin-bottom:.7rem;padding:.7rem .78rem;border:1px solid var(--rule);
+  border-radius:11px;background:var(--surface);
+}
+.feature-note strong{grid-row:1/3;font-size:.64rem}
+.feature-note span{color:var(--ink-2);font-size:.61rem;line-height:1.45}
+.feature-note small{color:var(--slate);font-size:.56rem}
+.financing-context{
+  display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+  padding:.55rem .7rem;border:1px solid var(--rule);border-bottom:0;
+  border-radius:12px 12px 0 0;background:var(--portfolio-wash);
+}
+.financing-context span{color:var(--slate);font-size:.58rem}
+.financing-position-list{
+  overflow:hidden;border:1px solid var(--rule);border-radius:12px;background:var(--surface);
+}
+.financing-context + .financing-position-list{border-radius:0 0 12px 12px}
+.financing-position{
+  padding:.82rem;border-bottom:1px solid var(--rule);
+}
+.financing-position:last-child{border-bottom:0}
+.financing-position.warning{box-shadow:inset 3px 0 0 var(--portfolio-amber)}
+.financing-position > header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  margin-bottom:.62rem;
+}
+.financing-position > header > div{display:flex;flex-direction:column}
+.financing-position > header span{color:var(--slate);font-size:.57rem}
+.financing-position > header strong{font-size:.76rem}
+.financing-position > header code{
+  background:var(--paper);color:var(--slate);font-size:.56rem;
+}
+.financing-position-values{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  border-block:1px solid var(--rule);
+}
+.financing-position-values > div{
+  min-width:0;padding:.55rem .6rem;border-right:1px solid var(--rule);
+}
+.financing-position-values > div:first-child{padding-left:0}
+.financing-position-values > div:last-child{padding-right:0;border-right:0}
+.financing-position-values span{display:block;color:var(--slate);font-size:.56rem}
+.financing-position-values strong{
+  display:block;margin-top:.05rem;overflow-wrap:anywhere;font-size:.67rem;
+  font-variant-numeric:tabular-nums;
+}
+.financing-status-copy{
+  margin:.55rem 0;color:var(--ink-2);font-size:.63rem;line-height:1.5;
+}
+.financing-position > footer{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+}
+.financing-position > footer span{color:var(--slate);font-size:.57rem}
+.financing-position > footer a{
+  color:var(--portfolio-green);font-size:.61rem;font-weight:650;text-decoration:none;
+}
+.financing-position > footer a:hover{text-decoration:underline}
+
+.portfolio-disclosure{
+  margin-top:.72rem;border-block:1px solid var(--rule);
+}
+.portfolio-disclosure > summary{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.15rem 1rem;
+  align-items:center;min-height:3.4rem;padding:.35rem .05rem;
+  cursor:pointer;list-style:none;
+}
+.portfolio-disclosure > summary::-webkit-details-marker{display:none}
+.portfolio-disclosure > summary span{font-size:.7rem;font-weight:650;color:var(--ink)}
+.portfolio-disclosure > summary small{color:var(--slate);font-size:.58rem}
+.portfolio-disclosure > summary::after{
+  content:"+";grid-column:2;grid-row:1/3;color:var(--portfolio-green);font-size:1rem;
+}
+.portfolio-disclosure[open] > summary::after{content:"−"}
+.portfolio-disclosure-body{padding:.4rem 0 .9rem}
+.portfolio-disclosure-body > p{
+  max-width:48rem;margin:0 0 .7rem;color:var(--slate);font-size:.65rem;line-height:1.55;
+}
+.manual-lookup{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.6rem;align-items:end;
+}
+.manual-lookup .field{padding:0;border:0}
+.manual-lookup label{font-size:.6rem}
+.manual-lookup input{
+  min-height:40px;border-radius:9px;font-family:var(--mono);font-size:.64rem;
+}
+.manual-lookup button{min-height:40px;border-radius:9px;font-size:.65rem}
+#watch-out{margin-top:.7rem}
+.financing-position-list.manual .financing-position{background:var(--surface)}
+
+.activity-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:.8rem;
+}
+.activity-panel{
+  min-width:0;padding:.85rem;border:1px solid var(--rule);border-radius:13px;
+  background:var(--surface);
+}
+.activity-panel-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  margin-bottom:.58rem;
+}
+.activity-panel-head h3{font-size:.72rem;letter-spacing:-.015em}
+.activity-panel-head p{
+  margin:.06rem 0 0;color:var(--slate);font-size:.57rem;line-height:1.45;
+}
+.latest-action{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.62rem;align-items:center;
+  padding:.65rem;border-radius:10px;background:var(--portfolio-wash);
+}
+.latest-action-mark{
+  width:8px;height:8px;border-radius:50%;background:var(--portfolio-mint);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--portfolio-mint) 15%,transparent);
+}
+.latest-action strong{display:block;font-size:.68rem}
+.latest-action p{margin:.04rem 0 0;color:var(--slate);font-size:.56rem;line-height:1.45}
+.latest-action a{color:var(--portfolio-green);font-size:.57rem;font-weight:650;text-decoration:none}
+.receipt-evidence{margin-top:.45rem;border-top:1px solid var(--rule)}
+.receipt-evidence > summary{
+  min-height:32px;display:flex;align-items:center;cursor:pointer;list-style:none;
+  color:var(--slate);font-size:.56rem;font-weight:650;
+}
+.receipt-evidence > summary::-webkit-details-marker{display:none}
+.receipt-evidence > summary::after{content:"+";margin-left:auto}
+.receipt-evidence[open] > summary::after{content:"−"}
+.receipt-evidence .rcpt-layers{
+  grid-template-columns:1fr 1fr;border:0;border-radius:9px;background:var(--paper);
+}
+.receipt-evidence .rcpt-layers article{padding:.58rem}
+.receipt-evidence .rcpt-layers h3{font-size:.58rem}
+.receipt-evidence .rcpt-layers p{font-size:.54rem;line-height:1.45}
+.portfolio-record-list{display:flex;flex-direction:column}
+.portfolio-record{
+  display:flex;align-items:center;justify-content:space-between;gap:.7rem;
+  padding:.5rem .05rem;border-top:1px solid var(--rule);
+}
+.portfolio-record:first-child{border-top:0}
+.portfolio-record > div{display:flex;flex-direction:column;min-width:0}
+.portfolio-record > div:last-child{align-items:flex-end}
+.portfolio-record strong{font-size:.62rem}
+.portfolio-record span{color:var(--slate);font-size:.54rem}
+.portfolio-record .record-outcome{color:var(--ink-2);font-weight:600}
+.portfolio-record.warning .record-outcome{color:var(--portfolio-amber)}
+.portfolio-record.danger .record-outcome{color:var(--portfolio-red)}
+.portfolio-record.positive .record-outcome{color:var(--portfolio-green)}
+.portfolio-record a{color:var(--portfolio-green);font-size:.54rem;text-decoration:none}
+.evidence-meta{
+  display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
+  margin:.6rem 0;padding:.58rem .65rem;border-radius:9px;background:var(--paper);
+}
+.evidence-meta span{color:var(--slate);font-size:.59rem}
+.evidence-meta strong{font-size:.65rem}
+.portfolio-disclosure-body .rows{overflow-x:auto}
+.portfolio-disclosure-body .rowline{min-width:43rem}
+.portfolio-disclosure-body .receipt-actions{
+  display:flex;align-items:center;flex-wrap:wrap;gap:.65rem;margin-top:.75rem;
+}
+.portfolio-disclosure-body .receipt-actions a{
+  color:var(--portfolio-green);font-size:.65rem;font-weight:650;text-decoration:none;
+}
+
+.withdraw-modal-card .section-kicker{color:var(--portfolio-green)}
+.withdraw-confirm-actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:.55rem;
+}
+.withdraw-confirm-actions button{border-radius:10px}
+body[data-screen="position"] .withdraw-confirm-actions .primary{
+  background:var(--portfolio-green);color:var(--portfolio-on-green);
+}
+
+/* Portfolio readability scale. */
+.portfolio-page .portfolio-hero .section-kicker{font-size:.7rem}
+.portfolio-page .portfolio-refresh,
+.portfolio-page .text-action,
+.portfolio-page .portfolio-status-slot .status{font-size:.72rem}
+.portfolio-page .summary-label{font-size:.76rem}
+.portfolio-page .summary-split{font-size:.72rem}
+.portfolio-page .summary-split b{font-size:.8rem}
+.portfolio-page .summary-reference,
+.portfolio-page .summary-note{font-size:.72rem}
+.portfolio-page .summary-item > :is(button,.summary-link){font-size:.74rem}
+.portfolio-page .portfolio-section-heading .section-kicker{font-size:.7rem}
+.portfolio-page .portfolio-section-heading h2{font-size:1.16rem}
+.portfolio-page .portfolio-section-heading > a,
+.portfolio-page .activity-panel-head > a{font-size:.76rem}
+.portfolio-page .attention-item strong{font-size:.78rem}
+.portfolio-page .attention-item p{font-size:.72rem}
+.portfolio-page .attention-item a{font-size:.7rem}
+.portfolio-page .portfolio-empty.compact{font-size:.76rem}
+.portfolio-page .portfolio-empty.compact strong{font-size:.82rem}
+.portfolio-page .holding-identity strong{font-size:.94rem}
+.portfolio-page .holding-identity small,
+.portfolio-page .holding-quantity small,
+.portfolio-page .holding-breakdown small{font-size:.68rem}
+.portfolio-page .holding-quantity > span:last-child{font-size:.68rem}
+.portfolio-page .holding-breakdown b{font-size:.86rem}
+.portfolio-page .holding-expand{font-size:.7rem}
+.portfolio-page .holding-reference > span{font-size:.7rem}
+.portfolio-page .holding-reference > strong{font-size:.9rem}
+.portfolio-page .holding-reference > small{font-size:.68rem}
+.portfolio-page .holding-detail-grid h3{font-size:.76rem}
+.portfolio-page .detail-list dt{font-size:.68rem}
+.portfolio-page .detail-list dd,
+.portfolio-page .detail-copy{font-size:.72rem}
+.portfolio-page .income-overview span{font-size:.7rem}
+.portfolio-page .income-overview strong{font-size:.82rem}
+.portfolio-page .income-prerequisites button,
+.portfolio-page .portfolio-file{font-size:.72rem}
+.portfolio-page .portfolio-button,
+.portfolio-page .claim-review > button{font-size:.74rem}
+.portfolio-page .income-help{font-size:.69rem}
+.portfolio-page .claim-review > header span,
+.portfolio-page .claim-review > header small{font-size:.67rem}
+.portfolio-page .claim-review > header strong{font-size:.82rem}
+.portfolio-page .claim-review-values span{font-size:.67rem}
+.portfolio-page .claim-review-values strong{font-size:.74rem}
+.portfolio-page .claim-review-status,
+.portfolio-page .claim-review-warning{font-size:.69rem}
+.portfolio-page .coupon-schedule-head h3{font-size:.82rem}
+.portfolio-page .coupon-schedule-head span{font-size:.67rem}
+.portfolio-page .coupon-row :is(span,small){font-size:.68rem}
+.portfolio-page .coupon-row :is(strong){font-size:.74rem}
+.portfolio-page .coupon-all > summary{font-size:.72rem}
+.portfolio-page .feature-note strong{font-size:.75rem}
+.portfolio-page .feature-note span{font-size:.72rem}
+.portfolio-page .feature-note small{font-size:.67rem}
+.portfolio-page .financing-context span{font-size:.69rem}
+.portfolio-page .financing-position > header span{font-size:.68rem}
+.portfolio-page .financing-position > header strong{font-size:.86rem}
+.portfolio-page .financing-position-values span{font-size:.67rem}
+.portfolio-page .financing-position-values strong{font-size:.78rem}
+.portfolio-page .financing-status-copy{font-size:.74rem}
+.portfolio-page .financing-position > footer span,
+.portfolio-page .financing-position > footer a{font-size:.69rem}
+.portfolio-page .portfolio-disclosure > summary span{font-size:.8rem}
+.portfolio-page .portfolio-disclosure > summary small{font-size:.69rem}
+.portfolio-page .portfolio-disclosure-body > p{font-size:.75rem}
+.portfolio-page .manual-lookup label{font-size:.7rem}
+.portfolio-page .manual-lookup input,
+.portfolio-page .manual-lookup button{font-size:.72rem}
+.portfolio-page .activity-panel-head h3{font-size:.82rem}
+.portfolio-page .activity-panel-head p{font-size:.69rem}
+.portfolio-page .latest-action strong{font-size:.78rem}
+.portfolio-page .latest-action p,
+.portfolio-page .latest-action a{font-size:.68rem}
+.portfolio-page .receipt-evidence > summary{font-size:.68rem}
+.portfolio-page .receipt-evidence .rcpt-layers h3{font-size:.7rem}
+.portfolio-page .receipt-evidence .rcpt-layers p{font-size:.68rem}
+.portfolio-page .portfolio-record strong{font-size:.74rem}
+.portfolio-page .portfolio-record span,
+.portfolio-page .portfolio-record a{font-size:.67rem}
+.portfolio-page .evidence-meta span{font-size:.68rem}
+.portfolio-page .evidence-meta strong{font-size:.74rem}
+.portfolio-page .portfolio-disclosure-body .receipt-actions a{font-size:.74rem}
+
+@media(min-width:1021px){
+  .portfolio-core:has(#holding-unavailable:not([hidden])),
+  .portfolio-core:has(#holding-empty:not([hidden])){
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"holdings" "income" "financing";
+  }
+  .portfolio-core:has(#holding-unavailable:not([hidden])) .income-overview,
+  .portfolio-core:has(#holding-empty:not([hidden])) .income-overview{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .portfolio-core:has(#holding-unavailable:not([hidden])) .income-overview > div,
+  .portfolio-core:has(#holding-empty:not([hidden])) .income-overview > div{
+    align-items:flex-start;flex-direction:column;justify-content:center;
+    padding:.85rem 1rem;border-right:1px solid var(--rule);border-bottom:0;
+  }
+  .portfolio-core:has(#holding-unavailable:not([hidden])) .income-overview > div:last-child,
+  .portfolio-core:has(#holding-empty:not([hidden])) .income-overview > div:last-child{
+    border-right:0;
+  }
+  .portfolio-core:has(#holding-unavailable:not([hidden])) .income-overview strong,
+  .portfolio-core:has(#holding-empty:not([hidden])) .income-overview strong{
+    text-align:left;
+  }
+}
+
+@media(max-width:1020px){
+  .portfolio-summary-grid,
+  .portfolio-summary-grid:has(#finance-credit-summary:not([hidden])){
+    grid-template-columns:1fr 1fr;
+  }
+  .summary-item{border-bottom:1px solid var(--rule)}
+  .summary-item:nth-child(2n){border-right:0}
+  .summary-item:nth-last-child(-n+2){border-bottom:0}
+  .portfolio-core{
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"holdings" "income" "financing";
+  }
+  .portfolio-page .income-section{margin-top:.25rem}
+  .portfolio-core .financing-section{margin-top:.45rem}
+}
+
+@media(max-width:760px){
+  .holding-card > summary{
+    grid-template-columns:3rem minmax(0,1fr) minmax(6rem,.55fr) auto;
+  }
+  .holding-breakdown{grid-column:2/4;grid-row:2;padding:.65rem 0 0;border-left:0;border-top:1px solid var(--rule)}
+  .holding-expand{grid-column:4;grid-row:1}
+  .holding-detail-grid{grid-template-columns:1fr}
+  .activity-grid{grid-template-columns:1fr}
+  .financing-context{align-items:flex-start;flex-direction:column;gap:.18rem}
+}
+
+@media(max-width:620px){
+  .portfolio-page{padding-top:.8rem;padding-bottom:4rem}
+  .portfolio-page .flow{
+    flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem;scrollbar-width:none;
+  }
+  .portfolio-page .flow::-webkit-scrollbar{display:none}
+  .portfolio-hero{align-items:flex-start;flex-direction:column;gap:.6rem}
+  .portfolio-refresh{align-self:flex-start}
+  .portfolio-summary-grid,
+  .portfolio-summary-grid:has(#finance-credit-summary:not([hidden])){
+    grid-template-columns:1fr;
+  }
+  .summary-item{
+    min-height:10.5rem;border-right:0;border-bottom:1px solid var(--rule);
+  }
+  .summary-item:nth-last-child(-n+2){border-bottom:1px solid var(--rule)}
+  .summary-item:last-child{border-bottom:0}
+  .portfolio-summary-grid:not(:has(#finance-credit-summary:not([hidden]))) .summary-item:nth-child(3){
+    border-bottom:0;
+  }
+  .attention-item{align-items:flex-start;flex-wrap:wrap}
+  .attention-item::before{min-height:2.6rem}
+  .attention-item a{margin-left:calc(3px + 1rem)}
+  .holding-card > summary{
+    grid-template-columns:2.7rem minmax(0,1fr) auto;gap:.65rem;min-height:8rem;
+  }
+  .holding-symbol{width:2.6rem;height:2.6rem;border-radius:10px}
+  .holding-quantity{grid-column:1/3;grid-row:2}
+  .holding-breakdown{grid-column:1/4;grid-row:3}
+  .holding-expand{grid-column:3;grid-row:1}
+  .holding-reference{grid-template-columns:1fr}
+  .holding-reference > strong{text-align:left}
+  .coupon-row{grid-template-columns:4.4rem minmax(0,1fr)}
+  .coupon-row-status{grid-column:1/-1;padding-top:.35rem;border-top:1px solid var(--rule)}
+  .feature-note{grid-template-columns:1fr}
+  .feature-note strong{grid-row:auto}
+  .financing-position-values{grid-template-columns:1fr}
+  .financing-position-values > div{
+    padding:.48rem 0;border-right:0;border-bottom:1px solid var(--rule);
+  }
+  .financing-position-values > div:last-child{border-bottom:0}
+  .portfolio-disclosure > summary{grid-template-columns:minmax(0,1fr) auto}
+  .portfolio-disclosure > summary small{grid-column:1}
+  .manual-lookup{grid-template-columns:1fr}
+  .manual-lookup button{width:100%}
+}
+
+@media(max-width:420px){
+  .portfolio-section-heading{align-items:flex-start}
+  .portfolio-section-heading > a{margin-top:.22rem}
+  .summary-value strong{font-size:1.42rem}
+  .portfolio-page .income-section{padding:1rem}
+  .income-overview > div{align-items:flex-start;flex-direction:column;gap:.08rem}
+  .income-overview strong{text-align:left}
+  .income-prerequisites{align-items:stretch;flex-direction:column}
+  .income-prerequisites button,.portfolio-file{width:100%}
+  .claim-review > header{flex-direction:column}
+  .coupon-row{grid-template-columns:1fr}
+  .coupon-row-status{grid-column:auto}
+  .financing-position > header{align-items:flex-start;flex-direction:column}
+  .financing-position > footer{align-items:flex-start;flex-direction:column;gap:.35rem}
+  .latest-action{grid-template-columns:auto minmax(0,1fr)}
+  .latest-action > a{grid-column:2}
+  .receipt-evidence .rcpt-layers{grid-template-columns:1fr}
+  .withdraw-confirm-actions{grid-template-columns:1fr}
+}
+
 </style>
 
 <div id="block" class="blocked" hidden>
@@ -4045,6 +4803,18 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
 const readableHbar = (tinybar) => formatHbar(asBig(tinybar))
     .replace(/(\.\d*?[1-9])0+$/, "$1")
     .replace(/\.0+$/, "");
+const readableQuantity = (qty) => formatQuantity(asBig(qty))
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const readablePrice = (price) => formatPrice(asBig(price))
+    .replace(/(\.\d*?[1-9])0+$/, "$1")
+    .replace(/\.0+$/, "");
+const readableBps = (bps) => {
+    const value = asBig(bps);
+    const whole = value / 100n;
+    const fraction = (value % 100n).toString().padStart(2, "0")
+        .replace(/0+$/, "");
+    return whole + (fraction ? "." + fraction : "") + "%";
+};
 const shortAddr = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "Unknown";
 const shortId = (id) => id ? id.slice(0, 10) + "…" + id.slice(-6) : "Unknown";
 const nowSec = () => BigInt(Math.floor(Date.now() / 1000));
@@ -4457,6 +5227,10 @@ const Venue = {
     _vaultHandles: {},
     orderStage: "details",
     trackTicketId: null,
+    withdrawKind: "trading",
+    positionState: null,
+    couponState: null,
+    portfolioFinancing: null,
 };
 
 Venue.restoreReceipt = function () {
@@ -5215,7 +5989,14 @@ Venue.stopWatching = function () {
 Venue.refreshForViewer = async function () {
     if (Venue.page === "prove") await Venue.refreshProve();
     if (Venue.page === "trade") await Venue.refreshTrade();
-    if (Venue.page === "position") await Venue.refreshPosition();
+    if (Venue.page === "position") {
+        await Promise.all([
+            Venue.refreshPosition(),
+            Venue.refreshInstrument?.().catch(() => {}),
+            Venue.refreshIncome?.().catch(() => {}),
+            Venue.refreshPortfolioFinancing?.().catch(() => {}),
+        ]);
+    }
 };
 
 Venue.paintWatchBar = function () {
@@ -5390,6 +6171,15 @@ Venue.tick = async function () {
         if (Venue.page === "position") {
             if (viewer) work.push(Venue.refreshPosition({quiet: true}));
             work.push(Venue.refreshInstrument());
+            const now = Date.now();
+            if (now - (Venue._positionIncomeAt || 0) > 30000) {
+                Venue._positionIncomeAt = now;
+                work.push(Venue.refreshIncome().catch(() => {}));
+            }
+            if (now - (Venue._positionFinancingAt || 0) > 30000) {
+                Venue._positionFinancingAt = now;
+                work.push(Venue.refreshPortfolioFinancing?.().catch(() => {}));
+            }
         }
         await Promise.all(work);
         // The venue screen is about sixty reads and nothing on it moves faster
@@ -5598,6 +6388,38 @@ Venue.tradeTxStage = function (stage, label, detail) {
     }
 };
 
+Venue.positionTxStage = function (stage, label, detail) {
+    if (Venue.page !== "position") return;
+    const active = stage === "approval" || stage === "pending";
+    const messages = {
+        approval: "Approve " + String(label).toLowerCase() + " in your wallet.",
+        pending: label + " is pending on Hedera.",
+        confirmed: label + " confirmed. Account figures are refreshing.",
+        rejected: "Wallet request rejected. No Portfolio transaction was sent.",
+        failed: detail
+            ? String(detail).replace(/[.!?]\s*$/, "") + "."
+            : label + " failed.",
+    };
+    Venue.status(
+        "position-status",
+        messages[stage] || "",
+        stage === "confirmed" ? "ok" : stage === "failed" || stage === "rejected" ? "bad" : "",
+    );
+    document.querySelectorAll("[data-position-action]").forEach((action) => {
+        if (active) {
+            if (!Object.hasOwn(action.dataset, "positionWasDisabled")) {
+                action.dataset.positionWasDisabled = action.disabled ? "1" : "0";
+            }
+            action.disabled = true;
+            action.setAttribute("aria-busy", "true");
+            return;
+        }
+        action.setAttribute("aria-busy", "false");
+        if (action.dataset.positionWasDisabled === "0") action.disabled = false;
+        delete action.dataset.positionWasDisabled;
+    });
+};
+
 Venue.send = async function (txFactory, label) {
     if (Venue.busy) return null;
     Venue.busy = true;
@@ -5605,14 +6427,17 @@ Venue.send = async function (txFactory, label) {
         if (typeof txFactory !== "function") {
             throw new TypeError("Transaction submission requires a factory.");
         }
+        Venue.positionTxStage?.("approval", label);
         const tx = await txFactory();
         Venue.toast(label + " sent " + shortId(tx.hash));
         Venue.tradeTxStage("pending", label);
+        Venue.positionTxStage?.("pending", label);
         const rec = await tx.wait();
         if (rec.status !== 1) throw new Error(label + " reverted");
         Venue.lastReceipt = rec;
         Venue.toast(label + " confirmed");
         Venue.tradeTxStage("confirmed", label);
+        Venue.positionTxStage?.("confirmed", label);
         return rec;
     } catch (e) {
         const rejected = e?.code === 4001 || e?.code === "ACTION_REJECTED"
@@ -5622,6 +6447,7 @@ Venue.send = async function (txFactory, label) {
             : Venue.fail(e);
         if (rejected) Venue.toast(d.message);
         Venue.tradeTxStage(rejected ? "rejected" : "failed", label, d.message);
+        Venue.positionTxStage?.(rejected ? "rejected" : "failed", label, d.message);
         return null;
     } finally {
         Venue.busy = false;
@@ -7861,38 +8687,70 @@ Venue.doCross = async function () {
     }
 };
 
-Venue.openWithdrawConfirm = function () {
+Venue.openWithdrawConfirm = function (kind = "trading") {
     const modal = $("withdraw-modal");
-    const credit = Venue.snap.credit ?? 0n;
-    if (!modal || !Venue.account || asBig(credit) === 0n || Venue.busy) return;
+    const financing = kind === "financing";
+    const credit = financing ? Venue.snap.vaultCredit : Venue.snap.credit;
+    Venue.withdrawKind = financing ? "financing" : "trading";
+    if (!modal || !Venue.account || credit == null || asBig(credit) === 0n || Venue.busy) return;
     if ($("withdraw-confirm-amount")) {
         $("withdraw-confirm-amount").textContent = readableHbar(asBig(credit)) + " HBAR";
+    }
+    if ($("withdraw-modal-kicker")) {
+        $("withdraw-modal-kicker").textContent = financing ? "Financing cash" : "Trading proceeds";
+    }
+    if ($("withdraw-modal-copy")) {
+        $("withdraw-modal-copy").textContent = financing
+            ? "This sends financing cash credited by the vault back to the connected wallet."
+            : "This sends your available trading proceeds back to the connected wallet.";
     }
     modal.hidden = false;
     setTimeout(() => $("withdraw-confirm")?.focus({preventScroll: true}), 20);
 };
 
-Venue.paintWithdraw = function (credit) {
+Venue.paintWithdraw = function (credit, known = true) {
     const action = $("withdraw");
     if (!action) return;
-    const amount = asBig(credit ?? 0n);
-    const ready = amount > 0n && !!Venue.account;
+    const amount = known && credit != null ? asBig(credit) : 0n;
+    const ready = known && amount > 0n && !!Venue.account;
     action.disabled = !ready;
     action.classList.toggle("is-ready", ready);
     action.setAttribute("aria-label", ready
         ? "Withdraw " + readableHbar(amount) + " HBAR trading credit"
-        : Venue.account
+        : !known
+            ? "Trading credit is unavailable"
+            : Venue.account
             ? "No trading credit ready to withdraw"
             : "Connect a wallet to view trading credit");
     const cue = action.querySelector(".withdraw-action");
     if (cue) {
         cue.textContent = ready
-            ? "Withdraw trading credit"
-            : Venue.account
+            ? Venue.page === "position"
+                ? "Withdraw proceeds"
+                : "Withdraw trading credit"
+            : !known
+                ? "Proceeds unavailable"
+                : Venue.account
                 ? "No credit available"
                 : "Connect to withdraw";
     }
-    if (!ready && !$("withdraw-modal")?.hidden) {
+    if (!ready && Venue.withdrawKind === "trading" && !$("withdraw-modal")?.hidden) {
+        Venue.closeWithdrawConfirm({restoreFocus: false});
+    }
+};
+
+Venue.paintVaultWithdraw = function (credit, known = true) {
+    const action = $("vault-withdraw");
+    if (!action) return;
+    const amount = known && credit != null ? asBig(credit) : 0n;
+    const ready = known && amount > 0n && !!Venue.account && !!Venue.financing?.ready;
+    action.disabled = !ready;
+    action.setAttribute("aria-label", ready
+        ? "Withdraw " + readableHbar(amount) + " HBAR financing cash"
+        : !known
+            ? "Financing cash is unavailable"
+            : "No financing cash is ready to withdraw");
+    if (!ready && Venue.withdrawKind === "financing" && !$("withdraw-modal")?.hidden) {
         Venue.closeWithdrawConfirm({restoreFocus: false});
     }
 };
@@ -7900,13 +8758,30 @@ Venue.paintWithdraw = function (credit) {
 Venue.closeWithdrawConfirm = function ({restoreFocus = true} = {}) {
     const modal = $("withdraw-modal");
     if (modal) modal.hidden = true;
-    if (restoreFocus) $("withdraw")?.focus({preventScroll: true});
+    if (restoreFocus) {
+        $(Venue.withdrawKind === "financing" ? "vault-withdraw" : "withdraw")
+            ?.focus({preventScroll: true});
+    }
 };
 
 Venue.confirmWithdraw = async function () {
     if ($("withdraw-modal")?.hidden || Venue.busy) return;
     Venue.closeWithdrawConfirm({restoreFocus: false});
-    await Venue.doWithdraw();
+    if (Venue.withdrawKind === "financing") await Venue.doVaultWithdraw();
+    else await Venue.doWithdraw();
+};
+
+Venue.noteSimpleReceipt = function (kind, rec, published, publicElsewhere) {
+    if (!rec) return;
+    Venue.lastView = {
+        kind,
+        tx: rec.hash,
+        unmetered: true,
+        published,
+        publicElsewhere,
+    };
+    Venue.rememberReceipt();
+    Venue.paintLastView();
 };
 
 Venue.doWithdraw = async function () {
@@ -7917,6 +8792,12 @@ Venue.doWithdraw = async function () {
         "Withdraw trading credit"
     );
     if (rec) {
+        Venue.noteSimpleReceipt(
+            "trading proceeds withdrawn",
+            rec,
+            "MatchingEngine records the withdrawal without a metered disclosure row.",
+            "The native HBAR transfer, transaction input, and wallet activity remain public.",
+        );
         await Venue.refreshTrade().catch(() => {});
         await Venue.refreshPosition().catch(() => {});
     }
@@ -7929,9 +8810,15 @@ Venue.doVaultWithdraw = async function () {
     await Venue.requireAccount();
     const rec = await Venue.send(
         () => Venue.w.vault.withdraw({gasLimit: 250_000}),
-        "withdraw financing credit",
+        "Withdraw financing cash",
     );
     if (rec) {
+        Venue.noteSimpleReceipt(
+            "financing cash withdrawn",
+            rec,
+            "RepoVault records the withdrawal without a metered position amount.",
+            "The native HBAR transfer, transaction input, and wallet activity remain public.",
+        );
         await Venue.refreshPosition().catch(() => {});
         await Venue.doRepo?.().catch(() => {});
     }
@@ -8148,86 +9035,575 @@ Venue.noteReceipt = async function (
     } catch { /* getters only */ }
 };
 
-Venue.mountPosition = async function () {
-    $("watch-go")?.addEventListener("click", () => Venue.doWatch().catch((e) => Venue.fail(e)));
-    $("withdraw")?.addEventListener("click", () => Venue.doWithdraw().catch((e) => Venue.fail(e)));
-    $("vault-withdraw")?.addEventListener("click", () => Venue.doVaultWithdraw().catch((e) => Venue.fail(e)));
-    $("disclose")?.addEventListener("click", () => Venue.refreshPosition().catch((e) => Venue.fail(e)));
-    $("coupon-refresh")?.addEventListener("click", () => Venue.refreshIncome().catch((e) => Venue.fail(e)));
-    $("coupon-associate")?.addEventListener("click", () => Venue.doAssociateCash().catch((e) => Venue.fail(e)));
-    $("coupon-proof")?.addEventListener("change", (e) => {
-        Venue.importCouponProof(e.target.files[0]).catch((err) => Venue.fail(err));
-        e.target.value = "";
-    });
-    await Promise.all([
-        Venue.refreshPosition(),
-        Venue.refreshInstrument().catch(() => {}),
-        Venue.refreshIncome().catch(() => {}),
-    ]);
+Venue.runPositionAction = async function (action, label) {
+    try {
+        return await action();
+    } catch (error) {
+        const decoded = Venue.fail(error);
+        Venue.status("position-status", decoded.message, "bad");
+        return null;
+    }
 };
 
-Venue.refreshPosition = async function () {
-    const who = Venue.viewer();
-    const vaultReady = Venue.financing?.ready && Venue.c.vault;
-    const [, credit, vaultCredit, kyc] = await Promise.all([
-        Venue.refreshDisclosure(),
-        who ? Venue.c.engine.credit(who) : null,
-        who && vaultReady ? Venue.c.vault.credit(who) : null,
-        who ? Venue.c.registry.getKycStatus(who) : null,
+Venue.refreshPortfolio = async function () {
+    Venue.status("position-status", "Refreshing account figures.", "");
+    await Promise.all([
+        Venue.refreshPosition(),
+        Venue.refreshInstrument?.().catch(() => {}),
+        Venue.refreshIncome().catch(() => {}),
+        Venue.refreshPortfolioFinancing?.().catch(() => {}),
     ]);
-    if (!Venue.stillViewer(who)) return;
-    if (kyc != null) Venue.snap.kyc = Number(kyc);
-    if (!who) {
-        if ($("pos-credit")) $("pos-credit").textContent = "Unavailable";
-        if ($("pos-vault-credit")) $("pos-vault-credit").textContent = "Unavailable";
-        if ($("pos-tickets")) $("pos-tickets").textContent = "Unavailable";
-        if ($("withdraw")) $("withdraw").disabled = true;
-        if ($("vault-withdraw")) $("vault-withdraw").disabled = true;
-        Venue.paintNeeds(null, 0n, 0n);
-        return;
-    }
-    $("pos-credit").textContent = formatHbar(asBig(credit)) + " HBAR";
-    if ($("pos-vault-credit")) {
-        $("pos-vault-credit").textContent = vaultReady
-            ? formatHbar(asBig(vaultCredit ?? 0n)) + " HBAR"
-            : "unavailable on this vault";
-    }
-    $("withdraw").disabled = asBig(credit) === 0n || !Venue.account;
-    if ($("vault-withdraw")) {
-        $("vault-withdraw").disabled = !vaultReady || asBig(vaultCredit ?? 0n) === 0n || !Venue.account;
-    }
-    const tickets = readList("tickets", who);
-    $("pos-tickets").textContent = tickets.length ? tickets.length + " on this device" : "none stored here";
-    Venue.paintNeeds(who, asBig(credit), asBig(vaultCredit ?? 0n));
+    const partial = !!Venue.positionState?.partial ||
+        Venue.couponState?.scheduleKnown === false ||
+        !!Venue.portfolioFinancing?.mirrorError;
+    Venue.status(
+        "position-status",
+        partial
+            ? "Refresh complete. Some figures remain unavailable."
+            : "Account figures refreshed.",
+        partial ? "" : "ok",
+    );
+};
+
+Venue.bindPositionWithdrawModal = function () {
+    const modal = $("withdraw-modal");
+    if (!modal || modal.dataset.bound === "1") return;
+    modal.dataset.bound = "1";
+    $("withdraw-confirm")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.confirmWithdraw(), "Withdrawal"));
+    document.querySelectorAll("[data-withdraw-close]").forEach((control) => {
+        control.addEventListener("click", () => Venue.closeWithdrawConfirm());
+    });
+    document.addEventListener("keydown", (event) => {
+        if ($("withdraw-modal")?.hidden) return;
+        if (event.key === "Escape") {
+            Venue.closeWithdrawConfirm();
+            return;
+        }
+        if (event.key !== "Tab") return;
+        const focusable = [...modal.querySelectorAll("button:not(:disabled)")];
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+};
+
+Venue.mountPosition = async function () {
+    $("watch-go")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.doWatch(), "Agreement lookup"));
+    $("withdraw")?.addEventListener("click", () => Venue.openWithdrawConfirm("trading"));
+    $("vault-withdraw")?.addEventListener("click", () => Venue.openWithdrawConfirm("financing"));
+    $("disclose")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.refreshPortfolio(), "Account refresh"));
+    $("coupon-refresh")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.refreshIncome(), "Coupon refresh"));
+    $("coupon-associate")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.doAssociateCash(), "LPCASH association"));
+    $("income-summary-action")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.doIncomeSummaryAction(), "Coupon action"));
+    $("coupon-proof")?.addEventListener("change", (event) => {
+        Venue.runPositionAction(
+            () => Venue.importCouponProof(event.target.files[0]),
+            "Proof import",
+        ).finally(() => { event.target.value = ""; });
+    });
+    Venue.bindPositionWithdrawModal();
+    await Promise.all([
+        Venue.refreshPosition(),
+        Venue.refreshInstrument?.().catch(() => {}),
+        Venue.refreshIncome().catch(() => {}),
+        Venue.refreshPortfolioFinancing?.().catch(() => {}),
+    ]);
     if (Venue.lastView) Venue.paintLastView();
 };
 
-Venue.paintNeeds = function (who, tradeCredit, vaultCredit) {
-    const el = $("needs-out");
-    if (!el) return;
+Venue.readKnownPortfolioHolds = async function (who) {
+    if (!who || !Venue.c.holds) return [];
+    const ids = new Set();
+    for (const record of readList("holds", who)) {
+        if (/^\d+$/.test(String(record?.holdId ?? ""))) ids.add(String(record.holdId));
+    }
+    for (const ticket of readList("tickets", who)) {
+        if (/^\d+$/.test(String(ticket?.holdId ?? ""))) ids.add(String(ticket.holdId));
+    }
+    const limited = [...ids].slice(0, 48);
+    const rows = await Promise.all(limited.map(async (holdId) => {
+        try {
+            const hold = await Venue.c.holds.getHoldForByPartition({
+                partition: CLIENT.immutables.partition,
+                tokenHolder: who,
+                holdId,
+            });
+            const amount = asBig(hold.amount_ ?? hold[0]);
+            if (amount === 0n) return null;
+            const escrow = String(hold.escrow_ ?? hold[2]);
+            const destination = String(hold.destination_ ?? hold[3]);
+            const expiry = asBig(hold.expirationTimestamp_ ?? hold[1]);
+            const reason = addrEq(escrow, CLIENT.addresses.MatchingEngine)
+                ? "Sell order reservation"
+                : addrEq(escrow, CLIENT.addresses.RepoVault)
+                    ? "Financing collateral"
+                    : "Other known reservation";
+            return {holdId, amount, escrow, destination, expiry, reason};
+        } catch {
+            return null;
+        }
+    }));
+    return rows.filter(Boolean);
+};
+
+Venue.readPortfolioOrders = async function (who) {
+    if (!who) return [];
+    const raw = readList("tickets", who)
+        .filter((ticket) =>
+            /^0x[0-9a-fA-F]{64}$/.test(String(ticket?.id || "")) &&
+            (Number(ticket?.side) === 0 || Number(ticket?.side) === 1) &&
+            /^\d+$/.test(String(ticket?.qty ?? "")))
+        .slice(-40);
+    if (!raw.length) return [];
+    const round = Venue.snap.round ??
+        await Venue.c.engine.currentRound().catch(() => null);
+    const chains = await Promise.all(raw.map((ticket) =>
+        Venue.c.engine.commitments(ticket.id).catch(() => null)));
+    const orders = await Promise.all(raw.map((ticket, index) => {
+        const chain = chains[index];
+        if (!chain?.revealed || !chain.committer || addrEq(chain.committer, ZERO)) return null;
+        return Venue.c.engine.orders(ticket.id).catch(() => null);
+    }));
+    return raw.map((ticket, index) => {
+        const chain = chains[index];
+        const order = orders[index];
+        const phase = Venue.ticketPhase(ticket, chain);
+        const kind = ticketChainKind(chain, ticket);
+        let outcome = "Saved draft";
+        let tone = "neutral";
+        if (phase.phase === "cancel") {
+            outcome = "Submitted, cancellation window open";
+            tone = "info";
+        } else if (phase.phase === "reveal") {
+            outcome = "Reveal required now";
+            tone = "warning";
+        } else if (phase.phase === "lost") {
+            outcome = "Reveal deadline missed";
+            tone = "danger";
+        } else if (kind === "cancelled") {
+            outcome = "Cancelled";
+        } else if (kind === "revealed" && order) {
+            const filled = asBig(order.filled ?? 0);
+            const quantity = asBig(ticket.qty);
+            if (order.retired) {
+                outcome = filled >= quantity
+                    ? "Filled"
+                    : filled > 0n
+                        ? "Partially filled"
+                        : "Closed unfilled";
+                tone = filled > 0n ? "positive" : "neutral";
+            } else if (round != null && asBig(round) > asBig(order.lastRound)) {
+                outcome = "Ready to release";
+                tone = "info";
+            } else {
+                outcome = "In auction";
+                tone = "info";
+            }
+        } else if (kind === "revealed") {
+            outcome = "Revealed";
+            tone = "info";
+        } else if (kind === "committed") {
+            outcome = "Submitted";
+            tone = "info";
+        } else if (chain === null && ticket.committedAt) {
+            outcome = "Chain status unavailable";
+            tone = "warning";
+        }
+        const sortAt = Number(chain?.committedAt || ticket.committedAt || 0) ||
+            Date.parse(ticket.revealedAt || ticket.savedAt || "") / 1000 || 0;
+        return {ticket, chain, order, phase, kind, outcome, tone, sortAt};
+    }).sort((a, b) => b.sortAt - a.sortAt);
+};
+
+Venue.portfolioRecordTime = function (record) {
+    const seconds = Number(record.chain?.committedAt || record.ticket.committedAt || 0);
+    if (seconds > 0) return ticketDate(seconds);
+    const parsed = Date.parse(record.ticket.revealedAt || record.ticket.savedAt || "");
+    return Number.isFinite(parsed)
+        ? new Date(parsed).toISOString().replace("T", " ").slice(0, 16) + "Z"
+        : "Time not stored";
+};
+
+Venue.paintPortfolioOrders = function (who, records) {
+    const out = $("portfolio-orders");
+    const count = who ? readList("tickets", who).length : 0;
+    if ($("pos-tickets")) {
+        $("pos-tickets").textContent = !who
+            ? "Unavailable"
+            : count
+                ? count + " saved order record" + (count === 1 ? "" : "s")
+                : "No saved order records";
+    }
+    if ($("holding-related")) {
+        $("holding-related").innerHTML = !who
+            ? "Connect or watch an account to load related records."
+            : count
+                ? esc(count + " order record" + (count === 1 ? "" : "s")) +
+                  ' saved here. <a href="trade.html#active-orders">Review in Markets</a>.'
+                : 'No local order records. <a href="trade.html">Open Markets</a>.';
+    }
+    if (!out) return;
     if (!who) {
-        el.innerHTML = '<div class="empty">Connect a wallet to see what is due.</div>';
+        out.innerHTML = '<div class="portfolio-empty compact">Connect or watch an account to read local records.</div>';
         return;
     }
+    if (!records.length) {
+        out.innerHTML = '<div class="portfolio-empty compact">No order records are saved in this browser.</div>';
+        return;
+    }
+    out.innerHTML = '<div class="portfolio-record-list">' + records.slice(0, 4).map((record) => {
+        const ticket = record.ticket;
+        const side = Number(ticket.side) === 1 ? "Sell" : "Buy";
+        const tx = ticket.cancelTx || ticket.crossTx || ticket.revealTx || ticket.commitTx;
+        const receipt = /^0x[0-9a-fA-F]{64}$/.test(String(tx || ""))
+            ? '<a href="' + esc(explorerTx(tx)) + '" target="_blank" rel="noopener">Receipt</a>'
+            : "";
+        return '<article class="portfolio-record ' + esc(record.tone) + '">' +
+            '<div><strong>' + side + " " + esc(readableQuantity(asBig(ticket.qty))) +
+            ' LPRC</strong><span>' + esc(Venue.portfolioRecordTime(record)) + "</span></div>" +
+            '<div><span class="record-outcome">' + esc(record.outcome) + "</span>" +
+            receipt + "</div></article>";
+    }).join("") + "</div>";
+};
+
+Venue.paintPositionState = function () {
+    const state = Venue.positionState;
+    const who = state?.viewer || null;
+    const put = (id, value) => { if ($(id)) $(id).textContent = value; };
+    const quantity = (value, known) => known ? readableQuantity(value) : "Unavailable";
+
+    if (!who) {
+        for (const id of [
+            "pos-total", "pos-available", "pos-reserved", "pos-credit",
+            "holding-total", "holding-available", "holding-reserved",
+        ]) put(id, "Unavailable");
+        put("pos-available-label", "available");
+        put("pos-reserved-label", "reserved");
+        put("holding-available-label", "Available");
+        put("holding-reserved-label", "Reserved");
+        put("in-eligibility", "Connect or watch an account");
+        put("holding-reserve-detail", "Unavailable");
+        $("holding-card").hidden = true;
+        $("holding-empty").hidden = true;
+        $("holding-unavailable").hidden = false;
+        $("finance-credit-summary").hidden = true;
+        Venue.paintWithdraw(null, false);
+        Venue.paintVaultWithdraw(null, false);
+        Venue.paintPortfolioOrders(null, []);
+        Venue.paintNeeds(null);
+        return;
+    }
+
+    const totalKnown = state.total != null && state.totalReliable;
+    put("pos-total", quantity(state.total, totalKnown));
+    put("pos-available", quantity(state.free, state.freeKnown));
+    put("pos-reserved", quantity(state.held, state.heldKnown));
+    put("holding-total", quantity(state.total, totalKnown));
+    put("holding-available", quantity(state.free, state.freeKnown));
+    put("holding-reserved", quantity(state.held, state.heldKnown));
+    put("pos-available-label", state.multi === true
+        ? "available in trading partition"
+        : "available");
+    put("pos-reserved-label", state.multi === true
+        ? "reserved in trading partition"
+        : "reserved");
+    put("holding-available-label", state.multi === true
+        ? "Available in trading partition"
+        : "Available");
+    put("holding-reserved-label", state.multi === true
+        ? "Reserved in trading partition"
+        : "Reserved");
+    put("pos-credit", state.creditKnown ? readableHbar(state.credit) : "Unavailable");
+    put("in-eligibility", state.kycKnown
+        ? state.kyc === 1
+            ? "Current for this KYC period"
+            : "Not current. Trading and some financing actions can be refused."
+        : "Eligibility status unavailable");
+
+    Venue.paintWithdraw(state.credit, state.creditKnown);
+    const showVaultCredit = !!Venue.financing?.ready &&
+        state.vaultCreditKnown && state.vaultCredit > 0n;
+    $("finance-credit-summary").hidden = !showVaultCredit;
+    put("pos-vault-credit", state.vaultCreditKnown
+        ? readableHbar(state.vaultCredit)
+        : "Unavailable");
+    Venue.paintVaultWithdraw(state.vaultCredit, state.vaultCreditKnown);
+
+    const confirmedEmpty = totalKnown && state.total === 0n;
+    $("holding-card").hidden = confirmedEmpty;
+    $("holding-empty").hidden = !confirmedEmpty;
+    $("holding-unavailable").hidden = true;
+
+    if ($("in-balance")) {
+        if (!state.freeKnown || !state.heldKnown) {
+            put("in-balance", "One or more position reads are unavailable");
+        } else if (state.multi === true) {
+            put("in-balance", state.wholeKnown
+                ? readableQuantity(state.whole) + " available across all partitions; " +
+                  readableQuantity(state.partitionTotal) + " in the trading partition (" +
+                  readableQuantity(state.free) + " available + " +
+                  readableQuantity(state.held) + " reserved). " +
+                  "Reserved balances in other partitions are not enumerable here."
+                : "Trading-partition balance is known, but aggregate availability is unavailable");
+        } else if (!state.totalReliable) {
+            put("in-balance", "The token’s free-balance reads disagree");
+        } else {
+            put("in-balance",
+                readableQuantity(state.total) + " = " +
+                readableQuantity(state.free) + " available + " +
+                readableQuantity(state.held) + " reserved");
+        }
+    }
+
+    const reserve = $("holding-reserve-detail");
+    if (reserve) {
+        if (!state.heldKnown) {
+            reserve.textContent = "Reserved quantity unavailable";
+        } else if (state.held === 0n) {
+            reserve.textContent = "Nothing is reserved";
+        } else {
+            const known = state.knownHolds || [];
+            const knownTotal = known.reduce((sum, hold) => sum + hold.amount, 0n);
+            const rows = known.map((hold) =>
+                '<span><b>' + esc(readableQuantity(hold.amount)) + " LPRC</b> " +
+                esc(hold.reason) + " (hold " + esc(hold.holdId) + ")</span>");
+            if (knownTotal < state.held) {
+                rows.push(
+                    '<span><b>' + esc(readableQuantity(state.held - knownTotal)) +
+                    " LPRC</b> reserved for reasons unavailable to this browser</span>",
+                );
+            } else if (knownTotal > state.held) {
+                rows.push("<span>Saved hold records are stale. The aggregate reserved balance is authoritative.</span>");
+            }
+            reserve.innerHTML = rows.join("");
+        }
+    }
+
+    Venue.paintPortfolioOrders(who, state.orders || []);
+    Venue.paintPortfolioReference?.(state);
+    Venue.paintInstrumentTerms?.();
+    Venue.paintNeeds(who);
+};
+
+Venue.refreshPosition = async function (opts = {}) {
+    const who = Venue.viewer();
+    const vaultReady = !!Venue.financing?.ready && !!Venue.c.vault;
+    const part = CLIENT.immutables.partition;
+    const now = Date.now();
+    const refreshOrders = !opts.quiet || Venue._portfolioOrderViewer !== who ||
+        now - (Venue._portfolioOrderAt || 0) > 15000;
+    const refreshHolds = !opts.quiet || Venue._portfolioHoldViewer !== who ||
+        now - (Venue._portfolioHoldAt || 0) > 30000;
+    const refreshDisclosure = !opts.quiet || now - (Venue._portfolioDisclosureAt || 0) > 30000;
+
+    const reads = await Promise.allSettled([
+        who ? Venue.c.engine.credit(who) : Promise.resolve(null),
+        who && vaultReady ? Venue.c.vault.credit(who) : Promise.resolve(null),
+        who ? Venue.c.registry.getKycStatus(who) : Promise.resolve(null),
+        who ? Venue.c.token.balanceOf(who) : Promise.resolve(null),
+        who ? Venue.c.token.balanceOfByPartition(part, who) : Promise.resolve(null),
+        who ? Venue.c.holds.getHeldAmountForByPartition(part, who) : Promise.resolve(null),
+        Venue.c.token.isMultiPartition(),
+        Venue.c.watch.feed().catch(() => null),
+        refreshHolds ? Venue.readKnownPortfolioHolds(who) : Promise.resolve(Venue.positionState?.knownHolds || []),
+        refreshOrders ? Venue.readPortfolioOrders(who) : Promise.resolve(Venue.positionState?.orders || []),
+        refreshDisclosure ? Venue.refreshDisclosure() : Promise.resolve(null),
+    ]);
+    if (!Venue.stillViewer(who)) return;
+    const value = (index) => reads[index].status === "fulfilled" ? reads[index].value : null;
+    const known = (index) => !!who && reads[index].status === "fulfilled" && reads[index].value != null;
+    const creditKnown = known(0);
+    const vaultCreditKnown = vaultReady && known(1);
+    const kycKnown = known(2);
+    const wholeKnown = known(3);
+    const freeKnown = known(4);
+    const heldKnown = known(5);
+    const multiKnown = reads[6].status === "fulfilled";
+    const credit = creditKnown ? asBig(value(0)) : null;
+    const vaultCredit = vaultCreditKnown ? asBig(value(1)) : null;
+    const kyc = kycKnown ? Number(value(2)) : null;
+    const whole = wholeKnown ? asBig(value(3)) : null;
+    const free = freeKnown ? asBig(value(4)) : null;
+    const held = heldKnown ? asBig(value(5)) : null;
+    const multi = multiKnown ? !!value(6) : null;
+    const partitionTotal = freeKnown && heldKnown ? free + held : null;
+    const total = multi === false ? partitionTotal : null;
+    const totalReliable = total != null &&
+        (!wholeKnown || whole === free);
+
+    if (creditKnown) Venue.snap.credit = credit;
+    else delete Venue.snap.credit;
+    if (vaultCreditKnown) Venue.snap.vaultCredit = vaultCredit;
+    else delete Venue.snap.vaultCredit;
+    if (kycKnown) Venue.snap.kyc = kyc;
+    else delete Venue.snap.kyc;
+    if (freeKnown) Venue.snap.free = free;
+    else delete Venue.snap.free;
+    if (heldKnown) Venue.snap.held = held;
+    else delete Venue.snap.held;
+
+    if (refreshOrders) {
+        Venue._portfolioOrderAt = now;
+        Venue._portfolioOrderViewer = who;
+    }
+    if (refreshHolds) {
+        Venue._portfolioHoldAt = now;
+        Venue._portfolioHoldViewer = who;
+    }
+    if (refreshDisclosure && reads[10].status === "fulfilled") {
+        Venue._portfolioDisclosureAt = now;
+    } else if (refreshDisclosure && reads[10].status === "rejected") {
+        if ($("disc-epoch")) $("disc-epoch").textContent = "Unavailable";
+        if ($("disc-rows")) {
+            $("disc-rows").innerHTML =
+                '<div class="portfolio-empty compact">Disclosure evidence is temporarily unavailable.</div>';
+        }
+    }
+
+    Venue.positionState = {
+        viewer: who,
+        credit, creditKnown,
+        vaultCredit, vaultCreditKnown,
+        kyc, kycKnown,
+        whole, wholeKnown,
+        free, freeKnown,
+        held, heldKnown,
+        total, totalReliable,
+        partitionTotal,
+        multi, multiKnown,
+        feed: value(7),
+        knownHolds: value(8) || [],
+        orders: value(9) || [],
+        partial: !!who && (
+            !creditKnown || !kycKnown || !wholeKnown || !freeKnown || !heldKnown ||
+            !multiKnown || !totalReliable || (vaultReady && !vaultCreditKnown)
+        ),
+    };
+    Venue.paintPositionState();
+    if (Venue.lastView) Venue.paintLastView();
+};
+
+Venue.paintNeeds = function (who) {
+    const box = $("needs-box");
+    const out = $("needs-out");
+    if (!box || !out) return;
+    if (!who) {
+        box.hidden = true;
+        out.innerHTML = "";
+        return;
+    }
+    const state = Venue.positionState;
     const items = [];
-    if (Venue.snap.kyc !== 1) {
-        items.push('<a href="prove.html">Prove eligibility for this KYC epoch. Request is not approval.</a>');
+    const lost = (state?.orders || []).filter((record) => record.phase.phase === "lost").length;
+    const reveal = (state?.orders || []).filter((record) => record.phase.phase === "reveal").length;
+    if (lost) {
+        items.push({
+            tone: "danger",
+            title: lost + " reveal deadline" + (lost === 1 ? " was" : "s were") + " missed",
+            copy: "The affected order deposit is exposed to permissionless forfeiture.",
+            href: "trade.html#active-orders",
+            action: "Review orders",
+        });
     }
-    if (tradeCredit > 0n) {
-        items.push("Trading proceeds are available to withdraw.");
+    if (reveal) {
+        items.push({
+            tone: "warning",
+            title: reveal + " order" + (reveal === 1 ? " requires" : "s require") + " a reveal now",
+            copy: "Reveal before the deadline to protect the deposit and enter the auction.",
+            href: "trade.html#active-orders",
+            action: "Reveal in Markets",
+        });
     }
-    if (Venue.financing?.ready && vaultCredit > 0n) {
-        items.push("Financing cash is credited. Withdraw it; the vault does not push HBAR.");
+    for (const position of Venue.portfolioFinancing?.positions || []) {
+        if (position.alert?.called || position.alert?.defaultable) {
+            const deadline = asBig(position.alert.cureDeadline || 0);
+            items.push({
+                tone: position.alert.defaultable ? "danger" : "warning",
+                title: position.alert.defaultable
+                    ? "A financing agreement is eligible for default"
+                    : "A financing agreement is under a margin call",
+                copy: deadline > 0n
+                    ? "Cure deadline " + new Date(Number(deadline) * 1000)
+                        .toISOString().replace("T", " ").slice(0, 16) + "Z."
+                    : "Open the agreement to review the consequence and supported next action.",
+                href: "repo.html",
+                action: "Open Financing",
+            });
+            continue;
+        }
+        if (position.alert?.unmarkedFail) {
+            items.push({
+                tone: "warning",
+                title: "A financing agreement has passed maturity",
+                copy: "The agreement has not yet been moved into its failing state.",
+                href: "repo.html",
+                action: "Review agreement",
+            });
+            continue;
+        }
+        if (position.preview?.breach && !position.alert?.called) {
+            items.push({
+                tone: "warning",
+                title: "A live financing read indicates a collateral shortfall",
+                copy: "The agreement has not necessarily been marked on chain. Review it before acting.",
+                href: "repo.html",
+                action: "Review agreement",
+            });
+            continue;
+        }
     }
-    if (!Venue.financing?.ready) {
-        items.push(esc(Venue.financing?.reason ||
-            "Financing writes are unavailable on this bound vault."));
+    if ((Venue.portfolioFinancing?.positions || []).length &&
+        Venue.portfolioFinancing?.feed?.dark) {
+        items.push({
+            tone: "warning",
+            title: "Financing risk valuation is unavailable",
+            copy: "One or both oracle legs are stale. The Portfolio will not infer a healthy position from a dark feed.",
+            href: "repo.html",
+            action: "Inspect feed status",
+        });
+    }
+    if (state?.kycKnown && state.kyc !== 1) {
+        items.push({
+            tone: "warning",
+            title: "Eligibility is not current",
+            copy: "New trades and eligibility-gated financing actions can be refused. A request is not approval.",
+            href: "prove.html",
+            action: "Review eligibility",
+        });
+    } else if (state?.kycKnown && Venue.snap.kycEnd &&
+        Venue.snap.kycEnd > nowSec() && Venue.snap.kycEnd - nowSec() < 86400n) {
+        items.push({
+            tone: "info",
+            title: "Eligibility expires within 24 hours",
+            copy: "Renewal uses a proof for the next KYC period when the issuer makes one available.",
+            href: "prove.html",
+            action: "Review renewal",
+        });
     }
     if (!items.length) {
-        el.innerHTML = '<div class="empty">Nothing is waiting on this account from this screen.</div>';
+        box.hidden = true;
+        out.innerHTML = "";
         return;
     }
-    el.innerHTML = '<div class="needs">' + items.map((t) => "<p>" + t + "</p>").join("") + "</div>";
+    box.hidden = false;
+    out.innerHTML = '<div class="attention-list">' + items.map((item) =>
+        '<article class="attention-item ' + esc(item.tone) + '">' +
+        '<div><strong>' + esc(item.title) + "</strong><p>" + esc(item.copy) + "</p></div>" +
+        '<a href="' + esc(item.href) + '">' + esc(item.action) + "</a></article>"
+    ).join("") + "</div>";
 };
 
 Venue.refreshDisclosure = async function () {
@@ -8305,71 +9681,428 @@ Venue.refreshDisclosure = async function () {
 Venue.paintLastView = function () {
     const v = Venue.lastView;
     if (!v || !$("last-view")) return;
+    let layers;
+    let outcome;
     if (v.unmetered) {
-        $("last-view").innerHTML =
+        outcome = "Confirmed on Hedera. This action is not governed by the venue disclosure budget.";
+        layers =
             '<div class="rcpt-layers">' +
             '<article><h3>Succeeded</h3><p>' + esc(v.kind) +
-            " · tx <a href='" + esc(explorerTx(v.tx)) + "'>" +
+            " · tx <a href='" + esc(explorerTx(v.tx)) +
+            "' target='_blank' rel='noopener'>" +
             esc(shortId(v.tx)) + "</a></p></article>" +
             '<article><h3>Venue published</h3><p>' +
             esc(v.published) + "</p></article>" +
             '<article><h3>Withheld</h3><p>Nothing by a disclosure budget. This action is not metered.</p></article>' +
             '<article><h3>Still public elsewhere</h3><p>' +
             esc(v.publicElsewhere) + "</p></article></div>";
+    } else {
+        const published = typeof v.audible === "boolean"
+            ? v.audible
+            : v.would && v.afford;
+        const withheld = !published;
+        outcome = published
+            ? "Confirmed on Hedera. The governed venue event was published."
+            : "Confirmed on Hedera. The governed venue event was withheld.";
+        layers =
+            '<div class="rcpt-layers">' +
+            '<article><h3>Succeeded</h3><p>' + esc(v.kind) +
+            " · tx <a href='" + esc(explorerTx(v.tx)) +
+            "' target='_blank' rel='noopener'>" + esc(shortId(v.tx)) + "</a></p></article>" +
+            '<article><h3>Venue published</h3><p>' +
+            (published
+                ? "row " + v.row + " " + esc(ROW_NAMES[v.row] || "") +
+                  " · " + esc(G_NAME[v.g]) + " · " + esc(T_NAME[v.t])
+                : "nothing on this row") +
+            "</p></article>" +
+            '<article><h3>Withheld</h3><p>' +
+            (withheld
+                ? "row " + v.row + " " + esc(ROW_NAMES[v.row] || "") +
+                  (v.permitted && v.metered ? " (budget spent)" : " (outside the ceiling)")
+                : "nothing this row") +
+            "</p></article>" +
+            '<article><h3>Still public elsewhere</h3><p>Storage, calldata, ATS events, and your wallet. A withheld venue log is not a private chain.</p>' +
+            "<p class='meta'>ceilingFor=" + esc(v.ceiling) +
+            " · wouldDisclose=" + esc(v.would) +
+            " · spentBits=" + esc(v.spent) +
+            " · wouldAfford=" + esc(v.afford) +
+            " · breakingSize=" + esc(v.breaking) +
+            " · epoch " + esc(v.epoch) + "</p></article>" +
+            "</div>";
+    }
+    if (Venue.page !== "position") {
+        $("last-view").innerHTML = layers;
         return;
     }
-    const published = typeof v.audible === "boolean"
-        ? v.audible
-        : v.would && v.afford;
-    const withheld = !published;
+    const names = {
+        commit: "Order submitted",
+        cancel: "Order cancelled",
+        reveal: "Order revealed",
+        cross: "Auction processed",
+        "coupon claimed": "Coupon claimed",
+        "offer funded": "Financing offer funded",
+        "financing accepted": "Financing accepted",
+    };
+    const action = names[v.kind] || String(v.kind)
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
     $("last-view").innerHTML =
-        '<div class="rcpt-layers">' +
-        '<article><h3>Succeeded</h3><p>' + esc(v.kind) +
-        " · tx <a href='" + esc(explorerTx(v.tx)) + "'>" + esc(shortId(v.tx)) + "</a></p></article>" +
-        '<article><h3>Venue published</h3><p>' +
-        (published
-            ? "row " + v.row + " " + esc(ROW_NAMES[v.row] || "") +
-              " · " + G_NAME[v.g] + " · " + T_NAME[v.t]
-            : "nothing on this row") +
-        "</p></article>" +
-        '<article><h3>Withheld</h3><p>' +
-        (withheld
-            ? "row " + v.row + " " + esc(ROW_NAMES[v.row] || "") +
-              (v.permitted && v.metered ? " (budget spent)" : " (outside the ceiling)")
-            : "nothing this row") +
-        "</p></article>" +
-        '<article><h3>Still public elsewhere</h3><p>Storage, calldata, ATS events, and your wallet. A withheld venue log is not a private chain.</p>' +
-        "<p class='meta'>ceilingFor=" + esc(v.ceiling) +
-        " · wouldDisclose=" + v.would +
-        " · spentBits=" + esc(v.spent) +
-        " · wouldAfford=" + v.afford +
-        " · breakingSize=" + esc(v.breaking) +
-        " · epoch " + esc(v.epoch) + "</p></article>" +
+        '<article class="latest-action">' +
+        '<span class="latest-action-mark" aria-hidden="true"></span>' +
+        '<div><strong>' + esc(action) + "</strong><p>" + esc(outcome) + "</p></div>" +
+        '<a href="' + esc(explorerTx(v.tx)) +
+        '" target="_blank" rel="noopener">View receipt</a></article>' +
+        '<details class="receipt-evidence"><summary>Inspect disclosure evidence</summary>' +
+        layers + "</details>";
+};
+
+Venue.portfolioFreshness = function (publishedAt) {
+    const at = asBig(publishedAt || 0);
+    if (at === 0n) return "publication time unavailable";
+    const age = nowSec() > at ? nowSec() - at : 0n;
+    if (age < 60n) return "updated less than a minute ago";
+    if (age < 3600n) return "updated " + (age / 60n) + "m ago";
+    if (age < 86400n) return "updated " + (age / 3600n) + "h ago";
+    return "updated " + (age / 86400n) + "d ago";
+};
+
+Venue.paintPortfolioReference = function (state) {
+    const summary = $("pos-reference");
+    const detail = $("holding-reference");
+    if (!summary || !detail) return;
+    const feed = state?.feed;
+    if (!state?.viewer || !state.totalReliable || !feed) {
+        summary.textContent = "Reference value unavailable.";
+        detail.innerHTML =
+            "<span>Reference value</span><strong>Unavailable</strong>" +
+            "<small>Position or oracle data could not be established.</small>";
+        return;
+    }
+    if (feed.dark) {
+        const reasons = [];
+        if (feed.ourLegDark) reasons.push("bond price leg");
+        if (feed.cashLegDark) reasons.push("HBAR/USD leg");
+        const reason = reasons.length ? reasons.join(" and ") + " stale" : "oracle stale";
+        summary.textContent = "Reference value unavailable. " +
+            reason.charAt(0).toUpperCase() + reason.slice(1) + ".";
+        detail.innerHTML =
+            "<span>Reference value</span><strong>Unavailable</strong>" +
+            "<small>" + esc(reason.charAt(0).toUpperCase() + reason.slice(1)) +
+            ". The Portfolio does not value through a stale feed.</small>";
+        return;
+    }
+    const mark = asBig(feed.markPerUnitTinybar || 0);
+    if (mark === 0n) {
+        summary.textContent = "Reference value unavailable. Live composite mark was not returned.";
+        detail.innerHTML =
+            "<span>Reference value</span><strong>Unavailable</strong>" +
+            "<small>The live feed returned no composite mark.</small>";
+        return;
+    }
+    const value = state.total * mark;
+    const freshness = Venue.portfolioFreshness(feed.publishedAt);
+    const scope = state.multi === true
+        ? " Available and reserved figures cover the trading partition."
+        : "";
+    summary.textContent = "Reference value " + readableHbar(value) +
+        " HBAR · " + freshness + "." + scope;
+    detail.innerHTML =
+        "<span>Reference value</span><strong>" + esc(readableHbar(value)) +
+        " HBAR</strong><small>" +
+        esc(readableHbar(mark) + " HBAR per LPRC · clean price $" +
+            readablePrice(feed.cleanPrice || 0) + " · HBAR/USD $" +
+            readablePrice(feed.usdPerHbar || 0) + " · " + freshness + scope) +
+        "</small>";
+};
+
+Venue.readRepoRows = async function (ids) {
+    const watchResult = await Venue.c.watch.watch(ids).catch(() => null);
+    const alerts = watchResult?.alerts || watchResult?.[0] || [];
+    const stream = watchResult?.s || watchResult?.[1] || null;
+    const feed = watchResult?.f || watchResult?.[2] || null;
+    const rows = await Promise.all(ids.map(async (id, index) => {
+        const [repoRead, offerRead, previewRead, repurchaseRead] =
+            await Promise.allSettled([
+                Venue.c.vault.repo(id),
+                typeof Venue.c.vault.offers === "function"
+                    ? Venue.c.vault.offers(id)
+                    : Promise.resolve(null),
+                typeof Venue.c.vault.previewMark === "function"
+                    ? Venue.c.vault.previewMark(id)
+                    : Promise.resolve(null),
+                typeof Venue.c.vault.repurchasePriceNow === "function"
+                    ? Venue.c.vault.repurchasePriceNow(id)
+                    : Promise.resolve(null),
+            ]);
+        const repo = repoRead.status === "fulfilled" ? repoRead.value : null;
+        const offer = offerRead.status === "fulfilled" ? offerRead.value : null;
+        const preview = previewRead.status === "fulfilled" ? previewRead.value : null;
+        const repurchase = repurchaseRead.status === "fulfilled"
+            ? repurchaseRead.value
+            : null;
+        const stateNo = repo ? Number(repo.state ?? repo[0] ?? 0) : null;
+        const repoKnown = stateNo != null && stateNo !== 0;
+        const offerLender = offer ? String(offer.lender ?? offer[0] ?? ZERO) : ZERO;
+        const offerKnown = offer && !addrEq(offerLender, ZERO);
+        const borrower = repoKnown
+            ? String(repo.borrower ?? repo[1])
+            : offerKnown
+                ? String(offer.borrower ?? offer[1])
+                : null;
+        const lender = repoKnown
+            ? String(repo.lender ?? repo[2])
+            : offerKnown
+                ? offerLender
+                : null;
+        const terms = offerKnown ? offer.terms : null;
+        return {
+            id,
+            repo,
+            offer,
+            known: repoKnown || !!offerKnown,
+            offered: !repoKnown && !!offerKnown,
+            readError: repoRead.status === "rejected",
+            stateNo: repoKnown ? stateNo : offerKnown ? 1 : 0,
+            state: repoKnown
+                ? REPO_STATE[stateNo] || "State " + stateNo
+                : offerKnown
+                    ? "FUNDED OFFER"
+                    : "NOT FOUND",
+            borrower,
+            lender,
+            collateral: repoKnown
+                ? asBig(repo.collateralAmount ?? repo[5] ?? 0)
+                : asBig(terms?.collateralAmount ?? 0),
+            principal: repoKnown
+                ? asBig(repo.principal ?? repo[6] ?? 0)
+                : asBig(offer?.principal ?? offer?.[3] ?? 0),
+            repoRateBps: repoKnown
+                ? asBig(repo.repoRateBps ?? repo[7] ?? 0)
+                : asBig(terms?.repoRateBps ?? 0),
+            maturity: repoKnown
+                ? asBig(repo.maturity ?? repo[9] ?? 0)
+                : asBig(offer?.expiresAt ?? offer?.[4] ?? 0),
+            cureDeadline: repoKnown
+                ? asBig(repo.cureDeadline ?? repo[10] ?? 0)
+                : 0n,
+            alert: alerts[index] || null,
+            preview: preview
+                ? {
+                    mark: asBig(preview.mark ?? preview[0] ?? 0),
+                    breach: !!(preview.breach ?? preview[1]),
+                    dark: !!(preview.dark ?? preview[2]),
+                }
+                : null,
+            repurchase: repurchase != null ? asBig(repurchase) : null,
+        };
+    }));
+    return {rows, stream, feed, watchAvailable: !!watchResult};
+};
+
+Venue.portfolioDate = function (timestamp) {
+    const value = asBig(timestamp || 0);
+    if (value === 0n) return "Unavailable";
+    return new Date(Number(value) * 1000)
+        .toISOString().replace("T", " ").slice(0, 16) + "Z";
+};
+
+Venue.financingPositionHtml = function (position, manual = false) {
+    const who = Venue.viewer();
+    const isBorrower = who && position.borrower && addrEq(position.borrower, who);
+    const isLender = who && position.lender && addrEq(position.lender, who);
+    const role = isBorrower && isLender
+        ? "Borrower and lender"
+        : isBorrower
+            ? "Borrower"
+            : isLender
+                ? "Lender"
+                : manual
+                    ? "Read-only lookup"
+                    : "Party";
+    const alert = position.alert;
+    const urgent = position.known &&
+        (alert?.defaultable || alert?.called || alert?.unmarkedFail);
+    const deadline = asBig(alert?.called ? alert.cureDeadline : position.maturity || 0);
+    let statusCopy = position.offered
+        ? "The lender has funded this offer. The borrower may accept before expiry."
+        : "No active margin condition was returned.";
+    if (!position.known) {
+        statusCopy = position.readError
+            ? "Agreement data could not be read."
+            : "No funded offer or agreement was found for this ID.";
+    } else if (!position.offered) {
+        if (alert?.defaultable) {
+            statusCopy = "The agreement is currently eligible for default under its on-chain terms.";
+        } else if (alert?.called) {
+            statusCopy = alert.cureExpired
+                ? "The margin-call cure period has expired."
+                : "A margin call is active. Review the cure deadline.";
+        } else if (alert?.unmarkedFail) {
+            statusCopy = "Maturity has passed, but the agreement has not been moved into failing state.";
+        } else if (position.preview?.dark) {
+            statusCopy = "Live risk preview is unavailable because the price feed is stale.";
+        } else if (position.preview?.breach) {
+            statusCopy = "The live read indicates a maintenance shortfall that has not necessarily been marked on chain.";
+        }
+    }
+    const tone = urgent || (!position.offered && position.preview?.breach) ? " warning" : "";
+    return '<article class="financing-position' + tone + '">' +
+        '<header><div><span>' + esc(role) + '</span><strong>' +
+        esc(position.state.replaceAll("_", " ").toLowerCase()
+            .replace(/\b\w/g, (letter) => letter.toUpperCase())) +
+        '</strong></div><code>' + esc(shortId(position.id)) + "</code></header>" +
+        '<div class="financing-position-values">' +
+        '<div><span>Collateral</span><strong>' +
+        (position.known ? esc(readableQuantity(position.collateral)) + " LPRC" : "Unavailable") +
+        "</strong></div>" +
+        '<div><span>' + (position.offered ? "Funded cash" : "Principal") +
+        "</span><strong>" +
+        (position.known ? esc(readableHbar(position.principal)) + " HBAR" : "Unavailable") +
+        "</strong></div>" +
+        '<div><span>' + (alert?.called ? "Cure deadline" : position.offered ? "Offer expiry" : "Maturity") +
+        "</span><strong>" + (position.known ? esc(Venue.portfolioDate(deadline)) : "Unavailable") +
+        "</strong></div></div>" +
+        '<p class="financing-status-copy">' + esc(statusCopy) + "</p>" +
+        '<footer><span>' +
+        (position.known && !position.offered && position.repurchase != null
+            ? "Repurchase now " + esc(readableHbar(position.repurchase)) + " HBAR"
+            : position.known && position.repoRateBps > 0n
+                ? "Repo rate " + esc(readableBps(position.repoRateBps))
+                : position.known
+                    ? "Exact economics available in agreement details"
+                    : "No agreement economics available") +
+        '</span><a href="repo.html">Open Financing</a></footer></article>';
+};
+
+Venue.portfolioFinancingContextHtml = function (data) {
+    if (!data?.feed && !data?.stream) return "";
+    const feed = data.feed;
+    const stream = data.stream;
+    const feedCopy = !feed
+        ? "Oracle status unavailable"
+        : feed.dark
+            ? "Risk feed stale" +
+              (feed.ourLegDark && feed.cashLegDark
+                  ? " on both legs"
+                  : feed.ourLegDark
+                      ? " on the bond-price leg"
+                      : feed.cashLegDark
+                          ? " on the HBAR/USD leg"
+                          : "")
+            : "Risk feed live · " + Venue.portfolioFreshness(feed.publishedAt);
+    const streamCopy = !stream
+        ? "Margin event-stream status unavailable"
+        : stream.audible
+            ? "Margin events currently publish"
+            : "Margin events may be withheld; current contract state is shown";
+    return '<div class="financing-context"><span>' + esc(feedCopy) +
+        "</span><span>" + esc(streamCopy) + "</span></div>";
+};
+
+Venue.paintPortfolioFinancing = function () {
+    const out = $("portfolio-financing");
+    const limitation = $("financing-limitation");
+    if (!out || !limitation) return;
+    const data = Venue.portfolioFinancing;
+    const who = Venue.viewer();
+    if (!who) {
+        limitation.hidden = true;
+        out.innerHTML = '<div class="portfolio-empty compact">Connect or watch an account to inspect known financing positions.</div>';
+        return;
+    }
+    const limits = [
+        "Automatic coverage checks up to 25 recent vault events.",
+        "An empty result does not prove that the account has no financing obligations.",
+    ];
+    if (data?.mirrorError) {
+        limits.unshift("Recent mirror-node discovery is unavailable right now.");
+    }
+    if (!Venue.financing?.ready) {
+        limits.push(Venue.financing?.reason ||
+            "The bound vault does not support this client’s financing write flow.");
+    }
+    limitation.hidden = false;
+    limitation.innerHTML =
+        "<strong>Discovery coverage</strong><span>" + esc(limits.join(" ")) +
+        "</span><small>Use exact-ID lookup below for agreements outside this coverage.</small>";
+    if (!data) {
+        out.innerHTML = '<div class="portfolio-empty compact">Checking financing records.</div>';
+        return;
+    }
+    const context = data.positions.length
+        ? Venue.portfolioFinancingContextHtml(data)
+        : "";
+    if (!data.positions.length) {
+        out.innerHTML = '<div class="portfolio-empty compact">No account-linked agreements were found within this coverage. Use exact-ID lookup if you expect one.</div>';
+        return;
+    }
+    out.innerHTML = context + '<div class="financing-position-list">' +
+        data.positions.map((position) => Venue.financingPositionHtml(position)).join("") +
         "</div>";
+};
+
+Venue.refreshPortfolioFinancing = async function () {
+    if (!$("portfolio-financing")) return;
+    if (Venue._portfolioFinancingRun) return Venue._portfolioFinancingRun;
+    const run = (async () => {
+        const who = Venue.viewer();
+        if (!who) {
+            Venue.portfolioFinancing = {viewer: null, positions: []};
+            Venue.paintPortfolioFinancing();
+            return;
+        }
+        let history = [];
+        let mirrorError = "";
+        try {
+            history = typeof Venue.history === "function"
+                ? await Venue.history("RepoVault", {limit: 25})
+                : [];
+        } catch (error) {
+            mirrorError = error?.message || String(error);
+        }
+        if (!Venue.stillViewer(who)) return;
+        const recent = history
+            .map((entry) => entry.args?.id ?? entry.args?.[0])
+            .filter((id) => /^0x[0-9a-fA-F]{64}$/.test(String(id || "")));
+        const ids = [...new Set(recent)].slice(0, 25);
+        const read = await Venue.readRepoRows(ids);
+        if (!Venue.stillViewer(who)) return;
+        const positions = read.rows.filter((position) =>
+            position.known &&
+            (addrEq(position.borrower, who) || addrEq(position.lender, who)));
+        Venue.portfolioFinancing = {
+            viewer: who,
+            positions,
+            stream: read.stream,
+            feed: read.feed,
+            watchAvailable: read.watchAvailable,
+            mirrorError,
+            recentIds: recent.length,
+        };
+        Venue.paintPortfolioFinancing();
+        Venue.paintNeeds(who);
+    })();
+    Venue._portfolioFinancingRun = run;
+    try {
+        return await run;
+    } finally {
+        if (Venue._portfolioFinancingRun === run) Venue._portfolioFinancingRun = null;
+    }
 };
 
 Venue.doWatch = async function () {
     const raw = $("repo-ids").value.trim();
     const ids = raw.split(/[\s,]+/).filter(Boolean);
-    if (!ids.length) throw new Error("Paste one or more repo ids.");
-    const [alerts, stream] = await Venue.c.watch.watch(ids);
-    const rows = alerts.map((a, i) => {
-        const st = REPO_STATE[Number(a.state)] || String(a.state);
-        return '<div class="card"><div class="id">' + esc(ids[i]) + "</div>" +
-            "<div class='meta'>state " + st +
-            (a.called ? " · called" : "") +
-            (a.unmarkedFail ? " · unmarked fail" : "") +
-            (a.defaultable ? " · defaultable" : "") +
-            "</div></div>";
-    }).join("");
-    $("watch-out").innerHTML = rows +
-        '<div class="banner' + (stream.audible ? "" : " held") + '">' +
-        "stream epoch " + stream.epoch +
-        " · permitted " + stream.permitted +
-        " · audible " + stream.audible +
-        " · spent " + stream.spentBits + "/" + stream.budgetBits +
-        " · breakingSize " + stream.breakingSize +
-        (stream.audible ? "" : ". The log cannot be believed; a permitted row can still be inaudible.") +
+    if (!ids.length) throw new Error("Paste one or more agreement IDs.");
+    if (ids.length > 20) throw new Error("Look up at most 20 agreement IDs at once.");
+    if (ids.some((id) => !/^0x[0-9a-fA-F]{64}$/.test(id))) {
+        throw new Error("Each agreement ID must be a 32-byte 0x value.");
+    }
+    $("watch-out").innerHTML = '<div class="portfolio-empty compact">Reading agreement state.</div>';
+    const data = await Venue.readRepoRows([...new Set(ids)]);
+    const context = Venue.portfolioFinancingContextHtml(data);
+    $("watch-out").innerHTML = context +
+        '<div class="financing-position-list manual">' +
+        data.rows.map((position) => Venue.financingPositionHtml(position, true)).join("") +
         "</div>";
 };
 
@@ -8389,8 +10122,365 @@ function formatCashAmount(amount) {
     const scale = 10n ** BigInt(decimals);
     const whole = a / scale;
     const frac = (a % scale).toString().padStart(decimals, "0");
-    return whole.toString() + "." + frac;
+    return whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + frac;
 }
+
+Venue.couponFeeQuote = function (amount) {
+    const cfg = CLIENT.coupon?.cashToken?.fractionalFee;
+    if (!cfg) return {known: false};
+    const numerator = asBig(cfg.numerator ?? 0);
+    const denominator = asBig(cfg.denominator ?? 0);
+    if (denominator === 0n) return {known: false};
+    const minimum = asBig(cfg?.minimum ?? 0);
+    const maximum = asBig(cfg?.maximum ?? 0);
+    let fee = asBig(amount) * numerator / denominator;
+    if (fee < minimum) fee = minimum;
+    if (maximum > 0n && fee > maximum) fee = maximum;
+    const chargedOnTop = !!cfg?.netOfTransfers;
+    const net = chargedOnTop
+        ? asBig(amount)
+        : asBig(amount) > fee
+            ? asBig(amount) - fee
+            : 0n;
+    return {
+        known: true,
+        numerator,
+        denominator,
+        minimum,
+        maximum,
+        fee,
+        net,
+        chargedOnTop,
+    };
+};
+
+Venue.verifyCouponProof = function (proof, declaration, domains) {
+    if (!proof || !declaration || !domains?.leaf || !domains?.node) return false;
+    let width = asBig(declaration.holders ?? declaration[3] ?? 0);
+    let position = asBig(proof.position);
+    if (width === 0n || position >= width) return false;
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    const holderKey = ethers.zeroPadValue(proof.holder, 32);
+    let hash = ethers.keccak256(coder.encode(
+        ["bytes32", "uint256", "bytes32", "uint256"],
+        [domains.leaf, proof.index, holderKey, proof.amount],
+    ));
+    let proofIndex = 0;
+    while (width > 1n) {
+        const promoted = width % 2n === 1n && position === width - 1n;
+        if (!promoted) {
+            if (proofIndex >= proof.proof.length) return false;
+            const sibling = proof.proof[proofIndex++];
+            const left = position % 2n === 0n ? hash : sibling;
+            const right = position % 2n === 0n ? sibling : hash;
+            hash = ethers.keccak256(coder.encode(
+                ["bytes32", "bytes32", "bytes32"],
+                [domains.node, left, right],
+            ));
+        }
+        position >>= 1n;
+        width = (width + 1n) >> 1n;
+    }
+    const root = String(declaration.root ?? declaration[0] ?? "");
+    return proofIndex === proof.proof.length &&
+        hash.toLowerCase() === root.toLowerCase();
+};
+
+Venue.couponRowStatus = function (row, state) {
+    if (!row.dueKnown || !row.declarationKnown) {
+        return {label: "Unavailable", copy: "Payment status could not be read.", tone: "unknown"};
+    }
+    const now = nowSec();
+    if (!row.declared) {
+        if (row.due > now) {
+            return {
+                label: "Scheduled",
+                copy: "No claim action is available before issuer funding.",
+                tone: "scheduled",
+            };
+        }
+        return {
+            label: "Awaiting issuer funding",
+            copy: "No funded declaration is live for this due payment.",
+            tone: "waiting",
+        };
+    }
+    if (row.claimedKnown && row.claimed) {
+        return {
+            label: "Claimed",
+            copy: "This account has already claimed this payment.",
+            tone: "claimed",
+        };
+    }
+    if (!row.closesKnown) {
+        return {
+            label: "Window unavailable",
+            copy: "The claim deadline could not be read.",
+            tone: "unknown",
+        };
+    }
+    if (now >= row.closes) {
+        return {
+            label: "Claim window closed",
+            copy: "The contract no longer accepts claims for this payment.",
+            tone: "closed",
+        };
+    }
+    const proof = state.proof;
+    if (proof?.index === row.index) {
+        if (proof.merkleValid == null) {
+            return {
+                label: "Validation unavailable",
+                copy: "The live declaration or proof domains could not be read.",
+                tone: "unknown",
+            };
+        }
+        if (proof.merkleValid === false) {
+            return {
+                label: "Proof not accepted",
+                copy: "The imported file does not match the live entitlement root.",
+                tone: "waiting",
+            };
+        }
+        if (!state.proofMatchesViewer) {
+            return {
+                label: "Proof for another holder",
+                copy: "Connect or watch the holder named in the proof.",
+                tone: "waiting",
+            };
+        }
+        if (!proof.currentAccept) {
+            return {
+                label: "Claim unavailable",
+                copy: "The proof is valid, but the live claim preflight does not currently accept it.",
+                tone: "waiting",
+            };
+        }
+        if (!Venue.account) {
+            return {
+                label: "Ready after connection",
+                copy: "Connect the holder wallet to sign the claim.",
+                tone: "ready",
+            };
+        }
+        if (state.associated === false) {
+            return {
+                label: "Association required",
+                copy: "Associate LPCASH before claiming.",
+                tone: "waiting",
+            };
+        }
+        if (state.associated !== true) {
+            return {
+                label: "Association unknown",
+                copy: "The token association check is unavailable.",
+                tone: "unknown",
+            };
+        }
+        return {
+            label: "Ready to claim",
+            copy: "Proof and prerequisites are current.",
+            tone: "ready",
+        };
+    }
+    return {
+        label: "Funded, proof needed",
+        copy: "Import the issuer’s entitlement file to establish a personal amount.",
+        tone: "funded",
+    };
+};
+
+Venue.paintIncome = function () {
+    const state = Venue.couponState;
+    const el = $("coupon-claim");
+    if (!el || !state) return;
+    const put = (id, value) => { if ($(id)) $(id).textContent = value; };
+    put("coupon-cash-balance", state.cashBalanceKnown
+        ? formatCashAmount(state.cashBalance) + " LPCASH"
+        : "Unavailable");
+    put("coupon-next", state.nextDue != null
+        ? new Date(Number(state.nextDue) * 1000).toISOString().slice(0, 10)
+        : state.scheduleKnown
+            ? "Schedule complete"
+            : "Unavailable");
+
+    const established = state.personalEstablished;
+    const availableKnown = state.personalAvailableKnown;
+    const expected = state.personalQuote?.known
+        ? state.personalQuote.net
+        : state.personalGrossAvailable;
+    if (!established) {
+        put("pos-income", state.scheduleKnown ? "Not established" : "Unavailable");
+        put("coupon-personal", state.scheduleKnown ? "Not established" : "Unavailable");
+        put("pos-income-note", !state.scheduleKnown
+            ? "The coupon schedule is unavailable, so personal income cannot be checked."
+            : state.proof && state.proof.merkleValid == null
+                ? "The imported proof could not be checked against live data."
+                : state.proof
+                    ? "The imported proof does not establish income for this account."
+                    : "A validated issuer proof establishes a personal amount.");
+    } else if (!availableKnown) {
+        put("pos-income", "Unavailable");
+        put("coupon-personal", "Unavailable");
+        put("pos-income-note", "Entitlement verified. Current claim status is unavailable.");
+    } else {
+        put("pos-income", formatCashAmount(expected));
+        put("coupon-personal", formatCashAmount(expected) + " LPCASH");
+        const quote = state.personalQuote;
+        put("pos-income-note", state.personalGrossAvailable > 0n
+            ? quote?.known
+                ? formatCashAmount(state.personalGrossAvailable) +
+                  " gross less " + formatCashAmount(quote.fee) + " expected HTS fee."
+                : formatCashAmount(state.personalGrossAvailable) +
+                  " gross. Expected fee unavailable."
+            : state.personalRow?.claimed
+                ? "Verified entitlement has already been claimed."
+                : state.personalRow && state.personalRow.closesKnown &&
+                  nowSec() >= state.personalRow.closes
+                    ? "Verified entitlement’s claim window is closed."
+                    : "No verified amount is currently ready to claim.");
+    }
+
+    const associate = $("coupon-associate");
+    if (associate) {
+        associate.hidden = !(Venue.account && state.associated === false);
+        associate.disabled = !(Venue.account && state.associated === false);
+        associate.textContent = "Associate LPCASH";
+    }
+
+    const renderCouponRow = (row) => {
+        const status = Venue.couponRowStatus(row, state);
+        const date = row.dueKnown
+            ? new Date(Number(row.due) * 1000).toISOString().slice(0, 10)
+            : "Date unavailable";
+        const funding = !row.declarationKnown
+            ? "Funding unavailable"
+            : row.declared
+                ? formatCashAmount(row.remaining) + " LPCASH pool remaining"
+                : "Not declared";
+        const window = row.declared && row.closesKnown
+            ? "Claims close " + Venue.portfolioDate(row.closes)
+            : "";
+        return '<article class="coupon-row ' + esc(status.tone) + '">' +
+            '<div class="coupon-row-date"><span>Coupon ' + row.index +
+            "</span><strong>" + esc(date) + "</strong></div>" +
+            '<div class="coupon-row-funding"><span>Issuer funding</span><strong>' +
+            esc(funding) + "</strong>" + (window ? "<small>" + esc(window) + "</small>" : "") +
+            '</div><div class="coupon-row-status"><strong>' + esc(status.label) +
+            "</strong><span>" + esc(status.copy) + "</span></div></article>";
+    };
+    const priority = [];
+    const addPriority = (row) => {
+        if (row && !priority.some((candidate) => candidate.index === row.index)) {
+            priority.push(row);
+        }
+    };
+    addPriority(state.proofRow);
+    addPriority(state.rows.find((row) =>
+        row.declared && row.closesKnown && nowSec() < row.closes &&
+        !(row.claimedKnown && row.claimed)));
+    addPriority([...state.rows].reverse().find((row) =>
+        row.dueKnown && row.due <= nowSec() && !row.declared));
+    addPriority(state.rows.find((row) => row.dueKnown && row.due >= nowSec()));
+    if (!priority.length) addPriority(state.rows[state.rows.length - 1]);
+    const priorityRows = priority.slice(0, 3);
+    const rowsHtml = priorityRows.map(renderCouponRow).join("");
+    const fullSchedule = state.rows.length > priorityRows.length
+        ? '<details class="coupon-all"><summary>View complete schedule (' +
+          state.rows.length + ')</summary><div>' +
+          state.rows.map(renderCouponRow).join("") + "</div></details>"
+        : "";
+
+    let proofHtml = "";
+    if (state.proof) {
+        const proof = state.proof;
+        const quote = Venue.couponFeeQuote(proof.amount);
+        const proofStatus = proof.merkleValid == null
+            ? "Validation is unavailable because live declaration data could not be read."
+            : proof.merkleValid === false
+            ? "Proof does not match the live declaration."
+            : !state.proofMatchesViewer
+                ? "This proof names " + shortAddr(proof.holder) +
+                  ", not the account being viewed."
+                : state.proofRow?.claimedKnown && state.proofRow.claimed
+                    ? "This account has already claimed this entitlement."
+                    : state.proofRow?.closesKnown && nowSec() >= state.proofRow.closes
+                        ? "This entitlement is verified, but its claim window has closed."
+                : state.claimReady
+                    ? "Proof, claim window, wallet, and token association are ready."
+                    : state.associated === false
+                        ? "Associate LPCASH before claiming."
+                        : !Venue.account
+                            ? "Connect the holder wallet to claim."
+                            : !proof.currentAccept
+                                ? "The live claim preflight does not currently accept this proof."
+                                : "One or more claim prerequisites are unavailable.";
+        proofHtml = '<section class="claim-review' +
+            (proof.merkleValid === false ? " invalid" : "") + '">' +
+            '<header><div><span>Validated entitlement</span><strong>Coupon ' +
+            esc(String(proof.index)) + "</strong></div><small>Holder " +
+            esc(shortAddr(proof.holder)) + "</small></header>" +
+            '<div class="claim-review-values">' +
+            '<div><span>Gross entitlement</span><strong>' +
+            esc(formatCashAmount(proof.amount)) + " LPCASH</strong></div>" +
+            '<div><span>Expected deduction</span><strong>' +
+            (quote.known ? esc(formatCashAmount(quote.fee)) + " LPCASH" : "Unavailable") +
+            "</strong></div>" +
+            '<div><span>Expected received</span><strong>' +
+            (quote.known ? esc(formatCashAmount(quote.net)) + " LPCASH" : "Unavailable") +
+            "</strong></div></div>" +
+            '<p class="claim-review-status">' + esc(proofStatus) + "</p>" +
+            (quote.chargedOnTop
+                ? '<p class="claim-review-warning">The live token fee is configured on top of the transfer. This distributor refuses that fee direction.</p>'
+                : "") +
+            '<button type="button" class="primary" id="coupon-claim-go" data-position-action' +
+            (state.claimReady ? "" : " disabled") + ">" +
+            (state.claimReady && quote.known
+                ? "Claim " + esc(formatCashAmount(quote.net)) + " LPCASH"
+                : "Claim income") + "</button></section>";
+    }
+    el.innerHTML =
+        proofHtml +
+        '<div class="coupon-schedule-head"><h3>Payment schedule</h3><span>' +
+        state.rows.length + " payment" + (state.rows.length === 1 ? "" : "s") +
+        "</span></div>" +
+        (rowsHtml || '<div class="portfolio-empty compact">No scheduled payments were returned.</div>') +
+        fullSchedule;
+    $("coupon-claim-go")?.addEventListener("click", () =>
+        Venue.runPositionAction(() => Venue.doClaimCoupon(), "Coupon claim"));
+
+    const summaryAction = $("income-summary-action");
+    if (summaryAction) {
+        summaryAction.setAttribute("data-position-action", "");
+        summaryAction.disabled = false;
+        if (!state.scheduleKnown) {
+            Venue._incomeSummaryAction = "refresh";
+            summaryAction.textContent = "Retry schedule";
+        } else if (!Venue.viewer()) {
+            Venue._incomeSummaryAction = "connect";
+            summaryAction.textContent = "Connect or watch";
+        } else if (state.proof?.merkleValid == null) {
+            Venue._incomeSummaryAction = "refresh";
+            summaryAction.textContent = "Retry validation";
+        } else if (!state.proof || state.proof.merkleValid === false ||
+            !state.proofMatchesViewer) {
+            Venue._incomeSummaryAction = "proof";
+            summaryAction.textContent = state.proof ? "Replace proof" : "Check entitlement";
+        } else if (!Venue.account) {
+            Venue._incomeSummaryAction = "connect";
+            summaryAction.textContent = "Connect to claim";
+        } else if (state.associated === false) {
+            Venue._incomeSummaryAction = "associate";
+            summaryAction.textContent = "Associate LPCASH";
+        } else if (state.claimReady) {
+            Venue._incomeSummaryAction = "claim";
+            summaryAction.textContent = "Claim income";
+        } else {
+            Venue._incomeSummaryAction = "schedule";
+            summaryAction.textContent = "View schedule";
+        }
+    }
+};
 
 Venue.refreshIncome = async function () {
     const el = $("coupon-claim");
@@ -8398,100 +10488,242 @@ Venue.refreshIncome = async function () {
     const dist = Venue.c.couponDistributor;
     const sched = Venue.c.couponSchedule;
     if (!dist || !sched) {
-        el.innerHTML = '<div class="empty">No coupon distributor is named in this address book.</div>';
+        Venue.couponState = {
+            scheduleKnown: false,
+            rows: [],
+            personalEstablished: false,
+            personalAvailableKnown: false,
+            cashBalanceKnown: false,
+        };
+        el.innerHTML = '<div class="portfolio-empty compact">Coupon contracts are not configured in this address book.</div>';
+        if ($("pos-income")) $("pos-income").textContent = "Unavailable";
+        if ($("coupon-personal")) $("coupon-personal").textContent = "Unavailable";
+        if ($("coupon-next")) $("coupon-next").textContent = "Unavailable";
+        if ($("coupon-cash-balance")) $("coupon-cash-balance").textContent = "Unavailable";
+        if ($("pos-income-note")) {
+            $("pos-income-note").textContent =
+                "Coupon income cannot be checked with this deployment.";
+        }
+        if ($("coupon-associate")) $("coupon-associate").hidden = true;
+        if ($("income-summary-action")) {
+            $("income-summary-action").textContent = "Unavailable";
+            $("income-summary-action").disabled = true;
+        }
         return;
     }
     const who = Venue.viewer();
     const cash = Venue.cashContract();
-    const count = Number(await sched.count());
-    const now = Number(nowSec());
-    const feeBps = CLIENT.coupon?.distributor?.payingAgentFeeBps
-        || CLIENT.coupon?.cashToken?.fractionalFee?.basisPoints;
-    let associated = null;
-    if (Venue.account && cash) {
-        const live = Venue.cashContract(Venue.signer || Venue.reader);
-        associated = await live.isAssociated().catch(() => null);
-    }
-    if ($("coupon-associate")) {
-        $("coupon-associate").disabled = !Venue.account || associated === true;
-    }
-    const cards = [];
-    for (let i = 0; i < count; i++) {
-        const [decl, closes, due] = await Promise.all([
-            dist.declarationOf(i),
-            dist.claimsCloseAt(i),
-            sched.dateOf(i),
+    const base = await Promise.allSettled([
+        sched.count(),
+        who && cash ? cash.balanceOf(who) : Promise.resolve(null),
+        Venue.account && cash
+            ? Venue.cashContract(Venue.signer || Venue.reader).isAssociated()
+            : Promise.resolve(null),
+        dist.DOMAIN_LEAF(),
+        dist.DOMAIN_NODE(),
+    ]);
+    if (!Venue.stillViewer(who)) return;
+    const countKnown = base[0].status === "fulfilled";
+    const count = countKnown ? Number(base[0].value) : 0;
+    const rowReads = await Promise.all([...Array(count)].map(async (_, index) => {
+        const result = await Promise.allSettled([
+            dist.declarationOf(index),
+            dist.claimsCloseAt(index),
+            sched.dateOf(index),
+            who ? dist.claimed(index, who) : Promise.resolve(null),
         ]);
-        const declared = asBig(decl.declaredAt) > 0n;
-        const open = declared && now < Number(asBig(closes));
-        const claimed = who ? await dist.claimed(i, who) : false;
-        const dueAt = new Date(Number(due) * 1000).toISOString().slice(0, 10);
-        let status;
-        if (!declared) status = "issuer has not funded this coupon";
-        else if (claimed) status = "already claimed by this account";
-        else if (!open) status = "claim window closed";
-        else status = "declared; a merkle proof is required to claim";
-        cards.push(
-            '<article class="card"><div class="id">coupon ' + i + "</div>" +
-            "<div class='meta'>due " + esc(dueAt) + " · remaining " +
-            esc(formatCashAmount(decl.remaining)) + " LPCASH · " + esc(status) + "</div></article>"
-        );
-    }
-    const proof = Venue.couponProof;
-    let proofHtml = "";
+        const declarationKnown = result[0].status === "fulfilled";
+        const declaration = declarationKnown ? result[0].value : null;
+        const closesKnown = result[1].status === "fulfilled";
+        const dueKnown = result[2].status === "fulfilled";
+        const claimedKnown = !!who && result[3].status === "fulfilled";
+        return {
+            index,
+            declaration,
+            declarationKnown,
+            declared: declarationKnown && asBig(declaration.declaredAt) > 0n,
+            total: declarationKnown ? asBig(declaration.total) : null,
+            remaining: declarationKnown ? asBig(declaration.remaining) : null,
+            closes: closesKnown ? asBig(result[1].value) : null,
+            closesKnown,
+            due: dueKnown ? asBig(result[2].value) : null,
+            dueKnown,
+            claimed: claimedKnown ? !!result[3].value : null,
+            claimedKnown,
+        };
+    }));
+    if (!Venue.stillViewer(who)) return;
+
+    const domains = {
+        leaf: base[3].status === "fulfilled" ? base[3].value : null,
+        node: base[4].status === "fulfilled" ? base[4].value : null,
+    };
+    const proof = Venue.couponProof || null;
+    let proofRow = proof && proof.index >= 0 && proof.index < rowReads.length
+        ? rowReads[proof.index]
+        : null;
     if (proof) {
-        const gross = formatCashAmount(proof.amount);
-        const cfg = CLIENT.coupon?.cashToken?.fractionalFee || {};
-        const numerator = asBig(cfg.numerator ?? feeBps ?? 0);
-        const denominator = asBig(cfg.denominator ?? 10_000);
-        const minimum = asBig(cfg.minimum ?? 0);
-        const maximum = asBig(cfg.maximum ?? 0);
-        let fee = denominator === 0n ? 0n : proof.amount * numerator / denominator;
-        if (fee < minimum) fee = minimum;
-        if (maximum > 0n && fee > maximum) fee = maximum;
-        const net = proof.amount > fee ? proof.amount - fee : 0n;
-        const holderIsAccount = !!Venue.account && addrEq(Venue.account, proof.holder);
-        proofHtml = '<p>Loaded proof for coupon ' + esc(String(proof.index)) +
-            " · holder " + esc(shortAddr(proof.holder)) +
-            " · gross " + esc(gross) + " LPCASH · fee " +
-            esc(formatCashAmount(fee)) + " · net " + esc(formatCashAmount(net)) +
-            ". HTS deducts the " + esc(String(feeBps)) +
-            " bps inclusive fee from this transfer.</p>" +
-            (Venue.account && !holderIsAccount
-                ? "<p class='note'>This proof names another holder. Connect that holder to claim and associate LPCASH.</p>"
-                : "") +
-            '<div class="rowbtns"><button type="button" class="primary" id="coupon-claim-go"' +
-            (holderIsAccount ? "" : " disabled") + ">Claim</button></div>";
+        const canValidate = !!proofRow?.declarationKnown &&
+            !!domains.leaf && !!domains.node;
+        proof.merkleValid = !canValidate
+            ? null
+            : !!proofRow.declared &&
+              Venue.verifyCouponProof(proof, proofRow.declaration, domains);
+        proof.currentAccept = proof.merkleValid === true
+            ? await dist.wouldAccept(
+                proof.index,
+                proof.holder,
+                proof.position,
+                proof.amount,
+                proof.proof,
+            ).catch(() => null)
+            : proof.merkleValid === false
+                ? false
+                : null;
     }
-    el.innerHTML = cards.join("") + proofHtml +
-        (associated === false
-            ? "<p class='note'>Associate LPCASH before the first claim or HTS will refuse the transfer.</p>"
-            : "");
-    $("coupon-claim-go")?.addEventListener("click", () => Venue.doClaimCoupon().catch((e) => Venue.fail(e)));
+    if (!Venue.stillViewer(who)) return;
+    const proofMatchesViewer = !!(proof && who && addrEq(proof.holder, who));
+    const proofMatchesAccount = !!(proof && Venue.account && addrEq(proof.holder, Venue.account));
+    const associatedKnown = !!Venue.account && base[2].status === "fulfilled" &&
+        base[2].value != null;
+    const associated = associatedKnown ? !!base[2].value : null;
+    const personalEstablished = !!(proof?.merkleValid === true && proofMatchesViewer);
+    const personalStatusKnown = !!(proofRow && proofRow.claimedKnown &&
+        proofRow.closesKnown && proof.currentAccept != null);
+    const personalOpen = !!(proofRow?.declared && proofRow.closesKnown &&
+        nowSec() < proofRow.closes);
+    const personalGrossAvailable = personalEstablished && personalStatusKnown &&
+        !proofRow.claimed && personalOpen && proof.currentAccept
+        ? proof.amount
+        : 0n;
+    const personalQuote = personalEstablished
+        ? Venue.couponFeeQuote(personalGrossAvailable)
+        : null;
+    const claimReady = !!(
+        proof?.merkleValid === true &&
+        proofMatchesAccount &&
+        proofRow?.claimedKnown &&
+        !proofRow.claimed &&
+        personalOpen &&
+        proof.currentAccept === true &&
+        associated === true &&
+        !personalQuote?.chargedOnTop
+    );
+    const future = rowReads
+        .filter((row) => row.dueKnown && row.due >= nowSec())
+        .sort((a, b) => Number(a.due - b.due))[0];
+    Venue.couponState = {
+        viewer: who,
+        scheduleKnown: countKnown,
+        rows: rowReads,
+        nextDue: future?.due ?? null,
+        proof,
+        proofRow,
+        proofMatchesViewer,
+        proofMatchesAccount,
+        associated,
+        associatedKnown,
+        cashBalance: base[1].status === "fulfilled" && base[1].value != null
+            ? asBig(base[1].value)
+            : null,
+        cashBalanceKnown: !!who && base[1].status === "fulfilled" && base[1].value != null,
+        personalEstablished,
+        personalAvailableKnown: personalEstablished && personalStatusKnown,
+        personalGrossAvailable,
+        personalQuote,
+        personalRow: proofRow,
+        claimReady,
+    };
+    Venue.paintIncome();
+};
+
+Venue.doIncomeSummaryAction = async function () {
+    if (Venue._incomeSummaryAction === "connect") {
+        Venue.openSheet();
+        return;
+    }
+    if (Venue._incomeSummaryAction === "proof") {
+        $("coupon-proof")?.click();
+        return;
+    }
+    if (Venue._incomeSummaryAction === "refresh") {
+        await Venue.refreshIncome();
+        return;
+    }
+    if (Venue._incomeSummaryAction === "associate") {
+        await Venue.doAssociateCash();
+        return;
+    }
+    if (Venue._incomeSummaryAction === "claim") {
+        await Venue.doClaimCoupon();
+        return;
+    }
+    $("income")?.scrollIntoView({behavior: "smooth", block: "start"});
 };
 
 Venue.importCouponProof = async function (file) {
     if (!file) return;
-    const obj = JSON.parse(await file.text());
-    const index = Number(obj.index ?? obj.coupon);
+    if (file.size > 1024 * 1024) throw new Error("Proof JSON must be smaller than 1 MB.");
+    let obj;
+    try {
+        obj = JSON.parse(await file.text());
+    } catch {
+        throw new Error("The entitlement file is not valid JSON.");
+    }
+    let index;
+    let position;
+    let amount;
+    try {
+        index = Number(obj.index ?? obj.coupon);
+        position = BigInt(obj.position);
+        amount = BigInt(obj.amount);
+    } catch {
+        throw new Error("Proof position and amount must be whole numbers.");
+    }
     const holder = obj.holder;
-    const position = BigInt(obj.position);
-    const amount = BigInt(obj.amount);
     const proof = obj.proof;
-    if (!Number.isInteger(index) || !holder || !Array.isArray(proof)) {
+    if (!Number.isSafeInteger(index) || index < 0 || !holder || !Array.isArray(proof)) {
         throw new Error("Proof JSON needs index, holder, position, amount, and proof[].");
     }
     if (!ethers.isAddress(holder) || position < 0n || amount <= 0n) {
         throw new Error("Proof holder, position, or amount is invalid.");
     }
-    Venue.couponProof = {index, holder, position, amount, proof};
-    const dist = Venue.c.couponDistributor;
-    if (dist) {
-        const ok = await dist.wouldAccept(index, holder, position, amount, proof);
-        if (!ok) Venue.toast("wouldAccept is false for this proof against the live declaration.");
-        else Venue.toast("wouldAccept is true. Claim when ready.");
+    if (proof.length > 64 ||
+        proof.some((node) => !/^0x[0-9a-fA-F]{64}$/.test(String(node)))) {
+        throw new Error("Each proof node must be a 32-byte 0x value.");
     }
+    const count = Number(await Venue.c.couponSchedule.count());
+    if (index >= count) throw new Error("That coupon index is outside the live schedule.");
+    Venue.couponProof = {
+        index,
+        holder: ethers.getAddress(holder),
+        position,
+        amount,
+        proof: proof.map(String),
+        fileName: String(file.name || "entitlement.json").slice(0, 160),
+    };
     await Venue.refreshIncome();
+    if (Venue.couponProof.merkleValid == null) {
+        Venue.status(
+            "position-status",
+            "Proof imported. Live declaration data is unavailable, so validation could not finish.",
+            "",
+        );
+        return;
+    }
+    if (Venue.couponProof.merkleValid === false) {
+        Venue.status(
+            "position-status",
+            "Proof imported, but it does not match the live funded declaration.",
+            "bad",
+        );
+        return;
+    }
+    Venue.status(
+        "position-status",
+        "Entitlement proof validated against the live declaration.",
+        "ok",
+    );
 };
 
 Venue.doAssociateCash = async function () {
@@ -8500,18 +10732,45 @@ Venue.doAssociateCash = async function () {
     if (!cash) throw new Error("No coupon cash token is named in this address book.");
     const rec = await Venue.send(
         () => cash.associate({gasLimit: 250_000}),
-        "associate LPCASH",
+        "Associate LPCASH",
     );
-    if (rec) await Venue.refreshIncome();
+    if (rec) {
+        Venue.noteSimpleReceipt(
+            "LPCASH associated",
+            rec,
+            "The Hedera token association was recorded.",
+            "Token relationships, transaction input, and wallet activity remain public.",
+        );
+        await Venue.refreshIncome();
+    }
 };
 
 Venue.doClaimCoupon = async function () {
     await Venue.requireAccount();
     const p = Venue.couponProof;
     if (!p) throw new Error("Load an entitlement proof first.");
+    if (!addrEq(Venue.account, p.holder)) {
+        throw new Error("The connected wallet is not the holder named in this proof.");
+    }
+    await Venue.refreshIncome();
+    const state = Venue.couponState;
+    if (p.merkleValid == null) {
+        throw new Error("The proof cannot be validated while declaration data is unavailable.");
+    }
+    if (p.merkleValid === false) {
+        throw new Error("The proof does not match the live funded declaration.");
+    }
+    if (state.associated !== true) {
+        throw new Error(state.associated === false
+            ? "Associate LPCASH before claiming."
+            : "LPCASH association could not be confirmed.");
+    }
+    if (!state.claimReady) {
+        throw new Error("The coupon is not currently ready to claim.");
+    }
     const dist = Venue.c.couponDistributor;
     const ok = await dist.wouldAccept(p.index, p.holder, p.position, p.amount, p.proof);
-    if (!ok) throw new Error("wouldAccept is false. The proof does not match a live declaration.");
+    if (!ok) throw new Error("The live claim preflight no longer accepts this proof.");
     const rec = await Venue.send(
         () => Venue.w.couponDistributor.claim(
             p.index,
@@ -8521,7 +10780,7 @@ Venue.doClaimCoupon = async function () {
             p.proof,
             {gasLimit: 400_000},
         ),
-        "claim coupon"
+        "Claim coupon",
     );
     if (rec) {
         Venue.toast("Coupon claimed. LPCASH arrives after the HTS fee.");
@@ -10202,34 +12461,110 @@ Venue.refreshMarketTape = async function () {
 // and that the compliance hook is the one the venue claims.
 Venue.refreshInstrument = async function () {
     const {token} = Venue.c;
-    const who = Venue.viewer();
     const part = CLIENT.immutables.partition;
-    const [name, symbol, supply, multi, lists, comp, whole, inPart] = await Promise.all([
-        token.name(), token.symbol(), token.totalSupply(),
-        token.isMultiPartition(), token.getExternalKycListsCount(), token.compliance(),
-        who ? token.balanceOf(who) : null,
-        who ? token.balanceOfByPartition(part, who) : null,
+    const schedule = Venue.c.couponSchedule;
+    const reads = await Promise.allSettled([
+        token.name(),
+        token.symbol(),
+        token.totalSupply(),
+        token.isMultiPartition(),
+        token.getExternalKycListsCount(),
+        token.compliance(),
+        schedule ? schedule.faceValue() : Promise.resolve(null),
+        schedule ? schedule.spreadBps() : Promise.resolve(null),
+        schedule ? schedule.basis() : Promise.resolve(null),
+        schedule ? schedule.dates() : Promise.resolve([]),
     ]);
+    const value = (index) => reads[index].status === "fulfilled" ? reads[index].value : null;
+    const [name, symbol, supply, multi, lists, comp, face, spread, basis, dates] =
+        [...Array(10)].map((_, index) => value(index));
     const put = (id, v, cls) => {
         const el = $(id);
         if (!el) return;
         el.textContent = v;
         if (cls !== undefined) el.className = "v " + cls;
     };
-    put("in-name", $("market-symbol") ? name : name + " · " + symbol);
-    put("market-symbol", symbol);
-    put("in-supply", supply + " units, no decimals");
-    put("in-multi", multi ? "multi-partition" : "single partition " + shortId(part));
-    put("in-lists", lists + " external KYC list" + (Number(lists) === 1 ? "" : "s"));
-    put("in-compliance", addrEq(comp, CLIENT.addresses.SeamJournal)
-        ? "SeamJournal · the venue's own hook" : shortAddr(comp),
-        addrEq(comp, CLIENT.addresses.SeamJournal) ? "v ok" : "v bad");
-    // balanceOf counts every partition and does not net out held units;
-    // balanceOfByPartition excludes them. Two different questions, so both.
-    put("in-balance", whole === null ? "connect or watch an address"
-        : whole + " total · " + inPart + " free in this partition");
-    put("iss-name", name);
-    put("iss-symbol", symbol);
+    Venue.instrument = {
+        name,
+        symbol,
+        supply,
+        multi,
+        lists,
+        comp,
+        face,
+        spread,
+        basis,
+        dates: dates || [],
+        part,
+    };
+    Venue.paintInstrumentTerms = function () {
+        const instrument = Venue.instrument;
+        const feed = Venue.positionState?.feed;
+        put("in-name", instrument.name == null
+            ? "Instrument name unavailable"
+            : String(instrument.name));
+        put("market-symbol", instrument.symbol == null ? "LPRC" : String(instrument.symbol));
+        put("pos-symbol", instrument.symbol == null ? "LPRC" : String(instrument.symbol));
+        put("holding-unit", instrument.symbol == null ? "LPRC" : String(instrument.symbol));
+        put("in-supply", instrument.supply == null
+            ? "Unavailable"
+            : readableQuantity(asBig(instrument.supply)) + " " +
+              String(instrument.symbol || "units"));
+        put("in-multi", instrument.multi == null
+            ? "Unavailable"
+            : instrument.multi
+                ? "Multiple token partitions"
+                : "Single trading partition " + shortId(instrument.part));
+        put("in-lists", instrument.lists == null
+            ? "Unavailable"
+            : String(instrument.lists) + " external eligibility list" +
+              (asBig(instrument.lists) === 1n ? "" : "s"));
+        put("in-face", instrument.face == null
+            ? "Unavailable"
+            : formatCashAmount(instrument.face) + " LPCASH per bond");
+        if (instrument.spread == null) {
+            put("in-rate", "Unavailable");
+        } else if (feed && !feed.dark) {
+            const reference = asBig(feed.refRateBps || 0);
+            put("in-rate",
+                readableBps(reference + asBig(instrument.spread)) + " current (" +
+                readableBps(reference) + " reference + " +
+                readableBps(asBig(instrument.spread)) + " spread)");
+        } else {
+            put("in-rate", "Reference rate unavailable + " +
+                readableBps(asBig(instrument.spread)) + " spread");
+        }
+        put("in-basis", instrument.basis == null
+            ? "Unavailable"
+            : Number(instrument.basis) === 1
+                ? "Actual/365"
+                : "Basis " + String(instrument.basis));
+        put("in-maturity", instrument.dates.length
+            ? new Date(Number(instrument.dates[instrument.dates.length - 1]) * 1000)
+                .toISOString().slice(0, 10)
+            : "Unavailable");
+        const compliance = $("in-compliance");
+        if (compliance) {
+            compliance.innerHTML = instrument.comp == null
+                ? "Unavailable"
+                : '<a href="' + esc(explorerAddr(String(instrument.comp))) +
+                  '" target="_blank" rel="noopener">' +
+                  esc(addrEq(instrument.comp, CLIENT.addresses.SeamJournal)
+                      ? "SeamJournal · " + shortAddr(String(instrument.comp))
+                      : shortAddr(String(instrument.comp))) + "</a>";
+        }
+        const tokenAddress = $("in-token-address");
+        if (tokenAddress) {
+            tokenAddress.innerHTML =
+                '<a href="' + esc(explorerAddr(CLIENT.addresses.token)) +
+                '" target="_blank" rel="noopener">' +
+                esc(shortAddr(CLIENT.addresses.token)) + "</a>";
+        }
+    };
+    Venue.paintInstrumentTerms();
+
+    put("iss-name", name == null ? "Unavailable" : String(name));
+    put("iss-symbol", symbol == null ? "Unavailable" : String(symbol));
     const issAddr = $("iss-addr");
     if (issAddr) {
         issAddr.innerHTML = '<a href="' + esc(explorerAddr(CLIENT.addresses.token)) +
