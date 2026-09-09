@@ -1,6 +1,7 @@
 {
   "artifactHashes": {
     "boundaryCorpus": "sha256:6bf8832c22e02681ca110ba48a9640caa9587e94fa571a922221f13c5ba1e68c",
+    "floatCorrespondence": "sha256:93f0abb329220f8d8a82c511327fb47ac85b296ef52782d4e027d3e3c3e438fc",
     "floatParametersNotExported": "sha256:c163f3a62f33a797eda2120259bc3daaa6b44417ead756246b8d7d6e5cc9eaa0",
     "modelOnnx": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
     "trainingConfig": "sha256:a2d18e4bab2ac53cee5f4b5c4d11abff38d1739ca03139bbe295eda51cad5c99",
@@ -124,6 +125,12 @@
       },
       "sampleCount": 3000
     }
+  },
+  "floatCorrespondence": {
+    "boundaryCaseCount": 51,
+    "heldOutFloatDecisionSha256": "sha256:3b5e140323d084f37e8c2bdc312e0cf8a775f18838a0108f09a048201af12aeb",
+    "path": "float-correspondence.json",
+    "source": "Actual in-memory trained float parameters before parameter quantization"
   },
   "graphValidation": {
     "boundContextIdentityCaseCount": 3051,
