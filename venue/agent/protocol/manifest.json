@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "lattice.agent.protocol-binding.v1",
+  "network": {
+    "name": "hedera-testnet",
+    "chainId": "296",
+    "rpc": "https://testnet.hashio.io/api",
+    "mirror": "https://testnet.mirrornode.hedera.com"
+  },
+  "deployment": {
+    "file": "../../deployments/client.json",
+    "sha256": "sha256:bfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b"
+  },
+  "contracts": {
+    "MatchingEngine": {
+      "address": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+      "runtimeCodeKeccak256": "0x0bbb8a0b0d640f6ff4a9a0d2b23c277fea44d864d8b54451ae778d6e955262ff",
+      "abi": {
+        "file": "../../deployments/abi/MatchingEngine.json",
+        "sha256": "sha256:24848661b50a3eb1aa3a38dd20729c29e8afba7b2d5203e6a9ea6c2a956426b1"
+      },
+      "requiredFunctions": [
+        "commit(bytes32)",
+        "reveal(uint8,uint128,uint128,bytes32,uint256)",
+        "cancel(bytes32)",
+        "expire(bytes32)",
+        "withdraw()",
+        "commitments(bytes32)",
+        "orders(bytes32)",
+        "backingOf(bytes32)",
+        "credit(address)",
+        "currentRound()",
+        "roundEnd(uint64)",
+        "quote(uint64)",
+        "eligibleIn(bytes32,uint64)"
+      ]
+    },
+    "token": {
+      "address": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2",
+      "runtimeCodeKeccak256": "0x6b1112b5a03efe29e5b2284f93c63c1881fb3e866e5db2f6065c6d4623124c85",
+      "abi": {
+        "file": "../../deployments/abi/IAtsToken.json",
+        "sha256": "sha256:fa5b1d443291d291a6e2e4bc51d17c0309853c98be7e792f1793d94c0b2b1d7e"
+      },
+      "requiredFunctions": [
+        "balanceOfByPartition(bytes32,address)",
+        "compliance()",
+        "isExternalKycList(address)"
+      ]
+    },
+    "ZkKycRegistry": {
+      "address": "0xaa25f5cdcc905a6386a623ee37d3c57d29fa976a",
+      "abi": {
+        "file": "../../deployments/abi/ZkKycRegistry.json",
+        "sha256": "sha256:692177e45cbb0c236e2c698a419d62b6bc0f63475e64ad242adbb94cd9c3ab0e"
+      }
+    },
+    "SeamJournal": {
+      "address": "0x0d5badf7a535c2cdd2d21068e9273903583d3ec9",
+      "abi": {
+        "file": "../../deployments/abi/SeamJournal.json",
+        "sha256": "sha256:820ded6d567483496653e8b327f9eef43c502b01a462c854b73c4ce06d26dab9"
+      }
+    },
+    "TradingHalt": {
+      "address": "0x79ed68512cd554f3ef33a3ecd57aee643f916177",
+      "abi": {
+        "file": "../../deployments/abi/TradingHalt.json",
+        "sha256": "sha256:dc897d12053ec1f18e5ae0e4612d0ede6bde78904a9f5eca11f5f05eca764af5"
+      }
+    },
+    "ParameterRoot": {
+      "address": "0xd2ca252da75d7dfa4784f05e040cc6089e4747e6",
+      "abi": {
+        "file": "../../deployments/abi/ParameterRoot.json",
+        "sha256": "sha256:89668e866683c4738944d99851182450febf97444a12ee48b0c393d6eefb32c7"
+      }
+    }
+  },
+  "immutables": {
+    "commitBondTinybar": "1000000",
+    "cancelFeeTinybar": "100000",
+    "revealDelaySeconds": "30",
+    "revealWindowSeconds": "270",
+    "roundLengthSeconds": "300",
+    "restRounds": "2",
+    "partition": "0x0000000000000000000000000000000000000000000000000000000000000001"
+  },
+  "scope": {
+    "agentSide": "BUY",
+    "methods": [
+      "commit",
+      "reveal",
+      "cancel",
+      "expire",
+      "withdraw"
+    ],
+    "hcsPolicy": "No proof package, private witness, reveal salt, or unrevealed ticket is submitted to HCS."
+  }
+}

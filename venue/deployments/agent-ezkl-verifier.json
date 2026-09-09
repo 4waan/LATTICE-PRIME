@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "lattice.agent.ezkl-evm-verifier-evidence.v1",
+  "status": "passed",
+  "checkedAt": "2026-09-09T04:22:26.739Z",
+  "chainId": "296",
+  "verifier": {
+    "address": "0x9f035f847a0840e8d6ccdf7ab31c15cbd04cd9dc",
+    "deploymentTransaction": "0xbaa76a501b081b0d4ea52b96da1f2cf2bb712ea77cafdd088ac00c150ed4dea5",
+    "runtimeCodeKeccak256": "0xfb9b65ddf5f39fcfb741c18b4d26356d821a3feb17372bf455bc49b5f8347e9e",
+    "runtimeBytes": 10027,
+    "deploymentGasUsed": "2221164"
+  },
+  "proof": {
+    "hash": "sha256:8f7ba1f5e7ae1845978cb924e4cba467221ad13ac50c97a4fb3199afe344ec25",
+    "calldataHash": "sha256:0150578651d946bc4cdfb45e52a92a19cab36179b0788d12628dee46b03f0f77",
+    "calldataBytes": 9156,
+    "validEthCallAccepted": true,
+    "alteredProofRefused": true,
+    "verificationTransaction": "0xab8c3eb3c06d20bc12d62d835f3004e85f1d72dfe1d1cd37ab4e6442a3a28918",
+    "estimatedGas": "767825",
+    "gasUsed": "712013"
+  },
+  "role": "Optional evidence sidecar. MatchingEngine does not call this verifier and does not depend on it for authorization, matching, or settlement.",
+  "scope": "This deployment probe used the released synthetic proof bundle. Per-order post-reveal publication remains disabled until a revealed order proof is retained and explicitly selected for publication."
+}

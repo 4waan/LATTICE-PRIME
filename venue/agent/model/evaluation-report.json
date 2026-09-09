@@ -1,0 +1,194 @@
+{
+  "artifactHashes": {
+    "boundaryCorpus": "sha256:6bf8832c22e02681ca110ba48a9640caa9587e94fa571a922221f13c5ba1e68c",
+    "floatCorrespondence": "sha256:93f0abb329220f8d8a82c511327fb47ac85b296ef52782d4e027d3e3c3e438fc",
+    "floatParametersNotExported": "sha256:c163f3a62f33a797eda2120259bc3daaa6b44417ead756246b8d7d6e5cc9eaa0",
+    "modelOnnx": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
+    "trainingConfig": "sha256:a2d18e4bab2ac53cee5f4b5c4d11abff38d1739ca03139bbe295eda51cad5c99",
+    "weights": "sha256:5bd29c9515e7428832e354d0b865d5209d48f2b47763027edbf19d6ba2ffa18e"
+  },
+  "claim": "Metrics measure synthetic decision consistency only; they do not measure profitability or validated financial prediction.",
+  "dataset": {
+    "generatedDatasetSha256": "sha256:fd3fac25943ee180cdd2b9f93ce9a4fab05bdf94c5fc9f00e2627ac2e3af41f8",
+    "randomTrainingMarginScoreUnits": 512,
+    "savedFullDataset": false,
+    "seed": 20260909,
+    "splitClassBalance": {
+      "test": {
+        "EXECUTE": 1500,
+        "WAIT": 1500
+      },
+      "train": {
+        "EXECUTE": 6000,
+        "WAIT": 6000
+      },
+      "validation": {
+        "EXECUTE": 1500,
+        "WAIT": 1500
+      }
+    },
+    "splitCounts": {
+      "test": 3000,
+      "train": 12000,
+      "validation": 3000
+    }
+  },
+  "dependencies": {
+    "numpy": "2.5.3",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.29.0",
+    "python": "3.12.3",
+    "pytorch": "2.14.0+cu130"
+  },
+  "evaluations": {
+    "boundary": {
+      "classBalance": {
+        "EXECUTE": 21,
+        "WAIT": 30,
+        "executeFraction": 0.411764705882,
+        "waitFraction": 0.588235294118
+      },
+      "float": {
+        "accuracyAgainstSyntheticRule": 1.0,
+        "confusion": {
+          "trueEXECUTE_predEXECUTE": 21,
+          "trueEXECUTE_predWAIT": 0,
+          "trueWAIT_predEXECUTE": 0,
+          "trueWAIT_predWAIT": 30
+        }
+      },
+      "floatVersusQuantizedDisagreementCount": 0,
+      "quantized": {
+        "accuracyAgainstSyntheticRule": 1.0,
+        "confusion": {
+          "trueEXECUTE_predEXECUTE": 21,
+          "trueEXECUTE_predWAIT": 0,
+          "trueWAIT_predEXECUTE": 0,
+          "trueWAIT_predWAIT": 30
+        }
+      },
+      "sampleCount": 51
+    },
+    "test": {
+      "classBalance": {
+        "EXECUTE": 1500,
+        "WAIT": 1500,
+        "executeFraction": 0.5,
+        "waitFraction": 0.5
+      },
+      "float": {
+        "accuracyAgainstSyntheticRule": 1.0,
+        "confusion": {
+          "trueEXECUTE_predEXECUTE": 1500,
+          "trueEXECUTE_predWAIT": 0,
+          "trueWAIT_predEXECUTE": 0,
+          "trueWAIT_predWAIT": 1500
+        }
+      },
+      "floatVersusQuantizedDisagreementCount": 0,
+      "quantized": {
+        "accuracyAgainstSyntheticRule": 1.0,
+        "confusion": {
+          "trueEXECUTE_predEXECUTE": 1500,
+          "trueEXECUTE_predWAIT": 0,
+          "trueWAIT_predEXECUTE": 0,
+          "trueWAIT_predWAIT": 1500
+        }
+      },
+      "sampleCount": 3000
+    },
+    "validation": {
+      "classBalance": {
+        "EXECUTE": 1500,
+        "WAIT": 1500,
+        "executeFraction": 0.5,
+        "waitFraction": 0.5
+      },
+      "float": {
+        "accuracyAgainstSyntheticRule": 1.0,
+        "confusion": {
+          "trueEXECUTE_predEXECUTE": 1500,
+          "trueEXECUTE_predWAIT": 0,
+          "trueWAIT_predEXECUTE": 0,
+          "trueWAIT_predWAIT": 1500
+        }
+      },
+      "floatVersusQuantizedDisagreementCount": 0,
+      "quantized": {
+        "accuracyAgainstSyntheticRule": 1.0,
+        "confusion": {
+          "trueEXECUTE_predEXECUTE": 1500,
+          "trueEXECUTE_predWAIT": 0,
+          "trueWAIT_predEXECUTE": 0,
+          "trueWAIT_predWAIT": 1500
+        }
+      },
+      "sampleCount": 3000
+    }
+  },
+  "floatCorrespondence": {
+    "boundaryCaseCount": 51,
+    "heldOutFloatDecisionSha256": "sha256:3b5e140323d084f37e8c2bdc312e0cf8a775f18838a0108f09a048201af12aeb",
+    "path": "float-correspondence.json",
+    "source": "Actual in-memory trained float parameters before parameter quantization"
+  },
+  "graphValidation": {
+    "boundContextIdentityCaseCount": 3051,
+    "checkerFullCheck": "passed",
+    "customOperators": false,
+    "decisionComparison": "EXECUTE strictly greater than WAIT",
+    "decisionInputLimbs": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "numpyVersusOnnxDecisionMismatchCount": 0,
+    "opset": 17,
+    "outputNames": [
+      "decision",
+      "bound_context"
+    ],
+    "runtimeCaseCount": 3051
+  },
+  "labelRuleId": "lattice.synthetic-decision-rule.v1",
+  "limitations": [
+    "All examples and labels are synthetic; no investor, account, wallet, credential, witness, or production data was used.",
+    "Accuracy is agreement with the versioned synthetic rule, not evidence of profitability, market quality, or validated financial prediction.",
+    "The four market features are bounded inputs; this training run does not authenticate their eventual source or freshness.",
+    "Preference categories are coarse approved inputs, but an externally visible decision or its timing may still reveal information about a category.",
+    "No EZKL proving, formal-check update, runtime integration, signer action, hosted model API, or live-chain action was performed in this cloud run.",
+    "The committed artifact remains disabled for live trading until local proof, formal, integration, and policy gates are updated and pass."
+  ],
+  "modelVersion": "lattice.agent.synthetic-decision-model.v1",
+  "quantization": {
+    "float32DyadicValuesExact": true,
+    "scale": 256,
+    "scaleTrials": [
+      {
+        "disagreementCounts": {
+          "boundary": 0,
+          "test": 0,
+          "validation": 0
+        },
+        "passed": true,
+        "scale": 256
+      }
+    ],
+    "schemeVersion": "lattice.dyadic-parameter-quantization.v1",
+    "totalFloatVersusQuantizedDisagreementCount": 0
+  },
+  "schemaVersion": "lattice.agent.synthetic-evaluation.v1",
+  "training": {
+    "device": "cpu",
+    "firstStageRank": 7,
+    "fitMethod": "torch.linalg.lstsq",
+    "maxAbsOutputResidual": 3.907985046680551e-14,
+    "maxAbsProjectionResidual": 2.4868995751603507e-14,
+    "numericalZeroThreshold": 1e-12,
+    "outputStageRank": 3,
+    "targetScale": 256
+  }
+}
