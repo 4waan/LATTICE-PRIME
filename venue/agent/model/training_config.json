@@ -1,0 +1,152 @@
+{
+  "architecture": {
+    "activation": "ReLU",
+    "contextInputShape": [
+      1,
+      173
+    ],
+    "decisionInputLimbs": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "hiddenUnits": 8,
+    "inputFeatures": 6,
+    "logits": [
+      "WAIT",
+      "EXECUTE"
+    ],
+    "opset": 17,
+    "tieRule": "WAIT"
+  },
+  "boundaryCorpus": {
+    "ruleScoreNeighborhood": [
+      -513,
+      -512,
+      -1,
+      0,
+      1,
+      512,
+      513
+    ],
+    "schemaVersion": "lattice.agent.synthetic-boundary-corpus.v1"
+  },
+  "dataset": {
+    "generator": "numpy.random.Generator(PCG64)",
+    "marginPolicy": "Random training, validation, and test pairs are retained only when abs(ruleScore) > 512. Boundary cases are evaluated separately.",
+    "pairing": "Each accepted generated scenario is paired with its exact reflection around all feature midpoints, producing the opposite rule score and exact class balance.",
+    "sampleCount": 18000,
+    "seed": 20260909,
+    "split": {
+      "method": "Pair-preserving deterministic shuffle, followed by disjoint slicing.",
+      "test": 3000,
+      "train": 12000,
+      "validation": 3000
+    },
+    "trainingMarginScoreUnits": 512
+  },
+  "features": [
+    {
+      "defaultModeValue": null,
+      "index": 0,
+      "maximum": 2000,
+      "minimum": 0,
+      "name": "limitRoomBps",
+      "provenance": "Bounded public market/ticket feature: distance inside the user-approved limit."
+    },
+    {
+      "defaultModeValue": null,
+      "index": 1,
+      "maximum": 2000,
+      "minimum": 0,
+      "name": "recentMoveOffsetBps",
+      "provenance": "Bounded public market feature: recent public price movement offset by 1000."
+    },
+    {
+      "defaultModeValue": null,
+      "index": 2,
+      "maximum": 10000,
+      "minimum": 0,
+      "name": "roundProgressBps",
+      "provenance": "Bounded public market feature: progress through the public round."
+    },
+    {
+      "defaultModeValue": null,
+      "index": 3,
+      "maximum": 300,
+      "minimum": 0,
+      "name": "freshnessSeconds",
+      "provenance": "Bounded public market feature: age of the public snapshot."
+    },
+    {
+      "defaultModeValue": 1,
+      "index": 4,
+      "maximum": 2,
+      "minimum": 0,
+      "name": "bufferCategory",
+      "provenance": "Approved coarse preference category; exact buffer values are never training inputs."
+    },
+    {
+      "defaultModeValue": 1,
+      "index": 5,
+      "maximum": 2,
+      "minimum": 0,
+      "name": "horizonCategory",
+      "provenance": "Approved coarse preference category; exact horizon values are never training inputs."
+    }
+  ],
+  "labelRule": {
+    "centers": [
+      1000,
+      1000,
+      5000,
+      150,
+      1,
+      1
+    ],
+    "coefficients": [
+      6,
+      4,
+      1,
+      -16,
+      1000,
+      700
+    ],
+    "decision": "EXECUTE when ruleScore > 0; WAIT when ruleScore <= 0.",
+    "expression": "6*(limitRoomBps-1000) + 4*(recentMoveOffsetBps-1000) + (roundProgressBps-5000) - 16*(freshnessSeconds-150) + 1000*(bufferCategory-1) + 700*(horizonCategory-1)",
+    "id": "lattice.synthetic-decision-rule.v1",
+    "maximumRuleScore": 19100,
+    "minimumRuleScore": -19100,
+    "purpose": "Synthetic decision-consistency supervision only. It is not a profitability target or a validated financial prediction.",
+    "version": 1
+  },
+  "modelVersion": "lattice.agent.synthetic-decision-model.v1",
+  "quantization": {
+    "candidateDyadicScales": [
+      256,
+      1024,
+      4096,
+      16384,
+      65536,
+      262144,
+      1048576
+    ],
+    "integerRounding": "round-to-nearest, ties-to-even using numpy.rint",
+    "requireFloat32ExactDyadicValues": true,
+    "requiredFloatVersusQuantizedDisagreements": 0,
+    "schemeVersion": "lattice.dyadic-parameter-quantization.v1"
+  },
+  "schemaVersion": "lattice.agent.synthetic-training-config.v1",
+  "training": {
+    "device": "cpu",
+    "dtype": "float64",
+    "method": "Two deterministic torch.linalg.lstsq fits: normalized features to signed rule score, then eight ReLU activations to two class logits.",
+    "normalization": "Feature midpoint and half-range from the declared bounded domains; folded into the first learned layer before export.",
+    "numericalZeroThreshold": 1e-12,
+    "pytorchDeterministicAlgorithms": true,
+    "threads": 1
+  }
+}

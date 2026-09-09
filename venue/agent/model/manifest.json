@@ -1,32 +1,82 @@
 {
-  "schemaVersion": "lattice.agent.model-source.v1",
-  "modelVersion": "lattice.agent.proof-spike-model.v1",
-  "releaseStatus": "proof-spike-only",
-  "liveTradingEnabled": false,
-  "claim": "Demonstrates exact proof context binding. It is not a profitability or financial-risk model.",
-  "input": {
-    "shape": [1, 173],
-    "features": [
-      "limitRoomBps",
-      "recentMoveOffsetBps",
-      "roundProgressBps",
-      "freshnessSeconds",
-      "bufferCategory",
-      "horizonCategory"
-    ],
-    "remainingValues": "The ordered context limbs in ../proof/instances.json"
+  "artifacts": {
+    "boundaryCorpus": {
+      "path": "boundary-corpus.json",
+      "sha256": "sha256:6bf8832c22e02681ca110ba48a9640caa9587e94fa571a922221f13c5ba1e68c"
+    },
+    "evaluationReport": {
+      "path": "evaluation-report.json",
+      "sha256": "sha256:867e3d5858bc1a7af9fb07413e4d441d9be145193b604dc97dc5e5305cafc6b2"
+    },
+    "network": {
+      "opset": 17,
+      "path": "network.onnx",
+      "sha256": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503"
+    },
+    "trainingConfig": {
+      "path": "training_config.json",
+      "sha256": "sha256:a2d18e4bab2ac53cee5f4b5c4d11abff38d1739ca03139bbe295eda51cad5c99"
+    },
+    "weights": {
+      "path": "weights.json",
+      "sha256": "sha256:5bd29c9515e7428832e354d0b865d5209d48f2b47763027edbf19d6ba2ffa18e"
+    }
   },
+  "claim": "Metrics measure synthetic decision consistency only; they do not measure profitability or validated financial prediction.",
   "graph": {
-    "opset": 17,
-    "allowedOperators": ["Gather", "MatMul", "Add", "Relu", "Greater", "Identity"],
+    "activation": "ReLU",
+    "allowedOperators": [
+      "Add",
+      "Gather",
+      "Greater",
+      "Identity",
+      "MatMul",
+      "Relu"
+    ],
+    "contextInputShape": [
+      1,
+      173
+    ],
+    "decisionInputLimbs": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "hiddenUnits": 8,
-    "outputs": ["decision", "bound_context"],
-    "tieRule": "WAIT",
-    "parameterVisibility": "fixed"
+    "logits": [
+      "WAIT",
+      "EXECUTE"
+    ],
+    "outputs": [
+      "decision",
+      "bound_context"
+    ],
+    "parameterVisibility": "fixed",
+    "tieRule": "WAIT"
   },
+  "liveTradingEnabled": false,
+  "modelVersion": "lattice.agent.synthetic-decision-model.v1",
+  "quantization": {
+    "floatVersusQuantizedDisagreementCount": 0,
+    "scale": 256,
+    "schemeVersion": "lattice.dyadic-parameter-quantization.v1"
+  },
+  "releaseStatus": "trained-model-candidate-local-verification-required",
+  "schemaVersion": "lattice.agent.model-source.v2",
   "training": {
-    "trained": false,
-    "provenance": "Hand-fixed deterministic weights for the dependency and context-binding spike.",
-    "nextGate": "Replace with the seeded synthetic training recipe and boundary evaluation before Phase 1 exit."
+    "dataset": "generated in memory and not committed",
+    "dependencies": {
+      "numpy": "2.5.3",
+      "onnx": "1.22.0",
+      "onnxruntime": "1.29.0",
+      "python": "3.12.3",
+      "pytorch": "2.14.0+cu130"
+    },
+    "labelRuleId": "lattice.synthetic-decision-rule.v1",
+    "sampleCount": 18000,
+    "seed": 20260909
   }
 }
