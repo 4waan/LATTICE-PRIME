@@ -1,11 +1,12 @@
 // The one file a frontend loads. Generated, never hand written, because the
 // failure mode this defends against is an address book that drifted.
 //
-// `deployments/abi/` already carries the shapes, exported out of `out/` by
-// `script/live/export-abis.sh`, so a client cannot bind to an interface the
-// chain does not have. It does not carry the addresses, the immutables, or a way
-// to turn a revert back into a sentence, and each of those is a place where a
-// client can hold a stale number and render a screen that lies.
+// `deployments/abi/` carries shapes pinned to the deployment records. It moves
+// only through the acknowledged post-deployment `make client` path, so a local
+// source build cannot silently pair a future interface with an older address.
+// It does not carry the addresses, the immutables, or a way to turn a revert
+// back into a sentence, and each of those is a place where a client can hold a
+// stale number and render a screen that lies.
 //
 // This writes `deployments/client.json`, which holds four things:
 //
