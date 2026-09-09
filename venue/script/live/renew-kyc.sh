@@ -51,11 +51,19 @@ set -a; . "$ROOT/.env"; set +a
 _clientAddress() {
     python3 -c 'import json,sys; print(json.load(open("deployments/client.json"))["addresses"][sys.argv[1]])' "$1"
 }
-REGISTRATION_GATE="${REGISTRATION_GATE:-$(_clientAddress RegistrationGate)}"
 ZK_KYC_REGISTRY="${ZK_KYC_REGISTRY:-$(_clientAddress ZkKycRegistry)}"
-: "${REGISTRATION_GATE:?set REGISTRATION_GATE}"
 : "${ZK_KYC_REGISTRY:?set ZK_KYC_REGISTRY}"
 RPC="$HEDERA_TESTNET_RPC"
+
+# The gate is whatever the registry says it is, not whatever client.json last
+# recorded. After `proposeGate` and `adoptGate` (script/DeployGate.s.sol) the
+# two differ until `make client` is rerun, and registering through the old gate
+# is a spent transaction that grants nothing: `grant` checks `msg.sender == gate`.
+REGISTRATION_GATE="${REGISTRATION_GATE:-$(cast call "$ZK_KYC_REGISTRY" "gate()(address)" --rpc-url "$HEDERA_TESTNET_RPC")}"
+: "${REGISTRATION_GATE:?set REGISTRATION_GATE}"
+if [ "$(echo "$REGISTRATION_GATE" | tr 'A-Z' 'a-z')" != "$(_clientAddress RegistrationGate | tr 'A-Z' 'a-z')" ]; then
+    echo "note: live gate $REGISTRATION_GATE differs from client.json; regenerate with DEPLOY_BOUND=1 make client" >&2
+fi
 
 cmd="${1:-status}"
 epoch="${2:-}"
@@ -70,6 +78,26 @@ _currentEpoch() {
     cast call "$ZK_KYC_REGISTRY" "currentEpoch()(uint64)" --rpc-url "$RPC" | _num
 }
 
+# Which issuer tree the live gate publishes: "wide" (one credential per
+# synthetic participant, the second gate) or "narrow" (the four-leaf fixture
+# tree, the first gate). Decided by comparing a root the gate has actually
+# published, so the prover and the gate cannot disagree about which tree a
+# proof must be made against.
+_gateTree() {
+    local now e r
+    now=$(_currentEpoch)
+    for e in "$now" $(( now + 1 )) $(( now - 1 )); do
+        r=$(cast call "$REGISTRATION_GATE" "rootForEpoch(uint64)(uint256)" "$e" --rpc-url "$RPC" | _num)
+        [ "$r" = "0" ] && continue
+        [ "$r" = "$(_issuerRoot "$e" wide)" ] && { echo wide; return; }
+        [ "$r" = "$(_issuerRoot "$e")" ] && { echo narrow; return; }
+        echo "the gate's root for epoch $e matches neither issuer tree: $r" >&2
+        exit 1
+    done
+    echo "the gate has published no root around epoch $now" >&2
+    exit 1
+}
+
 _epochEnd() { # <epoch>
     local zero len
     zero=$(cast call "$ZK_KYC_REGISTRY" "epochZero()(uint64)" --rpc-url "$RPC" | _num)
@@ -79,14 +107,14 @@ _epochEnd() { # <epoch>
 
 # The root the issuer's tree produces, computed here rather than copied, so this
 # script and the prover cannot publish two different trees.
-_issuerRoot() {
+_issuerRoot() { # <epoch> [wide]
     . "$HOME/.nvm/nvm.sh" >/dev/null && nvm use 22.21.1 >/dev/null
     node -e '
       import("./circuits/tree.mjs").then(async (m) => {
-        const t = await m.buildTree(process.argv[1]);
+        const t = await m.buildTree(process.argv[1], {wide: process.argv[2] === "wide"});
         console.log(t.root.toString());
       });
-    ' "${1:-7}"
+    ' "${1:-7}" "${2:-narrow}"
 }
 
 case "$cmd" in
@@ -98,6 +126,12 @@ status)
     echo "kyc epoch        $now"
     echo "ends at          $ends  ($(date -u -r "$ends" '+%Y-%m-%d %H:%M:%S UTC'))"
     printf 'time remaining   %dd %02dh %02dm\n' $((left/86400)) $((left%86400/3600)) $((left%3600/60))
+    echo "gate             $REGISTRATION_GATE  ($(_gateTree) tree)"
+    pending=$(cast call "$ZK_KYC_REGISTRY" "pendingGate()(address)" --rpc-url "$RPC")
+    if [ "$pending" != "0x0000000000000000000000000000000000000000" ]; then
+        echo "pending gate     $pending  adoptable from epoch $(cast call "$ZK_KYC_REGISTRY" "pendingGateEpoch()(uint64)" --rpc-url "$RPC" | _num)"
+        echo "                 (the pending gate's own roots are what matter after adoption; check them there)"
+    fi
     for e in "$now" $(( now + 1 )) $(( now + 2 )); do
         r=$(cast call "$REGISTRATION_GATE" "rootForEpoch(uint64)(uint256)" "$e" --rpc-url "$RPC" | _num)
         if [ "$r" = "0" ]; then
@@ -118,8 +152,9 @@ print(' '.join(d['actors']['registrations'].keys()))
 prepare)
     : "${epoch:?usage: renew-kyc.sh prepare <epoch>}"
     existing=$(cast call "$REGISTRATION_GATE" "rootForEpoch(uint64)(uint256)" "$epoch" --rpc-url "$RPC" | _num)
-    root=$(_issuerRoot "$epoch")
-    echo "issuer root for epoch $epoch  $root"
+    tree=$(_gateTree)
+    root=$(_issuerRoot "$epoch" "$tree")
+    echo "issuer root for epoch $epoch ($tree tree)  $root"
     if [ "$existing" != "0" ]; then
         # Write once per epoch, by design: a root that could be replaced mid
         # epoch would let the issuer revoke inside one, which contradicts the
@@ -145,15 +180,28 @@ renew)
         echo "current epoch, so a proof for $epoch is refused EpochMismatch until then." >&2
         exit 1
     }
-    PROOFS="deployments/proofs-live-epoch${epoch}.json"
-    [ -f "$PROOFS" ] || PROOFS="deployments/proofs-live.json"
-    [ -f "$PROOFS" ] || {
-        echo "no proofs for epoch $epoch. run:" >&2
-        echo "  make prove-live-epoch EPOCH=$epoch ADDRS=\"0x... 0x...\"" >&2
-        exit 1
-    }
-    echo "proofs from $PROOFS"
-    PROOFS="$PROOFS" exec bash script/live/register.sh
+    # A proof is bound to a root as well as an epoch, so the file must match
+    # the tree the live gate published, not merely the epoch.
+    tree=$(_gateTree)
+    if [ "$tree" = "wide" ]; then
+        PROOFS="deployments/proofs-live-epoch${epoch}-wide.json"
+        [ -f "$PROOFS" ] || {
+            echo "no wide-tree proofs for epoch $epoch. run:" >&2
+            echo "  node circuits/prove-live.mjs --epoch $epoch --wide --cred valid 0x... 0x..." >&2
+            exit 1
+        }
+    else
+        PROOFS="deployments/proofs-live-epoch${epoch}.json"
+        [ -f "$PROOFS" ] || PROOFS="deployments/proofs-live.json"
+        [ -f "$PROOFS" ] || {
+            echo "no proofs for epoch $epoch. run:" >&2
+            echo "  make prove-live-epoch EPOCH=$epoch ADDRS=\"0x... 0x...\"" >&2
+            exit 1
+        }
+    fi
+    echo "proofs from $PROOFS  (gate $REGISTRATION_GATE, $tree tree)"
+    PROOFS="$PROOFS" REGISTRATION_GATE="$REGISTRATION_GATE" ZK_KYC_REGISTRY="$ZK_KYC_REGISTRY" \
+        exec bash script/live/register.sh
     ;;
 
 *)

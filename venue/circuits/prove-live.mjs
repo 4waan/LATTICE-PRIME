@@ -27,9 +27,17 @@
 // on chain refuses that; `register` simply refuses the proof until the epoch it
 // names is the current one, which is the same check that makes it safe to hold.
 //
-// Usage: node circuits/prove-live.mjs [--epoch N] 0xADDRESS [0xADDRESS...]
+// Usage: node circuits/prove-live.mjs [--epoch N] [--wide] [--cred NAME] 0xADDRESS [0xADDRESS...]
 //        writes deployments/proofs-live.json, or proofs-live-epoch<N>.json for
-//        an epoch other than the tree's default
+//        an epoch other than the tree's default, with `-wide` in the name when
+//        proving against the wide tree
+//
+// `--wide` proves against the twelve-leaf tree (`tree.mjs` `botCreds`), the
+// root the second RegistrationGate publishes. `--cred NAME` picks the credential
+// for every address that follows it (default `valid`), so one command can give
+// each bot its own credential and therefore its own nullifier:
+//   prove-live.mjs --epoch 8 --wide --cred bot_1 0xA --cred bot_2 0xB --cred valid 0xC
+// proves 0xA under bot_1, 0xB under bot_2, and 0xC under the shared credential.
 import {execFileSync} from "child_process";
 import {writeFileSync, mkdirSync, readFileSync, existsSync} from "fs";
 import {buildTree, EPOCH as DEFAULT_EPOCH} from "./tree.mjs";
@@ -39,41 +47,54 @@ const WORK = "circuits/build/live";
 
 const argv = process.argv.slice(2);
 let epoch = DEFAULT_EPOCH;
-const addrs = [];
+let wide = false;
+let cred = "valid";
+const jobs = []; // {addr, cred}
 for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--epoch") {
         epoch = BigInt(argv[++i]);
         continue;
     }
-    addrs.push(argv[i]);
+    if (argv[i] === "--wide") {
+        wide = true;
+        continue;
+    }
+    if (argv[i] === "--cred") {
+        cred = argv[++i];
+        continue;
+    }
+    jobs.push({addr: argv[i], cred});
 }
-if (addrs.length === 0) {
-    console.error("usage: node circuits/prove-live.mjs [--epoch N] 0xADDRESS [0xADDRESS...]");
+if (jobs.length === 0) {
+    console.error("usage: node circuits/prove-live.mjs [--epoch N] [--wide] [--cred NAME] 0xADDRESS [0xADDRESS...]");
     process.exit(1);
 }
-for (const a of addrs) {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(a)) throw new Error(`not an address: ${a}`);
+for (const {addr} of jobs) {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error(`not an address: ${addr}`);
 }
 
-const {root, inputFor} = await buildTree(epoch);
+const {root, inputFor} = await buildTree(epoch, {wide});
 mkdirSync(WORK, {recursive: true});
 
 // A separate file per epoch, because a proof file is only good for the epoch it
 // names and overwriting the current one with next epoch's would take the venue
 // down rather than protect it. The default epoch keeps the original name so
-// `script/live/register.sh` is unchanged.
-const FILE = epoch === DEFAULT_EPOCH
-    ? "deployments/proofs-live.json"
-    : `deployments/proofs-live-epoch${epoch}.json`;
+// `script/live/register.sh` is unchanged. Wide-tree proofs get their own file
+// too: they verify only on a gate that published the wide root.
+const FILE = wide
+    ? `deployments/proofs-live-epoch${epoch}-wide.json`
+    : epoch === DEFAULT_EPOCH
+        ? "deployments/proofs-live.json"
+        : `deployments/proofs-live-epoch${epoch}.json`;
 
 const out = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : {};
 
-for (const addr of addrs) {
+for (const {addr, cred: credName} of jobs) {
     const key = addr.toLowerCase();
-    const tag = key.slice(2, 10);
+    const tag = key.slice(2, 10) + (wide ? "_w" : "");
     const inf = `live/in_${tag}_e${epoch}.json`;
     writeFileSync(`circuits/build/${inf}`,
-        JSON.stringify(inputFor("valid", BigInt(addr)), null, 1));
+        JSON.stringify(inputFor(credName, BigInt(addr)), null, 1));
 
     const w = `live/w_${tag}_e${epoch}.wtns`;
     const pf = `live/p_${tag}_e${epoch}.json`;
@@ -102,12 +123,12 @@ for (const addr of addrs) {
     if (BigInt(pub[3]) !== epoch) throw new Error(`${addr}: epoch=${BigInt(pub[3])}, want ${epoch}`);
     if (BigInt(pub[4]) !== BigInt(addr)) throw new Error(`${addr}: registrant not pinned`);
 
-    out[key] = {address: addr, epoch: epoch.toString(), proof, pub};
-    console.log(`${addr}  verified  epoch=${epoch}  nullifier=${BigInt(pub[0])}`);
+    out[key] = {address: addr, epoch: epoch.toString(), cred: credName, wide, proof, pub};
+    console.log(`${addr}  verified  epoch=${epoch}  cred=${credName}  nullifier=${BigInt(pub[0])}`);
 }
 
 mkdirSync("deployments", {recursive: true});
 writeFileSync(FILE, JSON.stringify(out, null, 1));
 console.log(`wrote ${FILE}  (${Object.keys(out).length} addresses)`);
-console.log("issuer root  ", root.toString());
+console.log(`issuer root (${wide ? "wide" : "narrow"} tree)`, root.toString());
 console.log(`the gate must hold rootForEpoch(${epoch}) == that value before any of these register`);

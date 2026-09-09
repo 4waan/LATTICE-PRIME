@@ -40,6 +40,25 @@ export const creds = {
 };
 export const names = Object.keys(creds);
 
+// Eight more passing credentials, one per synthetic participant, for the wide
+// tree the second RegistrationGate publishes. Each has its own secret, so each
+// has its own nullifier: `ZkKycRegistry.MAX_USES_PER_EPOCH` then binds per bot
+// rather than across the whole population. They are appended after the four
+// above, so the wide tree changes the root and nothing else: every fixture
+// index, and the default root, is exactly what it was.
+export const botCreds = {
+    bot_1: {credentialId: 5n,  secret: 515161718192021222324n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_2: {credentialId: 6n,  secret: 626272829303132333435n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_3: {credentialId: 7n,  secret: 737383940414243444546n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_4: {credentialId: 8n,  secret: 848495051525354555657n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_5: {credentialId: 9n,  secret: 959606162636465666768n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_6: {credentialId: 10n, secret: 106071727374757677787n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_7: {credentialId: 11n, secret: 117181828384858687888n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+    bot_8: {credentialId: 12n, secret: 128192939495969798999n, jurisdiction: 3n, tier: 4n, validUntilEpoch: 40n},
+};
+export const botNames = Object.keys(botCreds);
+export const wideNames = [...names, ...botNames];
+
 /// **The root does not depend on the epoch.** A leaf is
 /// `Poseidon(credentialId, secret, jurisdiction, tier, validUntilEpoch)` and the
 /// epoch is in none of those, so the tree the issuer published for epoch 7 is
@@ -53,7 +72,10 @@ export const names = Object.keys(creds);
 /// and last epoch's proofs cannot be replayed. And it is checked against
 /// `validUntilEpoch`, which is where a credential actually expires. The `valid`
 /// credential runs to epoch 40.
-export async function buildTree(epoch = EPOCH) {
+/// `wide` adds `botCreds` after the four fixture credentials. The default
+/// (narrow) tree is the one every committed fixture and the first gate's
+/// published root are bound to; the wide one is what the second gate publishes.
+export async function buildTree(epoch = EPOCH, {wide = false} = {}) {
     const e = BigInt(epoch);
     if (e < 0n) throw new RangeError(`epoch must not be negative: ${epoch}`);
     const poseidon = await buildPoseidon();
@@ -62,12 +84,19 @@ export async function buildTree(epoch = EPOCH) {
     const leafOf = (c) =>
         H([c.credentialId, c.secret, c.jurisdiction, c.tier, c.validUntilEpoch]);
 
+    const leafNames = wide ? wideNames : names;
+    const credOf = (name) => {
+        const c = wide ? (creds[name] ?? botCreds[name]) : creds[name];
+        if (!c) throw new RangeError(`no credential named ${name} in the ${wide ? "wide" : "narrow"} tree`);
+        return c;
+    };
+
     // Sparse Poseidon tree. Zero subtree hash per level, real nodes in a map.
     const zero = [0n];
     for (let i = 0; i < DEPTH; i++) zero.push(H([zero[i], zero[i]]));
 
     const nodes = [new Map()];
-    names.forEach((n, i) => nodes[0].set(i, leafOf(creds[n])));
+    leafNames.forEach((n, i) => nodes[0].set(i, leafOf(credOf(n))));
     for (let lvl = 0; lvl < DEPTH; lvl++) {
         const next = new Map();
         for (const idx of nodes[lvl].keys()) {
@@ -98,8 +127,8 @@ export async function buildTree(epoch = EPOCH) {
     /// One circuit input. `rootOverride` exists only for the forged-root case,
     /// where the prover honestly proves inclusion in a tree of their own.
     function inputFor(name, registrant, rootOverride) {
-        const cred = creds[name];
-        const {pathElements, pathIndices} = pathFor(names.indexOf(name));
+        const cred = credOf(name);
+        const {pathElements, pathIndices} = pathFor(leafNames.indexOf(name));
         return {
             secret: cred.secret.toString(),
             credentialId: cred.credentialId.toString(),
@@ -144,5 +173,5 @@ export async function buildTree(epoch = EPOCH) {
         };
     }
 
-    return {root, epoch: e, inputFor, forgedRootInput};
+    return {root, epoch: e, wide, names: leafNames, inputFor, forgedRootInput};
 }
