@@ -1,4 +1,4 @@
-<title>Prove · Lattice Prime</title>
+<title>Eligibility · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
@@ -35,11 +35,11 @@ document.documentElement.setAttribute("data-theme",
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
-      <a href="prove.html" aria-current="page">Prove</a>
-      <a href="trade.html">Trade</a>
-      <a href="position.html">Position</a>
-      <a href="repo.html">Repo</a>
-      <a href="venue.html">Rulebook</a>
+      <a href="trade.html">Markets</a>
+      <a href="position.html">Portfolio</a>
+      <a href="repo.html">Financing</a>
+      <a href="prove.html" aria-current="page">Eligibility</a>
+      <a href="venue.html">Issuer</a>
     </nav>
     <div class="mast-end">
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
@@ -52,20 +52,20 @@ document.documentElement.setAttribute("data-theme",
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
 <main class="wrap page">
   <ol class="flow" aria-label="Where you are in the flow">
-    <li class="here"><span aria-current="step"><b>01</b> Prove</span></li>
-    <li><a href="trade.html"><b>02</b> Trade</a></li>
-    <li><a href="position.html"><b>03</b> Position</a></li>
+    <li class="here"><span aria-current="step"><b>01</b> Eligibility</span></li>
+    <li><a href="trade.html"><b>02</b> Markets</a></li>
+    <li><a href="position.html"><b>03</b> Portfolio</a></li>
   </ol>
-  <h1>Prove</h1>
-  <p class="lede">Prove you are allowed to trade, without handing the venue a KYC file. One proof. The venue learns one thing: eligible.</p>
+  <h1>Eligibility</h1>
+  <p class="lede">This is a testnet credential. Submitting a proof is a request, not an approval. The gate decides. The venue learns one thing: eligible this KYC epoch.</p>
 
   <div class="banner" id="kyc-banner">
     <p id="kyc-copy">Connect a wallet, or load a proof to watch a live grant.</p>
@@ -75,7 +75,7 @@ document.documentElement.setAttribute("data-theme",
   <section class="panel">
     <div class="top"><h2>Eligibility</h2></div>
     <div class="body">
-      <p class="note tight">A real proof against the live gate. Connect a wallet this page already holds a proof for, and it loads. You do not need a file.</p>
+      <p class="note tight">A real proof against the live gate. This is not a compliance grant. Connect a wallet this page already holds a proof for, and it loads.</p>
       <div class="rowbtns">
         <button type="button" class="primary" id="demo-proof">Use a real eligibility proof</button>
         <button type="button" id="check">Check the gate</button>
@@ -100,10 +100,10 @@ document.documentElement.setAttribute("data-theme",
         <div class="top"><h2>Gate pins</h2><span class="src">ZkKycRegistry</span></div>
         <div class="body">
           <ul class="readout">
-            <li><span class="k">minTier</span><span class="v" id="pol-tier">—</span></li>
-            <li><span class="k">jurisdiction mask</span><span class="v" id="pol-mask">—</span></li>
-            <li><span class="k">root for epoch</span><span class="v" id="pol-root">—</span></li>
-            <li><span class="k">next root</span><span class="v hint" id="pol-next">—</span></li>
+            <li><span class="k">minTier</span><span class="v" id="pol-tier">Loading</span></li>
+            <li><span class="k">jurisdiction mask</span><span class="v" id="pol-mask">Loading</span></li>
+            <li><span class="k">root for epoch</span><span class="v" id="pol-root">Loading</span></li>
+            <li><span class="k">next root</span><span class="v hint" id="pol-next">Loading</span></li>
           </ul>
         </div>
       </section>
@@ -114,13 +114,13 @@ document.documentElement.setAttribute("data-theme",
           <p class="note tight">What the gate insists on today. Policy and the trusted
             registry sit behind proposal windows, so either can already be scheduled to change.</p>
           <ul class="readout">
-            <li><span class="k">issuer</span><span class="v" id="gv-issuer">—</span></li>
-            <li><span class="k">verifier</span><span class="v" id="gv-verifier">—</span></li>
-            <li><span class="k">pending policy</span><span class="v" id="gv-pending">—</span></li>
-            <li><span class="k">registry admin</span><span class="v" id="gv-admin">—</span></li>
-            <li><span class="k">pending gate</span><span class="v" id="gv-gate">—</span></li>
-            <li><span class="k">KYC epoch</span><span class="v" id="gv-epoch">—</span></li>
-            <li><span class="k">next root</span><span class="v" id="gv-nextroot">—</span></li>
+            <li><span class="k">issuer</span><span class="v" id="gv-issuer">Loading</span></li>
+            <li><span class="k">verifier</span><span class="v" id="gv-verifier">Loading</span></li>
+            <li><span class="k">pending policy</span><span class="v" id="gv-pending">Loading</span></li>
+            <li><span class="k">registry admin</span><span class="v" id="gv-admin">Loading</span></li>
+            <li><span class="k">pending gate</span><span class="v" id="gv-gate">Loading</span></li>
+            <li><span class="k">KYC epoch</span><span class="v" id="gv-epoch">Loading</span></li>
+            <li><span class="k">next root</span><span class="v" id="gv-nextroot">Loading</span></li>
           </ul>
         </div>
       </section>
