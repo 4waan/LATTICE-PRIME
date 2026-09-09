@@ -115,6 +115,11 @@ Venue.historyOf = async function (names, {limit = 25} = {}) {
 
 Venue.fmtLogArg = function (name, value) {
     if (value === null || value === undefined) return "Unavailable";
+    if (String(name).toLowerCase() === "side") {
+        if (asBig(value) === 0n) return "Buy";
+        if (asBig(value) === 1n) return "Sell";
+        return "Unavailable";
+    }
     if (typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value)) return shortAddr(value);
     if (typeof value === "string" && value.length > 26) return shortId(value);
     if (typeof value === "bigint" || typeof value === "number") {
@@ -879,7 +884,7 @@ Venue.doFundOffer = async function () {
     const call = Venue.w.vault.fundOffer;
     await call.staticCall(draft.id, draft.borrower, draft.terms, draft.expiresAt, {value});
     const receipt = await Venue.send(
-        call(
+        () => call(
             draft.id,
             draft.borrower,
             draft.terms,
@@ -917,7 +922,7 @@ Venue.ensureVaultAllowance = async function (amount) {
     const approve = writer.approve;
     await approve.staticCall(vaultAddress, required);
     const receipt = await Venue.send(
-        approve(vaultAddress, required, {gasLimit: 350_000}),
+        () => approve(vaultAddress, required, {gasLimit: 350_000}),
         "authorize collateral",
     );
     if (!receipt) throw new Error("Collateral authorization was not confirmed.");
@@ -967,7 +972,7 @@ Venue.doAcceptOffer = async function () {
         const call = Venue.w.vault.accept;
         await call.staticCall(id);
         const receipt = await Venue.send(
-            call(id, {gasLimit: 1_500_000}),
+            () => call(id, {gasLimit: 1_500_000}),
             "accept financing",
         );
         if (!receipt) return;
@@ -988,7 +993,10 @@ Venue.doCancelOffer = async function () {
     const id = financeId();
     const call = Venue.w.vault.cancelOffer;
     await call.staticCall(id);
-    const receipt = await Venue.send(call(id, {gasLimit: 350_000}), "cancel offer");
+    const receipt = await Venue.send(
+        () => call(id, {gasLimit: 350_000}),
+        "cancel offer",
+    );
     if (!receipt) return;
     await Venue.noteReceipt(
         "offer cancelled", receipt, 14, G.PRED, T.IMM, "vault", "OfferCancelled"
@@ -1753,7 +1761,7 @@ Venue.doExpire = async function (id) {
     await Venue.requireAccount();
     Venue.tradeTxStage?.("approval", "Release rested order");
     const rec = await Venue.send(
-        Venue.w.engine.expire(id, {gasLimit: 400_000}),
+        () => Venue.w.engine.expire(id, {gasLimit: 400_000}),
         "Release rested order"
     );
     if (rec) {
@@ -1782,7 +1790,10 @@ Venue.doDisclose = async function () {
     }
     const before = await Venue.c.journal.spentBits(e);
     await Venue.requireAccount();
-    const rec = await Venue.send(Venue.w.journal.disclose(e, {gasLimit: 300_000}), "disclose");
+    const rec = await Venue.send(
+        () => Venue.w.journal.disclose(e, {gasLimit: 300_000}),
+        "disclose",
+    );
     if (!rec) return;
     const after = await Venue.c.journal.spentBits(e);
     // Decode from this receipt, never from a log query: the epoch a receipt
@@ -1935,11 +1946,11 @@ Venue.doFinanceWrite = async function (method, args, label, valueTinybar) {
         const opts = valueTinybar != null ? {value: toWeibar(asBig(valueTinybar))} : undefined;
         if (opts) {
             await call.staticCall(...args, opts);
-            const receipt = await Venue.send(call(...args, opts), label);
+            const receipt = await Venue.send(() => call(...args, opts), label);
             if (receipt) await Venue.afterFinance(method);
         } else {
             await call.staticCall(...args);
-            const receipt = await Venue.send(call(...args), label);
+            const receipt = await Venue.send(() => call(...args), label);
             if (receipt) await Venue.afterFinance(method);
         }
     } finally {
@@ -2024,7 +2035,7 @@ Venue.doRepoAction = async function (method, id, label) {
         await Venue.requireAccount();
         const call = Venue.w.vault[method];
         await call.staticCall(id);
-        const receipt = await Venue.send(call(id), label);
+        const receipt = await Venue.send(() => call(id), label);
         if (receipt) await Venue.doRepo();
     } finally {
         Venue.repoActionPending = false;

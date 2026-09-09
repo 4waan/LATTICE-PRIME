@@ -1,0 +1,5 @@
+[mcp_servers.hedera]
+url = "https://agentic-testnet-mcp.hedera.com/mcp"
+
+[mcp_servers.hedera.env_http_headers]
+x-hedera-account-id = "HEDERA_ACCOUNT_ID"

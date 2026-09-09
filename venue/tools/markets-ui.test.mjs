@@ -178,6 +178,163 @@ test("wallet stages prevent duplicate action and preserve recovery messaging", (
     assert.equal(status.className, "ok");
 });
 
+test("transaction lock is acquired before a wallet request starts", async () => {
+    let walletRequests = 0;
+    let confirm;
+    const confirmed = new Promise((resolve) => { confirm = resolve; });
+    const Venue = {
+        busy: false,
+        page: "trade",
+        toast: () => {},
+        tradeTxStage: () => {},
+        fail: (err) => ({message: err.message}),
+        paintTicket: () => {},
+    };
+    const start = runtime.indexOf("Venue.send = async function");
+    const end = runtime.indexOf("\nVenue.requireAccount = async function", start);
+    assert.ok(start >= 0 && end > start, "transaction sender should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        shortId: String,
+    });
+
+    const txFactory = async () => {
+        walletRequests++;
+        return {hash: "0x01", wait: () => confirmed};
+    };
+    const first = Venue.send(txFactory, "Reveal order");
+    const duplicate = Venue.send(txFactory, "Reveal order");
+
+    assert.equal(walletRequests, 1);
+    assert.equal(await duplicate, null);
+    confirm({status: 1});
+    assert.equal((await first).status, 1);
+    assert.equal(Venue.busy, false);
+});
+
+test("reveal action stays disabled while the order clock repaints", () => {
+    const id = "0x" + "22".repeat(32);
+    const fields = {
+        ".order-status": {className: "", textContent: ""},
+        ".order-next-copy strong": {textContent: ""},
+        ".order-next-copy span": {textContent: ""},
+        "[data-order-deadline]": {textContent: ""},
+        ".order-next-actions": {innerHTML: ""},
+        ".order-progress": null,
+    };
+    const card = {
+        className: "",
+        dataset: {id, side: "0", holdValid: "true"},
+        querySelector: (selector) => fields[selector],
+    };
+    const Venue = {
+        revealPending: new Set([id]),
+        snap: {kyc: 1, cancelFee: 100_000n},
+    };
+    const start = runtime.indexOf("Venue.syncTicketActions = function");
+    const end = runtime.indexOf("\nVenue.paintTicketClocks = function", start);
+    assert.ok(start >= 0 && end > start, "ticket action renderer should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        CLIENT: {immutables: {cancelFee: "100000"}},
+        asBig: BigInt,
+        esc: String,
+        fmtRemain: String,
+        nowSec: () => 1_000n,
+        readableHbar: String,
+        ticketDate: String,
+    });
+
+    Venue.syncTicketActions(card, {phase: "reveal", until: 1_300n});
+    assert.match(fields[".order-next-actions"].innerHTML, /\bdisabled\b/);
+    assert.match(fields[".order-next-actions"].innerHTML, /aria-busy="true"/);
+    assert.match(fields[".order-next-actions"].innerHTML, /Reveal processing/);
+});
+
+test("reveal locks synchronously and sends one wallet request", async () => {
+    const id = "0x" + "22".repeat(32);
+    const ticket = {
+        id,
+        side: 0,
+        price: "2",
+        qty: "3",
+        salt: "0x" + "11".repeat(32),
+    };
+    const attrs = new Map([["data-id", id], ["data-act", "reveal"]]);
+    const classes = new Set(["primary"]);
+    const button = {
+        disabled: false,
+        textContent: "Reveal order",
+        getAttribute: (name) => attrs.get(name),
+        setAttribute: (name, value) => attrs.set(name, value),
+        classList: {
+            toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name),
+        },
+    };
+    const box = {querySelectorAll: () => [button]};
+    let walletRequests = 0;
+    let finishSend;
+    const pending = new Promise((resolve) => { finishSend = resolve; });
+    const Venue = {
+        account: "0x00000000000000000000000000000000000000aa",
+        revealPending: new Set(),
+        snap: {kyc: 1, walletTinybar: 100n},
+        requireAccount: async () => {},
+        tradeTxStage: () => {},
+        w: {
+            engine: {
+                reveal: async () => {
+                    walletRequests++;
+                    return {};
+                },
+            },
+        },
+        send: async (txFactory) => {
+            await txFactory();
+            await pending;
+            return null;
+        },
+    };
+    const start = runtime.indexOf("Venue.paintRevealPending = function");
+    const end = runtime.indexOf("\nVenue.doCross = async function", start);
+    assert.ok(start >= 0 && end > start, "reveal action should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        $: (name) => name === "tickets" ? box : null,
+        readList: () => [ticket],
+        buyEscrow: (price, qty) => price * qty,
+        toWeibar: BigInt,
+        asBig: BigInt,
+        addrEq: (a, b) => a === b,
+        upsert: () => {},
+        nowSec: () => 1_000n,
+        ZERO: "0x0000000000000000000000000000000000000000",
+        CLIENT: {
+            addresses: {MatchingEngine: "0x00000000000000000000000000000000000000bb"},
+            immutables: {partition: "0x01"},
+        },
+        G: {EXACT: 4},
+        T: {IMM: 0},
+    });
+
+    const first = Venue.doReveal(id);
+    const duplicate = Venue.doReveal(id);
+    assert.equal(button.disabled, true);
+    assert.equal(button.textContent, "Reveal processing");
+    assert.equal(attrs.get("aria-busy"), "true");
+    assert.equal(classes.has("stale"), true);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(walletRequests, 1);
+    assert.equal(await duplicate, null);
+    finishSend();
+    assert.equal(await first, null);
+    assert.equal(button.disabled, false);
+    assert.equal(button.textContent, "Reveal order");
+    assert.equal(attrs.get("aria-busy"), "false");
+    assert.equal(classes.has("stale"), false);
+});
+
 test("withdrawal confirmation separates intent from the wallet transaction", async () => {
     let withdrawals = 0;
     let focused = "";
