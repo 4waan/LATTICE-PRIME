@@ -879,9 +879,9 @@ contract CouponDistributorTest is Test, PolicyFixture, CouponFixture {
         assertEq(cashToken.balanceOf(ISSUER), TOTAL);
     }
 
-    /// @notice The declaration is a row 7 disclosure and says so in the trace.
-    /// @dev The refusal event is emitted with the revert, so a narrowed ceiling
-    ///      names the row it narrowed even though the state rolls back.
+    /// @notice The declaration is a row 7 disclosure and its typed revert says so.
+    /// @dev Reverted EVM logs do not survive in the receipt. The custom error
+    ///      names the narrowed row and excess in durable revert data instead.
     function test_aRefusedDeclarationNamesTheRow() public {
         (address[] memory h, uint256[] memory a) = _three();
         vm.warp(_dueOf(0));
@@ -1168,6 +1168,19 @@ contract CouponDistributorInvariantTest is Test, PolicyFixture, CouponFixture {
         // spends its depth on the money rather than on `CouponNotYetDue`.
         vm.warp(uint256(couponSchedule.dateOf(COUPON_COUNT - 1)) + 1);
         cashToken.mint(address(dist), 8_000 * 4);
+
+        // Seed every path `afterInvariant` requires. Coverage assertions over a
+        // random campaign are shrink-unstable: Forge can reduce a real failing
+        // sequence to one harmless call that then fails only because no claim
+        // happened. This prefix makes coverage deterministic while the fuzzer
+        // still controls every subsequent transition.
+        handler.doDeclare(0);
+        handler.doClaim(0, 0);
+        handler.doClaim(0, 0);
+        handler.doSweep(0);
+        handler.doSetFee(25, 1);
+        for (uint256 i; i < 4; ++i) handler.doWarp(8 hours);
+        handler.doSweep(0);
 
         // **Selectors rather than the whole contract.** `wire` is external
         // because the handler has to learn the address it is the issuer of, and
