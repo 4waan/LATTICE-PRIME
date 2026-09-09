@@ -24,3 +24,6 @@ deployments/.rename-bond/
 # are tracked; keys, witnesses, proofs, tickets, and runtime journals are not.
 agent/artifacts/
 agent/state/
+
+# The synthetic bot population: runner, job configs, journals. Kept local.
+bots/

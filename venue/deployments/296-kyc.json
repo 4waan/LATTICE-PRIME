@@ -41,5 +41,34 @@
     "server": "https://sourcify.dev/server",
     "match": "match",
     "allThreeVerified": true
+  },
+  "gateSwap": {
+    "note": "Second RegistrationGate over the same verifier and registry, publishing the wide issuer tree (circuits/tree.mjs botCreds: eight extra passing credentials, one nullifier each). Proposed 2026-09-09 in epoch 7; adoptGate() is permissionless from the epoch 8 boundary (unix 1789230792). Until then contracts.RegistrationGate above stays the live gate. After adoption, update contracts.RegistrationGate and 296-venue.json kyc.RegistrationGate, then DEPLOY_BOUND=1 make client.",
+    "RegistrationGate": "0xea937e90a9aac050b08fef86d7ca72227e017d0b",
+    "proposedInEpoch": 7,
+    "effectiveEpoch": 8,
+    "wideCredentialRoot": "17351106410120225295902853388625488734211813428465793460035694687490561491484",
+    "rootsPublishedForEpochs": [
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "proofs": "deployments/proofs-live-epoch8-wide.json",
+    "fixture": "test/fixtures/proofs-wide.json (test/KycGateSwap.t.sol)",
+    "transactions": {
+      "create": "0x54986145428e19973959a5e266bfad7a55605b0afd4c4ba67c63d681a5a1c6a7",
+      "publishRoot": {
+        "8": "0x0d883d417d05f9ccb08b4bb1d58ef76f1c953fdfe469dc34b3d504277f006b65",
+        "9": "0xc7779b5932ea8a4fa74488bb69904a14dba075958640ca9bc11d97f9058d8eb3",
+        "10": "0xabb3144fff86627cfe4e960486f2d88c5af49d0d4b6db6b85d1354c44cdc0487",
+        "11": "0x54868f6dc36c4eea5a6d52da70f8845202f6f4bc4a602a8dda4617c94b954ef9",
+        "12": "0x4375db04cb0c6ae0ceae119d9a2a70d3adaad808a3368cba9f76949206fd1753"
+      },
+      "proposeGate": "0x90fc2767b680bf7de371788e581ebd1271bbedfc9fab0fad42b098e3e04bb9dd",
+      "adoptGate": null
+    },
+    "contractId": "0.0.10443144"
   }
 }

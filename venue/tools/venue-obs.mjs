@@ -1659,34 +1659,110 @@ Venue.refreshMarketTape = async function () {
 // and that the compliance hook is the one the venue claims.
 Venue.refreshInstrument = async function () {
     const {token} = Venue.c;
-    const who = Venue.viewer();
     const part = CLIENT.immutables.partition;
-    const [name, symbol, supply, multi, lists, comp, whole, inPart] = await Promise.all([
-        token.name(), token.symbol(), token.totalSupply(),
-        token.isMultiPartition(), token.getExternalKycListsCount(), token.compliance(),
-        who ? token.balanceOf(who) : null,
-        who ? token.balanceOfByPartition(part, who) : null,
+    const schedule = Venue.c.couponSchedule;
+    const reads = await Promise.allSettled([
+        token.name(),
+        token.symbol(),
+        token.totalSupply(),
+        token.isMultiPartition(),
+        token.getExternalKycListsCount(),
+        token.compliance(),
+        schedule ? schedule.faceValue() : Promise.resolve(null),
+        schedule ? schedule.spreadBps() : Promise.resolve(null),
+        schedule ? schedule.basis() : Promise.resolve(null),
+        schedule ? schedule.dates() : Promise.resolve([]),
     ]);
+    const value = (index) => reads[index].status === "fulfilled" ? reads[index].value : null;
+    const [name, symbol, supply, multi, lists, comp, face, spread, basis, dates] =
+        [...Array(10)].map((_, index) => value(index));
     const put = (id, v, cls) => {
         const el = $(id);
         if (!el) return;
         el.textContent = v;
         if (cls !== undefined) el.className = "v " + cls;
     };
-    put("in-name", $("market-symbol") ? name : name + " · " + symbol);
-    put("market-symbol", symbol);
-    put("in-supply", supply + " units, no decimals");
-    put("in-multi", multi ? "multi-partition" : "single partition " + shortId(part));
-    put("in-lists", lists + " external KYC list" + (Number(lists) === 1 ? "" : "s"));
-    put("in-compliance", addrEq(comp, CLIENT.addresses.SeamJournal)
-        ? "SeamJournal · the venue's own hook" : shortAddr(comp),
-        addrEq(comp, CLIENT.addresses.SeamJournal) ? "v ok" : "v bad");
-    // balanceOf counts every partition and does not net out held units;
-    // balanceOfByPartition excludes them. Two different questions, so both.
-    put("in-balance", whole === null ? "connect or watch an address"
-        : whole + " total · " + inPart + " free in this partition");
-    put("iss-name", name);
-    put("iss-symbol", symbol);
+    Venue.instrument = {
+        name,
+        symbol,
+        supply,
+        multi,
+        lists,
+        comp,
+        face,
+        spread,
+        basis,
+        dates: dates || [],
+        part,
+    };
+    Venue.paintInstrumentTerms = function () {
+        const instrument = Venue.instrument;
+        const feed = Venue.positionState?.feed;
+        put("in-name", instrument.name == null
+            ? "Instrument name unavailable"
+            : String(instrument.name));
+        put("market-symbol", instrument.symbol == null ? "LPRC" : String(instrument.symbol));
+        put("pos-symbol", instrument.symbol == null ? "LPRC" : String(instrument.symbol));
+        put("holding-unit", instrument.symbol == null ? "LPRC" : String(instrument.symbol));
+        put("in-supply", instrument.supply == null
+            ? "Unavailable"
+            : readableQuantity(asBig(instrument.supply)) + " " +
+              String(instrument.symbol || "units"));
+        put("in-multi", instrument.multi == null
+            ? "Unavailable"
+            : instrument.multi
+                ? "Multiple token partitions"
+                : "Single trading partition " + shortId(instrument.part));
+        put("in-lists", instrument.lists == null
+            ? "Unavailable"
+            : String(instrument.lists) + " external eligibility list" +
+              (asBig(instrument.lists) === 1n ? "" : "s"));
+        put("in-face", instrument.face == null
+            ? "Unavailable"
+            : formatCashAmount(instrument.face) + " LPCASH per bond");
+        if (instrument.spread == null) {
+            put("in-rate", "Unavailable");
+        } else if (feed && !feed.dark) {
+            const reference = asBig(feed.refRateBps || 0);
+            put("in-rate",
+                readableBps(reference + asBig(instrument.spread)) + " current (" +
+                readableBps(reference) + " reference + " +
+                readableBps(asBig(instrument.spread)) + " spread)");
+        } else {
+            put("in-rate", "Reference rate unavailable + " +
+                readableBps(asBig(instrument.spread)) + " spread");
+        }
+        put("in-basis", instrument.basis == null
+            ? "Unavailable"
+            : Number(instrument.basis) === 1
+                ? "Actual/365"
+                : "Basis " + String(instrument.basis));
+        put("in-maturity", instrument.dates.length
+            ? new Date(Number(instrument.dates[instrument.dates.length - 1]) * 1000)
+                .toISOString().slice(0, 10)
+            : "Unavailable");
+        const compliance = $("in-compliance");
+        if (compliance) {
+            compliance.innerHTML = instrument.comp == null
+                ? "Unavailable"
+                : '<a href="' + esc(explorerAddr(String(instrument.comp))) +
+                  '" target="_blank" rel="noopener">' +
+                  esc(addrEq(instrument.comp, CLIENT.addresses.SeamJournal)
+                      ? "SeamJournal · " + shortAddr(String(instrument.comp))
+                      : shortAddr(String(instrument.comp))) + "</a>";
+        }
+        const tokenAddress = $("in-token-address");
+        if (tokenAddress) {
+            tokenAddress.innerHTML =
+                '<a href="' + esc(explorerAddr(CLIENT.addresses.token)) +
+                '" target="_blank" rel="noopener">' +
+                esc(shortAddr(CLIENT.addresses.token)) + "</a>";
+        }
+    };
+    Venue.paintInstrumentTerms();
+
+    put("iss-name", name == null ? "Unavailable" : String(name));
+    put("iss-symbol", symbol == null ? "Unavailable" : String(symbol));
     const issAddr = $("iss-addr");
     if (issAddr) {
         issAddr.innerHTML = '<a href="' + esc(explorerAddr(CLIENT.addresses.token)) +
