@@ -5,6 +5,7 @@ import {runInNewContext} from "node:vm";
 
 const source = readFileSync(new URL("./landing.mjs", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/landing.css", import.meta.url), "utf8");
+const template = readFileSync(new URL("../app/index.template.html", import.meta.url), "utf8");
 
 function classes() {
     const values = new Set();
@@ -42,6 +43,25 @@ test("no JavaScript leaves reveal content visible", () => {
     assert.match(css, /\.motion-ready \.pop\{opacity:0/);
     assert.doesNotMatch(css, /\n\s*\.rise\{opacity:0/);
     assert.doesNotMatch(css, /\n\s*\.pop\{opacity:0/);
+});
+
+test("interactive activity cards remain readable in every phase", () => {
+    assert.doesNotMatch(
+        css,
+        /\.propagation\.is-interactive \.audience-grid\s*\{[^}]*opacity\s*:/s,
+    );
+    assert.match(
+        css,
+        /\.propagation\.is-interactive\[data-phase="publish"\] \.audience-grid article\{/,
+    );
+});
+
+test("landing journey uses trader-facing copy", () => {
+    assert.match(template, />Prove, seal, account, verify\.<\/h2>/);
+    assert.match(template, />Privacy is a scale, not a toggle<\/h2>/);
+    assert.match(template, />Your next order starts here\.<\/h2>/);
+    assert.doesNotMatch(template, /\bmixer\b/i);
+    assert.doesNotMatch(template, /class="beat-src"/);
 });
 
 test("reduced motion reveals everything without arming transitions", () => {
