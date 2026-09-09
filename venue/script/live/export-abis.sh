@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Exports the ABIs a client needs into deployments/abi/, one file per contract.
+# Exports one ABI per contract.
 #
-# The UI reads addresses from deployments/296-venue.json and shapes from here.
-# Both are generated, so a client that compiles against them cannot be looking
-# at an interface the chain does not have: `forge build` wrote `out/`, this
-# copies the `abi` field out of it, and the addresses in the sibling file came
-# from the broadcast receipts of the same build.
+# `deployments/abi/` is chain-bound because the live client combines it with
+# addresses from deployments/296-venue.json. Local source may advance before
+# those addresses do, so overwriting that directory requires the explicit
+# post-deployment acknowledgement used by `make client`.
+#
+# Export a source preview without touching deployment evidence:
+#   ABI_OUT=out/client-abi bash script/live/export-abis.sh
 #
 # `AtsToken` is not one of ours. It is the subset of the ATS diamond a client
 # calls, taken from `script/ats/IAtsFactory.sol`, and it is exported alongside
@@ -14,7 +16,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-OUT=deployments/abi
+OUT=${ABI_OUT:-deployments/abi}
+if [ "$OUT" = "deployments/abi" ] && [ "${DEPLOY_BOUND:-0}" != "1" ]; then
+    echo "refusing to overwrite chain-bound deployments/abi" >&2
+    echo "after a coordinated deployment, run: DEPLOY_BOUND=1 make client" >&2
+    echo "for source ABIs, set ABI_OUT=out/client-abi" >&2
+    exit 1
+fi
 mkdir -p "$OUT"
 
 emit() { # <artifact dir>/<file>.json <contract> -> $OUT/<contract>.json
