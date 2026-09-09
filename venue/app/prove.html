@@ -500,14 +500,79 @@ button.primary.stale:hover{background:var(--sunk);color:var(--slate)}
 .drop:hover,.drop.over{border-color:var(--primary);color:var(--ink);background:var(--sealed-wash)}
 .drop input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
-.pins{border:1px solid var(--rule);border-radius:var(--radius-sm);overflow:hidden;background:var(--paper)}
-.pin{display:grid;grid-template-columns:2.2rem 10rem 1fr 1fr auto;gap:.75rem;align-items:baseline;
-  padding:.55rem 1rem;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:.78rem}
-.pin:last-child{border-bottom:0}
-.pin.head{background:var(--sunk);font-family:var(--font);font-size:.68rem;font-weight:600;color:var(--faint);letter-spacing:.02em;text-transform:none}
-.pin .ok{color:var(--success);font-weight:600}
-.pin .no{color:var(--exposed);font-weight:600}
-.pin .v{word-break:break-all}
+.signal-checklist{display:flex;flex-direction:column;gap:.8rem}
+.signal-summary{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:1rem 1.05rem;border:1px solid var(--rule);border-radius:var(--radius-sm);
+  background:color-mix(in srgb,var(--sealed-wash) 52%,var(--surface));
+  box-shadow:inset 3px 0 0 var(--primary);
+}
+.signal-summary.is-ok{box-shadow:inset 3px 0 0 var(--success)}
+.signal-summary.is-no{
+  background:color-mix(in srgb,var(--exposed-wash) 58%,var(--surface));
+  box-shadow:inset 3px 0 0 var(--exposed);
+}
+.signal-summary.is-pending{box-shadow:inset 3px 0 0 var(--faint)}
+.signal-summary-copy{display:flex;flex-direction:column;gap:.16rem;min-width:0}
+.signal-summary-label{
+  font-size:.63rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+}
+.signal-summary strong{font-size:.98rem;font-weight:650;color:var(--ink)}
+.signal-summary p{margin:0;max-width:none;font-size:.78rem;color:var(--slate)}
+.signal-summary-state,.signal-verdict{
+  flex:0 0 auto;padding:.25rem .58rem;border-radius:var(--pill);white-space:nowrap;
+  font-size:.66rem;font-weight:700;letter-spacing:.035em;
+}
+.signal-summary.is-ok .signal-summary-state,.signal-verdict.ok{
+  color:var(--success);background:color-mix(in srgb,var(--success-fill) 20%,var(--surface));
+}
+.signal-summary.is-no .signal-summary-state,.signal-verdict.no{
+  color:var(--exposed);background:var(--exposed-wash);
+}
+.signal-summary.is-pending .signal-summary-state,.signal-verdict.pending{
+  color:var(--slate);background:var(--sunk);
+}
+.signal-verdict.info{color:var(--primary);background:var(--sealed-wash)}
+.signal-list{
+  list-style:none;margin:0;padding:0;border:1px solid var(--rule);
+  border-radius:var(--radius-sm);overflow:hidden;background:var(--surface);
+}
+.signal-check{
+  display:grid;grid-template-columns:minmax(12rem,.85fr) minmax(18rem,1.2fr) auto;
+  gap:1rem;align-items:center;padding:.9rem 1rem;border-bottom:1px solid var(--rule);
+}
+.signal-check:last-child{border-bottom:0}
+.signal-check.is-no{background:color-mix(in srgb,var(--exposed-wash) 42%,var(--surface))}
+.signal-check.is-pending{background:color-mix(in srgb,var(--sunk) 52%,var(--surface))}
+.signal-identity{display:flex;align-items:flex-start;gap:.7rem;min-width:0}
+.signal-marker{
+  width:.52rem;height:.52rem;margin-top:.35rem;border-radius:50%;flex:0 0 auto;
+  background:var(--faint);box-shadow:0 0 0 4px color-mix(in srgb,var(--faint) 14%,transparent);
+}
+.signal-check.is-ok .signal-marker{
+  background:var(--success);box-shadow:0 0 0 4px color-mix(in srgb,var(--success) 14%,transparent);
+}
+.signal-check.is-no .signal-marker{
+  background:var(--exposed);box-shadow:0 0 0 4px color-mix(in srgb,var(--exposed) 16%,transparent);
+}
+.signal-check.is-info .signal-marker{
+  background:var(--primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 14%,transparent);
+}
+.signal-copy{min-width:0}
+.signal-copy h3{font-size:.84rem;font-weight:650;color:var(--ink);margin:0}
+.signal-copy p{font-size:.72rem;color:var(--slate);margin:.14rem 0 0;max-width:28rem;line-height:1.4}
+.signal-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;min-width:0}
+.signal-values > div{min-width:0}
+.signal-value-label{
+  display:block;margin:0 0 .22rem;font-size:.6rem;font-weight:700;
+  letter-spacing:.075em;text-transform:uppercase;color:var(--faint);
+}
+.signal-value{
+  display:block;min-width:0;padding:.38rem .5rem;border:1px solid var(--rule);
+  border-radius:8px;background:var(--paper);color:var(--ink);
+  font-family:var(--mono);font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.signal-value.plain{font-family:var(--font);font-weight:600;color:var(--ink-2)}
 
 .banner{
   border:1px solid var(--rule);border-radius:var(--radius);background:var(--sealed-wash);
@@ -718,7 +783,8 @@ button.primary.stale:hover{background:var(--sunk);color:var(--slate)}
   .nav a{padding:.3rem .65rem}
   .theme.docked{grid-column:2;grid-row:2;justify-self:end}
   .cols{grid-template-columns:minmax(0,1fr)}
-  .pin{grid-template-columns:2rem 1fr}
+  .signal-check{grid-template-columns:minmax(0,1fr) auto}
+  .signal-values{grid-column:1/-1}
 }
 /* A phone masthead has room for a brand, a nav and one action.
    The theme control is the thing that gives way: with nothing stored, the page
@@ -726,6 +792,11 @@ button.primary.stale:hover{background:var(--sunk);color:var(--slate)}
 @media(max-width:560px){
   .theme.docked{display:none}
   .nav{grid-column:1/-1;grid-row:2}
+  .signal-summary{align-items:flex-start;flex-direction:column}
+  .signal-summary-state{align-self:flex-start}
+  .signal-check{grid-template-columns:minmax(0,1fr)}
+  .signal-values{grid-template-columns:minmax(0,1fr)}
+  .signal-verdict{justify-self:start}
 }
 @media(max-width:400px){
   .brand{font-size:1.22rem}
@@ -1197,7 +1268,7 @@ body[data-screen="position"]{--screen:var(--success)}
     <li><a href="position.html"><b>03</b> Portfolio</a></li>
   </ol>
   <h1>Eligibility</h1>
-  <p class="lede">This is a testnet credential. Submitting a proof is a request, not an approval. The gate decides. The venue learns one thing: eligible this KYC epoch.</p>
+  <p class="lede">Confirm eligibility for this KYC period while keeping the underlying credential private. The proof shows that the current rules are met and binds access to your connected wallet.</p>
 
   <div class="banner" id="kyc-banner">
     <p id="kyc-copy">Connect a wallet, or load a proof to watch a live grant.</p>
@@ -1207,11 +1278,11 @@ body[data-screen="position"]{--screen:var(--success)}
   <section class="panel">
     <div class="top"><h2>Eligibility</h2></div>
     <div class="body">
-      <p class="note tight">A real proof against the live gate. This is not a compliance grant. Connect a wallet this page already holds a proof for, and it loads.</p>
+      <p class="note tight">Load a proof for the connected wallet, compare it with the venue's current requirements, then request access for this KYC period.</p>
       <div class="rowbtns">
         <button type="button" class="primary" id="demo-proof">Use a real eligibility proof</button>
         <button type="button" id="check">Check the gate</button>
-        <button type="button" class="primary" id="register" disabled>Register</button>
+        <button type="button" class="primary" id="register" disabled>Request access</button>
       </div>
       <div class="status" id="prove-status" role="status"></div>
       <div class="hint" id="uses" style="margin-top:.65rem"></div>
@@ -1229,40 +1300,40 @@ body[data-screen="position"]{--screen:var(--success)}
       </label>
 
       <section class="panel" style="margin:0">
-        <div class="top"><h2>Gate pins</h2><span class="src">ZkKycRegistry</span></div>
+        <div class="top"><h2>Current requirements</h2><span class="src">live policy</span></div>
         <div class="body">
           <ul class="readout">
-            <li><span class="k">minTier</span><span class="v" id="pol-tier">Loading</span></li>
-            <li><span class="k">jurisdiction mask</span><span class="v" id="pol-mask">Loading</span></li>
-            <li><span class="k">root for epoch</span><span class="v" id="pol-root">Loading</span></li>
-            <li><span class="k">next root</span><span class="v hint" id="pol-next">Loading</span></li>
+            <li><span class="k">Access tier</span><span class="v" id="pol-tier">Loading</span></li>
+            <li><span class="k">Region policy</span><span class="v" id="pol-mask">Loading</span></li>
+            <li><span class="k">Credential list</span><span class="v" id="pol-root">Loading</span></li>
+            <li><span class="k">Next period's list</span><span class="v hint" id="pol-next">Loading</span></li>
           </ul>
         </div>
       </section>
 
       <section class="panel" style="margin:0">
-        <div class="top"><h2>The gate itself</h2><span class="src">RegistrationGate · ZkKycRegistry</span></div>
+        <div class="top"><h2>Policy controls</h2><span class="src">governed on-chain</span></div>
         <div class="body">
-          <p class="note tight">What the gate insists on today. Policy and the trusted
-            registry sit behind proposal windows, so either can already be scheduled to change.</p>
+          <p class="note tight">The people and services responsible for today's requirements.
+            Scheduled changes appear here before they take effect.</p>
           <ul class="readout">
-            <li><span class="k">issuer</span><span class="v" id="gv-issuer">Loading</span></li>
-            <li><span class="k">verifier</span><span class="v" id="gv-verifier">Loading</span></li>
-            <li><span class="k">pending policy</span><span class="v" id="gv-pending">Loading</span></li>
-            <li><span class="k">registry admin</span><span class="v" id="gv-admin">Loading</span></li>
-            <li><span class="k">pending gate</span><span class="v" id="gv-gate">Loading</span></li>
-            <li><span class="k">KYC epoch</span><span class="v" id="gv-epoch">Loading</span></li>
-            <li><span class="k">next root</span><span class="v" id="gv-nextroot">Loading</span></li>
+            <li><span class="k">Credential issuer</span><span class="v" id="gv-issuer">Loading</span></li>
+            <li><span class="k">Proof verifier</span><span class="v" id="gv-verifier">Loading</span></li>
+            <li><span class="k">Scheduled policy</span><span class="v" id="gv-pending">Loading</span></li>
+            <li><span class="k">Registry administrator</span><span class="v" id="gv-admin">Loading</span></li>
+            <li><span class="k">Scheduled eligibility service</span><span class="v" id="gv-gate">Loading</span></li>
+            <li><span class="k">KYC period</span><span class="v" id="gv-epoch">Loading</span></li>
+            <li><span class="k">Next period's credential list</span><span class="v" id="gv-nextroot">Loading</span></li>
           </ul>
         </div>
       </section>
 
       <section class="panel" style="margin:0">
-        <div class="top"><h2>Public signals</h2><span class="src">seven, pinned</span></div>
+        <div class="top"><h2>Public signals</h2><span class="src">seven proof checks</span></div>
         <div class="body">
           <div class="pins-slot" id="pins">
-            <div class="empty">Load a proof and the seven public signals land here, each
-              one shown beside the value the gate will insist on.</div>
+            <div class="empty">Load a proof to compare its seven public checks with the
+              venue's current requirements.</div>
           </div>
         </div>
       </section>
@@ -1964,14 +2035,17 @@ const ROW_NAMES = {
     17: "Account provenance",
 };
 const SIGS = [
-    {i: 0, name: "nullifier", pin: "not pinned; usesThisEpoch caps reuse"},
-    {i: 1, name: "passes", pin: "must equal 1"},
-    {i: 2, name: "credentialRoot", pin: "rootForEpoch(current epoch)"},
-    {i: 3, name: "epoch", pin: "registry.currentEpoch()"},
-    {i: 4, name: "registrant", pin: "the connected account"},
-    {i: 5, name: "minTier", pin: "gate.minTier()"},
-    {i: 6, name: "jurisdictionMask", pin: "gate.jurisdictionMask()"},
+    {i: 0, label: "Reuse limit", help: "Prevents one credential from being reused too often"},
+    {i: 1, label: "Proof result", help: "Confirms the credential meets the current rules"},
+    {i: 2, label: "Credential list", help: "Uses the issuer's list for this KYC period"},
+    {i: 3, label: "KYC period", help: "Keeps an old proof from carrying forward"},
+    {i: 4, label: "Connected wallet", help: "Binds access to the wallet requesting it"},
+    {i: 5, label: "Access tier", help: "Meets the venue's minimum access level"},
+    {i: 6, label: "Region policy", help: "Meets the venue's current region rules"},
 ];
+const EMPTY_SIGNALS =
+    '<div class="empty">Load a proof to compare its seven public checks with the ' +
+    "venue's current requirements.</div>";
 const REPO_STATE = ["NONE", "PROPOSED", "OPEN", "MARGIN_CALL", "MANUFACTURED", "FAILING", "DEFAULTED", "CLOSED"];
 const G_NAME = ["none", "predicate", "aggregate", "bucket", "exact"];
 const T_NAME = ["before the fact", "immediately", "after 15 minutes", "at end of day", "at end of epoch", "never"];
@@ -2068,7 +2142,7 @@ function decodeRevert(err) {
         message += ". The preimage does not match; check the reveal key on the ticket.";
     }
     if (name === "RegistrantMismatch") {
-        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to register.";
+        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to request access.";
     }
     if (name === "NotEscrow") {
         const escrow = parsed ? String(parsed.args[0]) : "";
@@ -3686,8 +3760,7 @@ Venue.hydrateProof = async function () {
         const pins = $("pins");
         if (pins) {
             pins.className = "pins-slot";
-            pins.innerHTML = '<div class="empty">Load a proof and the seven public signals land here, each '
-                + "one shown beside the value the gate will insist on.</div>";
+            pins.innerHTML = EMPTY_SIGNALS;
         }
         const uses = $("uses");
         if (uses) uses.textContent = "";
@@ -3727,7 +3800,7 @@ Venue.paintPins = function () {
     const p = Venue.proof;
     if (!p || !$("pins")) return;
     const epoch = Venue.snap.kycEpoch;
-    const want = [
+    const expected = [
         null,
         1n,
         Venue.snap.root,
@@ -3736,22 +3809,78 @@ Venue.paintPins = function () {
         Venue.snap.minTier,
         Venue.snap.mask,
     ];
-    const body = SIGS.map((s) => {
+    const states = [];
+    const value = (text, plain = false) => {
+        const shown = String(text);
+        return '<span class="signal-value' + (plain ? " plain" : "") +
+            '" title="' + esc(shown) + '">' + esc(shown) + "</span>";
+    };
+    const rows = SIGS.map((s) => {
         const got = asBig(p.pub[s.i]);
-        const w = want[s.i];
+        const want = expected[s.i];
         // Clocks may not have stamped the epoch yet; treat missing pins as
         // unknown rather than throwing BigInt(undefined) and wiping the gate result.
-        const match = w == null ? "pending" : (got === asBig(w) ? "ok" : "no");
-        const wantTxt = w == null ? "output" : (s.i === 4 && !Venue.viewer() ? "connect" : toHexWord(w).replace(/^0x0+/, "0x") );
-        return '<div class="pin"><span>' + s.i + "</span><span>" + s.name +
-            "</span><span class='v'>" + toHexWord(got) + "</span><span class='v'>" +
-            esc(String(wantTxt)) + '</span><span class="' + match + '">' + match +
-            "</span></div>";
+        let state;
+        let verdict;
+        let requirement;
+        let plainRequirement = false;
+        if (s.i === 0) {
+            state = "info";
+            verdict = "Checked by the gate";
+            requirement = "Within this period's usage limit";
+            plainRequirement = true;
+        } else if (want == null) {
+            state = "pending";
+            verdict = s.i === 4 ? "Waiting for wallet" : "Waiting for policy";
+            requirement = s.i === 4 ? "Connect the matching wallet" : "Loading current requirement";
+            plainRequirement = true;
+            states.push(state);
+        } else {
+            state = got === asBig(want) ? "ok" : "no";
+            verdict = state === "ok" ? "Matched" : "Needs attention";
+            requirement = toHexWord(want);
+            states.push(state);
+        }
+        return '<li class="signal-check is-' + state + '">' +
+            '<div class="signal-identity"><span class="signal-marker" aria-hidden="true"></span>' +
+            '<div class="signal-copy"><h3>' + esc(s.label) + "</h3><p>" + esc(s.help) +
+            '</p></div></div><div class="signal-values">' +
+            '<div><span class="signal-value-label">Proof</span>' + value(toHexWord(got)) + "</div>" +
+            '<div><span class="signal-value-label">Current requirement</span>' +
+            value(requirement, plainRequirement) + "</div></div>" +
+            '<span class="signal-verdict ' + state + '">' + esc(verdict) + "</span></li>";
     }).join("");
-    $("pins").className = "pins";
-    $("pins").innerHTML =
-        '<div class="pin head"><span>#</span><span>Signal</span><span>Proof</span><span>Gate</span><span></span></div>' +
-        body;
+    const mismatches = states.filter((state) => state === "no").length;
+    const waiting = states.filter((state) => state === "pending").length;
+    let summaryClass;
+    let summaryTitle;
+    let summaryCopy;
+    let summaryState;
+    if (mismatches) {
+        summaryClass = "is-no";
+        summaryTitle = mismatches + (mismatches === 1
+            ? " check needs attention"
+            : " checks need attention");
+        summaryCopy = "The highlighted proof values differ from the venue's current requirements.";
+        summaryState = "Review proof";
+    } else if (waiting) {
+        summaryClass = "is-pending";
+        summaryTitle = "Comparison needs more information";
+        summaryCopy = "Connect the matching wallet and wait for the current requirements to load.";
+        summaryState = "Waiting";
+    } else {
+        summaryClass = "is-ok";
+        summaryTitle = "Proof matches current requirements";
+        summaryCopy = "The reuse allowance is checked separately by the gate.";
+        summaryState = "Signals aligned";
+    }
+    const summary =
+        '<div class="signal-summary ' + summaryClass + '"><div class="signal-summary-copy">' +
+        '<span class="signal-summary-label">Proof comparison</span><strong>' +
+        esc(summaryTitle) + "</strong><p>" + esc(summaryCopy) + "</p></div>" +
+        '<span class="signal-summary-state">' + esc(summaryState) + "</span></div>";
+    $("pins").className = "signal-checklist";
+    $("pins").innerHTML = summary + '<ol class="signal-list">' + rows + "</ol>";
     const nf = p.pub[0];
     const uses = $("uses");
     const who = Venue.viewer();
@@ -3768,7 +3897,7 @@ Venue.paintPins = function () {
 Venue.explainGate = function (reason) {
     const r = String(reason || "");
     if (r.includes("different address")) {
-        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to register.";
+        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to request access.";
     }
     if (r.includes("wrong epoch")) return "This proof is for a different KYC period.";
     if (r.includes("nullifier exhausted")) {
@@ -3843,10 +3972,10 @@ Venue.previewRegister = async function () {
             }
             kind = "ok";
         } else if (ok && Venue.account) {
-            msg = "The gate will accept this. Register to take the grant for this period.";
+            msg = "The gate will accept this. Request access to activate it for this period.";
         } else if (ok && !Venue.account) {
             msg = "Watching a live grant for " + shortAddr(who) +
-                ". Connect that wallet if you want to register.";
+                ". Connect that wallet if you want to request access.";
         } else if (exhausted) {
             msg = Venue.explainGate(reason)
                 + " A new grant needs the next KYC epoch, or a different credential.";
@@ -3880,10 +4009,10 @@ Venue.doRegister = async function () {
     }
     const rec = await Venue.send(
         Venue.w.gate.register(Venue.account, Venue.proof.proof.map((x) => asBig(x)), pub, {gasLimit: 1_500_000}),
-        "register"
+        "Request access"
     );
     if (rec) {
-        Venue.status("prove-status", "Registered. The grant lasts only for this KYC period.", "ok");
+        Venue.status("prove-status", "Access granted. It lasts only for this KYC period.", "ok");
         await Venue.refreshProve();
     }
 };
