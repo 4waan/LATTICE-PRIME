@@ -65,8 +65,6 @@
   "baseline": {
     "gitCommit": "f81a727d10b4666128463284521e2cee1b8fea7a",
     "sources": {
-      "docs/PRIVATE-AGENT-PLAN.md": "sha256:6354d139f54c0b7fe99dd8745dc73aa036f1b9358aacdf3f853d35125eee08c8",
-      "docs/PRIVATE-AGENT-RESOURCES.md": "sha256:54f902b6a85d0096cb353c21e7babad72cf6819c35e2a1587020f95c0d645768",
       "deployments/client.json": "sha256:bfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
       "tools/commitment.mjs": "sha256:9339723409e7e76c74e17fba4d5af370def5ca73996cfbacb16f3a012fe784f9",
       "tools/units.mjs": "sha256:4f4b32e7c8e2a645678af75732d3b2549fd2f1b0b1589a86dccf0c4806ca2820",
