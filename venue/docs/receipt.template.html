@@ -107,13 +107,13 @@
 
 <section>
   <div class="shead"><span class="snum">03</span><h2>The row that can run out</h2></div>
-  <p>Row 15 is the only cell in this book below <code>exact</code>, and so the only one a coalition budget can bind. A cancellation announces one bit. The published budget is three bits per epoch, which means the first three cancellations of an epoch are announced and the fourth is not.</p>
+  <p>Row 15 is the order-lifecycle cell below <code>exact</code>. A cancellation announces one bit. The deployed budget is one bit per epoch, so the first row-15 cancellation is announced and the second valid cancellation completes without its venue event.</p>
   <div class="wire">
     <div class="wcell"><span class="k">Published cell</span><span class="v" id="r15cell"></span><span class="n">Section 7.2 says <code>(agg, EOD)</code>. Neither ideal contains the other, which makes this the venue's only incomparable divergence: less per event than the matrix allows, and sooner.</span></div>
     <div class="wcell"><span class="k">Budget this epoch</span><span class="v" id="r15budget"></span><span class="n"><code>spentBits(15, epoch)</code> against <code>budgetFor(15).budgetBits</code>.</span></div>
     <div class="wcell"><span class="k">Breaking size</span><span class="v" id="r15break"></span><span class="n"><code>breakingSize(15, pred)</code>. How many observations before the row is gone, which is the number a supervisor asks for.</span></div>
   </div>
-  <div class="note"><b>The fourth cancellation still happens.</b> An exhausted budget withholds the venue's speech; it never fails the action. The alternative was tried and discarded during this build: charge at emission and revert, and an attacker exhausts a row with cheap disclosing actions until margin calls cannot be recorded and open positions cannot be closed. So the state transition always completes and only the speech is rationed, which produces the one thing an event stream structurally cannot report: an action that occurred and was not announced. A receipt can report it, because the receipt is a read of state rather than a subscription to a log.</div>
+  <div class="note"><b>The second cancellation still happens.</b> An exhausted budget withholds the venue's speech; it never fails the action. The alternative was tried and discarded during this build: charge at emission and revert, and an attacker exhausts a row with cheap disclosing actions until margin calls cannot be recorded and open positions cannot be closed. So the state transition always completes and only the speech is rationed, which produces the one thing an event stream structurally cannot report: an action that occurred and was not announced. A receipt can report it, because the receipt is a read of state rather than a subscription to a log.</div>
 </section>
 
 <section>
@@ -160,7 +160,7 @@
 </section>
 
 <footer>
-  <p><b>How this page knows.</b> It runs <code>tools/lattice.mjs</code>, the client half of <code>DisclosureLattice</code>, <code>DisclosureBudget</code> and the meter's spend rule, inlined unmodified by <code>tools/gen-receipt.mjs</code>. <code>tools/lattice.test.mjs</code> pins its output to fixed vectors and <code>test/ReceiptVectors.t.sol</code> asserts the same literals against a deployed <code>OrderBook</code> under the published parameter set, including the four-cancellation sequence above. The two halves are checked against each other rather than asserted to agree, so a page that quoted a budget the venue does not charge would fail the suite.</p>
+  <p><b>How this page knows.</b> It runs <code>tools/lattice.mjs</code>, the client half of <code>DisclosureLattice</code>, <code>DisclosureBudget</code> and the meter's spend rule, inlined unmodified by <code>tools/gen-receipt.mjs</code>. <code>tools/lattice.test.mjs</code> pins its output to fixed vectors and <code>test/ReceiptVectors.t.sol</code> asserts the same literals against a deployed <code>OrderBook</code> under the published parameter set, including the two-cancellation sequence above. The two halves are checked against each other rather than asserted to agree, so a page that quoted a budget the venue does not charge would fail the suite.</p>
   <div class="srcs">
     <span>src/lattice/DisclosureView.sol &middot; the five getters</span>
     <span>src/lattice/DisclosureMeter.sol &middot; Rule A and Rule B</span>
@@ -350,7 +350,7 @@ function render() {
 
     $("tape").innerHTML = tape.length
         ? tape.map(receiptCard).join("")
-        : '<div class="empty">No action taken yet. Press <b>commit(bytes32)</b> to seal an order, then <b>cancel(bytes32)</b> four times.</div>';
+        : '<div class="empty">No action taken yet. Press <b>cancel(bytes32)</b> twice to see row 15 charge once, then go quiet.</div>';
 }
 
 $("doCommit").addEventListener("click", () => act("commit"));
