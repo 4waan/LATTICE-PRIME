@@ -23,14 +23,17 @@ const ROW_NAMES = {
     17: "Account provenance",
 };
 const SIGS = [
-    {i: 0, name: "nullifier", pin: "not pinned; usesThisEpoch caps reuse"},
-    {i: 1, name: "passes", pin: "must equal 1"},
-    {i: 2, name: "credentialRoot", pin: "rootForEpoch(current epoch)"},
-    {i: 3, name: "epoch", pin: "registry.currentEpoch()"},
-    {i: 4, name: "registrant", pin: "the connected account"},
-    {i: 5, name: "minTier", pin: "gate.minTier()"},
-    {i: 6, name: "jurisdictionMask", pin: "gate.jurisdictionMask()"},
+    {i: 0, label: "Reuse limit", help: "Prevents one credential from being reused too often"},
+    {i: 1, label: "Proof result", help: "Confirms the credential meets the current rules"},
+    {i: 2, label: "Credential list", help: "Uses the issuer's list for this KYC period"},
+    {i: 3, label: "KYC period", help: "Keeps an old proof from carrying forward"},
+    {i: 4, label: "Connected wallet", help: "Binds access to the wallet requesting it"},
+    {i: 5, label: "Access tier", help: "Meets the venue's minimum access level"},
+    {i: 6, label: "Region policy", help: "Meets the venue's current region rules"},
 ];
+const EMPTY_SIGNALS =
+    '<div class="empty">Load a proof to compare its seven public checks with the ' +
+    "venue's current requirements.</div>";
 const REPO_STATE = ["NONE", "PROPOSED", "OPEN", "MARGIN_CALL", "MANUFACTURED", "FAILING", "DEFAULTED", "CLOSED"];
 const G_NAME = ["none", "predicate", "aggregate", "bucket", "exact"];
 const T_NAME = ["before the fact", "immediately", "after 15 minutes", "at end of day", "at end of epoch", "never"];
@@ -127,7 +130,7 @@ function decodeRevert(err) {
         message += ". The preimage does not match; check the reveal key on the ticket.";
     }
     if (name === "RegistrantMismatch") {
-        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to register.";
+        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to request access.";
     }
     if (name === "NotEscrow") {
         const escrow = parsed ? String(parsed.args[0]) : "";
@@ -1745,8 +1748,7 @@ Venue.hydrateProof = async function () {
         const pins = $("pins");
         if (pins) {
             pins.className = "pins-slot";
-            pins.innerHTML = '<div class="empty">Load a proof and the seven public signals land here, each '
-                + "one shown beside the value the gate will insist on.</div>";
+            pins.innerHTML = EMPTY_SIGNALS;
         }
         const uses = $("uses");
         if (uses) uses.textContent = "";
@@ -1786,7 +1788,7 @@ Venue.paintPins = function () {
     const p = Venue.proof;
     if (!p || !$("pins")) return;
     const epoch = Venue.snap.kycEpoch;
-    const want = [
+    const expected = [
         null,
         1n,
         Venue.snap.root,
@@ -1795,22 +1797,78 @@ Venue.paintPins = function () {
         Venue.snap.minTier,
         Venue.snap.mask,
     ];
-    const body = SIGS.map((s) => {
+    const states = [];
+    const value = (text, plain = false) => {
+        const shown = String(text);
+        return '<span class="signal-value' + (plain ? " plain" : "") +
+            '" title="' + esc(shown) + '">' + esc(shown) + "</span>";
+    };
+    const rows = SIGS.map((s) => {
         const got = asBig(p.pub[s.i]);
-        const w = want[s.i];
+        const want = expected[s.i];
         // Clocks may not have stamped the epoch yet; treat missing pins as
         // unknown rather than throwing BigInt(undefined) and wiping the gate result.
-        const match = w == null ? "pending" : (got === asBig(w) ? "ok" : "no");
-        const wantTxt = w == null ? "output" : (s.i === 4 && !Venue.viewer() ? "connect" : toHexWord(w).replace(/^0x0+/, "0x") );
-        return '<div class="pin"><span>' + s.i + "</span><span>" + s.name +
-            "</span><span class='v'>" + toHexWord(got) + "</span><span class='v'>" +
-            esc(String(wantTxt)) + '</span><span class="' + match + '">' + match +
-            "</span></div>";
+        let state;
+        let verdict;
+        let requirement;
+        let plainRequirement = false;
+        if (s.i === 0) {
+            state = "info";
+            verdict = "Checked by the gate";
+            requirement = "Within this period's usage limit";
+            plainRequirement = true;
+        } else if (want == null) {
+            state = "pending";
+            verdict = s.i === 4 ? "Waiting for wallet" : "Waiting for policy";
+            requirement = s.i === 4 ? "Connect the matching wallet" : "Loading current requirement";
+            plainRequirement = true;
+            states.push(state);
+        } else {
+            state = got === asBig(want) ? "ok" : "no";
+            verdict = state === "ok" ? "Matched" : "Needs attention";
+            requirement = toHexWord(want);
+            states.push(state);
+        }
+        return '<li class="signal-check is-' + state + '">' +
+            '<div class="signal-identity"><span class="signal-marker" aria-hidden="true"></span>' +
+            '<div class="signal-copy"><h3>' + esc(s.label) + "</h3><p>" + esc(s.help) +
+            '</p></div></div><div class="signal-values">' +
+            '<div><span class="signal-value-label">Proof</span>' + value(toHexWord(got)) + "</div>" +
+            '<div><span class="signal-value-label">Current requirement</span>' +
+            value(requirement, plainRequirement) + "</div></div>" +
+            '<span class="signal-verdict ' + state + '">' + esc(verdict) + "</span></li>";
     }).join("");
-    $("pins").className = "pins";
-    $("pins").innerHTML =
-        '<div class="pin head"><span>#</span><span>Signal</span><span>Proof</span><span>Gate</span><span></span></div>' +
-        body;
+    const mismatches = states.filter((state) => state === "no").length;
+    const waiting = states.filter((state) => state === "pending").length;
+    let summaryClass;
+    let summaryTitle;
+    let summaryCopy;
+    let summaryState;
+    if (mismatches) {
+        summaryClass = "is-no";
+        summaryTitle = mismatches + (mismatches === 1
+            ? " check needs attention"
+            : " checks need attention");
+        summaryCopy = "The highlighted proof values differ from the venue's current requirements.";
+        summaryState = "Review proof";
+    } else if (waiting) {
+        summaryClass = "is-pending";
+        summaryTitle = "Comparison needs more information";
+        summaryCopy = "Connect the matching wallet and wait for the current requirements to load.";
+        summaryState = "Waiting";
+    } else {
+        summaryClass = "is-ok";
+        summaryTitle = "Proof matches current requirements";
+        summaryCopy = "The reuse allowance is checked separately by the gate.";
+        summaryState = "Signals aligned";
+    }
+    const summary =
+        '<div class="signal-summary ' + summaryClass + '"><div class="signal-summary-copy">' +
+        '<span class="signal-summary-label">Proof comparison</span><strong>' +
+        esc(summaryTitle) + "</strong><p>" + esc(summaryCopy) + "</p></div>" +
+        '<span class="signal-summary-state">' + esc(summaryState) + "</span></div>";
+    $("pins").className = "signal-checklist";
+    $("pins").innerHTML = summary + '<ol class="signal-list">' + rows + "</ol>";
     const nf = p.pub[0];
     const uses = $("uses");
     const who = Venue.viewer();
@@ -1827,7 +1885,7 @@ Venue.paintPins = function () {
 Venue.explainGate = function (reason) {
     const r = String(reason || "");
     if (r.includes("different address")) {
-        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to register.";
+        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to request access.";
     }
     if (r.includes("wrong epoch")) return "This proof is for a different KYC period.";
     if (r.includes("nullifier exhausted")) {
@@ -1902,10 +1960,10 @@ Venue.previewRegister = async function () {
             }
             kind = "ok";
         } else if (ok && Venue.account) {
-            msg = "The gate will accept this. Register to take the grant for this period.";
+            msg = "The gate will accept this. Request access to activate it for this period.";
         } else if (ok && !Venue.account) {
             msg = "Watching a live grant for " + shortAddr(who) +
-                ". Connect that wallet if you want to register.";
+                ". Connect that wallet if you want to request access.";
         } else if (exhausted) {
             msg = Venue.explainGate(reason)
                 + " A new grant needs the next KYC epoch, or a different credential.";
@@ -1939,10 +1997,10 @@ Venue.doRegister = async function () {
     }
     const rec = await Venue.send(
         Venue.w.gate.register(Venue.account, Venue.proof.proof.map((x) => asBig(x)), pub, {gasLimit: 1_500_000}),
-        "register"
+        "Request access"
     );
     if (rec) {
-        Venue.status("prove-status", "Registered. The grant lasts only for this KYC period.", "ok");
+        Venue.status("prove-status", "Access granted. It lasts only for this KYC period.", "ok");
         await Venue.refreshProve();
     }
 };
