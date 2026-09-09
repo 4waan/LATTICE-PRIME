@@ -191,8 +191,10 @@ export class AgentSupervisor {
                     schemaVersion: "lattice.agent.supervisor-status.v1",
                     runtime: "ready",
                     paired: true,
-                    adapter: "deterministic-harness",
-                    liveChainChecked: false,
+                    adapter: this.adapter?.lastDeploymentEvidence
+                        ? "hedera-testnet"
+                        : "deterministic-harness",
+                    liveChainChecked: Boolean(this.adapter?.lastDeploymentEvidence),
                 },
             });
             return;
@@ -217,12 +219,36 @@ export class AgentSupervisor {
         } else if (request.method === "POST" && url.pathname === "/v1/mandates/activate") {
             exactObject(body, ["mandate"], "activate request");
             result = await this.signer.call("activateMandate", {mandate: body.mandate});
+        } else if (request.method === "POST" && url.pathname === "/v1/mandates/pause") {
+            exactObject(body, ["mandateId", "paused"], "pause request");
+            result = await this.signer.call("pauseMandate", body);
         } else if (request.method === "POST" && url.pathname === "/v1/evaluate") {
             if (this.runtime === null) {
                 throw new SupervisorError("RUNTIME_UNAVAILABLE", "proof runtime is not configured", 503);
             }
-            exactObject(body, ["context", "mandate", "nonce"], "evaluation request");
+            exactObject(
+                body,
+                body.snapshot === undefined
+                    ? ["context", "mandate", "nonce"]
+                    : ["context", "mandate", "nonce", "snapshot"],
+                "evaluation request"
+            );
             result = await this.runtime.evaluate(body);
+        } else if (request.method === "POST" && url.pathname === "/v1/actions/read") {
+            exactObject(body, ["actionId"], "action read request");
+            result = await this.signer.call("action", {actionId: body.actionId});
+        } else if (request.method === "POST" && url.pathname === "/v1/actions/continue") {
+            if (this.runtime === null) {
+                throw new SupervisorError("RUNTIME_UNAVAILABLE", "proof runtime is not configured", 503);
+            }
+            exactObject(body, ["actionId", "nonce", "stage"], "continuation request");
+            result = await this.runtime.continueAction(body);
+        } else if (request.method === "POST" && url.pathname === "/v1/actions/recover") {
+            if (this.runtime === null) {
+                throw new SupervisorError("RUNTIME_UNAVAILABLE", "proof runtime is not configured", 503);
+            }
+            exactObject(body, ["actionId", "nonce"], "recovery request");
+            result = await this.runtime.recoverAction(body);
         } else {
             throw new SupervisorError("ROUTE_REFUSED", "local API route is not allowed", 404);
         }

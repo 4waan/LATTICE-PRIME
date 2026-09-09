@@ -10,10 +10,13 @@ const METHODS = new Set([
     "lock",
     "account",
     "summary",
+    "action",
     "activateMandate",
+    "pauseMandate",
     "reserveEvaluation",
     "prepareCommit",
     "prepareReveal",
+    "prepareOutstanding",
     "recordBroadcast",
 ]);
 
@@ -26,7 +29,13 @@ export class SignerProcessError extends Error {
 }
 
 export class SignerProcess {
-    constructor({stateDir, feePolicy, commitBondTinybar, timeoutMilliseconds = 15_000}) {
+    constructor({
+        stateDir,
+        feePolicy,
+        commitBondTinybar,
+        cancelFeeTinybar,
+        timeoutMilliseconds = 15_000,
+    }) {
         if (!Number.isSafeInteger(timeoutMilliseconds) || timeoutMilliseconds < 100) {
             throw new SignerProcessError("TIMEOUT_INVALID", "signer timeout is invalid");
         }
@@ -40,6 +49,7 @@ export class SignerProcess {
                 LATTICE_AGENT_STATE_DIR: stateDir,
                 LATTICE_AGENT_FEE_POLICY: JSON.stringify(feePolicy),
                 LATTICE_AGENT_COMMIT_BOND_TINYBAR: commitBondTinybar,
+                LATTICE_AGENT_CANCEL_FEE_TINYBAR: cancelFeeTinybar,
             },
         });
         this.child.on("message", (message) => this.#receive(message));

@@ -1,0 +1,249 @@
+{
+  "schemaVersion": "lattice.agent.phase2-testnet-evidence.v1",
+  "status": "passed",
+  "startedAt": "2026-09-09T03:52:49.031Z",
+  "completedAt": "2026-09-09T04:11:42.853Z",
+  "network": {
+    "chainId": "296",
+    "rpc": "https://testnet.hashio.io/api"
+  },
+  "deployment": {
+    "schemaVersion": "lattice.agent.deployment-evidence.v1",
+    "checkedAt": "2026-09-09T03:52:46.221Z",
+    "chainId": "296",
+    "deploymentHash": "0xbfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
+    "engine": {
+      "address": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+      "runtimeCodeHash": "0x0bbb8a0b0d640f6ff4a9a0d2b23c277fea44d864d8b54451ae778d6e955262ff",
+      "requiredSelectors": [
+        {
+          "signature": "commit(bytes32)",
+          "selector": "0xf14fcbc8",
+          "present": true
+        },
+        {
+          "signature": "reveal(uint8,uint128,uint128,bytes32,uint256)",
+          "selector": "0x59c94e62",
+          "present": true
+        },
+        {
+          "signature": "cancel(bytes32)",
+          "selector": "0xc4d252f5",
+          "present": true
+        },
+        {
+          "signature": "expire(bytes32)",
+          "selector": "0xc6441798",
+          "present": true
+        },
+        {
+          "signature": "withdraw()",
+          "selector": "0x3ccfd60b",
+          "present": true
+        },
+        {
+          "signature": "commitments(bytes32)",
+          "selector": "0x839df945",
+          "present": true
+        },
+        {
+          "signature": "orders(bytes32)",
+          "selector": "0x9c3f1e90",
+          "present": true
+        },
+        {
+          "signature": "backingOf(bytes32)",
+          "selector": "0xb2eac4b5",
+          "present": true
+        },
+        {
+          "signature": "credit(address)",
+          "selector": "0xd5d44d80",
+          "present": true
+        },
+        {
+          "signature": "currentRound()",
+          "selector": "0x8a19c8bc",
+          "present": true
+        },
+        {
+          "signature": "roundEnd(uint64)",
+          "selector": "0x58f0e07a",
+          "present": true
+        },
+        {
+          "signature": "quote(uint64)",
+          "selector": "0x8ff62c96",
+          "present": true
+        },
+        {
+          "signature": "eligibleIn(bytes32,uint64)",
+          "selector": "0x3c4ec006",
+          "present": true
+        }
+      ]
+    },
+    "token": {
+      "address": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2",
+      "runtimeCodeHash": "0x6b1112b5a03efe29e5b2284f93c63c1881fb3e866e5db2f6065c6d4623124c85",
+      "proxyInterfaceValidatedFromPinnedAbi": true
+    },
+    "wiring": {
+      "security": true,
+      "compliance": true,
+      "policy": true,
+      "volumeCap": true,
+      "tradingHalt": true,
+      "tokenCompliance": true,
+      "registryInstalled": true
+    },
+    "immutables": {
+      "commitBondTinybar": true,
+      "cancelFeeTinybar": true,
+      "revealDelaySeconds": true,
+      "revealWindowSeconds": true,
+      "roundLengthSeconds": true,
+      "restRounds": true,
+      "partition": true
+    }
+  },
+  "actors": {
+    "agentBuyer": "0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d",
+    "preparedSeller": "0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397"
+  },
+  "modelHash": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
+  "policyHash": "0x7a99d335fe3def6fba77933efc1c464cfc11a4533028cd0335827c32c58ea6ac",
+  "feePolicy": {
+    "gasLimit": "1200000",
+    "maxFeePerGas": "2260000000000",
+    "maxPriorityFeePerGas": "0"
+  },
+  "checks": {
+    "restartedFromEncryptedJournal": true,
+    "changedProjectionRefusedBeforeBroadcast": true,
+    "cancelAfterRevealRefusedBeforeSigning": true,
+    "filledPathSettled": true,
+    "filledPathCreditsRecovered": true,
+    "noFillObserved": true,
+    "noFillExpired": true,
+    "noFillCreditsRecovered": true,
+    "sameProtocolPositionVisible": true,
+    "receiptsAreSanitized": true
+  },
+  "cases": [
+    {
+      "name": "filled",
+      "agentOrder": "0x1229e795e008fba937827c75103a54165df6e083289f7e3213deafa34e56ab5c",
+      "sellerOrder": "0x822a9fb108d4b802003fca238d9601bd12b80a1629f2fb18bce6188856e294de",
+      "round": "976",
+      "expectedOutcome": "filled",
+      "finalLifecycle": "FILLED",
+      "creditsBefore": {
+        "buyer": "1005000",
+        "seller": "1100000"
+      },
+      "creditBeforeWithdrawTotalTinybar": "2005190",
+      "agentCreditDeltaTinybar": "1000190",
+      "sellerCreditDeltaTinybar": "1001000",
+      "settlementCostTinybar": "1000",
+      "creditNote": "The withdrawal also swept 1005000 tinybar of buyer credit and 1100000 tinybar of seller credit left by an earlier venue test. The deltas above isolate this order.",
+      "balancesBefore": {
+        "buyer": "1000",
+        "seller": "2000"
+      },
+      "balancesAfter": {
+        "buyer": "1010",
+        "seller": "1990"
+      },
+      "agentTransactions": {
+        "commit": "0x65644538f74dd74f05fc84ca1cc44eceec0b58d3621faea671fe9e3c5788798a",
+        "reveal": "0x881632b87e6651998272a3a5f761d5342e2ace8ce99186cef59b35f56d03bdad",
+        "withdraw": "0x5e8f12c2a6ea98309b4db8455ee4e2530ae6cc78e20f135b4a58a986c106a0f8"
+      },
+      "sellerTransactions": {
+        "filled-seller-hold": "0x06bfeb92bc07781a042676395960a90e66bad292b2bd04e1fb37d92c228c670c",
+        "filled-seller-commit": "0x1906f2144d9f447443356469e6362544c97b3e05cd09d3d82c59d6f92c263413",
+        "filled-seller-reveal": "0x6116861f35105692d27607c6771aa421ab9e36833e8febe29c7a6bbdf9f2d00c",
+        "filled-seller-withdraw": "0x1ded2716b450f816b76e4d98cd5c26a5a604df634fd15893fdeab66c6897e244"
+      },
+      "crossTransaction": "0x407c18e9dd27ad6675cb232b88c65dbe3b245d57df00d9767552b197f6c84388",
+      "receiptHash": "0x51c94b997e0d35afe43b5852cb0b1deaf460d4e399b75dede8f0d0d831bedc3c"
+    },
+    {
+      "name": "no-fill",
+      "agentOrder": "0xadd5b6cc1e8af36f2bcea40c79c6fb21c5a5ee36e579993e5ae06a3ed4f2d497",
+      "sellerOrder": "0x5163dc7c1b4136f9f2f68ac92053fb3cf843fab3c305f534d72fae4a89906384",
+      "round": "977",
+      "expectedOutcome": "no-fill",
+      "finalLifecycle": "RETIRED_NO_FILL",
+      "creditsBefore": {
+        "buyer": "0",
+        "seller": "0"
+      },
+      "creditBeforeWithdrawTotalTinybar": "1000833",
+      "agentCreditDeltaTinybar": "1000833",
+      "sellerCreditDeltaTinybar": "1000000",
+      "balancesBefore": {
+        "buyer": "1010",
+        "seller": "1990"
+      },
+      "balancesAfter": {
+        "buyer": "1010",
+        "seller": "1990"
+      },
+      "agentTransactions": {
+        "commit": "0x720bde176694b7fb4955d8a8c1a0edf06a48ca2412e4bcf89f9f24e9c18ca167",
+        "reveal": "0xf10ad1eae815dda615e034f9da82129e2ca318fe5be96646a44b37005041087b",
+        "expire": "0x9f43a6a3ffeb3793c897fbe7a5ae8f750835aa8e298e8703831000c80538bf02",
+        "withdraw": "0x720199f028effe30993cb86731ed249e4e8ad543197aeaff44a3e11ffee3bade"
+      },
+      "sellerTransactions": {
+        "no-fill-seller-hold": "0xeaf0bdad157710accdf6894d6fe74da1e643233094bb125217e0bc91dde8050f",
+        "no-fill-seller-commit": "0x5459a179e9cdcd140da89bfe45781343cf50f4c6b8f12d018bf6a1afccaf3443",
+        "no-fill-seller-reveal": "0x7b09936159939fcc8e588abcb83d2d575d514098ad00d1657fcef3956aae1fe7",
+        "no-fill-seller-expire": "0xc083108ba61068a1bc8c1fda3bc8733d00b7b5a1895a706cbd81815776bb2c4d",
+        "no-fill-seller-withdraw": "0x72cbdc24958d7be674d722345c9420f5c281de49e44386d6b2c8d6b70d56ce57"
+      },
+      "crossTransaction": "0xf22edcfcb9ee7c718b8338c7628e3af910f211a339aaaf3b05c96eea2fb2cfad",
+      "receiptHash": "0xd706d63ee7ac5cb6d42874f1bb742597f4a12cd0bfc8425a5fe2ec2af9a705fc"
+    }
+  ],
+  "independentVerification": {
+    "arithmeticAndCommitments": {
+      "status": "passed",
+      "method": "Python exact integers and Foundry Keccak compared to the JavaScript helpers over an operating-system-random corpus",
+      "commitmentCases": 128,
+      "unitRoundTrips": 128,
+      "wrongAccountMutations": 128,
+      "selectorChecks": 13,
+      "corpusSha256": "sha256:57aabc68dcbc60b6fbacd0ebd1a03b626d37adce560e8e1a0643776e0af4a981"
+    },
+    "liveReadback": {
+      "status": "passed",
+      "method": "Foundry cast read transactions, receipts, order mappings, credits, and ATS partition balances directly from chain 296 after the run",
+      "transactionsChecked": 9,
+      "filledOrder": {
+        "quantity": "10",
+        "filled": "10",
+        "retired": true
+      },
+      "noFillOrder": {
+        "quantity": "7",
+        "filled": "0",
+        "retired": true
+      },
+      "final": {
+        "buyerCreditTinybar": "0",
+        "sellerCreditTinybar": "0",
+        "buyerBondUnits": "1010",
+        "sellerBondUnits": "1990"
+      }
+    }
+  },
+  "postRunHardening": {
+    "checkedAt": "2026-09-09T04:47:06Z",
+    "status": "passed",
+    "snapshotOriginAuthentication": "A read-only test against the pinned deployment confirmed that changing a feature in an adapter-issued HMAC-authenticated snapshot is refused before proving."
+  },
+  "privacy": "Sanitized evidence contains no signing key, reveal salt, proof body, signed bytes, or private witness. No agent evidence was submitted to HCS."
+}

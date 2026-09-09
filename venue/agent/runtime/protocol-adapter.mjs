@@ -4,6 +4,9 @@ import {Interface, Transaction, getAddress} from "ethers";
 const ABI = [
     "function commit(bytes32 id) payable",
     "function reveal(uint8 side,uint128 price,uint128 qty,bytes32 salt,uint256 backing) payable",
+    "function cancel(bytes32 id)",
+    "function expire(bytes32 id)",
+    "function withdraw()",
 ];
 const iface = new Interface(ABI);
 
@@ -30,6 +33,7 @@ export class DeterministicProtocolAdapter {
         this.features = structuredClone(features);
         this.transactions = new Map();
         this.commitments = new Map();
+        this.creditTinybar = "0";
         this.failureMode = "none";
     }
 
@@ -49,6 +53,9 @@ export class DeterministicProtocolAdapter {
         return {
             schemaVersion: "lattice.agent.adapter-preflight.v1",
             adapter: "deterministic-harness",
+            stage: request.stage,
+            checkedAtBlock: 0,
+            checkedAtTimestamp: "0",
             identityMatches: matches,
             eligible: true,
             halted: false,
@@ -80,13 +87,18 @@ export class DeterministicProtocolAdapter {
             throw new AdapterError("TRANSACTION_HASH_MISMATCH", "signed transaction hash does not match its record");
         }
         const parsed = iface.parseTransaction({data: transaction.data, value: transaction.value});
-        if (parsed === null || !["commit", "reveal"].includes(parsed.name)) {
-            throw new AdapterError("METHOD_REFUSED", "adapter harness accepts only commit and reveal");
+        if (
+            parsed === null ||
+            !["commit", "reveal", "cancel", "expire", "withdraw"].includes(parsed.name)
+        ) {
+            throw new AdapterError("METHOD_REFUSED", "adapter harness received an unsupported method");
         }
-        const revealedCommitment =
-            parsed.name === "reveal" ? record.projection.commitment.toLowerCase() : null;
-        if (revealedCommitment !== null && !this.commitments.has(revealedCommitment)) {
-            throw new AdapterError("COMMITMENT_MISSING", "reveal has no accepted commitment");
+        const actionCommitment =
+            ["reveal", "cancel", "expire"].includes(parsed.name)
+                ? record.projection.commitment.toLowerCase()
+                : null;
+        if (actionCommitment !== null && !this.commitments.has(actionCommitment)) {
+            throw new AdapterError("COMMITMENT_MISSING", `${parsed.name} has no accepted commitment`);
         }
         if (!this.transactions.has(transaction.hash)) {
             this.transactions.set(transaction.hash, {
@@ -96,10 +108,22 @@ export class DeterministicProtocolAdapter {
                 nonce: transaction.nonce,
             });
             if (parsed.name === "commit") {
-                this.commitments.set(parsed.args.id.toLowerCase(), {sealed: true, revealed: false});
-            } else {
-                const state = this.commitments.get(revealedCommitment);
+                this.commitments.set(parsed.args.id.toLowerCase(), {
+                    sealed: true,
+                    revealed: false,
+                    lifecycle: "REVEALABLE",
+                    context: record.projection,
+                });
+            } else if (parsed.name === "reveal") {
+                const state = this.commitments.get(actionCommitment);
                 state.revealed = true;
+                state.lifecycle = "IN_AUCTION";
+            } else if (parsed.name === "cancel" || parsed.name === "expire") {
+                const state = this.commitments.get(actionCommitment);
+                state.lifecycle = parsed.name === "cancel" ? "CANCELLED" : "RETIRED_NO_FILL";
+                this.creditTinybar = "1000000";
+            } else {
+                this.creditTinybar = "0";
             }
         }
         if (this.failureMode === "timeout-after-accept") {
@@ -113,5 +137,27 @@ export class DeterministicProtocolAdapter {
         return record === undefined
             ? {known: false, status: "unknown"}
             : {known: true, ...structuredClone(record)};
+    }
+
+    async readAction({commitment, account}) {
+        if (getAddress(account).toLowerCase() !== this.identity.executionAccount) {
+            throw new AdapterError("ACCOUNT_MISMATCH", "action account is not the harness account");
+        }
+        const state = this.commitments.get(commitment.toLowerCase());
+        return {
+            schemaVersion: "lattice.agent.chain-action-state.v1",
+            commitment: commitment.toLowerCase(),
+            lifecycle: state?.lifecycle ?? "UNKNOWN",
+            creditTinybar: this.creditTinybar,
+            opensAt: "0",
+            closesAt: "0",
+            retireAfter: "0",
+            order: {
+                filled: "0",
+                qty: state?.context === undefined ? "0" : "1",
+                lastRound: "0",
+                retired: state?.lifecycle?.startsWith("RETIRED") ?? false,
+            },
+        };
     }
 }

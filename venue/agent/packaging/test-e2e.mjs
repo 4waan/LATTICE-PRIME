@@ -89,6 +89,7 @@ const stateDir = await mkdtemp(path.join(stateBase, "state-"));
 const signer = new SignerProcess({
     stateDir,
     commitBondTinybar: deployment.immutables.commitBond,
+    cancelFeeTinybar: deployment.immutables.cancelFee,
     feePolicy: {
         gasLimit: "500000",
         maxFeePerGas: "1000000000",

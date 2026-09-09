@@ -8,13 +8,14 @@ const REQUEST_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 function configuration() {
     const rootDir = process.env.LATTICE_AGENT_STATE_DIR;
     const commitBondTinybar = process.env.LATTICE_AGENT_COMMIT_BOND_TINYBAR;
+    const cancelFeeTinybar = process.env.LATTICE_AGENT_CANCEL_FEE_TINYBAR;
     let feePolicy;
     try {
         feePolicy = JSON.parse(process.env.LATTICE_AGENT_FEE_POLICY ?? "");
     } catch {
         throw new Error("invalid signer fee policy");
     }
-    return {rootDir, commitBondTinybar, feePolicy};
+    return {rootDir, commitBondTinybar, cancelFeeTinybar, feePolicy};
 }
 
 const config = configuration();
@@ -23,6 +24,7 @@ const signer = new LocalTypedSigner({
     store,
     feePolicy: config.feePolicy,
     commitBondTinybar: config.commitBondTinybar,
+    cancelFeeTinybar: config.cancelFeeTinybar,
 });
 let sessionPassphrase = null;
 
@@ -57,7 +59,10 @@ async function dispatch(message) {
         }
         case "initializeAccount": {
             const passphrase = message.params.passphrase;
-            const address = await signer.initializeAccount(passphrase);
+            const address = await signer.initializeAccount(
+                passphrase,
+                message.params.privateKey ?? null
+            );
             sessionPassphrase = passphrase;
             return {address};
         }
@@ -74,8 +79,12 @@ async function dispatch(message) {
             return {address: await signer.account(requireUnlocked())};
         case "summary":
             return signer.summary(requireUnlocked());
+        case "action":
+            return signer.action(requireUnlocked(), message.params.actionId);
         case "activateMandate":
             return signer.activateMandate(requireUnlocked(), message.params.mandate);
+        case "pauseMandate":
+            return signer.pauseMandate(requireUnlocked(), message.params);
         case "reserveEvaluation":
             return signer.reserveEvaluation(
                 requireUnlocked(),
@@ -96,6 +105,8 @@ async function dispatch(message) {
                 message.params.context,
                 message.params.request
             );
+        case "prepareOutstanding":
+            return signer.prepareOutstanding(requireUnlocked(), message.params);
         case "recordBroadcast":
             return signer.recordBroadcast(requireUnlocked(), message.params);
         default:

@@ -7,11 +7,23 @@ import {
     createAuthorityState,
     mandateId,
     reserveApprovedBuy,
+    reserveCancellation,
     reserveEvaluation as reservePolicyEvaluation,
+    setAuthorityPaused,
 } from "./policy.mjs";
-import {ProjectionError, assertTransactionMatchesProjection, projectCommit, projectReveal} from "./transaction-projector.mjs";
+import {
+    ProjectionError,
+    assertTransactionMatchesProjection,
+    projectCancel,
+    projectCommit,
+    projectExpire,
+    projectReveal,
+    projectWithdraw,
+} from "./transaction-projector.mjs";
 
 const PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/;
+const ACTION_ID = /^sha256:[0-9a-f]{64}$/;
+const OUTSTANDING_STAGES = new Set(["reveal", "cancel", "expire", "withdraw"]);
 
 export class SignerError extends Error {
     constructor(code, message) {
@@ -69,6 +81,24 @@ function requestNonce(value) {
     return nonce(value.nonce);
 }
 
+function outstandingRequest(value) {
+    if (
+        value === null ||
+        typeof value !== "object" ||
+        Array.isArray(value) ||
+        Object.keys(value).sort().join(",") !== "actionId,nonce,stage" ||
+        typeof value.actionId !== "string" ||
+        !ACTION_ID.test(value.actionId) ||
+        !OUTSTANDING_STAGES.has(value.stage)
+    ) {
+        throw new SignerError(
+            "INVALID_SIGN_REQUEST",
+            "outstanding action request requires actionId, nonce, and an approved stage"
+        );
+    }
+    return {actionId: value.actionId, nonce: nonce(value.nonce), stage: value.stage};
+}
+
 function commitRequest(value) {
     if (
         value === null ||
@@ -81,14 +111,42 @@ function commitRequest(value) {
     return {nonce: nonce(value.nonce), approval: value.approval};
 }
 
+function assertNonceAvailable(state, requestedNonce, actionId, nonceField) {
+    for (const [otherActionId, ticket] of Object.entries(state.tickets)) {
+        for (const field of [
+            "commitNonce",
+            "revealNonce",
+            "cancelNonce",
+            "expireNonce",
+            "withdrawNonce",
+        ]) {
+            if (
+                ticket[field] === requestedNonce &&
+                (otherActionId !== actionId || field !== nonceField)
+            ) {
+                throw new SignerError(
+                    "NONCE_RESERVED",
+                    "account nonce is already reserved by another typed action"
+                );
+            }
+        }
+    }
+}
+
 export class LocalTypedSigner {
-    constructor({store, feePolicy: configuredFeePolicy, commitBondTinybar}) {
+    constructor({
+        store,
+        feePolicy: configuredFeePolicy,
+        commitBondTinybar,
+        cancelFeeTinybar,
+    }) {
         if (store === null || typeof store !== "object") {
             throw new SignerError("STORE_REQUIRED", "typed signer requires an encrypted store");
         }
         this.store = store;
         this.fees = feePolicy(configuredFeePolicy);
         this.commitBond = decimal(commitBondTinybar, "commitBondTinybar", {nonzero: true}).toString();
+        this.cancelFee = decimal(cancelFeeTinybar, "cancelFeeTinybar", {nonzero: true}).toString();
     }
 
     async initializeAccount(passphrase, suppliedPrivateKey = null) {
@@ -124,6 +182,11 @@ export class LocalTypedSigner {
             tickets: Object.values(state.tickets).map((ticket) => ({
                 actionId: ticket.actionId,
                 mandateId: ticket.mandateId,
+                commitment: projectCommit(
+                    state.mandates[ticket.mandateId],
+                    ticket.context,
+                    {salt: ticket.salt, commitBond: this.commitBond}
+                ).commitment,
                 lifecycle: ticket.lifecycle,
                 commitTransactionHash:
                     state.signedTransactions[`${ticket.actionId}:commit`]?.transactionHash ?? null,
@@ -133,8 +196,65 @@ export class LocalTypedSigner {
         };
     }
 
+    async action(passphrase, actionId) {
+        if (typeof actionId !== "string" || !ACTION_ID.test(actionId)) {
+            throw new SignerError("ACTION_ID_INVALID", "action identifier is invalid");
+        }
+        const state = await this.store.read(passphrase);
+        const ticket = state.tickets[actionId];
+        if (ticket === undefined) {
+            throw new SignerError("TICKET_MISSING", "action has no persisted ticket");
+        }
+        const mandate = state.mandates[ticket.mandateId];
+        const commitment = projectCommit(mandate, ticket.context, {
+            salt: ticket.salt,
+            commitBond: this.commitBond,
+        }).commitment;
+        return {
+            schemaVersion: "lattice.agent.persisted-action.v1",
+            actionId,
+            mandateId: ticket.mandateId,
+            mandate: structuredClone(mandate),
+            context: structuredClone(ticket.context),
+            commitment,
+            lifecycle: ticket.lifecycle,
+            transactions: Object.fromEntries(
+                ["commit", "reveal", "cancel", "expire", "withdraw"]
+                    .map((stage) => [stage, state.signedTransactions[`${actionId}:${stage}`] ?? null])
+            ),
+        };
+    }
+
     async activateMandate(passphrase, mandateValue) {
         const mandate = validateMandate(mandateValue);
+        if (
+            mandate.ticket.permittedMethods.includes("cancel") &&
+            BigInt(mandate.limits.cancellationBudget) < BigInt(this.cancelFee)
+        ) {
+            throw new SignerError(
+                "CANCELLATION_BUDGET",
+                "mandate cancellation budget is below the pinned protocol fee"
+            );
+        }
+        const weibarPerTinybar = 10_000_000_000n;
+        const maximumFeePerTransaction =
+            (this.fees.gasLimit * this.fees.maxFeePerGas + weibarPerTinybar - 1n) /
+            weibarPerTinybar;
+        const methods = new Set(mandate.ticket.permittedMethods);
+        const commonTransactions =
+            Number(methods.has("commit")) + Number(methods.has("withdraw"));
+        const cancellationTransactions =
+            commonTransactions + Number(methods.has("cancel"));
+        const revealedTransactions =
+            commonTransactions + Number(methods.has("reveal")) + Number(methods.has("expire"));
+        const requiredFeeReserve =
+            maximumFeePerTransaction * BigInt(Math.max(cancellationTransactions, revealedTransactions));
+        if (BigInt(mandate.limits.feeReserve) < requiredFeeReserve) {
+            throw new SignerError(
+                "FEE_RESERVE_INSUFFICIENT",
+                "mandate fee reserve is below the configured transaction fee ceiling"
+            );
+        }
         const id = mandateId(mandate);
         const state = await this.store.transact(passphrase, "activate-mandate", (current) => {
             const existing = current.mandates[id];
@@ -161,6 +281,44 @@ export class LocalTypedSigner {
         return structuredClone(state.authority[id]);
     }
 
+    async pauseMandate(passphrase, request) {
+        if (
+            request === null ||
+            typeof request !== "object" ||
+            Array.isArray(request) ||
+            Object.keys(request).sort().join(",") !== "mandateId,paused" ||
+            typeof request.mandateId !== "string" ||
+            !ACTION_ID.test(request.mandateId) ||
+            typeof request.paused !== "boolean"
+        ) {
+            throw new SignerError("PAUSE_REQUEST_INVALID", "pause request is invalid");
+        }
+        const state = await this.store.transact(passphrase, "set-mandate-pause", (current) => {
+            const mandate = current.mandates[request.mandateId];
+            const authority = current.authority[request.mandateId];
+            if (mandate === undefined || authority === undefined) {
+                throw new SignerError("MANDATE_INACTIVE", "mandate is not active in the signer");
+            }
+            if (!request.paused && mandate.control.paused) {
+                throw new SignerError(
+                    "MANDATE_PAUSED",
+                    "a mandate activated as paused cannot be unpaused without new authorization"
+                );
+            }
+            current.authority[request.mandateId] = setAuthorityPaused(
+                mandate,
+                authority,
+                request.paused
+            );
+        });
+        return {
+            mandateId: request.mandateId,
+            paused: state.authority[request.mandateId].paused,
+            outstandingActionsContinue:
+                state.mandates[request.mandateId].control.completeOutstandingObligations,
+        };
+    }
+
     async prepareCommit(passphrase, mandate, context, request) {
         const parsedRequest = commitRequest(request);
         const requestedNonce = parsedRequest.nonce;
@@ -178,6 +336,7 @@ export class LocalTypedSigner {
         }
         const id = mandateId(mandate);
         const state = await this.store.transact(passphrase, "save-commit-ticket", (current) => {
+            assertNonceAvailable(current, requestedNonce, actionId, "commitNonce");
             let ticket = current.tickets[actionId];
             if (ticket === undefined) {
                 if (current.mandates[id] === undefined || current.authority[id] === undefined) {
@@ -197,6 +356,10 @@ export class LocalTypedSigner {
                     salt: hexlify(randomBytes(32)),
                     commitNonce: requestedNonce,
                     revealNonce: null,
+                    cancelNonce: null,
+                    cancelFeeReserved: false,
+                    expireNonce: null,
+                    withdrawNonce: null,
                     lifecycle: "TICKET_SAVED",
                 };
                 current.tickets[actionId] = ticket;
@@ -223,6 +386,7 @@ export class LocalTypedSigner {
             if (current.signedTransactions[`${actionId}:commit`] === undefined) {
                 throw new SignerError("COMMIT_UNSIGNED", "cannot reveal before the commit transaction is persisted");
             }
+            assertNonceAvailable(current, requestedNonce, actionId, "revealNonce");
             if (ticket.revealNonce === null) ticket.revealNonce = requestedNonce;
             if (ticket.revealNonce !== requestedNonce) {
                 throw new SignerError("NONCE_CHANGE_REFUSED", "reveal retry must use the reserved account nonce");
@@ -233,14 +397,83 @@ export class LocalTypedSigner {
         return this.#signAndPersist(passphrase, actionId, "reveal", requestedNonce, projection);
     }
 
+    async prepareOutstanding(passphrase, request) {
+        const parsed = outstandingRequest(request);
+        const state = await this.store.read(passphrase);
+        const ticket = state.tickets[parsed.actionId];
+        if (ticket === undefined) {
+            throw new SignerError("TICKET_MISSING", "cannot continue an action without its persisted ticket");
+        }
+        const mandate = state.mandates[ticket.mandateId];
+        if (mandate === undefined) {
+            throw new SignerError("MANDATE_INACTIVE", "persisted action has no active mandate");
+        }
+        if (state.signedTransactions[`${parsed.actionId}:commit`] === undefined) {
+            throw new SignerError("COMMIT_UNSIGNED", "cannot continue before the commit transaction is persisted");
+        }
+        if (
+            ["expire"].includes(parsed.stage) &&
+            state.signedTransactions[`${parsed.actionId}:reveal`] === undefined
+        ) {
+            throw new SignerError("REVEAL_UNSIGNED", "cannot expire before the reveal transaction is persisted");
+        }
+        if (
+            parsed.stage === "cancel" &&
+            state.signedTransactions[`${parsed.actionId}:reveal`] !== undefined
+        ) {
+            throw new SignerError("CANCEL_AFTER_REVEAL_REFUSED", "cannot cancel after a reveal was signed");
+        }
+        const nonceField = `${parsed.stage}Nonce`;
+        const reserved = await this.store.transact(
+            passphrase,
+            `reserve-${parsed.stage}-nonce`,
+            (current) => {
+                const currentTicket = current.tickets[parsed.actionId];
+                assertNonceAvailable(current, parsed.nonce, parsed.actionId, nonceField);
+                if (parsed.stage === "cancel" && currentTicket.cancelFeeReserved !== true) {
+                    current.authority[currentTicket.mandateId] = reserveCancellation(
+                        mandate,
+                        current.authority[currentTicket.mandateId],
+                        this.cancelFee
+                    );
+                    currentTicket.cancelFeeReserved = true;
+                }
+                if (currentTicket[nonceField] === null) currentTicket[nonceField] = parsed.nonce;
+                if (currentTicket[nonceField] !== parsed.nonce) {
+                    throw new SignerError(
+                        "NONCE_CHANGE_REFUSED",
+                        `${parsed.stage} retry must use the reserved account nonce`
+                    );
+                }
+                currentTicket.lifecycle = `${parsed.stage.toUpperCase()}_PENDING`;
+            }
+        );
+        const currentTicket = reserved.tickets[parsed.actionId];
+        const projection =
+            parsed.stage === "reveal"
+                ? projectReveal(mandate, currentTicket.context, {salt: currentTicket.salt})
+                : parsed.stage === "cancel"
+                    ? projectCancel(mandate, currentTicket.context, {salt: currentTicket.salt})
+                    : parsed.stage === "expire"
+                        ? projectExpire(mandate, currentTicket.context, {salt: currentTicket.salt})
+                        : projectWithdraw(mandate, currentTicket.context, {});
+        return this.#signAndPersist(
+            passphrase,
+            parsed.actionId,
+            parsed.stage,
+            parsed.nonce,
+            projection
+        );
+    }
+
     async recordBroadcast(passphrase, request) {
         if (
             request === null ||
             typeof request !== "object" ||
             Array.isArray(request) ||
             Object.keys(request).sort().join(",") !== "actionId,stage,status,transactionHash" ||
-            !["commit", "reveal"].includes(request.stage) ||
-            !["confirmed", "unknown"].includes(request.status) ||
+            !["commit", "reveal", "cancel", "expire", "withdraw"].includes(request.stage) ||
+            !["confirmed", "reverted", "unknown"].includes(request.status) ||
             typeof request.actionId !== "string" ||
             !/^sha256:[0-9a-f]{64}$/.test(request.actionId) ||
             typeof request.transactionHash !== "string" ||
@@ -259,11 +492,17 @@ export class LocalTypedSigner {
                 throw new SignerError("BROADCAST_RECORD_MISMATCH", "broadcast record does not match persisted bytes");
             }
             ticket.lifecycle =
-                request.status === "unknown"
+                request.status !== "confirmed"
                     ? "RECOVERY_REQUIRED"
                     : request.stage === "commit"
                         ? "SEALED"
-                        : "IN_AUCTION";
+                        : request.stage === "reveal"
+                            ? "IN_AUCTION"
+                            : request.stage === "cancel"
+                                ? "CANCELLED"
+                                : request.stage === "expire"
+                                    ? "EXPIRED"
+                                    : "WITHDRAWN";
         });
         return structuredClone(state.tickets[request.actionId]);
     }
@@ -336,7 +575,7 @@ export class LocalTypedSigner {
                 throw new SignerError("SIGNED_TRANSACTION_CONFLICT", "a different signed transaction already exists");
             }
             state.signedTransactions[recordId] = record;
-            state.tickets[actionId].lifecycle = stage === "commit" ? "COMMIT_PENDING" : "REVEAL_PENDING";
+            state.tickets[actionId].lifecycle = `${stage.toUpperCase()}_PENDING`;
         });
         return structuredClone(saved.signedTransactions[recordId]);
     }
