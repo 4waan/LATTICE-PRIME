@@ -68,15 +68,17 @@ code{font-size:.86em;background:var(--sunk);padding:.12em .4em;border-radius:8px
 }
 .brand-row{display:flex;align-items:center;gap:.55rem;min-width:0}
 .brand{
-  display:flex;align-items:center;gap:.55rem;text-decoration:none;color:var(--ink);
+  display:flex;align-items:center;gap:.55rem;color:var(--ink);
   font-weight:700;font-size:1.5rem;letter-spacing:-.045em;line-height:1.1;
 }
+.brand a{display:flex;align-items:center;text-decoration:none;color:inherit}
+.brand-switch:hover .brand-mark{opacity:.7}
 .brand-mark{
   width:1.15em;height:1.73em;flex:0 0 auto;display:block;
   color:var(--primary);overflow:visible;
 }
 .brand-mark polygon{fill:currentColor}
-.brand > span{white-space:nowrap}
+.brand-home{white-space:nowrap}
 .net-chip{
   font-size:.68rem;font-weight:600;letter-spacing:.06em;
   padding:.22rem .55rem;border-radius:var(--pill);
