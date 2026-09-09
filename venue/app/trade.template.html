@@ -1,4 +1,4 @@
-<title>Trade · Lattice Prime</title>
+<title>Markets · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
@@ -35,11 +35,11 @@ document.documentElement.setAttribute("data-theme",
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
-      <a href="prove.html">Prove</a>
-      <a href="trade.html" aria-current="page">Trade</a>
-      <a href="position.html">Position</a>
-      <a href="repo.html">Repo</a>
-      <a href="venue.html">Rulebook</a>
+      <a href="trade.html" aria-current="page">Markets</a>
+      <a href="position.html">Portfolio</a>
+      <a href="repo.html">Financing</a>
+      <a href="prove.html">Eligibility</a>
+      <a href="venue.html">Issuer</a>
     </nav>
     <div class="mast-end">
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
@@ -52,46 +52,51 @@ document.documentElement.setAttribute("data-theme",
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
 <main class="wrap page">
   <ol class="flow" aria-label="Where you are in the flow">
-    <li><a href="prove.html"><b>01</b> Prove</a></li>
-    <li class="here"><span aria-current="step"><b>02</b> Trade</span></li>
-    <li><a href="position.html"><b>03</b> Position</a></li>
+    <li><a href="prove.html"><b>01</b> Eligibility</a></li>
+    <li class="here"><span aria-current="step"><b>02</b> Markets</span></li>
+    <li><a href="position.html"><b>03</b> Portfolio</a></li>
   </ol>
-  <h1>Trade</h1>
-  <p class="lede">Hold the bond, write the ticket, then commit. Cancel and reveal never overlap; this page will not forfeit a bond for you.</p>
+  <h1>Markets</h1>
+  <p class="lede">Your size stays sealed until you open it. Cancel is yours until then; reveal cannot overlap, and this page will not forfeit a bond. Prints are prior auctions, not guaranteed quotes.</p>
 
   <div class="banner warn" id="kyc-gate" hidden>
-    <p>ATS will refuse a hold from an address that is not granted. <a href="prove.html">Prove first</a>.</p>
+    <p>ATS will refuse locked inventory from an address that is not granted. <a href="prove.html">Prove eligibility first</a>.</p>
   </div>
 
   <div class="cols trade-cols">
     <div class="wire">
-      <div class="wcell"><span class="k">Free</span><span class="v num" id="bal-units">—</span><span class="n">balanceOfByPartition, held units excluded</span></div>
-      <div class="wcell"><span class="k">Held</span><span class="v num" id="bal-held">—</span><span class="n">getHeldAmountForByPartition</span></div>
-      <div class="wcell"><span class="k">Credit</span><span class="v num" id="bal-credit">—</span><span class="n">pull, not push</span></div>
-      <div class="wcell"><span class="k">Grant</span><span class="v" id="bal-kyc">—</span><span class="n">ZkKycRegistry.getKycStatus</span></div>
+      <div class="wcell"><span class="k">Free</span><span class="v num" id="bal-units">Loading</span><span class="n">balanceOfByPartition, held bonds excluded</span></div>
+      <div class="wcell"><span class="k">Held</span><span class="v num" id="bal-held">Loading</span><span class="n">getHeldAmountForByPartition</span></div>
+      <div class="wcell"><span class="k">Credit</span><span class="v num" id="bal-credit">Loading</span><span class="n">pull, not push</span></div>
+      <div class="wcell"><span class="k">Grant</span><span class="v" id="bal-kyc">Loading</span><span class="n">ZkKycRegistry.getKycStatus</span></div>
     </div>
 
     <section class="ticket-col">
-      <div class="shead"><h2>Order</h2><span class="src">six words, sealed</span></div>
+      <div class="shead"><h2>Order</h2><span class="src">six slots, sealed</span></div>
       <div class="ticket">
-        <div class="field">
-          <label for="side">Side</label>
-          <select id="side">
-            <option value="1">SELL</option>
-            <option value="0">BUY</option>
-          </select>
+        <div class="field sidefield">
+          <div class="side-toggle" id="side-toggle" role="radiogroup" aria-label="Side" data-side="1">
+            <span class="side-thumb" aria-hidden="true"></span>
+            <button type="button" role="radio" aria-checked="true" data-side="1">
+              <span class="dia" aria-hidden="true"></span>Sell
+            </button>
+            <button type="button" role="radio" aria-checked="false" data-side="0">
+              <span class="dia" aria-hidden="true"></span>Buy
+            </button>
+          </div>
+          <input type="hidden" id="side" value="1">
           <span class="hint" id="sideHint"></span>
         </div>
         <div class="field">
-          <label for="price">Price, tinybar per unit</label>
+          <label for="price">Price, tinybar per bond</label>
           <input id="price" inputmode="numeric" value="100" autocomplete="off">
           <span class="hint" id="priceHint"></span>
         </div>
@@ -100,20 +105,25 @@ document.documentElement.setAttribute("data-theme",
           <input id="qty" inputmode="numeric" value="1000" autocomplete="off">
           <span class="hint" id="qtyHint"></span>
         </div>
-        <div class="field">
-          <label for="holdId">Hold id, sells</label>
-          <input id="holdId" inputmode="numeric" placeholder="from the hold below" autocomplete="off">
-          <span class="hint">Not in the commitment. Created after sealing.</span>
+        <div class="field holdfield" id="hold-field">
+          <span class="field-label" id="hold-label">Locked inventory</span>
+          <input type="hidden" id="holdId" autocomplete="off">
+          <select id="hold-pick" hidden aria-labelledby="hold-label"></select>
+          <span class="hint" id="hold-status">Lock inventory to back this sell. This page keeps the reservation.</span>
+          <span class="hint">Not part of the sealed ticket. Created when you lock inventory.</span>
         </div>
         <div class="field span2">
           <label>What the reveal will cost</label>
           <span class="hint" id="escrowHint">Fill the ticket and the escrow this order implies appears here.</span>
-          <span class="hint">A sell is backed by the hold id. A buy sends price by quantity at reveal.</span>
+          <span class="hint">A sell is backed by locked inventory. A buy sends price by quantity at reveal.</span>
         </div>
         <div class="field saltfield">
-          <label for="salt">Salt, drawn locally and never sent</label>
-          <div class="saltrow">
-            <input id="salt" spellcheck="false" autocomplete="off">
+          <label for="salt">Reveal key, drawn on this device</label>
+          <div class="saltrow" id="salt-row" data-open="0">
+            <span class="salt-chip" id="salt-chip" aria-hidden="true">Loading</span>
+            <input id="salt" spellcheck="false" autocomplete="off" aria-label="Reveal key">
+            <button type="button" id="salt-copy">Copy</button>
+            <button type="button" id="salt-show" aria-pressed="false">Show</button>
             <button type="button" id="reroll">Draw a new one</button>
             <label class="file-btn">
               <input id="load-ticket" type="file" accept="application/json,.json">
@@ -124,7 +134,7 @@ document.documentElement.setAttribute("data-theme",
         </div>
       </div>
       <div class="rowbtns">
-        <button type="button" id="hold">Encumber a hold</button>
+        <button type="button" id="hold">Lock inventory</button>
         <button type="button" id="save-ticket">Write the ticket</button>
         <button type="button" class="primary" id="commit" disabled>Commit</button>
       </div>
@@ -136,10 +146,10 @@ document.documentElement.setAttribute("data-theme",
         <div class="top"><h2>Engine</h2><span class="src">MatchingEngine</span></div>
         <div class="body">
           <ul class="readout">
-            <li><span class="k">commitBond</span><span class="v num" id="im-bond">—</span></li>
-            <li><span class="k">cancelFee</span><span class="v num" id="im-fee">—</span></li>
-            <li><span class="k">currentRound</span><span class="v num" id="im-round">—</span></li>
-            <li><span class="k">revealedCount</span><span class="v num" id="im-live">—</span></li>
+            <li><span class="k">commitBond</span><span class="v num" id="im-bond">Loading</span></li>
+            <li><span class="k">cancelFee</span><span class="v num" id="im-fee">Loading</span></li>
+            <li><span class="k">currentRound</span><span class="v num" id="im-round">Loading</span></li>
+            <li><span class="k">revealedCount</span><span class="v num" id="im-live">Loading</span></li>
           </ul>
           <p class="note" id="quote" style="margin-top:.65rem"></p>
           <div class="rowbtns">
@@ -152,11 +162,51 @@ document.documentElement.setAttribute("data-theme",
   </div>
 
   <section>
+    <div class="shead">
+      <h2 id="sealed-heading">Your sealed orders</h2>
+      <div class="shead-acts">
+        <button type="button" id="save-vault">Save vault</button>
+        <label class="file-btn">
+          <input id="load-vault" type="file" accept="application/json,.json">
+          Load vault
+        </label>
+      </div>
+      <span class="src">this browser</span>
+    </div>
+    <p>Reveal and cancel live on this list. The reveal key stays in this browser; the vault is the portable copy. Cancel only while <code>cancellableUntil</code> is still in the future; forfeit is not offered.</p>
+    <div class="list" id="tickets"></div>
+  </section>
+
+  <section class="receipt-console" id="publication">
+    <div class="shead">
+      <h2>What this action published</h2>
+      <span class="src">row 15 · MatchingEngine · HCS</span>
+    </div>
+    <p>A valid action can complete after its venue event becomes unaffordable. The transaction receipt says what happened now; the consensus topic makes a deliberate silence independently checkable.</p>
+    <div class="publication-meter">
+      <div><span class="k">Disclosure epoch</span><span class="v num" id="pub-epoch">Loading</span></div>
+      <div><span class="k">Activity row</span><span class="v num">15</span></div>
+      <div><span class="k">Spent</span><span class="v num" id="pub-spent">Loading</span></div>
+      <div><span class="k">Budget</span><span class="v num" id="pub-budget">Loading</span></div>
+    </div>
+    <div class="publication-track" id="pub-track" role="progressbar" aria-label="Activity disclosure budget spent" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
+      <i id="pub-fill"></i>
+    </div>
+    <p class="publication-next" id="pub-next">Reading whether the next activity event can be published.</p>
+    <div id="last-view"><div class="empty">Commit, cancel, reveal or cross a round. Its disclosure receipt will stay with this browser session and follow you to Portfolio.</div></div>
+    <div class="receipt-actions">
+      <a href="position.html">Open Portfolio receipt &rarr;</a>
+      <a href="venue.html#hcs-record">Verify the HCS record &rarr;</a>
+      <a href="../docs/disclosure-receipt.html">Open the receipt explainer &rarr;</a>
+    </div>
+  </section>
+
+  <section>
     <div class="shead"><h2>Commitment</h2><span class="src">OrderBook.commitmentOf</span></div>
-    <p>Six words, keccak256, the id the wire carries. Grey is padding; indigo is the order the operators do not see.</p>
+    <p>Six slots, keccak256, the id the wire carries. Grey is padding; indigo is the order the operators do not see.</p>
     <div class="words-slot" id="words">
-      <div class="empty">Fill in side, price and quantity. The six words that go into the
-        hash, and the id they produce, appear here as you type.</div>
+      <div class="empty">Fill in side, price and quantity. The six slots that go into the
+        sealed ticket, and the id they produce, appear here as you type.</div>
     </div>
     <div class="idbox">
       <span class="k">commitmentOf → the id you send</span>
@@ -166,12 +216,12 @@ document.documentElement.setAttribute("data-theme",
 
   <section>
     <div class="shead"><h2>The book, as it stands</h2><span class="src">revealedCount · liveAt · orders</span></div>
-    <p>Only what has been opened. A sealed commitment is not here, which is the whole point of
+    <p>Only what has been opened. A sealed ticket is not here, which is the whole point of
       sealing it; your own resting orders are marked. <code>quote</code> says what
       <code>crossRound</code> would do before anybody pays for it.</p>
     <div class="rows" id="book"><div class="empty">Reading the book…</div></div>
     <p class="note" id="book-quote"></p>
-    <p class="note">Fees held by the engine: <span id="book-fees">—</span>. <code>feesRetained</code>.</p>
+    <p class="note">Fees held by the engine: <span id="book-fees">Loading</span>. <code>feesRetained</code>.</p>
   </section>
 
   <section>
@@ -182,12 +232,6 @@ document.documentElement.setAttribute("data-theme",
       <button type="button" id="market-reload">Read the tape</button>
     </div>
     <div class="tape" id="market-tape"><div class="empty">Press <b>Read the tape</b>.</div></div>
-  </section>
-
-  <section>
-    <div class="shead"><h2>Tickets on this device</h2><span class="src">localStorage</span></div>
-    <p>Reveal is this list. Cancel is offered only while <code>cancellableUntil</code> is still in the future. Forfeit is not.</p>
-    <div class="list" id="tickets"></div>
   </section>
 </main>
 </div>

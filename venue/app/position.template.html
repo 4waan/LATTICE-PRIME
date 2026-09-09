@@ -1,4 +1,4 @@
-<title>Position · Lattice Prime</title>
+<title>Portfolio · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
@@ -35,11 +35,11 @@ document.documentElement.setAttribute("data-theme",
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
-      <a href="prove.html">Prove</a>
-      <a href="trade.html">Trade</a>
-      <a href="position.html" aria-current="page">Position</a>
-      <a href="repo.html">Repo</a>
-      <a href="venue.html">Rulebook</a>
+      <a href="trade.html">Markets</a>
+      <a href="position.html" aria-current="page">Portfolio</a>
+      <a href="repo.html">Financing</a>
+      <a href="prove.html">Eligibility</a>
+      <a href="venue.html">Issuer</a>
     </nav>
     <div class="mast-end">
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
@@ -52,66 +52,90 @@ document.documentElement.setAttribute("data-theme",
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
 <main class="wrap page">
   <ol class="flow" aria-label="Where you are in the flow">
-    <li><a href="prove.html"><b>01</b> Prove</a></li>
-    <li><a href="trade.html"><b>02</b> Trade</a></li>
-    <li class="here"><span aria-current="step"><b>03</b> Position</span></li>
+    <li><a href="prove.html"><b>01</b> Eligibility</a></li>
+    <li><a href="trade.html"><b>02</b> Markets</a></li>
+    <li class="here"><span aria-current="step"><b>03</b> Portfolio</span></li>
   </ol>
-  <h1>Position</h1>
-  <p class="lede">Credit, five disclosure getters, and whether the margin log can be believed.</p>
+  <h1>Portfolio</h1>
+  <p class="lede">Holdings, cash available to withdraw, income due, and what your last action revealed.</p>
+
+  <section id="needs-box">
+    <div class="shead"><h2>Needs attention</h2><span class="src">this account</span></div>
+    <div id="needs-out"><div class="empty">Connect a wallet to see what is due.</div></div>
+  </section>
 
   <div class="wire" style="margin-bottom:1rem">
-    <div class="wcell"><span class="k">Credit</span><span class="v num" id="pos-credit">—</span><span class="n">MatchingEngine.credit</span></div>
-    <div class="wcell"><span class="k">Tickets</span><span class="v" id="pos-tickets">—</span><span class="n">this browser only</span></div>
-    <div class="wcell"><span class="k">Disclosure epoch</span><span class="v" id="disc-epoch">—</span><span class="n">ParameterRoot.currentEpoch</span></div>
+    <div class="wcell"><span class="k">Trading credit</span><span class="v num" id="pos-credit">Loading</span><span class="n">MatchingEngine.credit</span></div>
+    <div class="wcell"><span class="k">Financing credit</span><span class="v num" id="pos-vault-credit">Loading</span><span class="n">RepoVault.credit</span></div>
+    <div class="wcell"><span class="k">Tickets</span><span class="v" id="pos-tickets">Loading</span><span class="n">this browser only</span></div>
+    <div class="wcell"><span class="k">Publication period</span><span class="v" id="disc-epoch">Loading</span><span class="n">current venue period</span></div>
   </div>
   <div class="rowbtns" style="margin-bottom:1rem">
-    <button type="button" id="withdraw" disabled>Withdraw credit</button>
-    <button type="button" id="disclose">Re-read getters</button>
+    <button type="button" id="withdraw" disabled>Withdraw trading credit</button>
+    <button type="button" id="vault-withdraw" disabled>Withdraw financing credit</button>
+    <button type="button" id="disclose">Refresh balances</button>
   </div>
 
   <section>
     <div class="shead"><h2>The instrument</h2><span class="src">the ATS bond</span></div>
-    <p>What is actually being traded. <code>balanceOf</code> counts every partition and does not
-      net out held units; <code>balanceOfByPartition</code> excludes them. Two different questions.</p>
+    <p>Your total bond balance includes held collateral. Available trading units exclude holds.</p>
     <section class="panel">
       <div class="body">
         <ul class="readout">
-          <li><span class="k">name</span><span class="v" id="in-name">—</span></li>
-          <li><span class="k">totalSupply</span><span class="v" id="in-supply">—</span></li>
-          <li><span class="k">partitions</span><span class="v" id="in-multi">—</span></li>
-          <li><span class="k">KYC lists</span><span class="v" id="in-lists">—</span></li>
-          <li><span class="k">compliance</span><span class="v" id="in-compliance">—</span></li>
-          <li><span class="k">your balance</span><span class="v" id="in-balance">—</span></li>
+          <li><span class="k">name</span><span class="v" id="in-name">Loading</span></li>
+          <li><span class="k">Bonds issued</span><span class="v" id="in-supply">Loading</span></li>
+          <li><span class="k">asset series</span><span class="v" id="in-multi">Loading</span></li>
+          <li><span class="k">eligibility lists</span><span class="v" id="in-lists">Loading</span></li>
+          <li><span class="k">compliance</span><span class="v" id="in-compliance">Loading</span></li>
+          <li><span class="k">your balance</span><span class="v" id="in-balance">Loading</span></li>
         </ul>
       </div>
     </section>
   </section>
 
-  <section>
-    <div class="shead"><h2>The five getters, per row</h2><span class="src">SeamJournal · DisclosureView</span></div>
-    <p>ceilingFor, wouldDisclose, spentBits, wouldAfford, breakingSize. Spent is for the epoch named above, not inferred from the round clock.</p>
+  <section class="receipt-console" id="publication">
+    <div class="shead"><h2>Disclosure receipt from your last action</h2><span class="src">transaction receipt · policy getters</span></div>
+    <p>Decoded from the transaction and re-read from the governed row. It follows this browser tab from Markets or Financing. A withheld venue event is not a private chain.</p>
+    <div id="last-view"><div class="empty">Act on Markets or Financing. The receipt for that transaction is decoded here.</div></div>
+    <div class="receipt-actions">
+      <a href="venue.html#hcs-record">Verify the HCS record &rarr;</a>
+      <a href="../docs/disclosure-receipt.html">Open the receipt explainer &rarr;</a>
+    </div>
+  </section>
+
+  <details class="lab"><summary>Inspect every publication row</summary>
+    <div class="shead"><h2>Venue publication record</h2><span class="src">SeamJournal · DisclosureView</span></div>
+    <p>See which venue events may be published or withheld. Contract storage, transaction input, wallet activity, and upstream asset events can still remain public.</p>
     <div class="rows" id="disc-rows"></div>
-  </section>
+  </details>
 
   <section>
-    <div class="shead"><h2>Last action this session</h2><span class="src">this browser only</span></div>
-    <p>Decoded from that transaction’s receipt, then re-read from the getters.</p>
-    <div id="last-view"><div class="empty">Act on Trade. The receipt for that transaction is decoded here, then re-read from the getters.</div></div>
-  </section>
-
-  <section>
-    <div class="shead"><h2>Margin, and whether to believe it</h2><span class="src">MarginWatch.watch</span></div>
-    <p>Paste repo ids. The stream says whether the log can be believed.</p>
+    <div class="shead"><h2>Coupon income</h2><span class="src">CouponDistributor.claim</span></div>
+    <p>LPCASH, two decimals. HTS deducts the published 25 bps inclusive fee from the transfer. Gross is the tree amount. Associate the cash token before the first claim.</p>
+    <div class="rowbtns" style="margin-bottom:1rem">
+      <button type="button" id="coupon-refresh">Refresh coupons</button>
+      <button type="button" id="coupon-associate" disabled>Associate LPCASH</button>
+    </div>
     <div class="field" style="padding:0 0 .65rem">
-      <label for="repo-ids">Repo ids</label>
+      <label for="coupon-proof">Entitlement proof (JSON)</label>
+      <input id="coupon-proof" type="file" accept="application/json,.json">
+    </div>
+    <div id="coupon-claim"><div class="empty">Refresh after connecting. A claim needs a declared coupon and a merkle proof for this holder.</div></div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>Monitor repo risk</h2><span class="src">MarginWatch.watch</span></div>
+    <p>Paste financing agreement ids to see current risk and whether venue updates may be withheld.</p>
+    <div class="field" style="padding:0 0 .65rem">
+      <label for="repo-ids">Financing agreement ids</label>
       <input id="repo-ids" spellcheck="false" placeholder="0x… one per line or comma">
     </div>
     <button type="button" id="watch-go">Watch</button>
