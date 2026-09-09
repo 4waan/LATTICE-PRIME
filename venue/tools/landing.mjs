@@ -191,6 +191,359 @@ Landing.propagation = function () {
     choose(root.dataset.phase || "commit");
 };
 
+// ---------- disclosure lattice ----------
+//
+// Use the same point, permits, and excess helpers as the receipt screens. The
+// visual is therefore a view of the packed ideal, not a second lattice model.
+Landing.latticeModel = function (policyName, g, t) {
+    const a = point(G.AGG, T.IMM);
+    const b = point(G.EXACT, T.EOD);
+    const policies = {
+        aggregate: a,
+        "exact-eod": b,
+        combined: (a | b) >>> 0,
+    };
+    const validG = Number.isInteger(g) && g >= G.NONE && g <= G.EXACT;
+    const validT = Number.isInteger(t) && t >= T.PRE && t <= T.NEVER;
+    const selectedG = validG ? g : G.AGG;
+    const selectedT = validT ? t : T.IMM;
+    const ceiling = policies[policyName] ?? policies.combined;
+    const actual = point(selectedG, selectedT);
+    return {
+        a,
+        b,
+        combined: policies.combined,
+        ceiling,
+        actual,
+        g: selectedG,
+        t: selectedT,
+        allowed: permits(ceiling, actual),
+        over: excess(ceiling, actual),
+    };
+};
+
+Landing.latticeDetails = ["None", "Yes/no", "Summary", "Range", "Exact value"];
+Landing.latticeContractDetails = ["none", "predicate", "aggregate", "bucket", "exact"];
+Landing.latticeTimes = ["Before", "Now", "+15 min", "Day close", "Epoch", "Never"];
+Landing.latticeContractTimes = ["pre", "immediate", "+15m", "EOD", "epoch", "never"];
+
+Landing.latticeExplanation = function (model) {
+    const g = model.g;
+    const t = model.t;
+    if (g === G.NONE && t === T.NEVER) {
+        return "None means no detail, and Never means no publication in this model.";
+    }
+    if (g === G.NONE) {
+        return model.allowed
+            ? "None is the no-detail level in this model."
+            : "None is the no-detail level; the example policy begins at Now.";
+    }
+    if (t === T.NEVER) {
+        return model.allowed
+            ? "Never means the venue does not publish this detail in the model."
+            : "Never means no publication; the selected detail is still outside this policy.";
+    }
+    if (model.allowed) {
+        const detail = g === G.EXACT ? "Exact detail" : Landing.latticeDetails[g];
+        const timing = {
+            [T.PRE]: "before the event",
+            [T.IMM]: "now",
+            [T.M15]: "after 15 minutes",
+            [T.EOD]: "from day close",
+            [T.EPOCH]: "from the epoch boundary",
+        }[t];
+        return detail + " can be published " + timing + " under this example policy.";
+    }
+
+    let firstPermitted = null;
+    for (let candidateT = T.PRE; candidateT <= T.NEVER; candidateT++) {
+        if (permits(model.ceiling, point(g, candidateT))) {
+            firstPermitted = candidateT;
+            break;
+        }
+    }
+    const detail = g === G.EXACT
+        ? "Exact detail"
+        : g === G.BUCKET
+            ? "Range detail"
+            : Landing.latticeDetails[g];
+    if (firstPermitted === null) {
+        return detail + " is outside this policy at every timing category.";
+    }
+    const from = {
+        [T.IMM]: "now",
+        [T.M15]: "15 minutes",
+        [T.EOD]: "day close",
+        [T.EPOCH]: "the epoch boundary",
+        [T.NEVER]: "never",
+    }[firstPermitted] || "the selected time";
+    return detail + " is permitted from " + from + ".";
+};
+
+Landing.renderLatticeSurface = function (root, state) {
+    const model = Landing.latticeModel(state.policy, state.g, state.t);
+    const cells = [...root.querySelectorAll("[data-lattice-cell]")];
+    const matrix = root.querySelector("[data-lattice-matrix]");
+    const result = root.querySelector("[data-lattice-result]");
+    const resultExplanation = root.querySelector("[data-lattice-result-explanation]");
+    const ceiling = root.querySelector("[data-lattice-ceiling]");
+    const actual = root.querySelector("[data-lattice-actual]");
+    const policyButtons = [...root.querySelectorAll("[data-lattice-policy]")];
+    const policySlider = root.querySelector("[data-lattice-policy-slider]");
+    const policyControl = root.querySelector("[data-lattice-policy-control]");
+    const policyLabels = [...root.querySelectorAll("[data-lattice-policy-label]")];
+
+    root.dataset.policy = state.policy;
+    root.dataset.g = String(model.g);
+    root.dataset.t = String(model.t);
+    root.dataset.result = model.allowed ? "inside" : "outside";
+
+    policyButtons.forEach((button) => {
+        button.setAttribute(
+            "aria-pressed",
+            String(button.dataset.latticePolicy === state.policy),
+        );
+    });
+    if (policySlider) {
+        const policies = ["aggregate", "exact-eod", "combined"];
+        const selectedIndex = policies.indexOf(state.policy);
+        const policyIndex = selectedIndex >= 0 ? selectedIndex : 2;
+        policySlider.value = String(policyIndex);
+        policySlider.setAttribute(
+            "aria-valuetext",
+            ["Aggregate now", "Exact at EOD", "Combined policy"][policyIndex],
+        );
+    }
+    if (policyControl) policyControl.dataset.policy = state.policy;
+    policyLabels.forEach((label) => {
+        label.dataset.active = String(label.dataset.latticePolicyLabel === state.policy);
+    });
+
+    cells.forEach((cell) => {
+        const g = Number(cell.dataset.g);
+        const t = Number(cell.dataset.t);
+        const bit = (1 << (g * 6 + t)) >>> 0;
+        const inA = (model.a & bit) !== 0;
+        const inB = (model.b & bit) !== 0;
+        let membership = "none";
+        if (state.policy === "aggregate" && inA) membership = "a";
+        if (state.policy === "exact-eod" && inB) membership = "b";
+        if (state.policy === "combined") {
+            if (inA && inB) membership = "both";
+            else if (inA) membership = "a";
+            else if (inB) membership = "b";
+        }
+        const selected = g === model.g && t === model.t;
+        cell.disabled = false;
+        cell.dataset.membership = membership;
+        cell.dataset.permitted = String((model.ceiling & bit) !== 0);
+        cell.classList.toggle("is-implied", (model.actual & bit) !== 0);
+        cell.classList.toggle("is-excess", (model.over & bit) !== 0);
+        cell.classList.toggle("is-selected", selected);
+        cell.setAttribute("aria-pressed", String(selected));
+        cell.tabIndex = selected ? 0 : -1;
+    });
+
+    if (result) result.textContent = model.allowed ? "Within policy" : "Outside policy";
+    if (resultExplanation) {
+        resultExplanation.textContent = root.dataset.latticeSurface === "popup"
+            ? model.allowed
+                ? "Every cell implied by this publication fits within the selected policy."
+                : "This publication includes detail or timing outside the selected policy."
+            : Landing.latticeExplanation(model);
+    }
+    if (matrix) {
+        matrix.setAttribute(
+            "aria-label",
+            Landing.latticeDetails[model.g] + ", " + Landing.latticeTimes[model.t] +
+            ". " + (model.allowed ? "Within policy." : "Outside policy."),
+        );
+    }
+    if (ceiling) {
+        ceiling.textContent = "ceiling = " + ({
+            aggregate: "A",
+            "exact-eod": "B",
+            combined: "A ∪ B",
+        }[state.policy] || "A ∪ B");
+    }
+    if (actual) {
+        actual.textContent = "actual = ↓(" +
+            Landing.latticeContractDetails[model.g] + ", " +
+            Landing.latticeContractTimes[model.t] + ")";
+    }
+    return model;
+};
+
+Landing.bindLatticeGrid = function (root, state, render) {
+    const cells = [...root.querySelectorAll("[data-lattice-cell]")];
+    if (!cells.length) return;
+
+    const cellAt = (g, t) =>
+        cells.find((cell) => Number(cell.dataset.g) === g && Number(cell.dataset.t) === t);
+    const moveFocus = (from, key) => {
+        let g = Number(from.dataset.g);
+        let t = Number(from.dataset.t);
+        if (key === "ArrowUp") g = Math.min(G.EXACT, g + 1);
+        else if (key === "ArrowDown") g = Math.max(G.NONE, g - 1);
+        else if (key === "ArrowLeft") t = Math.max(T.PRE, t - 1);
+        else if (key === "ArrowRight") t = Math.min(T.NEVER, t + 1);
+        else return false;
+        const next = cellAt(g, t);
+        if (!next) return false;
+        cells.forEach((cell) => {
+            cell.tabIndex = cell === next ? 0 : -1;
+        });
+        next.focus();
+        return true;
+    };
+    const select = (cell) => {
+        state.g = Number(cell.dataset.g);
+        state.t = Number(cell.dataset.t);
+        render();
+    };
+
+    cells.forEach((cell) => {
+        cell.addEventListener("click", () => select(cell));
+        cell.addEventListener("keydown", (event) => {
+            if (moveFocus(cell, event.key)) {
+                event.preventDefault();
+                return;
+            }
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            select(cell);
+        });
+    });
+};
+
+Landing.bindLatticeChoices = function (buttons, choose) {
+    buttons.forEach((button, index) => {
+        button.addEventListener("click", () => choose(button.dataset.latticePolicy));
+        button.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            const next = (index + direction + buttons.length) % buttons.length;
+            buttons[next].focus();
+            choose(buttons[next].dataset.latticePolicy);
+        });
+    });
+};
+
+Landing.lattice = function () {
+    const landing = document.querySelector('[data-lattice-surface="landing"]');
+    const dialog = document.getElementById("lattice-dialog");
+    const openButton = document.querySelector("[data-lattice-open]");
+    if (!landing) return;
+
+    const initialG = Number(landing.dataset.g);
+    const initialT = Number(landing.dataset.t);
+    const landingState = {
+        policy: "combined",
+        g: Number.isInteger(initialG) ? initialG : G.AGG,
+        t: Number.isInteger(initialT) ? initialT : T.IMM,
+    };
+    const renderLanding = () => Landing.renderLatticeSurface(landing, landingState);
+    const landingSlider = landing.querySelector("[data-lattice-policy-slider]");
+    const landingPolicyControl = landing.querySelector("[data-lattice-policy-control]");
+    const landingLiveResult = landing.querySelector("[data-lattice-result-line]");
+    if (landingSlider && landingPolicyControl) {
+        const policies = ["aggregate", "exact-eod", "combined"];
+        landingSlider.disabled = false;
+        landingPolicyControl.hidden = false;
+        landingSlider.addEventListener("input", () => {
+            const index = Math.max(0, Math.min(2, Math.round(Number(landingSlider.value))));
+            landingState.policy = policies[index];
+            renderLanding();
+        });
+    }
+    if (landingLiveResult) landingLiveResult.hidden = false;
+    Landing.bindLatticeGrid(landing, landingState, renderLanding);
+    renderLanding();
+
+    if (!dialog || !openButton || typeof dialog.showModal !== "function") return;
+    const popup = dialog.querySelector('[data-lattice-surface="popup"]');
+    const popupGrid = dialog.querySelector("[data-lattice-popup-grid]");
+    const landingGrid = landing.querySelector(".lattice-grid-layout");
+    if (!popup || !popupGrid || !landingGrid) return;
+
+    popupGrid.replaceChildren(landingGrid.cloneNode(true));
+    const popupState = {policy: "combined", g: landingState.g, t: landingState.t};
+    const renderPopup = () => Landing.renderLatticeSurface(popup, popupState);
+    Landing.bindLatticeGrid(popup, popupState, renderPopup);
+
+    const policyButtons = [...popup.querySelectorAll("[data-lattice-policy]")];
+    Landing.bindLatticeChoices(policyButtons, (policy) => {
+        popupState.policy = policy;
+        renderPopup();
+    });
+
+    const tabs = [...dialog.querySelectorAll('[role="tab"]')];
+    const panels = [...dialog.querySelectorAll('[role="tabpanel"]')];
+    const activateTab = (tab, focus = false) => {
+        tabs.forEach((item) => {
+            const active = item === tab;
+            item.setAttribute("aria-selected", String(active));
+            item.tabIndex = active ? 0 : -1;
+        });
+        panels.forEach((panel) => {
+            panel.hidden = panel.id !== tab.getAttribute("aria-controls");
+        });
+        if (focus) tab.focus();
+    };
+    tabs.forEach((tab, index) => {
+        tab.addEventListener("click", () => activateTab(tab));
+        tab.addEventListener("keydown", (event) => {
+            let next = null;
+            if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+            if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+            if (event.key === "Home") next = 0;
+            if (event.key === "End") next = tabs.length - 1;
+            if (next === null) return;
+            event.preventDefault();
+            activateTab(tabs[next], true);
+        });
+    });
+
+    let returnFocus = openButton;
+    let lockedScroll = 0;
+    let scrollLocked = false;
+    const unlock = () => {
+        if (!scrollLocked) return;
+        scrollLocked = false;
+        document.documentElement.classList.remove("lattice-dialog-open");
+        window.scrollTo(0, lockedScroll);
+        if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+    };
+    const closeDialog = () => {
+        if (dialog.open) dialog.close();
+        unlock();
+    };
+    dialog.addEventListener("close", unlock);
+    dialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        closeDialog();
+    });
+    dialog.querySelector("[data-lattice-close]")?.addEventListener("click", () => {
+        closeDialog();
+    });
+
+    openButton.hidden = false;
+    openButton.addEventListener("click", () => {
+        popupState.policy = "combined";
+        popupState.g = landingState.g;
+        popupState.t = landingState.t;
+        renderPopup();
+        if (tabs[0]) activateTab(tabs[0]);
+        returnFocus = document.activeElement || openButton;
+        lockedScroll = window.scrollY;
+        scrollLocked = true;
+        document.documentElement.classList.add("lattice-dialog-open");
+        dialog.showModal();
+        popup.querySelector(".lattice-cell.is-selected")?.focus();
+    });
+};
+
 // ---------- the scroll invitation ----------
 Landing.cue = function () {
     const cues = [...document.querySelectorAll(".scroll-cue")];
@@ -225,6 +578,7 @@ Landing.boot = function () {
     Landing.aura();
     Landing.failures();
     Landing.propagation();
+    Landing.lattice();
     Landing.reveals();
     Landing.cue();
 };
