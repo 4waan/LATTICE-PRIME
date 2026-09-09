@@ -1,14 +1,24 @@
 {
  "topicId": "0.0.10397186",
- "checkedAt": "2026-09-09T00:57:50.107Z",
- "messages": 137,
- "records": 137,
+ "checkedAt": "2026-09-09T23:01:21.605Z",
+ "messages": 220,
+ "records": 220,
  "kinds": {
-  "charge": 2,
+  "charge": 43,
   "silence": 1,
-  "checkpoint": 134
+  "checkpoint": 174,
+  "anchor": 2
  },
- "assertions": 1175,
+ "skipped": {
+  "since": 0,
+  "anchors": 0,
+  "checkpoints": 0
+ },
+ "index": {
+  "throughSequence": 220,
+  "head": 220
+ },
+ "assertions": 2002,
  "failures": 0,
  "checks": [
   {
@@ -2752,9 +2762,1669 @@
    "detail": "got 137"
   },
   {
+   "name": "sequence 138 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 138 is under 1024 bytes",
+   "pass": true,
+   "detail": "203 bytes"
+  },
+  {
+   "name": "sequence 138 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 138 follows 137",
+   "pass": true,
+   "detail": "got 138"
+  },
+  {
+   "name": "sequence 139 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 139 is under 1024 bytes",
+   "pass": true,
+   "detail": "203 bytes"
+  },
+  {
+   "name": "sequence 139 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 139 follows 138",
+   "pass": true,
+   "detail": "got 139"
+  },
+  {
+   "name": "sequence 140 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 140 is under 1024 bytes",
+   "pass": true,
+   "detail": "203 bytes"
+  },
+  {
+   "name": "sequence 140 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 140 follows 139",
+   "pass": true,
+   "detail": "got 140"
+  },
+  {
+   "name": "sequence 141 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 141 is under 1024 bytes",
+   "pass": true,
+   "detail": "203 bytes"
+  },
+  {
+   "name": "sequence 141 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 141 follows 140",
+   "pass": true,
+   "detail": "got 141"
+  },
+  {
+   "name": "sequence 142 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 142 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 142 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 142 follows 141",
+   "pass": true,
+   "detail": "got 142"
+  },
+  {
+   "name": "sequence 143 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 143 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 143 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 143 follows 142",
+   "pass": true,
+   "detail": "got 143"
+  },
+  {
+   "name": "sequence 144 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 144 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 144 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 144 follows 143",
+   "pass": true,
+   "detail": "got 144"
+  },
+  {
+   "name": "sequence 145 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 145 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 145 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 145 follows 144",
+   "pass": true,
+   "detail": "got 145"
+  },
+  {
+   "name": "sequence 146 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 146 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 146 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 146 follows 145",
+   "pass": true,
+   "detail": "got 146"
+  },
+  {
+   "name": "sequence 147 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 147 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 147 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 147 follows 146",
+   "pass": true,
+   "detail": "got 147"
+  },
+  {
+   "name": "sequence 148 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 148 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 148 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 148 follows 147",
+   "pass": true,
+   "detail": "got 148"
+  },
+  {
+   "name": "sequence 149 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 149 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 149 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 149 follows 148",
+   "pass": true,
+   "detail": "got 149"
+  },
+  {
+   "name": "sequence 150 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 150 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 150 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 150 follows 149",
+   "pass": true,
+   "detail": "got 150"
+  },
+  {
+   "name": "sequence 151 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 151 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 151 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 151 follows 150",
+   "pass": true,
+   "detail": "got 151"
+  },
+  {
+   "name": "sequence 152 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 152 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 152 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 152 follows 151",
+   "pass": true,
+   "detail": "got 152"
+  },
+  {
+   "name": "sequence 153 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 153 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 153 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 153 follows 152",
+   "pass": true,
+   "detail": "got 153"
+  },
+  {
+   "name": "sequence 154 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 154 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 154 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 154 follows 153",
+   "pass": true,
+   "detail": "got 154"
+  },
+  {
+   "name": "sequence 155 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 155 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 155 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 155 follows 154",
+   "pass": true,
+   "detail": "got 155"
+  },
+  {
+   "name": "sequence 156 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 156 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 156 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 156 follows 155",
+   "pass": true,
+   "detail": "got 156"
+  },
+  {
+   "name": "sequence 157 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 157 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 157 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 157 follows 156",
+   "pass": true,
+   "detail": "got 157"
+  },
+  {
+   "name": "sequence 158 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 158 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 158 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 158 follows 157",
+   "pass": true,
+   "detail": "got 158"
+  },
+  {
+   "name": "sequence 159 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 159 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 159 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 159 follows 158",
+   "pass": true,
+   "detail": "got 159"
+  },
+  {
+   "name": "sequence 160 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 160 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 160 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 160 follows 159",
+   "pass": true,
+   "detail": "got 160"
+  },
+  {
+   "name": "sequence 161 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 161 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 161 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 161 follows 160",
+   "pass": true,
+   "detail": "got 161"
+  },
+  {
+   "name": "sequence 162 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 162 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 162 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 162 follows 161",
+   "pass": true,
+   "detail": "got 162"
+  },
+  {
+   "name": "sequence 163 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 163 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 163 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 163 follows 162",
+   "pass": true,
+   "detail": "got 163"
+  },
+  {
+   "name": "sequence 164 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 164 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 164 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 164 follows 163",
+   "pass": true,
+   "detail": "got 164"
+  },
+  {
+   "name": "sequence 165 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 165 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 165 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 165 follows 164",
+   "pass": true,
+   "detail": "got 165"
+  },
+  {
+   "name": "sequence 166 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 166 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 166 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 166 follows 165",
+   "pass": true,
+   "detail": "got 166"
+  },
+  {
+   "name": "sequence 167 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 167 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 167 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 167 follows 166",
+   "pass": true,
+   "detail": "got 167"
+  },
+  {
+   "name": "sequence 168 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 168 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 168 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 168 follows 167",
+   "pass": true,
+   "detail": "got 168"
+  },
+  {
+   "name": "sequence 169 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 169 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 169 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 169 follows 168",
+   "pass": true,
+   "detail": "got 169"
+  },
+  {
+   "name": "sequence 170 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 170 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 170 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 170 follows 169",
+   "pass": true,
+   "detail": "got 170"
+  },
+  {
+   "name": "sequence 171 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 171 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 171 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 171 follows 170",
+   "pass": true,
+   "detail": "got 171"
+  },
+  {
+   "name": "sequence 172 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 172 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 172 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 172 follows 171",
+   "pass": true,
+   "detail": "got 172"
+  },
+  {
+   "name": "sequence 173 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 173 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 173 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 173 follows 172",
+   "pass": true,
+   "detail": "got 173"
+  },
+  {
+   "name": "sequence 174 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 174 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 174 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 174 follows 173",
+   "pass": true,
+   "detail": "got 174"
+  },
+  {
+   "name": "sequence 175 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 175 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 175 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 175 follows 174",
+   "pass": true,
+   "detail": "got 175"
+  },
+  {
+   "name": "sequence 176 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 176 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 176 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 176 follows 175",
+   "pass": true,
+   "detail": "got 176"
+  },
+  {
+   "name": "sequence 177 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 177 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 177 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 177 follows 176",
+   "pass": true,
+   "detail": "got 177"
+  },
+  {
+   "name": "sequence 178 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 178 is under 1024 bytes",
+   "pass": true,
+   "detail": "204 bytes"
+  },
+  {
+   "name": "sequence 178 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 178 follows 177",
+   "pass": true,
+   "detail": "got 178"
+  },
+  {
+   "name": "sequence 179 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 179 is under 1024 bytes",
+   "pass": true,
+   "detail": "158 bytes"
+  },
+  {
+   "name": "sequence 179 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 179 follows 178",
+   "pass": true,
+   "detail": "got 179"
+  },
+  {
+   "name": "sequence 180 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 180 is under 1024 bytes",
+   "pass": true,
+   "detail": "158 bytes"
+  },
+  {
+   "name": "sequence 180 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 180 follows 179",
+   "pass": true,
+   "detail": "got 180"
+  },
+  {
+   "name": "sequence 181 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 181 is under 1024 bytes",
+   "pass": true,
+   "detail": "158 bytes"
+  },
+  {
+   "name": "sequence 181 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 181 follows 180",
+   "pass": true,
+   "detail": "got 181"
+  },
+  {
+   "name": "sequence 182 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 182 is under 1024 bytes",
+   "pass": true,
+   "detail": "158 bytes"
+  },
+  {
+   "name": "sequence 182 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 182 follows 181",
+   "pass": true,
+   "detail": "got 182"
+  },
+  {
+   "name": "sequence 183 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 183 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 183 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 183 follows 182",
+   "pass": true,
+   "detail": "got 183"
+  },
+  {
+   "name": "sequence 184 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 184 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 184 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 184 follows 183",
+   "pass": true,
+   "detail": "got 184"
+  },
+  {
+   "name": "sequence 185 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 185 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 185 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 185 follows 184",
+   "pass": true,
+   "detail": "got 185"
+  },
+  {
+   "name": "sequence 186 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 186 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 186 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 186 follows 185",
+   "pass": true,
+   "detail": "got 186"
+  },
+  {
+   "name": "sequence 187 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 187 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 187 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 187 follows 186",
+   "pass": true,
+   "detail": "got 187"
+  },
+  {
+   "name": "sequence 188 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 188 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 188 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 188 follows 187",
+   "pass": true,
+   "detail": "got 188"
+  },
+  {
+   "name": "sequence 189 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 189 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 189 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 189 follows 188",
+   "pass": true,
+   "detail": "got 189"
+  },
+  {
+   "name": "sequence 190 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 190 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 190 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 190 follows 189",
+   "pass": true,
+   "detail": "got 190"
+  },
+  {
+   "name": "sequence 191 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 191 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 191 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 191 follows 190",
+   "pass": true,
+   "detail": "got 191"
+  },
+  {
+   "name": "sequence 192 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 192 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 192 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 192 follows 191",
+   "pass": true,
+   "detail": "got 192"
+  },
+  {
+   "name": "sequence 193 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 193 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 193 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 193 follows 192",
+   "pass": true,
+   "detail": "got 193"
+  },
+  {
+   "name": "sequence 194 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 194 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 194 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 194 follows 193",
+   "pass": true,
+   "detail": "got 194"
+  },
+  {
+   "name": "sequence 195 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 195 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 195 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 195 follows 194",
+   "pass": true,
+   "detail": "got 195"
+  },
+  {
+   "name": "sequence 196 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 196 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 196 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 196 follows 195",
+   "pass": true,
+   "detail": "got 196"
+  },
+  {
+   "name": "sequence 197 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 197 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 197 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 197 follows 196",
+   "pass": true,
+   "detail": "got 197"
+  },
+  {
+   "name": "sequence 198 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 198 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 198 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 198 follows 197",
+   "pass": true,
+   "detail": "got 198"
+  },
+  {
+   "name": "sequence 199 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 199 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 199 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 199 follows 198",
+   "pass": true,
+   "detail": "got 199"
+  },
+  {
+   "name": "sequence 200 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 200 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 200 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 200 follows 199",
+   "pass": true,
+   "detail": "got 200"
+  },
+  {
+   "name": "sequence 201 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 201 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 201 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 201 follows 200",
+   "pass": true,
+   "detail": "got 201"
+  },
+  {
+   "name": "sequence 202 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 202 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 202 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 202 follows 201",
+   "pass": true,
+   "detail": "got 202"
+  },
+  {
+   "name": "sequence 203 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 203 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 203 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 203 follows 202",
+   "pass": true,
+   "detail": "got 203"
+  },
+  {
+   "name": "sequence 204 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 204 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 204 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 204 follows 203",
+   "pass": true,
+   "detail": "got 204"
+  },
+  {
+   "name": "sequence 205 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 205 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 205 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 205 follows 204",
+   "pass": true,
+   "detail": "got 205"
+  },
+  {
+   "name": "sequence 206 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 206 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 206 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 206 follows 205",
+   "pass": true,
+   "detail": "got 206"
+  },
+  {
+   "name": "sequence 207 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 207 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 207 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 207 follows 206",
+   "pass": true,
+   "detail": "got 207"
+  },
+  {
+   "name": "sequence 208 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 208 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 208 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 208 follows 207",
+   "pass": true,
+   "detail": "got 208"
+  },
+  {
+   "name": "sequence 209 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 209 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 209 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 209 follows 208",
+   "pass": true,
+   "detail": "got 209"
+  },
+  {
+   "name": "sequence 210 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 210 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 210 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 210 follows 209",
+   "pass": true,
+   "detail": "got 210"
+  },
+  {
+   "name": "sequence 211 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 211 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 211 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 211 follows 210",
+   "pass": true,
+   "detail": "got 211"
+  },
+  {
+   "name": "sequence 212 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 212 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 212 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 212 follows 211",
+   "pass": true,
+   "detail": "got 212"
+  },
+  {
+   "name": "sequence 213 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 213 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 213 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 213 follows 212",
+   "pass": true,
+   "detail": "got 213"
+  },
+  {
+   "name": "sequence 214 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 214 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 214 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 214 follows 213",
+   "pass": true,
+   "detail": "got 214"
+  },
+  {
+   "name": "sequence 215 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 215 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 215 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 215 follows 214",
+   "pass": true,
+   "detail": "got 215"
+  },
+  {
+   "name": "sequence 216 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 216 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 216 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 216 follows 215",
+   "pass": true,
+   "detail": "got 216"
+  },
+  {
+   "name": "sequence 217 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 217 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 217 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 217 follows 216",
+   "pass": true,
+   "detail": "got 217"
+  },
+  {
+   "name": "sequence 218 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 218 is under 1024 bytes",
+   "pass": true,
+   "detail": "159 bytes"
+  },
+  {
+   "name": "sequence 218 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 218 follows 217",
+   "pass": true,
+   "detail": "got 218"
+  },
+  {
+   "name": "sequence 219 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 219 is under 1024 bytes",
+   "pass": true,
+   "detail": "216 bytes"
+  },
+  {
+   "name": "sequence 219 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 219 follows 218",
+   "pass": true,
+   "detail": "got 219"
+  },
+  {
+   "name": "sequence 220 is a single chunk",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 220 is under 1024 bytes",
+   "pass": true,
+   "detail": "207 bytes"
+  },
+  {
+   "name": "sequence 220 parses and is canonical",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 220 follows 219",
+   "pass": true,
+   "detail": "got 220"
+  },
+  {
    "name": "no record appears twice",
    "pass": true,
-   "detail": "137 records"
+   "detail": "220 records"
   },
   {
    "name": "sequence 1 (charge) it was emitted by engine",
@@ -2827,6 +4497,621 @@
    "detail": ""
   },
   {
+   "name": "sequence 138 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 138 (charge) log 2 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 138 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 139 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 139 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 139 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 140 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 140 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 140 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 141 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 141 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 141 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 142 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 142 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 142 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 143 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 143 (charge) log 4 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 143 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 144 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 144 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 144 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 145 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 145 (charge) log 6 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 145 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 146 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 146 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 146 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 147 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 147 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 147 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 148 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 148 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 148 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 149 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 149 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 149 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 150 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 150 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 150 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 151 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 151 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 151 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 152 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 152 (charge) log 3 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 152 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 153 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 153 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 153 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 154 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 154 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 154 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 155 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 155 (charge) log 5 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 155 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 156 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 156 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 156 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 157 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 157 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 157 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 158 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 158 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 158 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 159 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 159 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 159 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 160 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 160 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 160 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 161 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 161 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 161 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 162 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 162 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 162 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 163 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 163 (charge) log 2 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 163 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 164 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 164 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 164 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 165 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 165 (charge) log 5 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 165 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 166 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 166 (charge) log 2 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 166 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 167 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 167 (charge) log 2 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 167 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 168 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 168 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 168 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 169 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 169 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 169 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 170 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 170 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 170 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 171 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 171 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 171 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 172 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 172 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 172 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 173 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 173 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 173 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 174 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 174 (charge) log 1 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 174 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 175 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 175 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 175 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 176 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 176 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 176 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 177 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 177 (charge) log 0 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 177 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 178 (charge) it was emitted by engine",
+   "pass": true,
+   "detail": "emitted by 0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae"
+  },
+  {
+   "name": "sequence 178 (charge) log 2 is a DisclosureCharged",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "sequence 178 (charge) every field matches the log",
+   "pass": true,
+   "detail": ""
+  },
+  {
    "name": "engine row 15 epoch 39: the running totals chain from zero",
    "pass": true,
    "detail": "1 charge, 1 bits"
@@ -2855,6 +5140,616 @@
    "name": "engine row 15 epoch 805: the checkpoint agrees with spentBits",
    "pass": true,
    "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 980: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 980: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 980: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 981: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 981: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 981: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 15 epoch 984: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 15 epoch 984: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 15 epoch 984: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 987: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 987: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 987: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1152: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1152: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1152: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1165: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1165: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1165: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1166: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1166: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1166: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1167: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1167: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1167: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1168: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1168: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1168: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1169: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1169: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1169: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1170: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1170: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1170: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1171: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1171: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1171: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1172: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1172: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1172: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1173: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1173: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1173: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1174: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1174: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1174: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1175: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1175: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1175: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1177: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1177: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1177: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1178: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1178: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1178: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1179: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1179: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1179: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1180: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1180: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1180: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1181: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1181: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1181: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1182: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1182: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1182: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1183: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1183: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1183: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1184: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1184: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1184: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1185: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1185: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1185: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1186: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1186: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1186: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1188: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1188: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1188: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1190: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1190: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1190: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1191: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1191: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1191: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1192: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1192: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1192: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1193: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1193: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1193: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1194: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1194: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1194: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1196: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1196: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1196: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1197: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1197: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1197: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1198: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1198: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1198: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1199: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1199: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1199: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1200: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1200: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1200: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1201: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1201: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1201: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1202: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1202: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1202: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1203: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1203: published charges equal spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1203: the checkpoint agrees with spentBits",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine row 13 epoch 1207: the running totals chain from zero",
+   "pass": true,
+   "detail": "1 charge, 1 bits"
+  },
+  {
+   "name": "engine row 13 epoch 1207: published charges do not exceed spentBits",
+   "pass": true,
+   "detail": "published 1, spentBits 1"
   },
   {
    "name": "engine checkpoint epoch 39 row 3",
@@ -5885,6 +8780,1256 @@
    "name": "vault checkpoint epoch 942 row 16",
    "pass": true,
    "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 980 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 980 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 980 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 980 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 980 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 980 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 981 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 981 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 981 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 981 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 981 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 981 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 984 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 984 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 984 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 984 row 13",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 984 row 15",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 984 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 987 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 987 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 987 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 987 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 987 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 987 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1152 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1152 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1152 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1152 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1152 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1152 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1165 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1165 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1165 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1165 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1165 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1165 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1166 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1166 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1166 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1166 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1166 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1166 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1167 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1167 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1167 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1167 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1167 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1167 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1168 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1168 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1168 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1168 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1168 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1168 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1169 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1169 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1169 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1169 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1169 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1169 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1170 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1170 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1170 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1170 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1170 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1170 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1171 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1171 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1171 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1171 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1171 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1171 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1172 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1172 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1172 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1172 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1172 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1172 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1173 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1173 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1173 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1173 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1173 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1173 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1174 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1174 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1174 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1174 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1174 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1174 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1175 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1175 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1175 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1175 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1175 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1175 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1177 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1177 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1177 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1177 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1177 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1177 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1178 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1178 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1178 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1178 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1178 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1178 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1179 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1179 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1179 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1179 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1179 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1179 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1180 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1180 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1180 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1180 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1180 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1180 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1181 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1181 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1181 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1181 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1181 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1181 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1182 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1182 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1182 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1182 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1182 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1182 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1183 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1183 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1183 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1183 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1183 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1183 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1184 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1184 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1184 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1184 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1184 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1184 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1185 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1185 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1185 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1185 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1185 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1185 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1186 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1186 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1186 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1186 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1186 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1186 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1188 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1188 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1188 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1188 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1188 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1188 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1190 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1190 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1190 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1190 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1190 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1190 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1191 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1191 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1191 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1191 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1191 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1191 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1192 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1192 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1192 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1192 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1192 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1192 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1193 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1193 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1193 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1193 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1193 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1193 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1194 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1194 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1194 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1194 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1194 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1194 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1196 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1196 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1196 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1196 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1196 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1196 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1197 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1197 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1197 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1197 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1197 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1197 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1198 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1198 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1198 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1198 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1198 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1198 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1199 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1199 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1199 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1199 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1199 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1199 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1200 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1200 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1200 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1200 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1200 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1200 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1201 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1201 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1201 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1201 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1201 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1201 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1202 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1202 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1202 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1202 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1202 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1202 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1203 row 3",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1203 row 4",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1203 row 12",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1203 row 13",
+   "pass": true,
+   "detail": "checkpoint 1, spentBits 1"
+  },
+  {
+   "name": "engine checkpoint epoch 1203 row 15",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "engine checkpoint epoch 1203 row 17",
+   "pass": true,
+   "detail": "checkpoint 0, spentBits 0"
+  },
+  {
+   "name": "sequence 219 (engine anchor 943-1206) every anchored epoch had closed when the anchor was written",
+   "pass": true,
+   "detail": "anchors through 1206, epoch 1207 was the last closed"
+  },
+  {
+   "name": "sequence 219 (engine anchor 943-1206) the hash is the hash of spentBits over the range",
+   "pass": true,
+   "detail": "the contract's cells hash to 0x97e4d0ab"
+  },
+  {
+   "name": "sequence 219 (engine anchor 943-1206) published charges equal spentBits in every cell",
+   "pass": true,
+   "detail": "1584 cells, 40 charged"
+  },
+  {
+   "name": "sequence 220 (vault anchor 943-1206) every anchored epoch had closed when the anchor was written",
+   "pass": true,
+   "detail": "anchors through 1206, epoch 1207 was the last closed"
+  },
+  {
+   "name": "sequence 220 (vault anchor 943-1206) the hash is the hash of spentBits over the range",
+   "pass": true,
+   "detail": "the contract's cells hash to 0xfeab1c96"
+  },
+  {
+   "name": "sequence 220 (vault anchor 943-1206) published charges equal spentBits in every cell",
+   "pass": true,
+   "detail": "792 cells, 0 charged"
+  },
+  {
+   "name": "the committed index claims no message the topic lacks",
+   "pass": true,
+   "detail": "index through 220, topic head 220"
+  },
+  {
+   "name": "the committed digest is the digest of the topic's bytes",
+   "pass": true,
+   "detail": "topic 0x4539f3e207392d319b1b0ee7dccff3b348595e34c69ce0fd91d88739e91b36a8, index 0x4539f3e207392d319b1b0ee7dccff3b348595e34c69ce0fd91d88739e91b36a8"
+  },
+  {
+   "name": "the committed running hash is the mirror node's at that sequence",
+   "pass": true,
+   "detail": "mirror 4VPS8Y3AK969EwB3NFp//oK96djhvtg7E3y7PUoc6w5/VgTsSrtp/5qB1f8+ca/M"
+  },
+  {
+   "name": "the committed projection is the projection of the topic",
+   "pass": true,
+   "detail": "220 messages, 43 charge, 1 silence, 174 checkpoint, 2 anchor"
   }
  ]
 }
