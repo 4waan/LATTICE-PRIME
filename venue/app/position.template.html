@@ -57,90 +57,315 @@ document.documentElement.setAttribute("data-theme",
   </div>
 </aside>
 
-<main class="wrap page">
+<main class="wrap page portfolio-page">
   <ol class="flow" aria-label="Where you are in the flow">
     <li><a href="prove.html"><b>01</b> Eligibility</a></li>
     <li><a href="trade.html"><b>02</b> Markets</a></li>
     <li class="here"><span aria-current="step"><b>03</b> Portfolio</span></li>
   </ol>
-  <h1>Portfolio</h1>
-  <p class="lede">Holdings, cash available to withdraw, income due, and what your last action revealed.</p>
 
-  <section id="needs-box">
-    <div class="shead"><h2>Needs attention</h2><span class="src">this account</span></div>
-    <div id="needs-out"><div class="empty">Connect a wallet to see what is due.</div></div>
+  <header class="portfolio-hero">
+    <div>
+      <span class="section-kicker">Account overview</span>
+      <h1>Portfolio</h1>
+      <p>Holdings, money ready to move, income, and the actions this browser can verify.</p>
+    </div>
+    <button type="button" id="disclose" class="portfolio-refresh">Refresh account</button>
+  </header>
+  <div class="portfolio-status-slot">
+    <div id="position-status" class="status" role="status" aria-live="polite"></div>
+  </div>
+
+  <section class="portfolio-summary" aria-labelledby="account-summary-title">
+    <h2 class="sr" id="account-summary-title">Account summary</h2>
+    <div class="portfolio-summary-grid">
+      <article class="summary-item summary-holding">
+        <span class="summary-label">Bonds owned</span>
+        <div class="summary-value">
+          <strong id="pos-total">Unavailable</strong>
+          <span id="pos-symbol">LPRC</span>
+        </div>
+        <p class="summary-split">
+          <span><b id="pos-available">Unavailable</b> <span id="pos-available-label">available</span></span>
+          <span><b id="pos-reserved">Unavailable</b> <span id="pos-reserved-label">reserved</span></span>
+        </p>
+        <p class="summary-reference" id="pos-reference">Reference value is being checked.</p>
+        <a class="summary-link" href="trade.html">Trade in Markets &rarr;</a>
+      </article>
+
+      <article class="summary-item">
+        <span class="summary-label">Trading proceeds</span>
+        <div class="summary-value">
+          <strong id="pos-credit">Unavailable</strong>
+          <span>HBAR</span>
+        </div>
+        <p class="summary-note">Settled proceeds and refundable order funds.</p>
+        <button type="button" id="withdraw" data-position-action disabled>
+          <span class="withdraw-action">Withdraw proceeds</span>
+        </button>
+      </article>
+
+      <article class="summary-item">
+        <span class="summary-label">Coupon income available</span>
+        <div class="summary-value">
+          <strong id="pos-income">Not established</strong>
+          <span id="pos-income-unit">LPCASH</span>
+        </div>
+        <p class="summary-note" id="pos-income-note">A validated issuer proof establishes a personal amount.</p>
+        <button type="button" id="income-summary-action">Check entitlement</button>
+      </article>
+
+      <article class="summary-item" id="finance-credit-summary" hidden>
+        <span class="summary-label">Financing cash available</span>
+        <div class="summary-value">
+          <strong id="pos-vault-credit">Unavailable</strong>
+          <span>HBAR</span>
+        </div>
+        <p class="summary-note">Cash credited by a supported financing agreement.</p>
+        <button type="button" id="vault-withdraw" data-position-action disabled>Withdraw financing cash</button>
+      </article>
+    </div>
   </section>
 
-  <div class="wire" style="margin-bottom:1rem">
-    <div class="wcell"><span class="k">Trading credit</span><span class="v num" id="pos-credit">Loading</span><span class="n">MatchingEngine.credit</span></div>
-    <div class="wcell"><span class="k">Financing credit</span><span class="v num" id="pos-vault-credit">Loading</span><span class="n">RepoVault.credit</span></div>
-    <div class="wcell"><span class="k">Tickets</span><span class="v" id="pos-tickets">Loading</span><span class="n">this browser only</span></div>
-    <div class="wcell"><span class="k">Publication period</span><span class="v" id="disc-epoch">Loading</span><span class="n">current venue period</span></div>
-  </div>
-  <div class="rowbtns" style="margin-bottom:1rem">
-    <button type="button" id="withdraw" disabled>Withdraw trading credit</button>
-    <button type="button" id="vault-withdraw" disabled>Withdraw financing credit</button>
-    <button type="button" id="disclose">Refresh balances</button>
-  </div>
+  <section class="portfolio-attention" id="needs-box" hidden aria-labelledby="needs-title">
+    <div class="portfolio-section-heading">
+      <div>
+        <span class="section-kicker">Action required</span>
+        <h2 id="needs-title">Needs attention</h2>
+      </div>
+    </div>
+    <div id="needs-out"></div>
+  </section>
 
-  <section>
-    <div class="shead"><h2>The instrument</h2><span class="src">the ATS bond</span></div>
-    <p>Your total bond balance includes held collateral. Available trading units exclude holds.</p>
-    <section class="panel">
-      <div class="body">
-        <ul class="readout">
-          <li><span class="k">name</span><span class="v" id="in-name">Loading</span></li>
-          <li><span class="k">Bonds issued</span><span class="v" id="in-supply">Loading</span></li>
-          <li><span class="k">asset series</span><span class="v" id="in-multi">Loading</span></li>
-          <li><span class="k">eligibility lists</span><span class="v" id="in-lists">Loading</span></li>
-          <li><span class="k">compliance</span><span class="v" id="in-compliance">Loading</span></li>
-          <li><span class="k">your balance</span><span class="v" id="in-balance">Loading</span></li>
-        </ul>
+  <div class="portfolio-core">
+    <section class="portfolio-section holdings-section" aria-labelledby="holdings-title">
+      <div class="portfolio-section-heading">
+        <div>
+          <span class="section-kicker">Position</span>
+          <h2 id="holdings-title">Your holdings</h2>
+        </div>
+        <a href="trade.html">Open Markets &rarr;</a>
+      </div>
+
+      <div id="holding-unavailable" class="portfolio-empty compact" hidden>
+        Connect or watch an account to see its holdings.
+      </div>
+      <div id="holding-empty" class="portfolio-empty compact" hidden>
+        <div>
+          <strong>No LPRC holdings in this account</strong>
+          <span>Browse the live market when you are ready to review the bond.</span>
+        </div>
+        <a class="portfolio-button" href="trade.html">Explore Markets</a>
+      </div>
+
+      <details class="holding-card" id="holding-card">
+        <summary>
+          <span class="holding-symbol" id="market-symbol">LPRC</span>
+          <span class="holding-identity">
+            <strong id="in-name">Lattice Prime Repo Collateral 2028</strong>
+            <small>Variable-rate bond</small>
+          </span>
+          <span class="holding-quantity">
+            <small>Total owned</small>
+            <strong id="holding-total">Unavailable</strong>
+            <span id="holding-unit">LPRC</span>
+          </span>
+          <span class="holding-breakdown">
+            <span><small id="holding-available-label">Available</small><b id="holding-available">Unavailable</b></span>
+            <span><small id="holding-reserved-label">Reserved</small><b id="holding-reserved">Unavailable</b></span>
+          </span>
+          <span class="holding-expand" aria-hidden="true">Details</span>
+        </summary>
+
+        <div class="holding-details">
+          <div class="holding-reference" id="holding-reference">
+            <span>Reference value</span>
+            <strong>Checking oracle freshness</strong>
+          </div>
+
+          <div class="holding-detail-grid">
+            <section>
+              <h3>Terms</h3>
+              <dl class="detail-list">
+                <div><dt>Face value</dt><dd id="in-face">Loading</dd></div>
+                <div><dt>Coupon</dt><dd id="in-rate">Loading</dd></div>
+                <div><dt>Day count</dt><dd id="in-basis">Loading</dd></div>
+                <div><dt>Maturity</dt><dd id="in-maturity">Loading</dd></div>
+              </dl>
+            </section>
+            <section>
+              <h3>Restrictions</h3>
+              <dl class="detail-list">
+                <div><dt>Eligibility</dt><dd id="in-eligibility">Connect or watch an account</dd></div>
+                <div><dt>Reservations</dt><dd id="holding-reserve-detail">Unavailable</dd></div>
+              </dl>
+            </section>
+            <section>
+              <h3>Related records</h3>
+              <div id="holding-related" class="detail-copy">No browser records loaded.</div>
+            </section>
+            <section>
+              <h3>Technical details</h3>
+              <dl class="detail-list technical-list">
+                <div><dt>Issued supply</dt><dd id="in-supply">Loading</dd></div>
+                <div><dt>Asset series</dt><dd id="in-multi">Loading</dd></div>
+                <div><dt>Eligibility lists</dt><dd id="in-lists">Loading</dd></div>
+                <div><dt>Compliance hook</dt><dd id="in-compliance">Loading</dd></div>
+                <div><dt>Position cross-check</dt><dd id="in-balance">Unavailable</dd></div>
+                <div><dt>Token</dt><dd id="in-token-address">Loading</dd></div>
+              </dl>
+            </section>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="portfolio-section income-section" id="income" aria-labelledby="income-title">
+      <div class="portfolio-section-heading">
+        <div>
+          <span class="section-kicker">LPCASH</span>
+          <h2 id="income-title">Coupon income</h2>
+        </div>
+        <button type="button" class="text-action" id="coupon-refresh">Refresh</button>
+      </div>
+
+      <div class="income-overview">
+        <div>
+          <span>Verified available</span>
+          <strong id="coupon-personal">Not established</strong>
+        </div>
+        <div>
+          <span>Next payment date</span>
+          <strong id="coupon-next">Loading</strong>
+        </div>
+        <div>
+          <span>LPCASH in wallet</span>
+          <strong id="coupon-cash-balance">Unavailable</strong>
+        </div>
+      </div>
+
+      <div class="income-prerequisites">
+        <button type="button" id="coupon-associate" data-position-action disabled>Associate LPCASH</button>
+        <label class="file-btn portfolio-file" for="coupon-proof">
+          Import entitlement proof
+          <input id="coupon-proof" type="file" accept="application/json,.json">
+        </label>
+      </div>
+      <p class="income-help">The issuer creates this JSON file from the record-date entitlement list. This app validates it against the live declaration but does not retrieve it for you. Re-import it after reloading this tab.</p>
+
+      <div id="coupon-claim" class="coupon-rows">
+        <div class="portfolio-empty compact">Reading the payment schedule.</div>
       </div>
     </section>
-  </section>
 
-  <section class="receipt-console" id="publication">
-    <div class="shead"><h2>Disclosure receipt from your last action</h2><span class="src">transaction receipt · policy getters</span></div>
-    <p>Decoded from the transaction and re-read from the governed row. It follows this browser tab from Markets or Financing. A withheld venue event is not a private chain.</p>
-    <div id="last-view"><div class="empty">Act on Markets or Financing. The receipt for that transaction is decoded here.</div></div>
-    <div class="receipt-actions">
-      <a href="venue.html#hcs-record">Verify the HCS record &rarr;</a>
-      <a href="../docs/disclosure-receipt.html">Open the receipt explainer &rarr;</a>
-    </div>
-  </section>
+    <section class="portfolio-section financing-section" aria-labelledby="financing-title">
+      <div class="portfolio-section-heading">
+        <div>
+          <span class="section-kicker">Collateral and obligations</span>
+          <h2 id="financing-title">Financing</h2>
+        </div>
+        <a href="repo.html">Open Financing &rarr;</a>
+      </div>
 
-  <details class="lab"><summary>Inspect every publication row</summary>
-    <div class="shead"><h2>Venue publication record</h2><span class="src">SeamJournal · DisclosureView</span></div>
-    <p>See which venue events may be published or withheld. Contract storage, transaction input, wallet activity, and upstream asset events can still remain public.</p>
-    <div class="rows" id="disc-rows"></div>
-  </details>
+      <div class="feature-note" id="financing-limitation" hidden></div>
+      <div id="portfolio-financing">
+        <div class="portfolio-empty compact">Checking recent financing records for this account.</div>
+      </div>
 
-  <section>
-    <div class="shead"><h2>Coupon income</h2><span class="src">CouponDistributor.claim</span></div>
-    <p>LPCASH, two decimals. HTS deducts the published 25 bps inclusive fee from the transfer. Gross is the tree amount. Associate the cash token before the first claim.</p>
-    <div class="rowbtns" style="margin-bottom:1rem">
-      <button type="button" id="coupon-refresh">Refresh coupons</button>
-      <button type="button" id="coupon-associate" disabled>Associate LPCASH</button>
-    </div>
-    <div class="field" style="padding:0 0 .65rem">
-      <label for="coupon-proof">Entitlement proof (JSON)</label>
-      <input id="coupon-proof" type="file" accept="application/json,.json">
-    </div>
-    <div id="coupon-claim"><div class="empty">Refresh after connecting. A claim needs a declared coupon and a merkle proof for this holder.</div></div>
-  </section>
+      <details class="portfolio-disclosure manual-financing">
+        <summary>
+          <span>Look up an agreement</span>
+          <small>Use an exact ID for agreements outside the recent mirror window</small>
+        </summary>
+        <div class="portfolio-disclosure-body">
+          <p>Lookup is read only. An empty recent window does not prove that an account has no obligations.</p>
+          <div class="manual-lookup">
+            <div class="field">
+              <label for="repo-ids">Financing agreement IDs</label>
+              <input id="repo-ids" spellcheck="false" placeholder="0x... one per line or comma">
+            </div>
+            <button type="button" id="watch-go">View status</button>
+          </div>
+          <div class="list" id="watch-out"></div>
+        </div>
+      </details>
+    </section>
+  </div>
 
-  <section>
-    <div class="shead"><h2>Monitor repo risk</h2><span class="src">MarginWatch.watch</span></div>
-    <p>Paste financing agreement ids to see current risk and whether venue updates may be withheld.</p>
-    <div class="field" style="padding:0 0 .65rem">
-      <label for="repo-ids">Financing agreement ids</label>
-      <input id="repo-ids" spellcheck="false" placeholder="0x… one per line or comma">
+  <section class="portfolio-section activity-section" aria-labelledby="activity-title">
+    <div class="portfolio-section-heading">
+      <div>
+        <span class="section-kicker">This browser</span>
+        <h2 id="activity-title">Activity and records</h2>
+      </div>
     </div>
-    <button type="button" id="watch-go">Watch</button>
-    <div class="list" id="watch-out" style="margin-top:1rem"></div>
+
+    <div class="activity-grid">
+      <article class="activity-panel receipt-console">
+        <div class="activity-panel-head">
+          <div>
+            <h3>Latest action in this tab</h3>
+            <p>One transaction receipt, not complete account history.</p>
+          </div>
+        </div>
+        <div id="last-view">
+          <div class="portfolio-empty compact">No action receipt is stored in this tab.</div>
+        </div>
+      </article>
+
+      <article class="activity-panel">
+        <div class="activity-panel-head">
+          <div>
+            <h3>Order records on this device</h3>
+            <p><strong id="pos-tickets">Unavailable</strong>. Recovery files and another browser may contain more.</p>
+          </div>
+          <a href="trade.html#active-orders">Review orders</a>
+        </div>
+        <div id="portfolio-orders">
+          <div class="portfolio-empty compact">Connect or watch an account to read local records.</div>
+        </div>
+      </article>
+    </div>
+
+    <details class="portfolio-disclosure" id="publication">
+      <summary>
+        <span>Disclosure evidence and verification</span>
+        <small>Publication rows, privacy scope, and independent records</small>
+      </summary>
+      <div class="portfolio-disclosure-body">
+        <p>A venue event may be withheld while a valid transaction still succeeds. Contract storage, transaction input, token events, and wallet activity can remain public. Withheld venue speech is not a private blockchain transaction.</p>
+        <div class="evidence-meta">
+          <span>Current disclosure period</span>
+          <strong id="disc-epoch">Unavailable</strong>
+        </div>
+        <div class="rows" id="disc-rows"></div>
+        <div class="receipt-actions">
+          <a href="venue.html#hcs-record">Verify the HCS record &rarr;</a>
+          <a href="../docs/disclosure-receipt.html">Read the receipt guide &rarr;</a>
+        </div>
+      </div>
+    </details>
   </section>
 </main>
+
+<div class="modal withdraw-modal" id="withdraw-modal" hidden>
+  <div class="modal-scrim" data-withdraw-close></div>
+  <div class="modal-card withdraw-modal-card" role="dialog" aria-modal="true" aria-labelledby="withdraw-modal-title" aria-describedby="withdraw-modal-copy">
+    <button type="button" class="modal-x" data-withdraw-close aria-label="Close withdrawal confirmation">&times;</button>
+    <span class="section-kicker" id="withdraw-modal-kicker">Trading proceeds</span>
+    <h2 id="withdraw-modal-title">Confirm withdrawal?</h2>
+    <p class="sub" id="withdraw-modal-copy">This sends your available trading proceeds back to the connected wallet.</p>
+    <div class="withdraw-confirm-amount">
+      <span>Amount</span>
+      <strong id="withdraw-confirm-amount">Unavailable</strong>
+    </div>
+    <p class="withdraw-confirm-note">Your wallet will request approval for one Hedera transaction. A separate network fee applies.</p>
+    <div class="withdraw-confirm-actions">
+      <button type="button" data-withdraw-close>Go back</button>
+      <button type="button" class="primary" id="withdraw-confirm">Confirm withdrawal</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <button type="button" class="theme" id="theme">Dark</button>
