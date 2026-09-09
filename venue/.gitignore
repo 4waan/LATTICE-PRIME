@@ -5,6 +5,7 @@ circuits/build/
 *.zkey
 *.ptau
 node_modules
+.venv/
 
 # Raw cast output from script/live/receipt-beat.sh. The assembled evidence is
 # deployments/receipt-beat.json, which is committed; this is the scaffolding.
@@ -18,3 +19,8 @@ deployments/hcs-cursor.json
 # Raw cast output from script/live/rename-bond.sh. The evidence that matters is
 # the `renamed` block in deployments/296-venue.json, which carries both hashes.
 deployments/.rename-bond/
+
+# Private-agent proving products and local state. Manifests and evidence reports
+# are tracked; keys, witnesses, proofs, tickets, and runtime journals are not.
+agent/artifacts/
+agent/state/

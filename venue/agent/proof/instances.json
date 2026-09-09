@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "lattice.agent.instances.v1",
+  "limbBits": 16,
+  "byteOrder": "big",
+  "inputVisibility": "private",
+  "outputVisibility": "public",
+  "outputs": [
+    {
+      "name": "decision",
+      "type": "bool",
+      "shape": [1, 1],
+      "values": {
+        "false": "WAIT",
+        "true": "EXECUTE"
+      }
+    },
+    {
+      "name": "boundContext",
+      "type": "f32-exact-u16-limbs",
+      "shape": [1, 173]
+    }
+  ],
+  "contextFields": [
+    {"name": "features.limitRoomBps", "type": "uint16", "limbs": 1, "min": "0", "max": "2000"},
+    {"name": "features.recentMoveOffsetBps", "type": "uint16", "limbs": 1, "min": "0", "max": "2000"},
+    {"name": "features.roundProgressBps", "type": "uint16", "limbs": 1, "min": "0", "max": "10000"},
+    {"name": "features.freshnessSeconds", "type": "uint16", "limbs": 1, "min": "0", "max": "300"},
+    {"name": "features.bufferCategory", "type": "uint16", "limbs": 1, "min": "0", "max": "2"},
+    {"name": "features.horizonCategory", "type": "uint16", "limbs": 1, "min": "0", "max": "2"},
+    {"name": "protocolDomain", "type": "bytes32", "limbs": 16},
+    {"name": "chainId", "type": "uint64", "limbs": 4, "min": "0", "max": "18446744073709551615"},
+    {"name": "engine", "type": "address", "limbs": 10},
+    {"name": "executionAccount", "type": "address", "limbs": 10},
+    {"name": "token", "type": "address", "limbs": 10},
+    {"name": "side", "type": "buy-side-enum", "limbs": 1, "values": {"BUY": 0}},
+    {"name": "price", "type": "uint128-decimal", "limbs": 8, "min": "1", "max": "340282366920938463463374607431768211455"},
+    {"name": "quantity", "type": "uint128-decimal", "limbs": 8, "min": "1", "max": "340282366920938463463374607431768211455"},
+    {"name": "recoveryAddress", "type": "address", "limbs": 10},
+    {"name": "snapshotId", "type": "bytes32", "limbs": 16},
+    {"name": "deploymentHash", "type": "bytes32", "limbs": 16},
+    {"name": "modelBundleHash", "type": "bytes32", "limbs": 16},
+    {"name": "policyHash", "type": "bytes32", "limbs": 16},
+    {"name": "mandateNonce", "type": "bytes32", "limbs": 16},
+    {"name": "decisionSequence", "type": "uint32", "limbs": 2, "min": "0", "max": "4294967295"},
+    {"name": "publicSlot", "type": "uint64", "limbs": 4, "min": "0", "max": "18446744073709551615"},
+    {"name": "expiresAt", "type": "uint64", "limbs": 4, "min": "0", "max": "18446744073709551615"}
+  ]
+}

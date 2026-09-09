@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -189,6 +189,30 @@ hcs-relay:
 hcs-verify: vectors
 	$(NODE) node tools/hcs-verify.mjs
 	$(NODE) node tools/hcs-verify.mjs --json > deployments/hcs-verify.json
+
+# The private-agent layer stays an explicit build until its release gate passes.
+# Generated keys, witnesses, proofs, and local state remain under ignored paths.
+agent-bootstrap:
+	python3 -m venv .venv
+	.venv/bin/python -m pip install --upgrade pip==25.2
+	.venv/bin/python -m pip install -r agent/requirements-proof.txt
+
+agent-model:
+	@test -x .venv/bin/python || { echo "run make agent-bootstrap first"; exit 1; }
+	.venv/bin/python agent/model/build_model.py
+
+agent-formal: agent-model
+	.venv/bin/python agent/formal/check_graph.py agent/artifacts/model/network.onnx
+	.venv/bin/python agent/formal/check_release.py
+
+agent-test:
+	@test -x .venv/bin/python || { echo "run make agent-bootstrap first"; exit 1; }
+	$(NODE) node --test agent/tests/*.test.mjs
+	.venv/bin/python -m unittest discover -s agent/tests -p '*_test.py'
+	.venv/bin/python -m compileall -q agent/model agent/proof agent/formal
+
+agent-proof: agent-formal agent-test
+	.venv/bin/python agent/proof/run_spike.py
 
 report:
 	@echo

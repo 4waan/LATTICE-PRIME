@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "lattice.agent.information-flow.v1",
+  "releaseStatus": "proof-spike",
+  "defaultMode": {
+    "name": "excluded",
+    "bufferCategory": 1,
+    "horizonCategory": 1,
+    "excludedInputs": [
+      "credentialMaterial",
+      "offPlatformHoldings",
+      "privatePreferences",
+      "revealSalt",
+      "signingKey"
+    ]
+  },
+  "optionalMode": {
+    "enabled": false,
+    "releaseFunctionId": "lattice.agent.preference-categories.v1",
+    "bufferRatioBps": {
+      "domain": [0, 10000],
+      "categories": [
+        {"category": 0, "min": 0, "max": 1999},
+        {"category": 1, "min": 2000, "max": 4999},
+        {"category": 2, "min": 5000, "max": 10000}
+      ]
+    },
+    "horizonHours": {
+      "domain": [0, 168],
+      "categories": [
+        {"category": 0, "min": 0, "max": 23},
+        {"category": 1, "min": 24, "max": 71},
+        {"category": 2, "min": 72, "max": 168}
+      ]
+    },
+    "enablementGate": "Graph property and executable boundary correspondence must both pass."
+  },
+  "releasedOutputs": [
+    "decision",
+    "boundContext"
+  ],
+  "claim": "For valid inputs and equal approved release values, the canonical decision and action projection are equal.",
+  "excludedFromClaim": [
+    "host operating system",
+    "cryptographic randomness bytes",
+    "network timing",
+    "termination and availability",
+    "processes outside the worker"
+  ]
+}
