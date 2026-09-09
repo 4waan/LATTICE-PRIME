@@ -452,6 +452,7 @@ const Venue = {
     localTimer: 0,
     wiringOk: false,
     busy: false,
+    revealPending: new Set(),
     watching: null,
     lastView: null,
     eth: null,
@@ -1599,11 +1600,14 @@ Venue.tradeTxStage = function (stage, label, detail) {
     }
 };
 
-Venue.send = async function (txPromise, label) {
+Venue.send = async function (txFactory, label) {
     if (Venue.busy) return null;
     Venue.busy = true;
     try {
-        const tx = await txPromise;
+        if (typeof txFactory !== "function") {
+            throw new TypeError("Transaction submission requires a factory.");
+        }
+        const tx = await txFactory();
         Venue.toast(label + " sent " + shortId(tx.hash));
         Venue.tradeTxStage("pending", label);
         const rec = await tx.wait();
@@ -2169,7 +2173,12 @@ Venue.doRegister = async function () {
         return;
     }
     const rec = await Venue.send(
-        Venue.w.gate.register(Venue.account, Venue.proof.proof.map((x) => asBig(x)), pub, {gasLimit: 1_500_000}),
+        () => Venue.w.gate.register(
+            Venue.account,
+            Venue.proof.proof.map((x) => asBig(x)),
+            pub,
+            {gasLimit: 1_500_000},
+        ),
         "Request access"
     );
     if (rec) {
@@ -3160,7 +3169,11 @@ Venue.doHold = async function () {
     );
     Venue.tradeTxStage("approval", "Reserve sell inventory");
     const rec = await Venue.send(
-        Venue.w.holds.createHoldByPartition(CLIENT.immutables.partition, hold, {gasLimit: 1_000_000}),
+        () => Venue.w.holds.createHoldByPartition(
+            CLIENT.immutables.partition,
+            hold,
+            {gasLimit: 1_000_000},
+        ),
         "Reserve sell inventory"
     );
     if (!rec) return;
@@ -3198,7 +3211,7 @@ Venue.doCommit = async function () {
     const value = toWeibar(bond);
     Venue.tradeTxStage("approval", "Submit sealed order");
     const rec = await Venue.send(
-        Venue.w.engine.commit(o.id, {value, gasLimit: 400_000}),
+        () => Venue.w.engine.commit(o.id, {value, gasLimit: 400_000}),
         "Submit sealed order"
     );
     if (!rec) return;
@@ -3298,6 +3311,7 @@ Venue.syncTicketActions = function (card, ph) {
     const progress = card.querySelector(".order-progress");
     if (!status || !title || !copy || !row) return;
     const id = card.dataset.id;
+    const revealing = Venue.revealPending.has(id);
     if (ph.phase === "cancel") {
         status.className = "order-status waiting";
         status.textContent = "Submitted";
@@ -3332,8 +3346,11 @@ Venue.syncTicketActions = function (card, ph) {
             : needsHold
             ? '<button type="button" class="primary" data-act="reserve" data-id="' +
                 esc(id) + '">Reserve inventory</button>'
-            : '<button type="button" class="primary" data-act="reveal" data-id="' +
-                esc(id) + '">Reveal order</button>';
+            : '<button type="button" class="primary' + (revealing ? ' stale' : '') +
+                '" data-act="reveal" data-id="' + esc(id) + '"' +
+                (revealing
+                    ? ' disabled aria-busy="true">Reveal processing</button>'
+                    : ' aria-busy="false">Reveal order</button>');
         card.className = "order-card urgent";
     } else if (ph.phase === "lost") {
         status.className = "order-status urgent";
@@ -3657,6 +3674,31 @@ Venue.paintTickets = async function () {
 };
 
 
+Venue.paintRevealPending = function (id) {
+    const pending = Venue.revealPending.has(id);
+    const box = $("tickets");
+    if (!box) return;
+    for (const btn of box.querySelectorAll('button[data-act="reveal"]')) {
+        if (btn.getAttribute("data-id") !== id) continue;
+        btn.disabled = pending;
+        btn.setAttribute("aria-busy", pending ? "true" : "false");
+        btn.classList.toggle("stale", pending);
+        btn.textContent = pending ? "Reveal processing" : "Reveal order";
+    }
+};
+
+Venue.beginReveal = function (id) {
+    if (Venue.revealPending.has(id)) return false;
+    Venue.revealPending.add(id);
+    Venue.paintRevealPending(id);
+    return true;
+};
+
+Venue.finishReveal = function (id) {
+    Venue.revealPending.delete(id);
+    Venue.paintRevealPending(id);
+};
+
 Venue.doCancel = async function (id) {
     await Venue.requireAccount();
     const until = asBig(await Venue.c.engine.cancellableUntil(id));
@@ -3665,7 +3707,10 @@ Venue.doCancel = async function (id) {
     }
     if (nowSec() >= until) throw new Error("Cancel window has shut. Reveal is the remaining move.");
     Venue.tradeTxStage("approval", "Cancel order");
-    const rec = await Venue.send(Venue.w.engine.cancel(id, {gasLimit: 400_000}), "Cancel order");
+    const rec = await Venue.send(
+        () => Venue.w.engine.cancel(id, {gasLimit: 400_000}),
+        "Cancel order",
+    );
     if (rec) {
         const t = readList("tickets", Venue.account).find((x) => x.id === id);
         if (t) upsert("tickets", Venue.account, {...t, cancelled: true, cancelTx: rec.hash}, "id");
@@ -3680,59 +3725,72 @@ Venue.doCancel = async function (id) {
 };
 
 Venue.doReveal = async function (id) {
-    await Venue.requireAccount();
-    if (Venue.snap.kyc !== 1) {
-        throw new Error("Renew eligibility before revealing. Settlement requires a current grant.");
-    }
-    const t = readList("tickets", Venue.account).find((x) => x.id === id);
-    if (!t) throw new Error("No local ticket for that id. Load the file.");
-    const side = Number(t.side);
-    const price = BigInt(t.price);
-    const qty = BigInt(t.qty);
-    let backing = 0n;
-    if (side === 1) {
-        backing = BigInt(t.holdId || $("holdId").value || "0");
-        if (backing === 0n) throw new Error("A sell needs locked inventory on the ticket.");
-        const hold = await Venue.c.holds.getHoldForByPartition({
-            partition: CLIENT.immutables.partition,
-            tokenHolder: Venue.account,
-            holdId: backing,
-        });
-        if (hold.escrow_ === ZERO || asBig(hold.amount_) === 0n) {
-            throw new Error("That locked inventory reads as empty.");
+    if (!Venue.beginReveal(id)) return null;
+    try {
+        await Venue.requireAccount();
+        if (Venue.snap.kyc !== 1) {
+            throw new Error("Renew eligibility before revealing. Settlement requires a current grant.");
         }
-        if (!addrEq(hold.escrow_, CLIENT.addresses.MatchingEngine)) {
-            throw new Error("Locked inventory is not escrowed to the matching engine.");
+        const t = readList("tickets", Venue.account).find((x) => x.id === id);
+        if (!t) throw new Error("No local ticket for that id. Load the file.");
+        const side = Number(t.side);
+        const price = BigInt(t.price);
+        const qty = BigInt(t.qty);
+        let backing = 0n;
+        if (side === 1) {
+            backing = BigInt(t.holdId || $("holdId").value || "0");
+            if (backing === 0n) throw new Error("A sell needs locked inventory on the ticket.");
+            const hold = await Venue.c.holds.getHoldForByPartition({
+                partition: CLIENT.immutables.partition,
+                tokenHolder: Venue.account,
+                holdId: backing,
+            });
+            if (hold.escrow_ === ZERO || asBig(hold.amount_) === 0n) {
+                throw new Error("That locked inventory reads as empty.");
+            }
+            if (!addrEq(hold.escrow_, CLIENT.addresses.MatchingEngine)) {
+                throw new Error("Locked inventory is not escrowed to the matching engine.");
+            }
+            if (!addrEq(hold.destination_, ZERO)) throw new Error("Locked inventory names a destination.");
+            if (asBig(hold.amount_) < qty) throw new Error("Locked inventory is smaller than qty.");
         }
-        if (!addrEq(hold.destination_, ZERO)) throw new Error("Locked inventory names a destination.");
-        if (asBig(hold.amount_) < qty) throw new Error("Locked inventory is smaller than qty.");
-    }
-    const value = side === 0 ? toWeibar(buyEscrow(price, qty)) : 0n;
-    if (side === 0 && Venue.snap.walletTinybar !== undefined
-        && Venue.snap.walletTinybar < buyEscrow(price, qty)) {
-        throw new Error("This wallet does not have enough HBAR to fund the buy reveal and network fee.");
-    }
-    Venue.tradeTxStage("approval", "Reveal order");
-    const rec = await Venue.send(
-        Venue.w.engine.reveal(side, price, qty, t.salt, backing, {value, gasLimit: 800_000}),
-        "Reveal order"
-    );
-    if (rec) {
-        upsert("tickets", Venue.account, {
-            ...t,
-            holdId: backing === 0n ? t.holdId : backing.toString(),
-            revealed: true,
-            revealTx: rec.hash,
-            revealedAt: new Date().toISOString(),
-        }, "id");
-        await Venue.writeVault(Venue.account, {quiet: true});
-        Venue.status("trade-status",
-            "Order revealed and now eligible for the call auction. Submission is not a fill.",
-            "ok");
-        await Venue.refreshTrade();
-        await Venue.noteReceipt(
-            "reveal", rec, 4, G.EXACT, T.IMM, "engine", "Revealed"
+        const value = side === 0 ? toWeibar(buyEscrow(price, qty)) : 0n;
+        if (side === 0 && Venue.snap.walletTinybar !== undefined
+            && Venue.snap.walletTinybar < buyEscrow(price, qty)) {
+            throw new Error("This wallet does not have enough HBAR to fund the buy reveal and network fee.");
+        }
+        Venue.tradeTxStage("approval", "Reveal order");
+        const rec = await Venue.send(
+            () => Venue.w.engine.reveal(
+                side,
+                price,
+                qty,
+                t.salt,
+                backing,
+                {value, gasLimit: 800_000},
+            ),
+            "Reveal order"
         );
+        if (rec) {
+            upsert("tickets", Venue.account, {
+                ...t,
+                holdId: backing === 0n ? t.holdId : backing.toString(),
+                revealed: true,
+                revealTx: rec.hash,
+                revealedAt: new Date().toISOString(),
+            }, "id");
+            await Venue.writeVault(Venue.account, {quiet: true});
+            Venue.status("trade-status",
+                "Order revealed and now eligible for the call auction. Submission is not a fill.",
+                "ok");
+            await Venue.refreshTrade();
+            await Venue.noteReceipt(
+                "reveal", rec, 4, G.EXACT, T.IMM, "engine", "Revealed"
+            );
+        }
+        return rec;
+    } finally {
+        Venue.finishReveal(id);
     }
 };
 
@@ -3741,7 +3799,7 @@ Venue.doCross = async function () {
     const r = Venue.snap.round === 0n ? 0n : Venue.snap.round - 1n;
     Venue.tradeTxStage("approval", "Process auction round");
     const rec = await Venue.send(
-        Venue.w.engine.crossRound(r, {gasLimit: 1_500_000}),
+        () => Venue.w.engine.crossRound(r, {gasLimit: 1_500_000}),
         "Process auction round"
     );
     if (rec) {
@@ -3849,7 +3907,7 @@ Venue.doWithdraw = async function () {
     await Venue.requireAccount();
     Venue.tradeTxStage("approval", "Withdraw trading credit");
     const rec = await Venue.send(
-        Venue.w.engine.withdraw({gasLimit: 250_000}),
+        () => Venue.w.engine.withdraw({gasLimit: 250_000}),
         "Withdraw trading credit"
     );
     if (rec) {
@@ -3863,7 +3921,10 @@ Venue.doVaultWithdraw = async function () {
         throw new Error(Venue.financing?.reason || "Financing writes are unavailable.");
     }
     await Venue.requireAccount();
-    const rec = await Venue.send(Venue.w.vault.withdraw({gasLimit: 250_000}), "withdraw financing credit");
+    const rec = await Venue.send(
+        () => Venue.w.vault.withdraw({gasLimit: 250_000}),
+        "withdraw financing credit",
+    );
     if (rec) {
         await Venue.refreshPosition().catch(() => {});
         await Venue.doRepo?.().catch(() => {});
@@ -4431,7 +4492,10 @@ Venue.doAssociateCash = async function () {
     await Venue.requireAccount();
     const cash = Venue.cashContract(Venue.signer);
     if (!cash) throw new Error("No coupon cash token is named in this address book.");
-    const rec = await Venue.send(cash.associate({gasLimit: 250_000}), "associate LPCASH");
+    const rec = await Venue.send(
+        () => cash.associate({gasLimit: 250_000}),
+        "associate LPCASH",
+    );
     if (rec) await Venue.refreshIncome();
 };
 
@@ -4443,7 +4507,14 @@ Venue.doClaimCoupon = async function () {
     const ok = await dist.wouldAccept(p.index, p.holder, p.position, p.amount, p.proof);
     if (!ok) throw new Error("wouldAccept is false. The proof does not match a live declaration.");
     const rec = await Venue.send(
-        Venue.w.couponDistributor.claim(p.index, p.holder, p.position, p.amount, p.proof, {gasLimit: 400_000}),
+        () => Venue.w.couponDistributor.claim(
+            p.index,
+            p.holder,
+            p.position,
+            p.amount,
+            p.proof,
+            {gasLimit: 400_000},
+        ),
         "claim coupon"
     );
     if (rec) {

@@ -31,6 +31,13 @@ function harness() {
     return {Venue, element, copied};
 }
 
+test("order sides render as Buy or Sell instead of enum values", () => {
+    const {Venue} = harness();
+    assert.equal(Venue.fmtLogArg("side", 0n), "Buy");
+    assert.equal(Venue.fmtLogArg("side", 1n), "Sell");
+    assert.equal(Venue.fmtLogArg("side", 2n), "Unavailable");
+});
+
 test("scheduled obligation identifiers never become repo positions", async () => {
     const {Venue} = harness();
     Venue.history = async () => [
@@ -85,7 +92,7 @@ test("repo actions simulate before signing and refresh after confirmation", asyn
     call.staticCall = async (id) => { steps.push("check:" + id); };
     Venue.requireAccount = async () => { steps.push("wallet"); };
     Venue.w = {vault: {settle: call}};
-    Venue.send = async (pending) => { await pending; return {status: 1}; };
+    Venue.send = async (txFactory) => { await txFactory(); return {status: 1}; };
     Venue.doRepo = async () => { steps.push("refresh"); };
     await Venue.doRepoAction("settle", obligationId, "Process coupon");
     assert.deepEqual(steps, ["wallet", "check:" + obligationId, "send:" + obligationId, "refresh"]);
@@ -145,8 +152,8 @@ test("ATS collateral approval is confirmed before acceptance", async () => {
     };
     Venue.c.registry = {getKycStatus: async () => 1n};
     Venue.w = {token: {approve}, vault: {accept}};
-    Venue.send = async (pending) => {
-        await pending;
+    Venue.send = async (txFactory) => {
+        await txFactory();
         return {status: 1};
     };
     Venue.doRepo = async () => { steps.push("refresh repo"); };
