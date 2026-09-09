@@ -103,6 +103,7 @@ vectors:
 # The two pages a trader reads: the commitment before signing `commit(bytes32)`,
 # and the disclosure receipt after acting.
 pages: vectors
+	$(NODE) node --test tools/receipt.test.mjs
 	$(NODE) node tools/gen-preview.mjs
 	$(NODE) node tools/gen-receipt.mjs
 
