@@ -7,6 +7,7 @@ import {RepoVault} from "../src/repo/RepoVault.sol";
 import {RepoVaultBase} from "../src/repo/RepoVaultBase.sol";
 import {IHoldByPartition, IHoldTypes} from "../src/interfaces/IHoldByPartition.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {PolicyFixture} from "./PolicyFixture.sol";
 import {CouponFixture} from "./CouponFixture.sol";
 import {StubOracle} from "./OracleFixture.sol";
@@ -212,6 +213,20 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture, RepoFunding {
         assertEq(vault.credit(BORROWER), principal);
     }
 
+    function test_aNarrowedPublicationCeilingCannotTrapAFundedOffer() public {
+        uint256 principal = _fundRepo(vault, feed, LENDER, BORROWER, ID, _terms());
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer position events");
+
+        vm.recordLogs();
+        vm.prank(LENDER);
+        vault.cancelOffer(ID);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(vault.credit(LENDER), principal);
+        _assertNoEvent(logs, keccak256("OfferCancelled(bytes32)"));
+    }
+
     // ------------------------------------------------------------------ T2
 
     function test_closeReturnsTheCollateralAndChargesTheAccrual() public {
@@ -316,6 +331,27 @@ contract RepoVaultTest is Test, PolicyFixture, CouponFixture, RepoFunding {
         );
         vault.addCollateral(ID, 1);
         assertEq(vault.extraHoldCount(ID), 0, "late collateral was not trapped");
+    }
+
+    function test_aNarrowedPublicationCeilingRefusesNewCollateralAsPolicyError() public {
+        _open();
+        holds.mint(PARTITION, BORROWER, 1);
+        vm.prank(BORROWER);
+        holds.approve(address(vault), 1);
+        vm.prank(SUPERVISOR);
+        regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer position events");
+
+        uint32 over = L.excess(params.ceilingFor(14), L.point(L.G_PRED, L.T_IMM));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DisclosureView.DisclosureExceedsCeiling.selector, uint16(14), over
+            )
+        );
+        vm.prank(BORROWER);
+        vault.addCollateral(ID, 1);
+
+        assertEq(vault.extraHoldCount(ID), 0, "the additional hold rolled back");
+        assertEq(holds.created(), 1, "only the opening hold exists");
     }
 
     function test_defaultIsPermissionlessButOnlyAfterTheWindow() public {

@@ -424,7 +424,7 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         // The commitment discloses nothing about the mark; the timing discloses that this
         // repo was marked, now, and marking is daily, so the sequence is a cadence
         // fingerprint. Carried as an open limit in the disclosure matrix and incurred here.
-        if (_emitWithoutBlocking(ROW_CADENCE, L.G_EXACT, L.T_IMM)) {
+        if (_emitUnder(id, ROW_CADENCE, L.G_EXACT, L.T_IMM)) {
             emit MarkPosted(id, commitment);
         }
 
@@ -433,7 +433,7 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
             r.state = State.MARGIN_CALL;
             r.cureDeadline = deadline;
             // Row 14. A margin call is a predicate about a position.
-            if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
                 emit MarginCalled(id, r.cureDeadline);
             }
         }
@@ -477,7 +477,7 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
             uint64 deadline = _checkedDeadline(cureWindow);
             r.state = State.MARGIN_CALL;
             r.cureDeadline = deadline;
-            if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
+            if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
                 emit MarginCalled(id, r.cureDeadline);
             }
         }
@@ -564,7 +564,7 @@ contract RepoVault is RepoVaultBase, DisclosureView, ScheduledSettlement {
         );
         extraHolds[id].push(holdId);
         r.collateralAmount += amount;
-        if (_emitWithoutBlocking(ROW_POSITION, L.G_PRED, L.T_IMM)) {
+        if (_emitUnder(id, ROW_POSITION, L.G_PRED, L.T_IMM)) {
             emit CollateralAdded(id);
         }
     }
