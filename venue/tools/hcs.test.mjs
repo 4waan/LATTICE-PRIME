@@ -1,11 +1,10 @@
 // The vectors for `tools/hcs.mjs`, in the two kinds `units.test.mjs` uses.
 //
-// **The pinned vectors are the deployed contracts' own numbers.** Every selector
-// in `SITES`, the charge topic, and the ceiling-error selector are recomputed here from
-// `deployments/abi/*.json`, which `script/live/export-abis.sh` writes out of
-// `out/`. So the silence table cannot drift from the chain by a rename, an
-// argument reorder, or a stale copy: rebuilding the ABIs and running `make
-// vectors` fails before anything is published.
+// **The pinned vectors are the deployed contracts' own numbers.** Every `SITES`
+// entry carries the canonical signature that recomputes its selector, and the
+// table is pinned to the addresses in `deployments/client.json`. Source ABIs may
+// advance before another deployment without silently changing the rules used to
+// infer silence from the bytecode already on chain.
 //
 // **The refusal vectors** are the messages the decoder must not accept. They
 // carry no contract twin because the point of each is that it never becomes a
@@ -18,8 +17,10 @@ import {fileURLToPath} from "node:url";
 import {Interface, id as keccakId} from "ethers";
 import {
     MAX_CHUNK, SCHEMA_VERSION, SITES, SOURCES, SOURCE_ADDRESS_KEY,
+    SITE_ADDRESSES, SITE_CODE_HASHES,
     TOPIC_CHARGED, TOPIC_REFUSED, ERROR_CEILING, FIELDS, LEGACY_FIELDS,
     encode, decode, validate, keyOf, describe, auditRecord,
+    assertSiteAddresses, assertSiteDeployments,
     decodeChargeLog, decodeRefusalLog, decodeCeilingError, RecordError,
 } from "./hcs.mjs";
 
@@ -58,10 +59,19 @@ const refuses = (what, fn, match) => {
     console.error(`FAIL ${what}: did not throw`);
     bad++;
 };
+const refusesAsync = async (what, fn, match) => {
+    try {
+        await fn();
+        fail(what, "accepted");
+    } catch (e) {
+        ok(what, e instanceof RecordError && e.message.includes(match), e.message);
+    }
+};
 
 // ---------------------------------------------------------------- the chain
 
-// Event and error selectors, off the deployed ABIs rather than off a comment.
+// Event and error selectors, off the ABI rather than off a comment. These
+// signatures are unchanged between the bound deployment and current source.
 {
     const seen = {};
     let ceilingError = null;
@@ -82,24 +92,14 @@ const refuses = (what, fn, match) => {
         keccakId("DisclosureRefused(bytes32,uint16,uint32)"));
 }
 
-// Every silence site is a real external function on the contract it names, and
-// every disclosing external function the venue has is either in the table or
-// deliberately absent from it. The second half is what stops a new entry point
-// from being silently unwatched.
+// Every deployed site names a canonical function signature whose selector is
+// the key under which it is recorded. Current source mutability is deliberately
+// irrelevant here: a local ABI rebuild must not rewrite historical bytecode.
 {
-    const ifaces = {
-        engine: new Interface(abi("MatchingEngine")),
-        vault: new Interface(abi("RepoVault")),
-    };
     for (const [sel, site] of Object.entries(SITES)) {
         ok(`${site.fn} names a known source`, SOURCES.includes(site.src));
-        let fn = null;
-        ifaces[site.src].forEachFunction((f) => { if (f.selector === sel) fn = f; });
-        ok(`${sel} is a function on ${site.src}`, fn !== null);
-        if (fn) {
-            eq(`${sel} is ${site.fn}`, fn.name, site.fn);
-            ok(`${site.fn} is not a view`, fn.stateMutability !== "view" && fn.stateMutability !== "pure");
-        }
+        eq(`${site.fn} signature hashes to ${sel}`, keccakId(site.sig).slice(0, 10), sel);
+        eq(`${site.fn} signature names the function`, site.sig.slice(0, site.sig.indexOf("(")), site.fn);
         ok(`${site.fn} charges at least one row`, site.rows.length > 0);
         for (const r of site.rows) {
             ok(`${site.fn} row ${r.row} is a uint16`, Number.isInteger(r.row) && r.row >= 0 && r.row <= 0xffff);
@@ -115,6 +115,35 @@ const refuses = (what, fn, match) => {
 // The short names resolve to contracts the client actually holds an address for.
 for (const s of SOURCES) {
     ok(`${s} names a deployed contract`, !!client.addresses[SOURCE_ADDRESS_KEY[s]]);
+    eq(
+        `${s} sites are bound to the deployed address`,
+        String(client.addresses[SOURCE_ADDRESS_KEY[s]]).toLowerCase(),
+        SITE_ADDRESSES[s],
+    );
+}
+assertSiteAddresses(client.addresses);
+refuses(
+    "a replacement vault cannot inherit the deployed site table",
+    () => assertSiteAddresses({...client.addresses, RepoVault: "0x" + "ab".repeat(20)}),
+    "site table is bound",
+);
+{
+    const code = {
+        [SITE_ADDRESSES.engine]: "0x01",
+        [SITE_ADDRESSES.vault]: "0x02",
+    };
+    const hash = (runtime) =>
+        runtime === "0x01" ? SITE_CODE_HASHES.engine : SITE_CODE_HASHES.vault;
+    await assertSiteDeployments(client.addresses, async (address) => code[address], hash);
+    await refusesAsync(
+        "different runtime bytecode cannot inherit the deployed site table",
+        () => assertSiteDeployments(
+            client.addresses,
+            async (address) => code[address],
+            () => "0x" + "00".repeat(32),
+        ),
+        "runtime hash",
+    );
 }
 
 // Every row the table calls metered carries a budget in the deployed set, and
@@ -217,6 +246,8 @@ refuses("null is not a record", () => decode("null"), "must be a JSON object");
 refuses("an unknown version is refused", () => decode('{"v":3,"k":"charge"}'), "unknown schema version");
 refuses("a current record without its source address is refused",
     () => validate({...CHARGE, v: SCHEMA_VERSION}), "missing field a");
+refuses("a current record from another deployment is refused",
+    () => validate({...CHARGE_V2, a: "0x" + "ab".repeat(20)}), "not the bound deployment");
 refuses("an unknown kind is refused", () => validate({...CHARGE, k: "shout"}), "unknown kind");
 refuses("a legacy ceiling kind is refused",
     () => validate({...CEILING, v: 1, a: undefined}), "unknown kind");
@@ -477,4 +508,4 @@ if (bad) {
     console.error(`\n${bad} hcs vector${bad === 1 ? "" : "s"} failed`);
     process.exit(1);
 }
-console.log("hcs.mjs: schema, silence table and ceiling errors agree with the deployed ABIs");
+console.log("hcs.mjs: schema, deployment-bound sites and ceiling errors agree");

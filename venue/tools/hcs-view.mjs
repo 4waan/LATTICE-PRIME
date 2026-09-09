@@ -22,38 +22,60 @@
 // same mirror node results. A green mark here means what a green row means
 // there, because it is one implementation.
 
-const HCS_LIMIT = 60;
+const HCS_PAGE_LIMIT = 100;
+const HCS_MAX_PAGES = 10;
+const HCS_ACTION_LIMIT = 44;
+const HCS_CHECKPOINT_LIMIT = 16;
 
 Venue.hcsRecords = null;
 
 Venue.readTopic = async function () {
     if (!HCS || !HCS.topicId) return null;
-    const j = await Venue.mirror(
-        "/api/v1/topics/" + encodeURIComponent(HCS.topicId) +
-        "/messages?order=desc&limit=" + HCS_LIMIT);
+    let next = "/api/v1/topics/" + encodeURIComponent(HCS.topicId) +
+        "/messages?order=desc&limit=" + HCS_PAGE_LIMIT;
+    const seen = new Set();
     const out = [];
     let unreadable = 0;
-    for (const m of j.messages || []) {
-        let text;
-        try {
-            text = new TextDecoder().decode(
-                Uint8Array.from(atob(m.message), (ch) => ch.charCodeAt(0)));
-        } catch (e) {
-            unreadable++;
-            continue;
+    let scanned = 0;
+    for (let page = 0; next && page < HCS_MAX_PAGES; page++) {
+        if (!/^\/api\/v1\//.test(next) || seen.has(next)) {
+            throw new Error("The mirror node returned an invalid topic cursor.");
         }
-        try {
-            out.push({
-                seq: Number(m.sequence_number),
-                at: m.consensus_timestamp,
-                rec: decode(text),
-                audit: null,
-            });
-        } catch (e) {
-            unreadable++;
+        seen.add(next);
+        const j = await Venue.mirror(next);
+        for (const m of j.messages || []) {
+            scanned++;
+            let text;
+            try {
+                text = new TextDecoder().decode(
+                    Uint8Array.from(atob(m.message), (ch) => ch.charCodeAt(0)));
+            } catch (e) {
+                unreadable++;
+                continue;
+            }
+            try {
+                out.push({
+                    seq: Number(m.sequence_number),
+                    at: m.consensus_timestamp,
+                    rec: decode(text),
+                    audit: null,
+                });
+            } catch (e) {
+                unreadable++;
+            }
         }
+        next = j.links && j.links.next ? j.links.next : null;
     }
-    return {records: out, unreadable, total: (j.messages || []).length};
+    if (next) throw new Error("The topic exceeds the browser scan limit.");
+
+    // Checkpoints make relay liveness visible, but they must not push the action
+    // receipts they anchor out of the screen. Keep the newest action records and
+    // a bounded recent checkpoint tail, then restore consensus order.
+    const actions = out.filter((row) => row.rec.k !== "checkpoint").slice(0, HCS_ACTION_LIMIT);
+    const checkpoints =
+        out.filter((row) => row.rec.k === "checkpoint").slice(0, HCS_CHECKPOINT_LIMIT);
+    const records = [...actions, ...checkpoints].sort((a, b) => b.seq - a.seq);
+    return {records, unreadable, total: scanned};
 };
 
 /// One record's line. `describe` is `tools/hcs.mjs`'s, so this screen and the
@@ -66,7 +88,7 @@ Venue.hcsLine = function (row) {
     const seconds = Number(String(row.at ?? "").split(".")[0]);
     const when = Number.isFinite(seconds) && seconds > 0
         ? new Date(seconds * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z"
-        : String(row.at ?? "—");
+        : String(row.at ?? "Unknown");
     let verdict = "";
     if (row.audit) {
         const failed = row.audit.filter((x) => !x.pass);
@@ -74,7 +96,7 @@ Venue.hcsLine = function (row) {
             (failed.length ? "does not match" : "matches the chain") + "</span>";
         if (failed.length) {
             verdict += '<span class="hwhy">' +
-                failed.map((x) => esc(x.name) + (x.detail ? " — " + esc(x.detail) : "")).join("<br>") +
+                failed.map((x) => esc(x.name) + (x.detail ? ": " + esc(x.detail) : "")).join("<br>") +
                 "</span>";
         }
     }
@@ -121,8 +143,9 @@ Venue.paintTopic = function (state) {
         (state.unreadable ? " · " + state.unreadable + " unreadable" : "") +
         "</span></div>";
     el.innerHTML = head + state.records.map(Venue.hcsLine).join("") +
-        '<p class="note">Newest first, at most ' + HCS_LIMIT +
-        ". Sequence number and consensus timestamp come from the topic, not from this client.</p>";
+        '<p class="note">Newest action receipts plus recent checkpoint anchors, selected from ' +
+        esc(String(state.total)) + " topic messages. Sequence number and consensus timestamp " +
+        "come from the topic, not from this client.</p>";
 };
 
 Venue.refreshTopic = async function () {
@@ -162,14 +185,20 @@ Venue.policyFrom = async function () {
 ///
 /// Every record that names a transaction gets that transaction fetched back from
 /// the mirror node and compared field for field by `auditRecord`. A charge that
-/// does not match its log, or a silence whose transaction reverted or did charge
-/// the row, is marked here in the same words `tools/hcs-verify.mjs` uses.
+/// does not match its log, a ceiling record that does not match the typed
+/// revert, or a silence whose transaction reverted or did charge the row is
+/// marked here in the same words `tools/hcs-verify.mjs` uses.
 ///
 /// The per-epoch sum against `spentBits` is deliberately not run here. It is the
 /// omission check, it needs a read per row per epoch, and a screen that fires
 /// dozens of `eth_call`s off a button is a screen that trips HashIO's rate limit
 /// during a demonstration. `make hcs-verify` is where that assertion lives.
 Venue.auditTopic = async function () {
+    await assertSiteDeployments(
+        CLIENT.addresses,
+        (address) => Venue.reader.getCode(address),
+        ethers.keccak256,
+    );
     if (!Venue.hcsRecords) await Venue.refreshTopic();
     const state = Venue.hcsRecords;
     if (!state || !state.records.length) return;

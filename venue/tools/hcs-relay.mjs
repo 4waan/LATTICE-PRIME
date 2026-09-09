@@ -45,6 +45,7 @@ import {
     Client, PrivateKey, AccountId, TopicId, Hbar,
     TopicMessageSubmitTransaction,
 } from "@hiero-ledger/sdk";
+import {keccak256} from "ethers";
 import {
     ROOT, env, client, paged, tsKey, tsLess, epochAt, reader, readTopic,
     policyHistory, effectiveFrom,
@@ -53,6 +54,7 @@ import {bits} from "./lattice.mjs";
 import {
     SITES, SOURCES, SOURCE_ADDRESS_KEY, TOPIC_CHARGED, ERROR_CEILING,
     SCHEMA_VERSION, encode, decode, keyOf, describe, decodeCeilingError, RecordError,
+    assertSiteAddresses, assertSiteDeployments,
 } from "./hcs.mjs";
 
 const CURSOR = join(ROOT, "deployments/hcs-cursor.json");
@@ -74,6 +76,7 @@ const INTERVAL = Math.max(5, Number(val("--interval", "15"))) * 1000;
 const LAG_SECONDS = Number(val("--lag", "10"));
 
 const c = client();
+assertSiteAddresses(c.addresses);
 const topic = readTopic();
 if (!topic || !topic.topicId) {
     console.error("no deployments/hcs.json. Run `make hcs-topic` first.");
@@ -85,6 +88,7 @@ const EPOCH_ORIGIN = Number(CLOCK.origin);
 const EPOCH_PERIOD = Number(CLOCK.period);
 
 const chain = reader(c.network.rpc, c.network.chainId);
+await assertSiteDeployments(c.addresses, (address) => chain.provider.getCode(address), keccak256);
 const params = chain.at(c.addresses.ParameterRoot, "ParameterRoot");
 const meters = {
     engine: chain.at(c.addresses.MatchingEngine, "MatchingEngine"),
@@ -392,8 +396,8 @@ async function recordsFor(src, fromTs, toTs) {
                 throw new Error(
                     `${src}.${site.fn} at ${tx} succeeded, charged nothing on row ${row.row}, ` +
                     `and the row had ${b.budgetBits - spent} of ${b.budgetBits} bits left. ` +
-                    `Either SITES marks a conditional site as unconditional or the deployed ` +
-                    `bytecode is not what deployments/abi says. Refusing to publish a silence.`);
+                    `Either SITES marks a conditional site as unconditional or its site model ` +
+                    `does not describe the bound runtime. Refusing to publish a silence.`);
             }
             out.push({
                 v: SCHEMA_VERSION, k: "silence", c: src, a: address,

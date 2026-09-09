@@ -44,6 +44,18 @@ export const SOURCES = ["engine", "vault"];
 /// Which deployed contract each short name is.
 export const SOURCE_ADDRESS_KEY = {engine: "MatchingEngine", vault: "RepoVault"};
 
+/// The addresses whose bytecode `SITES` describes. The source ABI can advance
+/// before the next deployment; this binding must move only when the address and
+/// site table move together.
+export const SITE_ADDRESSES = {
+    engine: "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+    vault: "0xec8a6f6de7c1882ef2661f4dedb9bd30e0b94964",
+};
+export const SITE_CODE_HASHES = {
+    engine: "0x0bbb8a0b0d640f6ff4a9a0d2b23c277fea44d864d8b54451ae778d6e955262ff",
+    vault: "0x4b32808eade1478ba5b43c983a31fa4ed7113a93d4beab34e0913c440530453f",
+};
+
 /// The disclosing entry points, and the rows each one charges.
 ///
 /// `sure` is the field silence detection turns on. A site is `sure: true` only
@@ -55,23 +67,36 @@ export const SOURCE_ADDRESS_KEY = {engine: "MatchingEngine", vault: "RepoVault"}
 /// reason: no charge may mean its branch was not taken. Getting this wrong in
 /// the `false` direction costs a missed silence; getting it wrong in the `true`
 /// direction would print a silence that did not happen, which is the failure
-/// this venue cannot have. `tools/hcs.test.mjs` pins every selector against the
-/// deployed ABI so a rename cannot drift the table.
+/// this venue cannot have. Each canonical `sig` recomputes its selector, and
+/// `SITE_ADDRESSES` prevents a new client address from silently inheriting this
+/// deployment's inference rules.
 export const SITES = {
     // MatchingEngine, which is OrderBook plus the auction.
-    "0xf14fcbc8": {src: "engine", fn: "commit", rows: [{row: 17, g: 4, sure: true}]},
+    "0xf14fcbc8": {
+        src: "engine",
+        fn: "commit",
+        sig: "commit(bytes32)",
+        rows: [{row: 17, g: 4, sure: true}],
+    },
     "0x59c94e62": {
         src: "engine",
         fn: "reveal",
+        sig: "reveal(uint8,uint128,uint128,bytes32,uint256)",
         rows: [{row: 4, g: 4, sure: true}, {row: 3, g: 4, sure: true}],
     },
-    "0xc4d252f5": {src: "engine", fn: "cancel", rows: [{row: 15, g: 1, sure: true}]},
+    "0xc4d252f5": {
+        src: "engine",
+        fn: "cancel",
+        sig: "cancel(bytes32)",
+        rows: [{row: 15, g: 1, sure: true}],
+    },
     // Row 13 is unconditional after the halt check; row 12 is per settlement and
     // so is charged zero or many times in one transaction, which is why it is
     // not a silence site.
     "0x92986d97": {
         src: "engine",
         fn: "crossRound",
+        sig: "crossRound(uint64)",
         rows: [{row: 13, g: 1, sure: true}, {row: 12, g: 4, sure: false}],
     },
 
@@ -79,11 +104,36 @@ export const SITES = {
     // These selectors describe the bound deployment in `deployments/client.json`.
     // Local source changes do not move this table until a new deployment and
     // matching client record are committed together.
-    "0x778ae762": {src: "vault", fn: "open", rows: [{row: 7, g: 4, sure: true}]},
-    "0x39c79e0c": {src: "vault", fn: "close", rows: [{row: 14, g: 1, sure: true}]},
-    "0x9fcdeba6": {src: "vault", fn: "cure", rows: [{row: 14, g: 1, sure: true}]},
-    "0xb3dc49a0": {src: "vault", fn: "markFailing", rows: [{row: 14, g: 1, sure: true}]},
-    "0xdaf79598": {src: "vault", fn: "declareDefault", rows: [{row: 14, g: 1, sure: true}]},
+    "0x778ae762": {
+        src: "vault",
+        fn: "open",
+        sig: "open(bytes32,address,(bytes32,uint256,uint256,uint16,uint16,uint256,uint64))",
+        rows: [{row: 7, g: 4, sure: true}],
+    },
+    "0x39c79e0c": {
+        src: "vault",
+        fn: "close",
+        sig: "close(bytes32)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
+    "0x9fcdeba6": {
+        src: "vault",
+        fn: "cure",
+        sig: "cure(bytes32)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
+    "0xb3dc49a0": {
+        src: "vault",
+        fn: "markFailing",
+        sig: "markFailing(bytes32)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
+    "0xdaf79598": {
+        src: "vault",
+        fn: "declareDefault",
+        sig: "declareDefault(bytes32)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
     // **`sure` flipped to false here, and the selector moved, in the same
     // change.** `noteCoupon` used to take the commitment as an argument and
     // every guard in it reverted, so a SUCCESS with no row 14 charge could only
@@ -99,17 +149,38 @@ export const SITES = {
     // ordinary case and not the rare one. The cost of `false` is a missed
     // silence at this site; the cost of `true` is a silence that did not
     // happen, and this file's header says which of those the venue cannot have.
-    "0x2bae2cde": {src: "vault", fn: "noteCoupon", rows: [{row: 14, g: 1, sure: false}]},
+    "0x2bae2cde": {
+        src: "vault",
+        fn: "noteCoupon",
+        sig: "noteCoupon(bytes32,uint256)",
+        rows: [{row: 14, g: 1, sure: false}],
+    },
     // One obligation id can dispatch to a fail or a coupon, and both can no-op
     // after a manual call or a terminal repo transition. Its charged events are
     // still relayed, but absence of one can never prove a withheld disclosure.
-    "0x987757dd": {src: "vault", fn: "settle", rows: [{row: 14, g: 1, sure: false}]},
-    "0x1c6a825c": {src: "vault", fn: "payThrough", rows: [{row: 14, g: 1, sure: true}]},
-    "0xe68a8171": {src: "vault", fn: "settleAuction", rows: [{row: 14, g: 1, sure: true}]},
+    "0x987757dd": {
+        src: "vault",
+        fn: "settle",
+        sig: "settle(bytes32)",
+        rows: [{row: 14, g: 1, sure: false}],
+    },
+    "0x1c6a825c": {
+        src: "vault",
+        fn: "payThrough",
+        sig: "payThrough(bytes32)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
+    "0xe68a8171": {
+        src: "vault",
+        fn: "settleAuction",
+        sig: "settleAuction(bytes32,address,uint256)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
     // Row 16 always; row 14 only when `breach` and the repo was OPEN.
     "0x8dcf2bd0": {
         src: "vault",
         fn: "postMark",
+        sig: "postMark(bytes32,bytes32,bool,uint64)",
         rows: [{row: 16, g: 4, sure: true}, {row: 14, g: 1, sure: false}],
     },
 };
@@ -156,6 +227,41 @@ export class RecordError extends Error {
     constructor(message) {
         super(message);
         this.name = "RecordError";
+    }
+}
+
+/// Refuse to apply one deployment's silence rules to another deployment.
+export function assertSiteAddresses(addresses) {
+    for (const src of SOURCES) {
+        const key = SOURCE_ADDRESS_KEY[src];
+        const got = String(addresses && addresses[key] || "").toLowerCase();
+        if (got !== SITE_ADDRESSES[src]) {
+            throw new RecordError(
+                `${src} site table is bound to ${SITE_ADDRESSES[src]}, client has ${got || "no address"}`
+            );
+        }
+    }
+}
+
+/// Bind the table to runtime bytecode as well as its address. `getCode` and
+/// `hashCode` are injected so this browser-safe module does not import ethers.
+export async function assertSiteDeployments(addresses, getCode, hashCode) {
+    assertSiteAddresses(addresses);
+    if (typeof getCode !== "function" || typeof hashCode !== "function") {
+        throw new RecordError("site deployment verification needs code readers");
+    }
+    for (const src of SOURCES) {
+        const address = SITE_ADDRESSES[src];
+        const code = await getCode(address);
+        if (typeof code !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/.test(code)) {
+            throw new RecordError(`${src} deployment returned no runtime bytecode`);
+        }
+        const got = String(hashCode(code)).toLowerCase();
+        if (got !== SITE_CODE_HASHES[src]) {
+            throw new RecordError(
+                `${src} runtime hash is ${got}, site table expects ${SITE_CODE_HASHES[src]}`
+            );
+        }
     }
 }
 
@@ -245,7 +351,14 @@ export function validate(raw) {
     r.v = raw.v;
     r.k = kind;
     r.c = sourceField(raw.c);
-    if (r.v === SCHEMA_VERSION) r.a = hexField("a", raw.a, 20);
+    if (r.v === SCHEMA_VERSION) {
+        r.a = hexField("a", raw.a, 20);
+        if (r.a !== SITE_ADDRESSES[r.c]) {
+            throw new RecordError(
+                `${r.c} record address ${r.a} is not the bound deployment`
+            );
+        }
+    }
 
     if (kind === "charge") {
         r.tx = hexField("tx", raw.tx, 32);
