@@ -25,6 +25,8 @@ test("Lattice Claw is one coming-soon frame with an active offline chat bar", as
     assert.match(template, /id="claw-prompt"/);
     assert.doesNotMatch(template, /\breadonly\b|\bdisabled\b/);
     assert.match(template, /<button type="submit" aria-label="Send message"/);
+    assert.match(template, /id="claw-log" aria-live="polite"/);
+    assert.doesNotMatch(template, /innerHTML/);
     assert.match(
         template,
         /class="claw-brand-switch" href="\.\.\/index\.html" aria-label="Switch to Lattice Prime"/
