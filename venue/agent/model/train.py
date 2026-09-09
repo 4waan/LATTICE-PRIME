@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import platform
+import struct
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -276,12 +277,18 @@ def train_float_parameters(
     return parameters, diagnostics
 
 
-def predict(parameters: dict[str, np.ndarray], features: np.ndarray) -> np.ndarray:
+def classifier_logits(
+    parameters: dict[str, np.ndarray], features: np.ndarray
+) -> np.ndarray:
     values = np.asarray(features, dtype=np.float32)
     hidden = np.maximum(
         values @ parameters["weights1"] + parameters["bias1"], np.float32(0.0)
     )
-    logits = hidden @ parameters["weights2"] + parameters["bias2"]
+    return hidden @ parameters["weights2"] + parameters["bias2"]
+
+
+def predict(parameters: dict[str, np.ndarray], features: np.ndarray) -> np.ndarray:
+    logits = classifier_logits(parameters, features)
     return (logits[:, EXECUTE] > logits[:, WAIT]).astype(np.int64)
 
 
@@ -440,6 +447,103 @@ def float_parameter_hash(parameters: dict[str, np.ndarray]) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def float32_hex_bits(value: np.float32) -> str:
+    bits = struct.unpack(">I", struct.pack(">f", float(value)))[0]
+    return f"0x{bits:08x}"
+
+
+def held_out_float_decision_digest(
+    dataset_hash: str, split_name: str, decisions: np.ndarray
+) -> str:
+    encoded_decisions = np.asarray(decisions, dtype=np.uint8)
+    if np.any((encoded_decisions != WAIT) & (encoded_decisions != EXECUTE)):
+        raise ValueError("held-out decisions must contain only WAIT or EXECUTE")
+    digest = hashlib.sha256()
+    digest.update(b"lattice.agent.held-out-float-decisions.v1\0")
+    digest.update(dataset_hash.encode("ascii") + b"\0")
+    digest.update(split_name.encode("ascii") + b"\0")
+    digest.update(len(encoded_decisions).to_bytes(8, byteorder="big"))
+    digest.update(encoded_decisions.tobytes(order="C"))
+    return f"sha256:{digest.hexdigest()}"
+
+
+def build_float_correspondence(
+    config: dict[str, Any],
+    config_hash: str,
+    dataset_hash: str,
+    boundary_record: dict[str, Any],
+    boundary_features: np.ndarray,
+    float_parameters: dict[str, np.ndarray],
+    held_out_decisions: np.ndarray,
+) -> dict[str, Any]:
+    boundary_logits = classifier_logits(float_parameters, boundary_features)
+    boundary_decisions = (
+        boundary_logits[:, EXECUTE] > boundary_logits[:, WAIT]
+    ).astype(np.int64)
+    if len(boundary_record["cases"]) != len(boundary_features):
+        raise RuntimeError("boundary record and feature matrix lengths differ")
+
+    cases = []
+    for index, boundary_case in enumerate(boundary_record["cases"]):
+        cases.append(
+            {
+                "caseId": boundary_case["id"],
+                "features": [int(value) for value in boundary_features[index]],
+                "floatDecision": (
+                    "EXECUTE" if boundary_decisions[index] == EXECUTE else "WAIT"
+                ),
+                "floatLogitsF32Bits": {
+                    "EXECUTE": float32_hex_bits(boundary_logits[index, EXECUTE]),
+                    "WAIT": float32_hex_bits(boundary_logits[index, WAIT]),
+                },
+            }
+        )
+
+    split_name = "test"
+    decision_digest = held_out_float_decision_digest(
+        dataset_hash, split_name, held_out_decisions
+    )
+    return {
+        "boundaryCases": cases,
+        "featureOrder": [feature["name"] for feature in config["features"]],
+        "floatInference": {
+            "decisionRule": "EXECUTE strictly greater than WAIT; ties are WAIT",
+            "logitEncoding": (
+                "Exact IEEE-754 binary32 bit pattern as 0x followed by eight "
+                "lowercase hexadecimal digits"
+            ),
+            "parameterSha256": float_parameter_hash(float_parameters),
+            "source": (
+                "Actual in-memory trained float parameters before parameter "
+                "quantization"
+            ),
+        },
+        "heldOutFloatDecisions": {
+            "decisionByteEncoding": "WAIT=0x00, EXECUTE=0x01, in generated split order",
+            "digestAlgorithm": "SHA-256",
+            "digestPreimage": [
+                "ASCII lattice.agent.held-out-float-decisions.v1 followed by NUL",
+                "ASCII generatedDatasetSha256 followed by NUL",
+                "ASCII split name followed by NUL",
+                "sampleCount as unsigned 64-bit big-endian",
+                "one decision byte per case",
+            ],
+            "generatedDatasetSha256": dataset_hash,
+            "sampleCount": int(len(held_out_decisions)),
+            "sha256": decision_digest,
+            "split": split_name,
+        },
+        "modelVersion": config["modelVersion"],
+        "provenance": {
+            "generatedDatasetSha256": dataset_hash,
+            "seed": config["dataset"]["seed"],
+            "trainingConfigSha256": config_hash,
+        },
+        "schemaVersion": "lattice.agent.float-correspondence.v1",
+        "serialization": "UTF-8 sorted-key compact JSON with one trailing LF",
+    }
+
+
 def build_weights_record(
     config: dict[str, Any],
     config_hash: str,
@@ -557,6 +661,17 @@ def run(config_path: Path, output_dir: Path) -> dict[str, Any]:
         for split_name, values in splits.items()
     }
     float_boundary = predict(float_parameters, boundary_features)
+    correspondence_record = build_float_correspondence(
+        config,
+        config_hash,
+        dataset_hash,
+        boundary_record,
+        boundary_features,
+        float_parameters,
+        float_predictions["test"],
+    )
+    correspondence_path = output_dir / "float-correspondence.json"
+    write_bytes(correspondence_path, canonical_json_bytes(correspondence_record))
 
     selected: tuple[int, dict[str, np.ndarray], dict[str, np.ndarray]] | None = None
     scale_trials = []
@@ -646,6 +761,7 @@ def run(config_path: Path, output_dir: Path) -> dict[str, Any]:
     report = {
         "artifactHashes": {
             "boundaryCorpus": sha256(boundary_path),
+            "floatCorrespondence": sha256(correspondence_path),
             "floatParametersNotExported": float_parameter_hash(float_parameters),
             "modelOnnx": onnx_summary["sha256"],
             "trainingConfig": config_hash,
@@ -674,6 +790,14 @@ def run(config_path: Path, output_dir: Path) -> dict[str, Any]:
             },
         },
         "dependencies": dependencies,
+        "floatCorrespondence": {
+            "boundaryCaseCount": len(correspondence_record["boundaryCases"]),
+            "heldOutFloatDecisionSha256": correspondence_record[
+                "heldOutFloatDecisions"
+            ]["sha256"],
+            "path": correspondence_path.name,
+            "source": correspondence_record["floatInference"]["source"],
+        },
         "evaluations": evaluations,
         "graphValidation": graph_validation,
         "labelRuleId": config["labelRule"]["id"],
@@ -704,6 +828,10 @@ def run(config_path: Path, output_dir: Path) -> dict[str, Any]:
             "boundaryCorpus": {
                 "path": boundary_path.name,
                 "sha256": sha256(boundary_path),
+            },
+            "floatCorrespondence": {
+                "path": correspondence_path.name,
+                "sha256": sha256(correspondence_path),
             },
             "evaluationReport": {
                 "path": report_path.name,
