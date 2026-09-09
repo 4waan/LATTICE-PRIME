@@ -1,8 +1,11 @@
 # Lattice Prime
 
-A cryptographically robust protocol that lets you seal repurchase agreements as
-a fixed length hash on Hedera with fair-order settlement proving eligibility 
-with a ZK proof while a disclosure lattice meters what the venue may publish.
+A cryptographically robust protocol for tokenised repo and fair-order
+settlement on Hedera. Secondary-market orders arrive as fixed-length
+commitments, eligibility is proven in zero knowledge, and a disclosure lattice
+meters what the venue may publish.
+
+Trade tokenised bonds. Control what the venue publishes.
 
 ## Licence
 

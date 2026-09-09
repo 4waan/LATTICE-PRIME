@@ -103,6 +103,92 @@ Landing.reveals = function () {
         threshold: 0.12,
     });
     items.forEach((el) => io.observe(el));
+    document.documentElement.classList.add("motion-ready");
+};
+
+// ---------- measured failure sequence ----------
+Landing.failures = function () {
+    const root = document.querySelector("[data-failure-ledger]");
+    if (!root) return;
+    const proofs = [...root.querySelectorAll("[data-failure-proof]")];
+    const current = root.querySelector("[data-failure-current]");
+    if (!proofs.length) return;
+
+    const choose = (proof) => {
+        const index = proofs.indexOf(proof);
+        if (index < 0) return;
+        proofs.forEach((item) => item.classList.toggle("is-current", item === proof));
+        if (current) current.textContent = String(index + 1).padStart(2, "0");
+    };
+
+    if (
+        Landing.reduced()
+        || !("IntersectionObserver" in window)
+        || !window.matchMedia("(min-width: 821px)").matches
+    ) {
+        proofs.forEach((proof) => proof.classList.add("is-current"));
+        return;
+    }
+
+    root.classList.add("has-motion");
+    const io = new IntersectionObserver((entries) => {
+        const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible.length) choose(visible[0].target);
+    }, {
+        // A narrow middle band makes one measured result own the reading moment.
+        rootMargin: "-30% 0px -30% 0px",
+        threshold: [0, 0.2, 0.45, 0.7],
+    });
+    proofs.forEach((proof) => io.observe(proof));
+};
+
+// ---------- propagation sequence ----------
+Landing.propagation = function () {
+    const root = document.querySelector("[data-propagation]");
+    if (!root) return;
+    const buttons = [...root.querySelectorAll("[data-prop-phase]")];
+    const note = root.querySelector("[data-prop-note]");
+    if (!buttons.length) return;
+
+    const notes = {
+        commit: "The network receives sender, timestamp, bond and one bytes32 commitment. Order fields and salt are absent.",
+        cancel: "The single clock has closed cancellation. Reveal opens at the same boundary, leaving no last-look overlap.",
+        reveal: "The reveal transaction publishes side, price, quantity, salt and backing as public calldata. The commitment protected when, not who.",
+        publish: "The first cancellation spends row 15. The next valid cancellation completes without its venue event, and HCS makes that silence checkable.",
+    };
+    const labels = {
+        commit: "fixed length",
+        cancel: "cancel closed",
+        reveal: "opening public",
+        publish: "event metered",
+    };
+    const sealStatus = root.querySelector(".prop-path-sealed .prop-status");
+
+    const choose = (phase) => {
+        if (!Object.prototype.hasOwnProperty.call(notes, phase)) return;
+        root.dataset.phase = phase;
+        buttons.forEach((button) => {
+            button.setAttribute("aria-pressed", String(button.dataset.propPhase === phase));
+        });
+        if (note) note.textContent = notes[phase];
+        if (sealStatus) sealStatus.textContent = labels[phase];
+    };
+
+    root.classList.add("is-interactive");
+    buttons.forEach((button, index) => {
+        button.addEventListener("click", () => choose(button.dataset.propPhase));
+        button.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            const next = (index + direction + buttons.length) % buttons.length;
+            buttons[next].focus();
+            choose(buttons[next].dataset.propPhase);
+        });
+    });
+    choose(root.dataset.phase || "commit");
 };
 
 // ---------- the scroll invitation ----------
@@ -137,6 +223,8 @@ Landing.cue = function () {
 
 Landing.boot = function () {
     Landing.aura();
+    Landing.failures();
+    Landing.propagation();
     Landing.reveals();
     Landing.cue();
 };

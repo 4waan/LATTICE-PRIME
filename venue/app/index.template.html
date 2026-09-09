@@ -1,7 +1,7 @@
 <title>Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A cryptographically robust protocol that seals repurchase agreements as a fixed-length hash on Hedera, proves eligibility with a zero-knowledge proof, and meters disclosure on a lattice.">
+<meta name="description" content="A cryptographically robust protocol for tokenised repo and fair-order settlement on Hedera, with fixed-length order commitments, zero-knowledge eligibility, and a disclosure lattice.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -40,11 +40,11 @@ document.documentElement.setAttribute("data-theme",
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
-      <a href="prove.html">Prove</a>
-      <a href="trade.html">Trade</a>
-      <a href="position.html">Position</a>
-      <a href="repo.html">Repo</a>
-      <a href="venue.html">Rulebook</a>
+      <a href="trade.html">Markets</a>
+      <a href="position.html">Portfolio</a>
+      <a href="repo.html">Financing</a>
+      <a href="prove.html">Eligibility</a>
+      <a href="venue.html">Issuer</a>
     </nav>
     <div class="mast-end">
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
@@ -57,9 +57,9 @@ document.documentElement.setAttribute("data-theme",
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
@@ -68,14 +68,15 @@ document.documentElement.setAttribute("data-theme",
   <div class="wrap hero-inner">
     <div class="hero-split">
       <div class="hero-copy">
-        <p class="hero-blot">Trade size on a dark pool that can account for its silence</p>
-        <h1 class="hero-h"><span class="hi">Order-leakage protection</span> for tokenised collateral</h1>
-        <p class="hero-lead">A cryptographically robust protocol that lets you seal repurchase agreements as a fixed-length hash on Hedera with fair-order settlement, proving eligibility with a zero-knowledge proof, while a disclosure lattice meters every leak against a budget and prints a receipt of what was withheld.</p>
+        <p class="hero-blot">Trade size on a venue that can account for its silence</p>
+        <h1 class="hero-h">Trade tokenised bonds. <span class="hi">Control what the venue publishes.</span></h1>
+        <p class="hero-lead">A cryptographically robust protocol for tokenised repo and fair-order settlement on Hedera. Secondary-market orders arrive as fixed-length commitments, eligibility is proven in zero knowledge, and a disclosure lattice meters what the venue may publish with independently verifiable receipts.</p>
         <div class="cta-row">
-          <a class="btn-grad lg" href="prove.html">
-            Get started now
+          <a class="btn-grad lg" href="trade.html">
+            Open Markets
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </a>
+          <a class="btn-ghost lg" href="#how">Testnet demo</a>
         </div>
       </div>
 
@@ -190,39 +191,218 @@ document.documentElement.setAttribute("data-theme",
     <div class="why-split rise">
       <article class="why-card">
         <p class="why-k why-k-leak">The operator held the cleartext</p>
-        <h3>Crossfinder, $84.3m</h3>
+        <div class="incident-lockup">
+          <h3>Crossfinder</h3>
+          <p class="incident-amount" aria-label="84.3 million dollars">
+            <strong>$84.3</strong><span>million</span>
+          </p>
+        </div>
         <p>Credit Suisse transmitted subscriber orders out of its dark pool to other desks. Confidentiality was a contract term. The machine could read the book anyway.</p>
       </article>
       <article class="why-card">
         <p class="why-k why-k-dark">Nobody held the sum</p>
-        <h3>Archegos, $5.5bn</h3>
+        <div class="incident-lockup">
+          <h3>Archegos</h3>
+          <p class="incident-amount" aria-label="5.5 billion dollars">
+            <strong>$5.5</strong><span>billion</span>
+          </p>
+        </div>
         <p>One fund stacked the same risk across several primes. Privacy worked exactly as sold. No counterparty, and no supervisor, could see the line.</p>
       </article>
     </div>
 
-    <p class="why-then rise">This venue refuses that choice. Size leaves as a hash. Disclosure is a budget, not a mixer.</p>
+    <p class="why-then rise">This venue refuses that choice. Size leaves sealed. Disclosure is a budget, not a mixer.</p>
 
-    <div class="why-books rise">
-      <div class="why-pane">
-        <p class="why-cap">A public book</p>
-        <table class="why-tape">
-          <thead>
-            <tr><th>Side</th><th>Price</th><th>Size</th><th>Rest</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Buy</td><td>101.25</td><td>40,000</td><td>resting</td></tr>
-            <tr><td>Buy</td><td>101.00</td><td>12,500</td><td>resting</td></tr>
-            <tr><td>Sell</td><td>101.50</td><td>8,000</td><td>resting</td></tr>
-            <tr><td>Sell</td><td>101.75</td><td>22,000</td><td>resting</td></tr>
-          </tbody>
-        </table>
+    <div class="failure-ledger rise" data-failure-ledger>
+      <aside class="failure-guide">
+        <p class="kicker">Five measured seams</p>
+        <h3>The leak changes shape. So the protocol changes the answer.</h3>
+        <p>Each figure comes from the research or a reproducible protocol boundary. Closed findings say what Lattice Prime prevents. Partial findings say exactly where the public ledger still wins.</p>
+        <p class="failure-position" aria-label="Evidence item">
+          <span data-failure-current>01</span><small>/05</small>
+        </p>
+      </aside>
+
+      <div class="failure-list">
+        <article class="failure-proof is-current" data-failure-proof>
+          <div class="failure-measure">
+            <strong>29</strong>
+            <span>consensus nodes</span>
+          </div>
+          <div class="failure-copy">
+            <p class="failure-state closed">Closed before reveal</p>
+            <h3>A plain order reaches every operator before a contract runs.</h3>
+            <p>A hashgraph event carries transaction bodies. Side, price and quantity on a plain book would replicate with it.</p>
+            <p class="failure-answer"><b>Protocol response</b> The commit phase sends one fixed-length hash. The sender, timestamp and bond remain visible; the order fields do not.</p>
+            <a href="trade.html">Inspect the sealed ticket <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </article>
+
+        <article class="failure-proof" data-failure-proof>
+          <div class="failure-measure">
+            <strong>2<sup>28</sup></strong>
+            <span>candidate openings</span>
+          </div>
+          <div class="failure-copy">
+            <p class="failure-state closed">Closed in the encoding</p>
+            <h3>A small nonce turns a price commitment into a search problem.</h3>
+            <p>A bond price lives in a narrow domain. A weak salt can be enumerated in minutes on a laptop, making the seal decorative.</p>
+            <p class="failure-answer"><b>Protocol response</b> The opening uses a full-scalar-field salt and a fixed domain-separated encoding bound to the committer.</p>
+            <a href="../docs/commit-preview.html">Open the commitment proof <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </article>
+
+        <article class="failure-proof" data-failure-proof>
+          <div class="failure-measure">
+            <strong>0</strong>
+            <span>overlap</span>
+          </div>
+          <div class="failure-copy">
+            <p class="failure-state closed">Closed by one clock</p>
+            <h3>There is no instant for reveal-and-cancel last look.</h3>
+            <p>Separate windows drift. A trader who can observe an opening and still pull their own order owns an information option.</p>
+            <p class="failure-answer"><b>Protocol response</b> Cancel closes exactly where reveal opens, both derived from the commitment timestamp.</p>
+            <a href="trade.html">Watch the round clock <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </article>
+
+        <article class="failure-proof" data-failure-proof>
+          <div class="failure-measure">
+            <strong>23</strong>
+            <span>account associations</span>
+          </div>
+          <div class="failure-copy">
+            <p class="failure-state partial">Partially answered</p>
+            <h3>A live institutional token exposes its holder and KYC register.</h3>
+            <p>The public mirror node returns associated accounts, exact balances and per-account compliance status without a credential.</p>
+            <p class="failure-answer"><b>Protocol response</b> Eligibility attributes arrive as a zero-knowledge proof. The resulting account grant and upstream HTS records remain public.</p>
+            <a href="prove.html">Inspect zero-knowledge eligibility <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </article>
+
+        <article class="failure-proof" data-failure-proof>
+          <div class="failure-measure failure-measure-cluster">
+            <strong>61</strong>
+            <span>public transfers</span>
+            <p><b>8</b> parties <i></i> <b>7</b> directed edges</p>
+          </div>
+          <div class="failure-copy">
+            <p class="failure-state context">Boundary, not a privacy claim</p>
+            <h3>Published fields recombine into a counterparty graph.</h3>
+            <p>Identity, quantity and time were enough to reconstruct a live issuer flow that no primitive field disclosed by itself.</p>
+            <p class="failure-answer"><b>Protocol response</b> The lattice prices derived venue publications. It cannot erase raw HTS transfers already written upstream.</p>
+            <a href="venue.html#hcs-record">Inspect the metered disclosure record <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </article>
       </div>
-      <div class="why-pane why-sealed">
-        <p class="why-cap">A sealed ticket</p>
-        <p class="why-commit">commit(bytes32)</p>
-        <p class="why-hash">0x7c3a&hellip;9e12</p>
-        <p>Side, price and size are not on the wire. There is nothing for an operator to be trusted with.</p>
+    </div>
+
+    <div class="propagation rise" data-propagation data-phase="commit">
+      <div class="propagation-head">
+        <p class="kicker">One order, two propagation paths</p>
+        <h3>What the book learns, every operator learns.</h3>
+        <p>So the book receives a commitment first, and every later venue disclosure has a price.</p>
       </div>
+
+      <div class="sample-order" aria-label="Sample order">
+        <span>Sample order</span>
+        <b>BUY</b>
+        <b>101.25</b>
+        <b>40,000</b>
+        <code>salt 0x91&hellip;4c</code>
+      </div>
+
+      <div class="propagation-paths">
+        <article class="prop-path prop-path-public">
+          <header>
+            <div>
+              <p>Hypothetical plain book</p>
+              <h4>Cleartext transaction</h4>
+            </div>
+            <span class="prop-status exposed">fields exposed</span>
+          </header>
+          <dl class="prop-payload">
+            <div><dt>trader</dt><dd>0x2f&hellip;91</dd></div>
+            <div><dt>side</dt><dd>BUY</dd></div>
+            <div><dt>price</dt><dd>101.25</dd></div>
+            <div><dt>quantity</dt><dd>40,000</dd></div>
+          </dl>
+          <div class="observer-band">
+            <div class="observer-dots" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i>
+            </div>
+            <p><strong>29</strong><span>operators receive the fields above</span></p>
+          </div>
+        </article>
+
+        <article class="prop-path prop-path-sealed">
+          <header>
+            <div>
+              <p>Lattice Prime</p>
+              <h4>Sealed ticket</h4>
+            </div>
+            <span class="prop-status sealed">fixed length</span>
+          </header>
+          <dl class="prop-payload">
+            <div><dt>sender</dt><dd>0x2f&hellip;91</dd></div>
+            <div><dt>timestamp</dt><dd>consensus</dd></div>
+            <div><dt>bond</dt><dd>posted</dd></div>
+            <div><dt>commitment</dt><dd>0x7c3a&hellip;9e12</dd></div>
+            <div class="prop-private"><dt>side</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">BUY</span></dd></div>
+            <div class="prop-private"><dt>price</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">101.25</span></dd></div>
+            <div class="prop-private"><dt>quantity</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">40,000</span></dd></div>
+            <div class="prop-private"><dt>salt</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">0x91&hellip;4c</span></dd></div>
+          </dl>
+          <div class="observer-band">
+            <div class="observer-dots" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i>
+            </div>
+            <p><strong>29</strong><span>operators receive only the visible fields</span></p>
+          </div>
+        </article>
+      </div>
+
+      <div class="prop-clock" aria-label="Order and publication sequence">
+        <button type="button" data-prop-phase="commit" aria-pressed="true"><span>01</span>Commit</button>
+        <button type="button" data-prop-phase="cancel" aria-pressed="false"><span>02</span>Cancel closed</button>
+        <button type="button" data-prop-phase="reveal" aria-pressed="false"><span>03</span>Reveal</button>
+        <button type="button" data-prop-phase="publish" aria-pressed="false"><span>04</span>Meter publication</button>
+      </div>
+      <p class="prop-phase-note" data-prop-note aria-live="polite">The network receives sender, timestamp, bond and one bytes32 commitment. Order fields and salt are absent.</p>
+      <p class="prop-noscript-copy">At reveal, side, price, quantity, salt and backing become public calldata. The disclosure lattice governs later venue events, not that calldata.</p>
+
+      <div class="audience-grid" aria-label="Disclosure policy surfaces">
+        <article>
+          <p class="audience-name">Public activity</p>
+          <h4>Row 15 <span>predicate, now</span></h4>
+          <dl>
+            <div><dt>Cost</dt><dd>1 bit</dd></div>
+            <div><dt>Remaining</dt><dd>0 / 1</dd></div>
+            <div><dt>Receipt</dt><dd class="receipt-charge">charge, then silence</dd></div>
+          </dl>
+        </article>
+        <article>
+          <p class="audience-name">Counterparty identity</p>
+          <h4>Row 12 <span>exact, now</span></h4>
+          <dl>
+            <div><dt>Cost</dt><dd>unmetered</dd></div>
+            <div><dt>Remaining</dt><dd>not capped</dd></div>
+            <div><dt>Receipt</dt><dd>ATS transfer</dd></div>
+          </dl>
+        </article>
+        <article>
+          <p class="audience-name">Supervisory risk</p>
+          <h4>Row 14 <span>predicate, now</span></h4>
+          <dl>
+            <div><dt>Cost</dt><dd>1 bit</dd></div>
+            <div><dt>Remaining</dt><dd>1 / 2</dd></div>
+            <div><dt>Receipt</dt><dd class="receipt-charge">HCS charge</dd></div>
+          </dl>
+        </article>
+      </div>
+      <p class="prop-boundary">These names describe why each policy row exists, not a private delivery channel. An emitted EVM event is public. The lattice decides whether the venue may emit it and accounts for the disclosure.</p>
     </div>
 
     <p class="why-scale rise">The instrument is already a market: Broadridge&rsquo;s distributed ledger repo printed $7.4tn in August 2026. What it cannot print is a receipt of what it withheld.</p>
@@ -234,41 +414,52 @@ document.documentElement.setAttribute("data-theme",
   <div class="wrap">
     <div class="frame-head rise">
       <p class="kicker">How a round runs</p>
-      <h2>Prove, seal, settle.</h2>
-      <p class="frame-lead">Three contract surfaces. Eligibility, the book, the instrument.</p>
+      <h2>Prove, seal, meter, verify.</h2>
+      <p class="frame-lead">One protocol journey from private eligibility to an independently checkable silence.</p>
     </div>
 
     <ol class="loop">
       <li class="beat pop" style="--i:0">
         <span class="beat-n">01</span>
         <div class="beat-body">
-          <h3>Prove you are allowed</h3>
-          <p>A PLONK proof against the issuer root. The venue stores one bit for this KYC epoch. The credential never leaves the holder.</p>
+          <h3>Prove you are eligible</h3>
+          <p>Prove the required attributes in zero knowledge against the issuer root. The credential itself never enters the order or financing workflow.</p>
           <p class="beat-src">RegistrationGate · ZkKycRegistry</p>
         </div>
-        <a class="beat-go" href="prove.html">Open Prove
+        <a class="beat-go" href="prove.html">Open Eligibility
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
       </li>
       <li class="beat pop" style="--i:1">
         <span class="beat-n">02</span>
         <div class="beat-body">
-          <h3>Send size as a hash</h3>
-          <p>An order arrives as keccak. Cancel and reveal are disjoint off one timestamp. Anyone may cross the round.</p>
+          <h3>Send a sealed ticket</h3>
+          <p>An order arrives as keccak. Cancel and reveal are disjoint off one timestamp. Anyone may cross the round. Proceeds sit as pull credit until you withdraw.</p>
           <p class="beat-src">OrderBook · MatchingEngine · CallAuction</p>
         </div>
-        <a class="beat-go" href="trade.html">Open Trade
+        <a class="beat-go" href="trade.html">Open Markets
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
       </li>
       <li class="beat pop" style="--i:2">
         <span class="beat-n">03</span>
         <div class="beat-body">
-          <h3>Settle the instrument</h3>
-          <p>The bond is escrowed by ATS hold, not taken. Cash and collateral move in one transaction. The mark is computed in memory; a fail penalty pays the counterparty, not the house.</p>
-          <p class="beat-src">RepoVault · PrimeOracle · ATS holds</p>
+          <h3>Spend the publication budget</h3>
+          <p>The first cancellation publishes its activity predicate and spends row 15. The next valid cancellation credits the same refund but its venue event is withheld.</p>
+          <p class="beat-src">DisclosureLattice · DisclosureMeter · row 15</p>
         </div>
-        <a class="beat-go" href="repo.html">Open Repo
+        <a class="beat-go" href="trade.html#publication">Open the meter
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+      </li>
+      <li class="beat pop" style="--i:3">
+        <span class="beat-n">04</span>
+        <div class="beat-body">
+          <h3>Verify what was not published</h3>
+          <p>The HCS silence names the successful transaction, selector, row, epoch, spent bits, and governed budget. The verifier checks every field back against the chain.</p>
+          <p class="beat-src">Hedera Consensus Service · mirror node · spentBits</p>
+        </div>
+        <a class="beat-go" href="venue.html#hcs-record">Check the record
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
       </li>
@@ -282,13 +473,17 @@ document.documentElement.setAttribute("data-theme",
     <div class="receipt-copy rise">
       <p class="kicker">The record</p>
       <h2>Privacy is a quantity, not a toggle</h2>
-      <p>Hide-or-show is a mixer, and a mixer is unbankable for regulated collateral. Every leak here spends bits from a published ceiling. When the budget is gone the event is withheld; the trade still prints.</p>
-      <p>The EVM cannot emit &ldquo;I said nothing.&rdquo; A Hedera consensus topic can. A supervisor can resolve the same position on a published policy without asking the holder.</p>
+      <p>Hide-or-show is a mixer, and a mixer is unbankable for regulated collateral. Every metered venue publication spends from a governed budget under a published ceiling. When the budget is gone, the event is withheld while the valid transaction still completes.</p>
+      <p>The EVM cannot emit &ldquo;I said nothing.&rdquo; A Hedera consensus topic can. An independent verifier can reconcile that silence against the transaction and the governed budget.</p>
+      <p>The lattice governs venue events. Contract storage, calldata, ATS events, and wallet activity remain public.</p>
       <div class="receipt-links">
-        <a href="position.html">Open Position
+        <a href="position.html">Open Portfolio
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
         <a href="../docs/disclosure-receipt.html">See a disclosure receipt
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="venue.html#hcs-record">Verify the HCS record
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
       </div>
@@ -296,12 +491,16 @@ document.documentElement.setAttribute("data-theme",
     <aside class="rcpt rise" aria-label="Sample disclosure receipt">
       <header class="rcpt-head">
         <p class="rcpt-k">Disclosure receipt</p>
-        <p class="rcpt-meta">Round 1482 · epoch 7 · sample</p>
+        <p class="rcpt-meta">Epoch 39 · on-chain proof</p>
       </header>
       <dl class="rcpt-rows">
         <div>
           <dt>Action</dt>
-          <dd>cancel</dd>
+          <dd>cancel B</dd>
+        </div>
+        <div>
+          <dt>Transaction</dt>
+          <dd>success</dd>
         </div>
         <div>
           <dt>Published</dt>
@@ -309,19 +508,19 @@ document.documentElement.setAttribute("data-theme",
         </div>
         <div class="rcpt-withheld">
           <dt>Withheld</dt>
-          <dd>side, price, size</dd>
+          <dd>cancellation event</dd>
         </div>
         <div>
-          <dt>Bits spent</dt>
-          <dd>0 of 12</dd>
+          <dt>Row 15 budget</dt>
+          <dd>1 of 1 spent</dd>
         </div>
         <div>
-          <dt>Observers</dt>
-          <dd>none this row</dd>
+          <dt>Granularity</dt>
+          <dd>predicate, now</dd>
         </div>
         <div class="rcpt-silence">
           <dt>Silence</dt>
-          <dd>on HCS</dd>
+          <dd>HCS sequence 2</dd>
         </div>
       </dl>
     </aside>
@@ -351,7 +550,7 @@ document.documentElement.setAttribute("data-theme",
       <article>
         <p class="chain-k">The record</p>
         <h3>A consensus topic</h3>
-        <p>Charge, refusal, silence, and checkpoint land on HCS, then reconcile against spentBits. Contracts cannot reach the topic; a relay is the specified pattern.</p>
+        <p>Charge, ceiling, silence, and checkpoint land on HCS, then reconcile against spentBits. Contracts cannot reach the topic; a relay is the specified pattern.</p>
       </article>
       <article>
         <p class="chain-k">The mark</p>
@@ -371,18 +570,16 @@ document.documentElement.setAttribute("data-theme",
     </div>
 
     <p class="plain rise">
-      A repo is borrowing cash against collateral, with an agreement to buy the
-      collateral back. You hold a tokenised bond and you want to sell a lot of it
-      without the market seeing you coming. Lattice Prime lets you <b>prove you are allowed to
-      trade</b> without handing over your identity, put the order on chain as a
-      <b>sealed hash</b>, and open it only once the round has closed. Whatever
-      the venue does disclose about you comes out of a <b>budget it cannot
-      exceed</b>.
+      You hold a tokenised bond. You can trade it through a sealed ticket or
+      finance against it through a reviewed agreement. Prove eligibility
+      without publishing the underlying credential attributes, open the order
+      only after its round closes, and receive a verifiable record of every
+      venue disclosure against a <b>budget it cannot exceed</b>.
     </p>
 
     <div class="cta-row rise">
-      <a class="btn-grad lg" href="prove.html">
-        Start using Lattice Prime
+      <a class="btn-grad lg" href="trade.html">
+        Open Markets
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
       </a>
     </div>
@@ -397,11 +594,11 @@ document.documentElement.setAttribute("data-theme",
 <footer class="lfoot">
   <div class="wrap">
     <div class="row">
-      <a href="prove.html">Prove</a>
-      <a href="trade.html">Trade</a>
-      <a href="position.html">Position</a>
-      <a href="repo.html">Repo</a>
-      <a href="venue.html">Rulebook</a>
+      <a href="trade.html">Markets</a>
+      <a href="position.html">Portfolio</a>
+      <a href="repo.html">Financing</a>
+      <a href="prove.html">Eligibility</a>
+      <a href="venue.html">Issuer</a>
       <a href="../docs/commit-preview.html">Commitment preview</a>
       <a href="../docs/disclosure-receipt.html">Disclosure receipt</a>
       <a id="foot-scan" href="#" rel="noopener">Engine on HashScan</a>
