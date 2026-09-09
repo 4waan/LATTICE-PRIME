@@ -1,7 +1,7 @@
-<title>Rulebook · Lattice Prime</title>
+<title>Issuer · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="The state of the venue: regime, volume cap, trading halt, parameter root, rulebook and the compliance journal, each read from its own contract.">
+<meta name="description" content="Instrument fact sheet, live regime, and coupon calendar for the Lattice Prime testnet venue.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -36,11 +36,11 @@ document.documentElement.setAttribute("data-theme",
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
-      <a href="prove.html">Prove</a>
-      <a href="trade.html">Trade</a>
-      <a href="position.html">Position</a>
-      <a href="repo.html">Repo</a>
-      <a href="venue.html" aria-current="page">Rulebook</a>
+      <a href="trade.html">Markets</a>
+      <a href="position.html">Portfolio</a>
+      <a href="repo.html">Financing</a>
+      <a href="prove.html">Eligibility</a>
+      <a href="venue.html" aria-current="page">Issuer</a>
     </nav>
     <div class="mast-end">
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
@@ -53,17 +53,26 @@ document.documentElement.setAttribute("data-theme",
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
 <main class="wrap page">
-  <h1>Rulebook</h1>
-  <p class="lede">The supervision surface: the regime, the volume cap, the trading halt, the
-    parameter root, the published rulebook, the journal and the clock. Every figure below is a
-    getter on the address named beside it, read now, not copied out of the deployment record.</p>
+  <h1>Issuer</h1>
+  <p class="lede">The live instrument, venue halt and compliance reads, and the published rulebook. Grants stay operator scripts. All values are read from the deployed protocol.</p>
+
+  <section id="instrument-sheet">
+    <div class="shead"><h2>Instrument fact sheet</h2><span class="src">ATS bond · HashScan</span></div>
+    <p>One issuance this week: LPRC. This is not an issuance wizard. Issuer writes remain operator scripts.</p>
+    <div class="wire" style="margin-bottom:1rem">
+      <div class="wcell"><span class="k">Name</span><span class="v" id="iss-name">Loading</span><span class="n">token.name</span></div>
+      <div class="wcell"><span class="k">Symbol</span><span class="v" id="iss-symbol">Loading</span><span class="n">token.symbol</span></div>
+      <div class="wcell"><span class="k">Token</span><span class="v" id="iss-addr">Loading</span><span class="n">HashScan</span></div>
+      <div class="wcell"><span class="k">Controls</span><span class="v" id="iss-paused">Loading</span><span class="n">reads only on this page</span></div>
+    </div>
+  </section>
 
   <div class="cols">
     <section class="panel">
@@ -73,19 +82,19 @@ document.documentElement.setAttribute("data-theme",
           floor it may not go under and a ceiling it may not go over. Lattice points are hex
           because that is the only form in which two of them can be compared by eye.</p>
         <ul class="readout">
-          <li><span class="k">current</span><span class="v" id="rg-current">—</span></li>
-          <li><span class="k">floor</span><span class="v" id="rg-floor">—</span></li>
-          <li><span class="k">ceiling</span><span class="v" id="rg-ceiling">—</span></li>
-          <li><span class="k">ideal</span><span class="v" id="rg-ideal">—</span></li>
-          <li><span class="k">mandate</span><span class="v" id="rg-mandate">—</span></li>
-          <li><span class="k">narrowed</span><span class="v" id="rg-narrowed">—</span></li>
-          <li><span class="k">permits</span><span class="v" id="rg-permits">—</span></li>
-          <li><span class="k">liquidityClass</span><span class="v" id="rg-class">—</span></li>
-          <li><span class="k">supervisor</span><span class="v" id="rg-supervisor">—</span></li>
-          <li><span class="k">operator</span><span class="v" id="rg-operator">—</span></li>
-          <li><span class="k">pending</span><span class="v" id="rg-pending">—</span></li>
-          <li><span class="k">relaxation</span><span class="v" id="rg-relax">—</span></li>
-          <li><span class="k">floor cut</span><span class="v" id="rg-lower">—</span></li>
+          <li><span class="k">current</span><span class="v" id="rg-current">Loading</span></li>
+          <li><span class="k">floor</span><span class="v" id="rg-floor">Loading</span></li>
+          <li><span class="k">ceiling</span><span class="v" id="rg-ceiling">Loading</span></li>
+          <li><span class="k">ideal</span><span class="v" id="rg-ideal">Loading</span></li>
+          <li><span class="k">mandate</span><span class="v" id="rg-mandate">Loading</span></li>
+          <li><span class="k">narrowed</span><span class="v" id="rg-narrowed">Loading</span></li>
+          <li><span class="k">permits</span><span class="v" id="rg-permits">Loading</span></li>
+          <li><span class="k">liquidityClass</span><span class="v" id="rg-class">Loading</span></li>
+          <li><span class="k">supervisor</span><span class="v" id="rg-supervisor">Loading</span></li>
+          <li><span class="k">operator</span><span class="v" id="rg-operator">Loading</span></li>
+          <li><span class="k">pending</span><span class="v" id="rg-pending">Loading</span></li>
+          <li><span class="k">relaxation</span><span class="v" id="rg-relax">Loading</span></li>
+          <li><span class="k">floor cut</span><span class="v" id="rg-lower">Loading</span></li>
         </ul>
         <p class="note" id="rg-supnote"></p>
       </div>
@@ -96,11 +105,11 @@ document.documentElement.setAttribute("data-theme",
         <div class="top"><h2>Volume cap</h2><span class="src">VolumeCap</span></div>
         <div class="body">
           <ul class="readout">
-            <li><span class="k">state</span><span class="v" id="vc-suspended">—</span></li>
-            <li><span class="k">capBps</span><span class="v" id="vc-cap">—</span></li>
-            <li><span class="k">shareBps</span><span class="v" id="vc-share">—</span></li>
-            <li><span class="k">suspendedFloor</span><span class="v" id="vc-floor">—</span></li>
-            <li><span class="k">venue</span><span class="v" id="vc-venue">—</span></li>
+            <li><span class="k">state</span><span class="v" id="vc-suspended">Loading</span></li>
+            <li><span class="k">capBps</span><span class="v" id="vc-cap">Loading</span></li>
+            <li><span class="k">shareBps</span><span class="v" id="vc-share">Loading</span></li>
+            <li><span class="k">suspendedFloor</span><span class="v" id="vc-floor">Loading</span></li>
+            <li><span class="k">venue</span><span class="v" id="vc-venue">Loading</span></li>
           </ul>
           <p class="note" id="vc-note"></p>
         </div>
@@ -110,14 +119,14 @@ document.documentElement.setAttribute("data-theme",
         <div class="top"><h2>Trading halt</h2><span class="src">TradingHalt</span></div>
         <div class="body">
           <ul class="readout">
-            <li><span class="k">state</span><span class="v" id="th-now">—</span></li>
-            <li><span class="k">haltedUntil</span><span class="v" id="th-until">—</span></li>
-            <li><span class="k">bandBps</span><span class="v" id="th-band">—</span></li>
-            <li><span class="k">breaker</span><span class="v" id="th-breaker">—</span></li>
-            <li><span class="k">budget</span><span class="v" id="th-budget">—</span></li>
-            <li><span class="k">granted</span><span class="v" id="th-granted">—</span></li>
-            <li><span class="k">maxHalt</span><span class="v" id="th-max">—</span></li>
-            <li><span class="k">lastPriceTwice</span><span class="v" id="th-last">—</span></li>
+            <li><span class="k">state</span><span class="v" id="th-now">Loading</span></li>
+            <li><span class="k">haltedUntil</span><span class="v" id="th-until">Loading</span></li>
+            <li><span class="k">bandBps</span><span class="v" id="th-band">Loading</span></li>
+            <li><span class="k">breaker</span><span class="v" id="th-breaker">Loading</span></li>
+            <li><span class="k">budget</span><span class="v" id="th-budget">Loading</span></li>
+            <li><span class="k">granted</span><span class="v" id="th-granted">Loading</span></li>
+            <li><span class="k">maxHalt</span><span class="v" id="th-max">Loading</span></li>
+            <li><span class="k">lastPriceTwice</span><span class="v" id="th-last">Loading</span></li>
           </ul>
           <p class="note">A halt is bounded twice: no single halt runs longer than the maximum,
             and no epoch spends more halt seconds than the budget. Both bounds are on chain,
@@ -136,12 +145,12 @@ document.documentElement.setAttribute("data-theme",
       <section class="panel">
         <div class="body">
           <ul class="readout">
-            <li><span class="k">root</span><span class="v" id="pr-root">—</span></li>
-            <li><span class="k">previousRoot</span><span class="v" id="pr-prev">—</span></li>
-            <li><span class="k">keyCount</span><span class="v" id="pr-keys">—</span></li>
-            <li><span class="k">GRACE</span><span class="v" id="pr-grace">—</span></li>
-            <li><span class="k">pending</span><span class="v" id="pr-pending">—</span></li>
-            <li><span class="k">windowClosesAt</span><span class="v" id="pr-window">—</span></li>
+            <li><span class="k">root</span><span class="v" id="pr-root">Loading</span></li>
+            <li><span class="k">previousRoot</span><span class="v" id="pr-prev">Loading</span></li>
+            <li><span class="k">keyCount</span><span class="v" id="pr-keys">Loading</span></li>
+            <li><span class="k">GRACE</span><span class="v" id="pr-grace">Loading</span></li>
+            <li><span class="k">pending</span><span class="v" id="pr-pending">Loading</span></li>
+            <li><span class="k">windowClosesAt</span><span class="v" id="pr-window">Loading</span></li>
           </ul>
         </div>
       </section>
@@ -151,16 +160,16 @@ document.documentElement.setAttribute("data-theme",
           <div class="field" style="padding:0 0 .65rem">
             <label for="param-row">Row</label>
             <select id="param-row">
-              <option value="3">3 · order exists</option>
-              <option value="4">4 · order side</option>
-              <option value="5">5 · order size</option>
-              <option value="7">7 · trader identity</option>
-              <option value="12">12 · position</option>
-              <option value="13" selected>13 · round outcome</option>
-              <option value="14">14 · print</option>
-              <option value="15">15 · settlement</option>
-              <option value="16">16 · margin state</option>
-              <option value="17">17 · repo terms</option>
+              <option value="3">3 · order size</option>
+              <option value="4">4 · order price</option>
+              <option value="5">5 · execution price</option>
+              <option value="7">7 · asset</option>
+              <option value="12">12 · counterparty</option>
+              <option value="13" selected>13 · match predicate</option>
+              <option value="14">14 · position</option>
+              <option value="15">15 · activity fingerprint</option>
+              <option value="16">16 · cadence</option>
+              <option value="17">17 · account provenance</option>
             </select>
           </div>
           <div id="param-out"></div>
@@ -182,7 +191,7 @@ document.documentElement.setAttribute("data-theme",
       compares against its source is a hardcoded number with a better story.</p>
     <div class="rows" id="immutables"></div>
     <p class="note" id="imm-note"></p>
-    <p class="note"><code>minimumCancelFee</code>: <span id="imm-minfee">—</span>.</p>
+    <p class="note"><code>minimumCancelFee</code>: <span id="imm-minfee">Loading</span>.</p>
   </section>
 
   <section>
@@ -193,13 +202,13 @@ document.documentElement.setAttribute("data-theme",
       <section class="panel">
         <div class="body">
           <ul class="readout">
-            <li><span class="k">edition</span><span class="v" id="rb-edition">—</span></li>
-            <li><span class="k">document</span><span class="v" id="rb-document">—</span></li>
-            <li><span class="k">chargeCount</span><span class="v" id="rb-charges">—</span></li>
-            <li><span class="k">netOperatorTake</span><span class="v" id="rb-take">—</span></li>
-            <li><span class="k">pending</span><span class="v" id="rb-pending">—</span></li>
-            <li><span class="k">windowClosesAt</span><span class="v" id="rb-window">—</span></li>
-            <li><span class="k">reconcile</span><span class="v" id="rb-reconcile">—</span></li>
+            <li><span class="k">edition</span><span class="v" id="rb-edition">Loading</span></li>
+            <li><span class="k">document</span><span class="v" id="rb-document">Loading</span></li>
+            <li><span class="k">chargeCount</span><span class="v" id="rb-charges">Loading</span></li>
+            <li><span class="k">netOperatorTake</span><span class="v" id="rb-take">Loading</span></li>
+            <li><span class="k">pending</span><span class="v" id="rb-pending">Loading</span></li>
+            <li><span class="k">windowClosesAt</span><span class="v" id="rb-window">Loading</span></li>
+            <li><span class="k">reconcile</span><span class="v" id="rb-reconcile">Loading</span></li>
           </ul>
         </div>
       </section>
@@ -212,7 +221,7 @@ document.documentElement.setAttribute("data-theme",
 
   <section>
     <div class="shead"><h2>Coupon calendar and payment rail</h2><span class="src">CouponSchedule · CouponDistributor · HTS · HSS</span></div>
-    <p>The immutable bond calendar, the funded claim contract, the native cash token fee,
+    <p>The immutable bond calendar, the funding-gated claim contract, the native cash token fee,
       and the reserve available for scheduled settlement. Contract terms are read by RPC;
       the HTS fee schedule is read from the Hedera mirror node.</p>
     <div id="coupon-out"><div class="empty">Reading the coupon rail.</div></div>
@@ -227,18 +236,18 @@ document.documentElement.setAttribute("data-theme",
       <section class="panel">
         <div class="body">
           <ul class="readout">
-            <li><span class="k">registry</span><span class="v" id="sj-registry">—</span></li>
-            <li><span class="k">token</span><span class="v" id="sj-token">—</span></li>
-            <li><span class="k">admin</span><span class="v" id="sj-admin">—</span></li>
-            <li><span class="k">ceiling</span><span class="v" id="sj-ceiling">—</span></li>
-            <li><span class="k">row</span><span class="v" id="sj-row">—</span></li>
-            <li><span class="k">spentBits</span><span class="v" id="sj-spent">—</span></li>
-            <li><span class="k">epochRecord</span><span class="v" id="sj-record">—</span></li>
-            <li><span class="k">gross</span><span class="v" id="sj-gross">—</span></li>
-            <li><span class="k">epochLength</span><span class="v" id="ec-length">—</span></li>
-            <li><span class="k">epochZero</span><span class="v" id="ec-zero">—</span></li>
-            <li><span class="k">currentEpoch</span><span class="v" id="ec-now">—</span></li>
-            <li><span class="k">startOf</span><span class="v" id="ec-start">—</span></li>
+            <li><span class="k">registry</span><span class="v" id="sj-registry">Loading</span></li>
+            <li><span class="k">token</span><span class="v" id="sj-token">Loading</span></li>
+            <li><span class="k">admin</span><span class="v" id="sj-admin">Loading</span></li>
+            <li><span class="k">ceiling</span><span class="v" id="sj-ceiling">Loading</span></li>
+            <li><span class="k">row</span><span class="v" id="sj-row">Loading</span></li>
+            <li><span class="k">spentBits</span><span class="v" id="sj-spent">Loading</span></li>
+            <li><span class="k">epochRecord</span><span class="v" id="sj-record">Loading</span></li>
+            <li><span class="k">gross</span><span class="v" id="sj-gross">Loading</span></li>
+            <li><span class="k">epochLength</span><span class="v" id="ec-length">Loading</span></li>
+            <li><span class="k">epochZero</span><span class="v" id="ec-zero">Loading</span></li>
+            <li><span class="k">currentEpoch</span><span class="v" id="ec-now">Loading</span></li>
+            <li><span class="k">startOf</span><span class="v" id="ec-start">Loading</span></li>
           </ul>
         </div>
       </section>
@@ -284,7 +293,7 @@ document.documentElement.setAttribute("data-theme",
     <div class="tape" id="tape"><div class="empty">Press <b>Read the tape</b>.</div></div>
   </section>
 
-  <section>
+  <section id="hcs-record">
     <div class="shead"><h2>The disclosure record, on a consensus topic</h2><span class="src">Hedera Consensus Service</span></div>
     <p>The venue&rsquo;s meter withholds an event when a row&rsquo;s budget is gone and lets the
       transaction stand, so a withheld disclosure and a quiet one are the same bytes in the log.
