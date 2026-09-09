@@ -311,9 +311,18 @@ export class LocalTypedSigner {
     async summary(passphrase) {
         const state = await this.store.read(passphrase);
         return {
-            schemaVersion: "lattice.agent.signer-summary.v1",
+            schemaVersion: "lattice.agent.signer-summary.v2",
             address: state.signer.address,
             mandateIds: Object.keys(state.mandates).sort(),
+            mandates: Object.entries(state.authority)
+                .sort(([left], [right]) => left.localeCompare(right))
+                .map(([id, authority]) => ({
+                    mandateId: id,
+                    paused: authority.paused,
+                    evaluationsUsed: authority.evaluationsUsed,
+                    newOrdersUsed: authority.newOrdersUsed,
+                    pendingOrders: authority.pendingActionIds.length,
+                })),
             tickets: Object.values(state.tickets).map((ticket) => ({
                 actionId: ticket.actionId,
                 mandateId: ticket.mandateId,
@@ -341,6 +350,10 @@ export class LocalTypedSigner {
             throw new SignerError("TICKET_MISSING", "action has no persisted ticket");
         }
         const mandate = state.mandates[ticket.mandateId];
+        const authority = state.authority[ticket.mandateId];
+        if (mandate === undefined || authority === undefined) {
+            throw new SignerError("MANDATE_INACTIVE", "persisted action has no active mandate authority");
+        }
         const commitment = projectCommit(mandate, ticket.context, {
             salt: ticket.salt,
             commitBond: this.commitBond,
@@ -350,9 +363,20 @@ export class LocalTypedSigner {
             actionId,
             mandateId: ticket.mandateId,
             mandate: structuredClone(mandate),
+            authority: {
+                paused: authority.paused,
+                revocationGeneration: authority.revocationGeneration,
+            },
             context: structuredClone(ticket.context),
             commitment,
             lifecycle: ticket.lifecycle,
+            reservedNonces: {
+                commit: ticket.commitNonce,
+                reveal: ticket.revealNonce,
+                cancel: ticket.cancelNonce,
+                expire: ticket.expireNonce,
+                withdraw: ticket.withdrawNonce,
+            },
             transactions: Object.fromEntries(
                 ["commit", "reveal", "cancel", "expire", "withdraw"]
                     .map((stage) => [stage, state.signedTransactions[`${actionId}:${stage}`] ?? null])
@@ -510,6 +534,70 @@ export class LocalTypedSigner {
         return this.#signAndPersist(passphrase, actionId, "commit", requestedNonce, projection);
     }
 
+    async preparePersistedCommit(passphrase, actionId) {
+        if (typeof actionId !== "string" || !ACTION_ID.test(actionId)) {
+            throw new SignerError("ACTION_ID_INVALID", "action identifier is invalid");
+        }
+        const state = await this.store.read(passphrase);
+        const recordId = `${actionId}:commit`;
+        if (state.signedTransactions[recordId] !== undefined) {
+            return structuredClone(state.signedTransactions[recordId]);
+        }
+        const ticket = state.tickets[actionId];
+        const mandate = state.mandates[ticket?.mandateId];
+        const authority = state.authority[ticket?.mandateId];
+        if (ticket === undefined || mandate === undefined || authority === undefined) {
+            throw new SignerError("TICKET_MISSING", "persisted commit ticket is incomplete");
+        }
+        if (authority.paused === true) {
+            throw new SignerError("MANDATE_PAUSED", "an unsigned commit cannot be completed while its mandate is paused");
+        }
+        if (!Number.isSafeInteger(ticket.commitNonce) || ticket.commitNonce < 0) {
+            throw new SignerError("INVALID_NONCE", "persisted commit ticket has no valid account nonce");
+        }
+        const projection = projectCommit(mandate, ticket.context, {
+            salt: ticket.salt,
+            commitBond: this.commitBond,
+        });
+        return this.#signAndPersist(
+            passphrase,
+            actionId,
+            "commit",
+            ticket.commitNonce,
+            projection
+        );
+    }
+
+    async abandonUnsignedCommit(passphrase, actionId) {
+        if (typeof actionId !== "string" || !ACTION_ID.test(actionId)) {
+            throw new SignerError("ACTION_ID_INVALID", "action identifier is invalid");
+        }
+        const state = await this.store.transact(passphrase, "abandon-unsigned-commit", (current) => {
+            const ticket = current.tickets[actionId];
+            if (ticket === undefined) {
+                throw new SignerError("TICKET_MISSING", "unsigned commit ticket is missing");
+            }
+            if (current.signedTransactions[`${actionId}:commit`] !== undefined) {
+                throw new SignerError(
+                    "SIGNED_COMMIT_ABANDON_REFUSED",
+                    "a signed commit must be reconciled instead of abandoned"
+                );
+            }
+            const authority = current.authority[ticket.mandateId];
+            if (authority === undefined) {
+                throw new SignerError("MANDATE_INACTIVE", "unsigned commit has no mandate authority");
+            }
+            authority.pendingActionIds = authority.pendingActionIds.filter((id) => id !== actionId);
+            ticket.commitNonce = null;
+            ticket.lifecycle = "ABANDONED_UNSIGNED";
+        });
+        return {
+            actionId,
+            lifecycle: state.tickets[actionId].lifecycle,
+            nonceReleased: state.tickets[actionId].commitNonce === null,
+        };
+    }
+
     async prepareReveal(passphrase, mandate, context, request) {
         const requestedNonce = requestNonce(request);
         const actionId = contextId(context);
@@ -626,6 +714,7 @@ export class LocalTypedSigner {
             ) {
                 throw new SignerError("BROADCAST_RECORD_MISMATCH", "broadcast record does not match persisted bytes");
             }
+            signed.broadcastStatus = request.status;
             ticket.lifecycle =
                 request.status !== "confirmed"
                     ? "RECOVERY_REQUIRED"
@@ -706,11 +795,35 @@ export class LocalTypedSigner {
         };
         const saved = await this.store.transact(passphrase, `persist-${stage}`, (state) => {
             const already = state.signedTransactions[recordId];
-            if (already !== undefined && already.signedTransaction !== signedTransaction) {
-                throw new SignerError("SIGNED_TRANSACTION_CONFLICT", "a different signed transaction already exists");
+            if (already !== undefined) {
+                if (already.signedTransaction !== signedTransaction) {
+                    throw new SignerError(
+                        "SIGNED_TRANSACTION_CONFLICT",
+                        "a different signed transaction already exists"
+                    );
+                }
+                return;
+            }
+            const ticket = state.tickets[actionId];
+            const nonceField = stage === "commit" ? "commitNonce" : `${stage}Nonce`;
+            if (ticket === undefined || ticket[nonceField] !== requestedNonce) {
+                throw new SignerError(
+                    "SIGNING_RESERVATION_CHANGED",
+                    "typed action reservation changed before signed bytes could be persisted"
+                );
+            }
+            if (
+                stage === "commit" &&
+                (ticket.lifecycle === "ABANDONED_UNSIGNED" ||
+                    state.authority[ticket.mandateId]?.paused === true)
+            ) {
+                throw new SignerError(
+                    "COMMIT_AUTHORITY_CHANGED",
+                    "new-order authority changed before signed bytes could be persisted"
+                );
             }
             state.signedTransactions[recordId] = record;
-            state.tickets[actionId].lifecycle = `${stage.toUpperCase()}_PENDING`;
+            ticket.lifecycle = `${stage.toUpperCase()}_PENDING`;
         });
         return structuredClone(saved.signedTransactions[recordId]);
     }

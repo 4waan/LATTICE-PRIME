@@ -1,9 +1,12 @@
-# Private agent implementation status
+# Lattice Claw implementation status
 
 Evidence snapshot: 9 September 2026. Phase 1 has a cloud-trained synthetic
 model and a local proof, authority, signer, isolation, API, and deterministic
 protocol harness. Phase 2 has passed against the pinned Hedera testnet
-deployment. Product UI activation remains disabled until Phase 3.
+deployment. The agent is now a separate product named Lattice Claw. Its first
+product surface is a coming-soon landing page with one hero and a disabled chat
+preview. Lattice Prime remains the venue and no longer embeds agent controls.
+The execution backend is preserved but is not connected to the Claw preview.
 
 ## Result
 
@@ -25,7 +28,7 @@ The trained-model gate passes:
   executions, and exact quantized-graph correspondence.
 - EZKL 23.0.5 generated and verified the trained-model proof. Altered public
   output, expected context, verification key, and model identity were refused.
-- Twenty-five Node tests and six Python tests pass.
+- Thirty-five Node agent tests, 44 application tests, and six Python tests pass.
 
 The local runtime gate also passes:
 
@@ -38,9 +41,11 @@ The local runtime gate also passes:
 - A separate process owns the dedicated signing key and accepts only typed
   setup, mandate, evaluation, commit, reveal, status, and broadcast-record
   messages. Commit salt and signed bytes are persisted before broadcast.
-- The loopback supervisor enforces exact Host and Origin, one-time pairing,
-  bearer sessions, CSRF protection, closed request schemas, body limits, and
-  no-store security headers.
+- The loopback supervisor enforces exact Host and mutating-request Origin,
+  expiring one-time pairing, bounded bearer sessions, CSRF protection, closed
+  request schemas, body limits, no-store headers, fixed static paths, and a
+  per-document script nonce. Browser-safe GET requests still require a valid
+  bearer session.
 - The proving worker runs as a non-root user with no network, a read-only root,
   all capabilities dropped, no new privileges, bounded resources, a read-only
   proof bundle, and no wallet or host-secret mount.
@@ -115,6 +120,45 @@ Tracked evidence is in `deployments/agent-phase2.json`,
 `deployments/agent-phase2-pause.json`, and
 `deployments/agent-ezkl-verifier.json`. `agent/manifest.json` is the exact
 capability statement.
+
+## Lattice Claw product split
+
+- `agent/launch.mjs` opens `/claw/` from one random IPv4 loopback origin. The
+  Claw route has a strict no-connect CSP, no remote assets, and no browser
+  pairing bootstrap. Its chat field is read-only and its send control is
+  disabled.
+- Every Lattice Prime brand link switches to Claw. The Lattice Claw brand
+  switches back to the Lattice Prime landing page.
+- Prime Markets and Portfolio no longer load the mandate controls, agent client,
+  or local receipt panel. Those modules remain dormant for future Claw work.
+- The paired API, one-use control service, and in-memory browser client remain
+  implemented and tested independently of the coming-soon page.
+- The browser cannot request the signer's persisted action object. Salt,
+  context, mandate internals, and signed transaction bytes remain inside the
+  signer and runtime boundary.
+- The lifecycle scheduler serializes all tickets against the pending account
+  nonce. A per-action failure is recorded without starving later obligations.
+  It reveals eligible commitments, expires rested orders, withdraws available
+  credit, repairs an unsigned crash-interrupted commit ticket, recovers an
+  unresolved signed commit, and cancels a sealed action when its mandate is
+  paused. Expired, paused, or nonce-conflicted unsigned tickets are abandoned
+  without signing and release their nonce reservation. Commit persistence
+  transactionally refuses a concurrent abandonment or pause.
+- The durable receipt journal uses atomic replacement, restrictive permissions,
+  a checksum-chained event log, and a checksum of every current record. It
+  refuses private-key naming variants, passphrases, proof bodies, reveal salts,
+  snapshot authentication tags, capabilities, signed bytes, witnesses, and
+  arbitrary diagnostic messages. Receipt failure cannot block lifecycle
+  recovery.
+- The dormant receipt renderer uses DOM text nodes and exports sanitized JSON.
+  It is not loaded by either product.
+- The launcher gate serves the Claw shell with `no-store` and confirms that the
+  preview cannot pair, unlock, evaluate, or submit a message. No live
+  transaction is sent by the gate.
+
+`make agent-phase3-local` reproduces the non-broadcast launcher and browser
+boundary checks and writes an ignored machine-local report to
+`agent/artifacts/evidence/phase3-local.json`.
 
 ## Cloud provenance
 
@@ -202,15 +246,25 @@ chain evidence is tracked under `deployments/`.
 - `agent/runtime/`: mandate and policy enforcement, local pause control,
   encrypted journal, typed signer process, exact transaction decoder, isolated
   worker launcher, independent verifier, loopback supervisor, deterministic
-  adapter, pinned Hedera adapter, combined receipt, and headless orchestration.
+  adapter, pinned Hedera adapter, one-use control service, serialized lifecycle
+  scheduler, durable sanitized receipt store, combined receipt, and headless
+  orchestration.
+- `agent/launch.mjs`, `app/claw/`, and `tools/agent-*.mjs`: the separate Claw
+  coming-soon shell, same-origin local API launch, dormant in-memory browser
+  pairing, and preserved future control and receipt modules.
 - `agent/packaging/`: pinned worker image, closed entrypoint, isolation test,
   local end-to-end test, testnet lifecycle tests, pause recovery test, and
   optional EVM-verifier deployment probe.
 
 ## Remaining limitations
 
-- Phase 3 application controls, Portfolio read model, and combined receipt
-  rendering are not implemented, so product UI activation remains disabled.
+- The Lattice Claw chat is a non-functional preview. It cannot create a
+  mandate, run inference, unlock the signer, or send an order.
+- Lattice Prime no longer embeds agent controls. A future Claw execution
+  interface must be integrated and pass a new click-to-settlement testnet gate.
+- Lifecycle scheduling continues only while the local launcher process runs.
+  After a process or device restart, the user must unlock the encrypted signer
+  before pending obligations resume.
 - Per-order proof publication to the optional EVM verifier is disabled by
   default and was not used for the recorded orders. The verifier probe used the
   released synthetic proof bundle.
@@ -221,6 +275,9 @@ chain evidence is tracked under `deployments/`.
   though equal-category correspondence passed.
 - Container isolation is local enforcement, not remote attestation and not a
   proof that every process on the host was silent.
+- The durable receipt checksum chain detects corruption and inconsistent edits.
+  It is not a signature against a writer that can replace the entire receipt
+  file and recompute unkeyed checksums.
 - The user unlocks the encrypted store with a passphrase. JavaScript cannot
   guarantee immediate erasure of every in-memory string copy.
 - Contract-level delegated authority remains later protocol work. The current

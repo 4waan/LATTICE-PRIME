@@ -1,4 +1,6 @@
-# Lattice Prime
+# Lattice
+
+## Lattice Prime
 
 A cryptographically robust protocol for tokenised repo and fair-order
 settlement on Hedera. Secondary-market orders arrive as fixed-length
@@ -6,6 +8,12 @@ commitments, eligibility is proven in zero knowledge, and a disclosure lattice
 meters what the venue may publish.
 
 Trade tokenised bonds. Control what the venue publishes.
+
+## Lattice Claw
+
+A separate private execution agent for Lattice Prime. Its runtime can prove
+bounded decisions and manage typed order obligations locally. The current
+product surface is a coming-soon landing page with a disabled chat preview.
 
 ## Licence
 

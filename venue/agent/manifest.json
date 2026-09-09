@@ -1,7 +1,12 @@
 {
   "schemaVersion": "lattice.agent.capabilities.v1",
-  "bundleVersion": "0.3.1-phase2-hardened",
-  "releaseStatus": "phase2-testnet-passed",
+  "bundleVersion": "0.5.0-lattice-claw-preview",
+  "releaseStatus": "phase2-testnet-passed-claw-shell-local-gate-passed",
+  "product": {
+    "name": "Lattice Claw",
+    "relationship": "Separate agent product for the Lattice Prime venue",
+    "uiStatus": "coming-soon"
+  },
   "network": {
     "name": "hedera-testnet",
     "chainId": "296",
@@ -27,7 +32,10 @@
       "no-fill",
       "paused-cancel-recovery"
     ],
-    "productUiEnabled": false
+    "productUiEnabled": false,
+    "productUiScope": "lattice-claw-coming-soon-shell",
+    "comingSoonShellEnabled": true,
+    "uiOriginatedLiveOrderRecorded": false
   },
   "model": {
     "claim": "Synthetic decision consistency only; not profitability or validated financial prediction.",
@@ -71,7 +79,10 @@
   "privacy": {
     "defaultMode": "excluded",
     "optionalPrivatePreferencesEnabled": false,
-    "proofPackagePublication": "local-only-before-reveal"
+    "proofPackagePublication": "local-only-before-reveal",
+    "browserCapabilitiesStored": false,
+    "privateSignerActionExposedToBrowser": false,
+    "pairingCapabilityInUrl": false
   },
   "protocolAuthority": {
     "deploymentCodeAndAbiPinned": true,
@@ -96,14 +107,24 @@
     "accountNonceReservationsReplaySafe": true,
     "unknownBroadcastReconciliationTestedLocally": true,
     "firstCommitExactRebroadcastTestedLocally": true,
+    "unsignedCommitCrashRecoveryTestedLocally": true,
+    "unsignedCommitAbandonmentRaceRefused": true,
     "phase1JournalMigrationTestedLocally": true,
-    "activeAuctionCreditWithdrawalSuppressed": true
+    "activeAuctionCreditWithdrawalSuppressed": true,
+    "serializedBackgroundSchedulerTestedLocally": true,
+    "pausedSealedActionRoutesToCancel": true,
+    "schedulerContinuesAfterPerActionFailure": true,
+    "receiptFailureDoesNotBlockRecovery": true,
+    "singleLauncherLockTestedLocally": true
   },
   "receipts": {
     "schemaVersion": "lattice.order-receipt.v1",
     "sameProtocolOrderIdentifier": true,
     "inferenceChainDisclosureAndRuntimeScopesSeparated": true,
-    "sanitizedByDefault": true
+    "sanitizedByDefault": true,
+    "durableLocalSchemaVersion": "lattice.agent.durable-receipt.v1",
+    "atomicChecksumChainedJournalTested": true,
+    "dormantReceiptRendererUsesTextNodes": true
   },
   "onChainInferenceVerification": {
     "role": "optional evidence sidecar",
@@ -128,9 +149,12 @@
     "../deployments/agent-ezkl-verifier.json"
   ],
   "limitations": [
-    "Phase 3 application controls and receipt rendering are not implemented.",
+    "The Lattice Claw chat is a non-functional coming-soon preview and is not connected to the execution API.",
+    "Lattice Prime no longer embeds agent controls; future execution UI belongs to Lattice Claw.",
+    "Lifecycle scheduling requires the local launcher process to remain running and the signer to be unlocked after process restart.",
     "Optional private preference categories remain disabled.",
     "The local container boundary is not remote attestation.",
+    "The durable receipt checksum chain detects corruption and inconsistent edits; it is not a signature against a writer that can replace the entire receipt file.",
     "The optional EVM verifier is not an execution or settlement gate.",
     "Per-order proof publication is disabled by default and was not used for the recorded orders.",
     "The v1 mandate does not sign permissionless forfeit after a missed reveal window."

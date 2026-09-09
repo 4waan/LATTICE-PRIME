@@ -15,6 +15,8 @@ const METHODS = new Set([
     "pauseMandate",
     "reserveEvaluation",
     "prepareCommit",
+    "preparePersistedCommit",
+    "abandonUnsignedCommit",
     "prepareReveal",
     "prepareOutstanding",
     "recordBroadcast",

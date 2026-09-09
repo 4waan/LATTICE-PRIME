@@ -1,6 +1,7 @@
 import {createHash} from "node:crypto";
 
 import {canonicalizeContext, contextId} from "./context.mjs";
+import {mandateId} from "./policy.mjs";
 
 export class AgentRuntimeError extends Error {
     constructor(code, message) {
@@ -58,11 +59,12 @@ function exactContinueRequest(value) {
 }
 
 export class AgentRuntime {
-    constructor({signer, adapter, worker, verifier}) {
+    constructor({signer, adapter, worker, verifier, receiptStore = null}) {
         this.signer = signer;
         this.adapter = adapter;
         this.worker = worker;
         this.verifier = verifier;
+        this.receiptStore = receiptStore;
     }
 
     async evaluate(request) {
@@ -146,6 +148,7 @@ export class AgentRuntime {
                 "Worker isolation evidence is local and is not remote attestation.",
             ],
         };
+        await this.#recordEvaluation(receipt, mandate, request.snapshot ?? null);
         if (verification.decision === "WAIT") return receipt;
 
         const finalPreflight = await this.#commitPreflight(mandate, context);
@@ -182,6 +185,7 @@ export class AgentRuntime {
             exactProjectionMatched: true,
         };
         receipt.commitment = signed.projection.commitment;
+        await this.#recordEvaluation(receipt, mandate, request.snapshot ?? null);
         return receipt;
     }
 
@@ -245,7 +249,7 @@ export class AgentRuntime {
             commitment: action.commitment,
             account: action.context.executionAccount,
         });
-        return {
+        const result = {
             schemaVersion: "lattice.agent.lifecycle-step.v1",
             actionId: request.actionId,
             stage: request.stage,
@@ -273,6 +277,8 @@ export class AgentRuntime {
                         feeBalanceSufficient: protocolPreflight.feeBalanceSufficient,
                     },
         };
+        await this.#recordReceipt("recordStep", result);
+        return result;
     }
 
     async recoverAction({actionId, nonce}) {
@@ -289,28 +295,58 @@ export class AgentRuntime {
             commitment: action.commitment,
             account: action.context.executionAccount,
         });
-        if (state.lifecycle === "UNKNOWN" && action.transactions.commit !== null) {
-            return this.#recoverCommit(action, state);
+        await this.#recordReceipt("ensureAction", action);
+        if (state.lifecycle === "UNKNOWN") {
+            const result = action.transactions.commit === null
+                ? await this.#recoverUnsignedCommit(action, state)
+                : await this.#recoverCommit(action, state);
+            if (result.schemaVersion === "lattice.agent.lifecycle-step.v1") {
+                await this.#recordReceipt("recordStep", result);
+            } else {
+                await this.#recordReceipt("recordObservation", actionId, result.state);
+            }
+            return result;
+        }
+        if (state.lifecycle === "SEALED" && action.authority?.paused === true) {
+            return this.continueAction({
+                actionId,
+                stage: "cancel",
+                nonce: action.transactions.cancel?.nonce ?? nonce,
+            });
         }
         if (state.lifecycle === "REVEALABLE") {
-            return this.continueAction({actionId, stage: "reveal", nonce});
+            return this.continueAction({
+                actionId,
+                stage: "reveal",
+                nonce: action.transactions.reveal?.nonce ?? nonce,
+            });
         }
         if (state.lifecycle === "EXPIREABLE") {
-            return this.continueAction({actionId, stage: "expire", nonce});
+            return this.continueAction({
+                actionId,
+                stage: "expire",
+                nonce: action.transactions.expire?.nonce ?? nonce,
+            });
         }
         if (
             BigInt(state.creditTinybar) > 0n &&
             !["SEALED", "REVEALABLE", "IN_AUCTION"].includes(state.lifecycle)
         ) {
-            return this.continueAction({actionId, stage: "withdraw", nonce});
+            return this.continueAction({
+                actionId,
+                stage: "withdraw",
+                nonce: action.transactions.withdraw?.nonce ?? nonce,
+            });
         }
-        return {
+        const result = {
             schemaVersion: "lattice.agent.lifecycle-wait.v1",
             actionId,
             commitment: action.commitment,
             state,
             nextAction: state.lifecycle === "SEALED" ? "wait-for-reveal" : "wait-for-auction-or-expiry",
         };
+        await this.#recordReceipt("recordObservation", actionId, state);
+        return result;
     }
 
     async #broadcast(actionId, stage, signed) {
@@ -364,14 +400,6 @@ export class AgentRuntime {
     }
 
     #assertCommitPreflight(preflight, mandate, context) {
-        if (
-            preflight.identityMatches !== true ||
-            preflight.eligible !== true ||
-            preflight.halted !== false ||
-            preflight.feeBalanceSufficient !== true
-        ) {
-            throw new AgentRuntimeError("PREFLIGHT_REFUSED", "protocol preflight refused the evaluation");
-        }
         const checkedAt = BigInt(preflight.checkedAtTimestamp);
         const wallClock =
             preflight.liveChainChecked === true
@@ -396,6 +424,14 @@ export class AgentRuntime {
                 "STALE_SNAPSHOT",
                 "market snapshot became stale before commit authorization completed"
             );
+        }
+        if (
+            preflight.identityMatches !== true ||
+            preflight.eligible !== true ||
+            preflight.halted !== false ||
+            preflight.feeBalanceSufficient !== true
+        ) {
+            throw new AgentRuntimeError("PREFLIGHT_REFUSED", "protocol preflight refused the evaluation");
         }
     }
 
@@ -474,6 +510,70 @@ export class AgentRuntime {
         };
     }
 
+    async #recoverUnsignedCommit(action, before) {
+        if (action.authority?.paused === true) {
+            return this.#abandonUnsignedCommit(action, before, "mandate-paused");
+        }
+        const preflight = await this.#commitPreflight(action.mandate, action.context);
+        try {
+            this.#assertCommitPreflight(preflight, action.mandate, action.context);
+        } catch (error) {
+            if (["AUTHORIZATION_EXPIRED", "STALE_SNAPSHOT"].includes(error?.code)) {
+                return this.#abandonUnsignedCommit(action, before, error.code.toLowerCase());
+            }
+            throw error;
+        }
+        const reservedNonce = action.reservedNonces?.commit;
+        const nonces = await this.adapter.accountNonces();
+        if (
+            !Number.isSafeInteger(reservedNonce) ||
+            reservedNonce < 0 ||
+            !Number.isSafeInteger(nonces?.latest) ||
+            nonces.latest < 0 ||
+            !Number.isSafeInteger(nonces?.pending) ||
+            nonces.pending < nonces.latest
+        ) {
+            throw new AgentRuntimeError(
+                "NONCE_STATE_INVALID",
+                "unsigned commit recovery received invalid persisted or chain nonce state"
+            );
+        }
+        if (nonces.latest > reservedNonce || nonces.pending > reservedNonce) {
+            return this.#abandonUnsignedCommit(action, before, "nonce-consumed");
+        }
+        if (nonces.pending < reservedNonce) {
+            throw new AgentRuntimeError(
+                "COMMIT_NONCE_GAP",
+                "unsigned commit recovery is waiting for an earlier account nonce"
+            );
+        }
+        const signed = await this.signer.call("preparePersistedCommit", {
+            actionId: action.actionId,
+        });
+        return this.#recoverCommit(
+            {
+                ...action,
+                transactions: {...action.transactions, commit: signed},
+            },
+            before
+        );
+    }
+
+    async #abandonUnsignedCommit(action, before, reason) {
+        await this.signer.call("abandonUnsignedCommit", {actionId: action.actionId});
+        return {
+            schemaVersion: "lattice.agent.lifecycle-wait.v1",
+            actionId: action.actionId,
+            commitment: action.commitment,
+            state: {
+                ...before,
+                lifecycle: "ABANDONED_UNSIGNED",
+            },
+            nextAction: "none",
+            recovery: `unsigned commit ticket abandoned: ${reason}`,
+        };
+    }
+
     #assertStageAvailable(stage, state) {
         const allowed =
             (stage === "reveal" && state.lifecycle === "REVEALABLE") ||
@@ -487,6 +587,26 @@ export class AgentRuntime {
                 "LIFECYCLE_STAGE_REFUSED",
                 `${stage} is not available while the chain action is ${state.lifecycle}`
             );
+        }
+    }
+
+    async #recordEvaluation(receipt, mandate, snapshot) {
+        await this.#recordReceipt("recordEvaluation", {
+            receipt,
+            mandateId: mandateId(mandate),
+            snapshot,
+        });
+    }
+
+    async #recordReceipt(method, ...args) {
+        if (this.receiptStore === null || typeof this.receiptStore?.[method] !== "function") {
+            return false;
+        }
+        try {
+            await this.receiptStore[method](...args);
+            return true;
+        } catch {
+            return false;
         }
     }
 }
