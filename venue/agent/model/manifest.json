@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "lattice.agent.model-source.v1",
+  "modelVersion": "lattice.agent.proof-spike-model.v1",
+  "releaseStatus": "proof-spike-only",
+  "liveTradingEnabled": false,
+  "claim": "Demonstrates exact proof context binding. It is not a profitability or financial-risk model.",
+  "input": {
+    "shape": [1, 173],
+    "features": [
+      "limitRoomBps",
+      "recentMoveOffsetBps",
+      "roundProgressBps",
+      "freshnessSeconds",
+      "bufferCategory",
+      "horizonCategory"
+    ],
+    "remainingValues": "The ordered context limbs in ../proof/instances.json"
+  },
+  "graph": {
+    "opset": 17,
+    "allowedOperators": ["Gather", "MatMul", "Add", "Relu", "Greater", "Identity"],
+    "hiddenUnits": 8,
+    "outputs": ["decision", "bound_context"],
+    "tieRule": "WAIT",
+    "parameterVisibility": "fixed"
+  },
+  "training": {
+    "trained": false,
+    "provenance": "Hand-fixed deterministic weights for the dependency and context-binding spike.",
+    "nextGate": "Replace with the seeded synthetic training recipe and boundary evaluation before Phase 1 exit."
+  }
+}

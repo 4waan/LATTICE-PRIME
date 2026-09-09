@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "lattice.agent.bundle.v1",
+  "bundleVersion": "0.1.0-proof-spike",
+  "releaseStatus": "development",
+  "liveTradingEnabled": false,
+  "capabilities": {
+    "decisionProof": "proof-spike",
+    "strictMandateValidation": true,
+    "replayAndBudgetPolicy": "pure-state-transitions",
+    "transactionProjection": ["commit", "buy-reveal"],
+    "durableEncryptedStore": false,
+    "isolatedWorker": false,
+    "localSigner": false,
+    "pairedLocalApi": false,
+    "protocolAdapter": false
+  },
+  "toolchain": {
+    "node": "22.21.1",
+    "python": "3.9.6",
+    "ezkl": {
+      "version": "23.0.5",
+      "sourceCommit": "534ff3e6c13d4c2c1aca2358910d62dac466d3cc",
+      "macosUniversalWheelSha256": "a457f2b1930ceb6a2d73c24e874edf4e197107ded8f97a86d38b13045e7ffe44"
+    },
+    "onnx": "1.17.0",
+    "numpy": "2.0.2",
+    "z3Solver": "4.15.3.0",
+    "ethers": "6.17.x"
+  },
+  "baseline": {
+    "gitCommit": "f81a727d10b4666128463284521e2cee1b8fea7a",
+    "sources": {
+      "docs/PRIVATE-AGENT-PLAN.md": "sha256:6354d139f54c0b7fe99dd8745dc73aa036f1b9358aacdf3f853d35125eee08c8",
+      "docs/PRIVATE-AGENT-RESOURCES.md": "sha256:54f902b6a85d0096cb353c21e7babad72cf6819c35e2a1587020f95c0d645768",
+      "deployments/client.json": "sha256:bfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
+      "tools/commitment.mjs": "sha256:9339723409e7e76c74e17fba4d5af370def5ca73996cfbacb16f3a012fe784f9",
+      "tools/units.mjs": "sha256:4f4b32e7c8e2a645678af75732d3b2549fd2f1b0b1589a86dccf0c4806ca2820",
+      "src/market/OrderBook.sol": "sha256:eb701ba10e37d68a620012d0dc8bdc13af28d16a3932b81a9a4b42d516ddcc36",
+      "src/market/MatchingEngine.sol": "sha256:78409596c0b6c40596575fa00b1fad023a0a0cb11f8f465a51c14974f7026243",
+      "agent/formal/spec.json": "sha256:0859163363a68a7cd719bbfc1541b3bf0f02341d824af2f80bf621079d98d26c",
+      "agent/proof/instances.json": "sha256:cb5accf2e8373b2767ce56ef88b0e0f11d5506d5427180ada3c41c9366d8c97f"
+    }
+  },
+  "deployment": {
+    "chainId": "296",
+    "matchingEngine": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+    "token": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2",
+    "identitySource": "deployments/client.json",
+    "checkedAt": "2026-09-08T15:32:57.179Z",
+    "liveCodeRechecked": false
+  },
+  "privacy": {
+    "defaultMode": "excluded",
+    "optionalPrivatePreferencesEnabled": false,
+    "proofPackagePublication": "local-only-before-reveal"
+  }
+}
