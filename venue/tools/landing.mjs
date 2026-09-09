@@ -153,16 +153,16 @@ Landing.propagation = function () {
     if (!buttons.length) return;
 
     const notes = {
-        commit: "The network receives sender, timestamp, bond and one bytes32 commitment. Order fields and salt are absent.",
+        commit: "The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and salt are absent.",
         cancel: "The single clock has closed cancellation. Reveal opens at the same boundary, leaving no last-look overlap.",
-        reveal: "The reveal transaction publishes side, price, quantity, salt and backing as public calldata. The commitment protected when, not who.",
-        publish: "The first cancellation spends row 15. The next valid cancellation completes without its venue event, and HCS makes that silence checkable.",
+        reveal: "When reveal opens, side, price, quantity, salt and backing become public transaction inputs. The commitment protected when, not who.",
+        publish: "The first cancellation uses the public-activity allowance. The next valid cancellation completes without a venue event, and the consensus record makes that silence checkable.",
     };
     const labels = {
         commit: "fixed length",
         cancel: "cancel closed",
         reveal: "opening public",
-        publish: "event metered",
+        publish: "disclosure accounted",
     };
     const sealStatus = root.querySelector(".prop-path-sealed .prop-status");
 
