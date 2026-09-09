@@ -213,6 +213,7 @@ body{
   background:var(--claw-surface);
   border:1px solid var(--claw-rule);
   border-bottom-left-radius:.3rem;
+  white-space:pre-line;
 }
 
 .msg.typing{display:inline-flex;gap:.3rem;padding:.85rem .9rem}
