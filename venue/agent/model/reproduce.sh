@@ -4,6 +4,7 @@ set -euo pipefail
 MODEL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="${LATTICE_MODEL_TRAINING_VENV:-${MODEL_DIR}/.venv}"
 PYTHON="${PYTHON:-python3}"
+export PYTHONDONTWRITEBYTECODE=1
 
 if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
   "${PYTHON}" -m venv "${VENV_DIR}"
