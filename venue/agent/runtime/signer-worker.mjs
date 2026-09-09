@@ -99,6 +99,16 @@ async function dispatch(message) {
                 message.params.context,
                 message.params.request
             );
+        case "preparePersistedCommit":
+            return signer.preparePersistedCommit(
+                requireUnlocked(),
+                message.params.actionId
+            );
+        case "abandonUnsignedCommit":
+            return signer.abandonUnsignedCommit(
+                requireUnlocked(),
+                message.params.actionId
+            );
         case "prepareReveal":
             return signer.prepareReveal(
                 requireUnlocked(),
@@ -115,7 +125,9 @@ async function dispatch(message) {
     }
 }
 
-process.on("message", async (message) => {
+let dispatchQueue = Promise.resolve();
+
+async function respond(message) {
     const id = typeof message?.id === "string" ? message.id : "invalid";
     try {
         const result = await dispatch(message);
@@ -130,6 +142,13 @@ process.on("message", async (message) => {
             },
         });
     }
+}
+
+process.on("message", (message) => {
+    dispatchQueue = dispatchQueue.then(
+        () => respond(message),
+        () => respond(message)
+    );
 });
 
 process.on("disconnect", () => {
