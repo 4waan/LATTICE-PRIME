@@ -1,11 +1,15 @@
 # venue
 
-Tokenised collateral for repo, on Hedera, using the Asset Tokenization Studio.
+A cryptographically robust protocol for tokenised repo and fair-order
+settlement on Hedera, using the Asset Tokenization Studio.
 
-Eligibility is decided by a zero knowledge proof instead of a public KYC
-register, margin calls disclose a boolean instead of a price, and orders arrive
-as fixed length commitments because on Hedera a plain limit order reaches twenty
-nine node operators before any contract runs.
+Trade tokenised bonds. Control what the venue publishes.
+
+Secondary-market orders arrive as fixed-length commitments because on Hedera a
+plain limit order reaches twenty-nine node operators before any contract runs.
+Eligibility attributes are proved in zero knowledge, margin calls disclose a
+predicate instead of a price, and a disclosure lattice meters venue
+publications against governed budgets.
 
 Collateral is marked against a live feed rather than an account's word. A seated
 panel medians the bond's clean price, the cash leg comes from somewhere else,
@@ -18,13 +22,19 @@ charges. [docs/EVIDENCE.md](docs/EVIDENCE.md) is why any of it matters, sourced
 to the enforcement record and to what the collateral market is already doing.
 [docs/disclosure-receipt.html](docs/disclosure-receipt.html) is the
 shortest route to the thesis: act, and read back what the venue published about
-you and what it has left to say.
+the transaction and what it has left to say.
 
 The same record is published to a Hedera Consensus Service topic, ordered and
 independently verifiable, and it carries the one thing the contracts structurally
 cannot report about themselves: a positive record of a disclosure the venue
 withheld. [docs/HCS.md](docs/HCS.md) is what was built and
 [docs/HCS-SCOPE.md](docs/HCS-SCOPE.md) is why.
+
+## Trust boundary
+
+The disclosure lattice governs venue events. Contract storage, transaction
+input, wallet activity, and upstream ATS events remain observable. A withheld
+venue event is evidence of controlled publication, not a private chain.
 
 ## Quick start
 
