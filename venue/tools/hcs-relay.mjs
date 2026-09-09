@@ -4,6 +4,7 @@
 //   node tools/hcs-relay.mjs --once           # one pass, then stop
 //   node tools/hcs-relay.mjs                  # poll until interrupted
 //   node tools/hcs-relay.mjs --from 0         # rebuild from the venue's first block
+//   node tools/hcs-relay.mjs --anchor-every 12  # epochs between anchors (default 12, an hour)
 //
 // `docs/HCS-SCOPE.md` is the argument. `HIP-478` is the pattern: a contract in
 // the Hedera EVM cannot create a topic, submit to one, or read one, and the
@@ -24,9 +25,24 @@
 // process does not write and cannot influence.
 //
 // It **can stall.** Nothing here forces liveness. Stop it and the topic stops;
-// the gap shows in the sequence numbers and in the checkpoint series and cannot
+// the gap shows in the sequence numbers and in the anchor series and cannot
 // be prevented. That is inherent to the oracle pattern and is said out loud
 // rather than papered over with a heartbeat that proves nothing.
+//
+// ## What the topic is, and is not
+//
+// The topic is an ordered record, not a database. `spentBits` on the contracts
+// is the state; the topic carries what happened, in order, with a consensus
+// timestamp, so that a third party can rebuild the state from the mirror node
+// and compare. Nothing here or in any screen reads current state off the topic.
+// That is also why the relay writes as little as the guarantee needs: one
+// `checkpoint` per epoch that carried a record, so a reader can see the numbers
+// for the epochs that matter, and one `anchor` an hour per source that hashes
+// `spentBits` over every epoch that closed since the last one, so the verifier's
+// omission check covers every epoch without a message for each. At $0.0008 a
+// `ConsensusSubmitMessage` since January 2026, a checkpoint every five-minute
+// epoch was 576 messages a day saying mostly nothing; the anchors say the same
+// thing in 48.
 //
 // ## Why a silence is only ever claimed against an exhausted budget
 //
@@ -53,8 +69,8 @@ import {
 import {bits} from "./lattice.mjs";
 import {
     SITES, SOURCES, SOURCE_ADDRESS_KEY, TOPIC_CHARGED, ERROR_CEILING,
-    SCHEMA_VERSION, encode, decode, keyOf, describe, decodeCeilingError, RecordError,
-    assertSiteAddresses, assertSiteDeployments,
+    SCHEMA_VERSION, MAX_ANCHOR_SPAN, encode, decode, keyOf, describe, decodeCeilingError,
+    anchorPreimage, RecordError, assertSiteAddresses, assertSiteDeployments,
 } from "./hcs.mjs";
 
 const CURSOR = join(ROOT, "deployments/hcs-cursor.json");
@@ -74,6 +90,10 @@ const INTERVAL = Math.max(5, Number(val("--interval", "15"))) * 1000;
 // already moved past them, so the cursor stops short of the head and the next
 // pass picks the rest up.
 const LAG_SECONDS = Number(val("--lag", "10"));
+// How many epochs have to close before the next anchor. Twelve five-minute
+// epochs is an hour. Never below one: an anchor covers closed epochs only, and
+// zero would ask for one before any had.
+const ANCHOR_EVERY = Math.max(1, Math.min(MAX_ANCHOR_SPAN, Number(val("--anchor-every", "12")) || 12));
 
 const c = client();
 assertSiteAddresses(c.addresses);
@@ -142,11 +162,20 @@ const blank = () => ({
     sources: Object.fromEntries(SOURCES.map((s) => [s, {
         address: String(c.addresses[SOURCE_ADDRESS_KEY[s]]).toLowerCase(),
         throughTs: "0.0",
-        checkpointedThrough: null,
+        // The last epoch an anchor covers. Null until the topic has been read
+        // back: the topic, not this file, says where anchoring resumes.
+        anchoredThrough: null,
+        // Epochs that carried a record while still open. Each gets its
+        // checkpoint on the first pass after it closes.
+        pendingCheckpoints: [],
     }])),
     published: 0,
     lastRun: null,
 });
+
+const asEpochList = (v) => (Array.isArray(v) ? v : [])
+    .map(Number).filter((e) => Number.isInteger(e) && e >= 0);
+const asEpochOrNull = (v) => (Number.isInteger(Number(v)) && v !== null && v !== undefined ? Number(v) : null);
 
 function loadCursor() {
     if (!existsSync(CURSOR)) return blank();
@@ -164,7 +193,12 @@ function loadCursor() {
         if (!old || String(oldAddress || "").toLowerCase() !== base.sources[s].address) {
             continue;
         }
-        base.sources[s] = {...base.sources[s], ...old, address: base.sources[s].address};
+        base.sources[s] = {
+            ...base.sources[s],
+            throughTs: old.throughTs || base.sources[s].throughTs,
+            anchoredThrough: asEpochOrNull(old.anchoredThrough),
+            pendingCheckpoints: asEpochList(old.pendingCheckpoints),
+        };
     }
     base.published = Number(j.published) || 0;
     return base;
@@ -177,7 +211,8 @@ if (has("--from")) {
         cursor.sources[s] = {
             ...cursor.sources[s],
             throughTs: from + ".0",
-            checkpointedThrough: null,
+            anchoredThrough: null,
+            pendingCheckpoints: [],
         };
     }
     console.log(`rebuilding from consensus timestamp ${from}`);
@@ -185,33 +220,52 @@ if (has("--from")) {
 
 // ------------------------------------------------------------ what is on it
 
-/// Everything the topic already carries, as dedupe keys.
+/// Everything the topic already carries, as dedupe keys, and how far each
+/// source's anchors and checkpoints reach.
 ///
 /// The cursor alone would do in the ordinary case. This is the belt: a lost or
 /// hand-edited cursor would otherwise republish an epoch, and a receipt stream
 /// with the same charge on two sequence numbers is a stream a reader has to
 /// clean before they can count. Reading the topic back is one paged listing at
 /// startup and it makes double publication impossible rather than unlikely.
+///
+/// `covered[src]` is where anchoring resumes: the last epoch an anchor on the
+/// topic reaches, or, on a topic that predates anchors, the last epoch a
+/// checkpoint printed. Two anchors over the same epoch would be two claims
+/// about one fact, and the topic rather than a file is what rules them out.
 async function alreadyPublished() {
     const seen = new Set();
     let dropped = 0;
+    const anchoredTo = {};
+    const checkpointedAt = {};
     const rows = await paged(
         c.network.mirror,
         `/api/v1/topics/${encodeURIComponent(topic.topicId)}/messages?order=asc&limit=100`,
         "messages");
     for (const m of rows) {
-        let text;
+        let rec;
         try {
-            text = Buffer.from(m.message, "base64").toString("utf8");
-            seen.add(keyOf(decode(text)));
+            rec = decode(Buffer.from(m.message, "base64").toString("utf8"));
         } catch (e) {
             // A message this relay cannot parse is still on the topic, and
             // saying so is the point: it means either an older schema or
             // somebody else's write, and a reader deserves the count.
             dropped++;
+            continue;
+        }
+        seen.add(keyOf(rec));
+        if (rec.k === "anchor") {
+            anchoredTo[rec.c] = Math.max(anchoredTo[rec.c] ?? -1, rec.to);
+        } else if (rec.k === "checkpoint") {
+            checkpointedAt[rec.c] = Math.max(checkpointedAt[rec.c] ?? -1, rec.e);
         }
     }
-    return {seen, count: rows.length, dropped};
+    const covered = {};
+    for (const s of SOURCES) {
+        covered[s] = anchoredTo[s] !== undefined ? anchoredTo[s]
+            : checkpointedAt[s] !== undefined ? checkpointedAt[s] : null;
+    }
+    return {seen, count: rows.length, dropped, covered};
 }
 
 // ------------------------------------------------------------- the chain read
@@ -409,18 +463,18 @@ async function recordsFor(src, fromTs, toTs) {
     return out;
 }
 
-/// The checkpoints one pass owes, and the two reasons a checkpoint exists.
+/// The checkpoints one pass owes: one per closed epoch that carried a record.
 ///
-/// **An anchor.** Every epoch this pass produced a record in gets one, because
-/// that is the epoch whose sum a verifier reconciles: without it a dropped
-/// charge is only "fewer records than you expected", and with it the published
-/// charges have to add up to a number the relay does not write.
+/// That is the epoch a reader wants the numbers for. Without it a dropped charge
+/// is only "fewer records than you expected"; with it the published charges have
+/// to add up to a number the relay does not write. An epoch whose record landed
+/// while it was still open waits in `pendingCheckpoints` until it closes, so
+/// its `spentBits` is final when printed.
 ///
-/// **A heartbeat.** The most recent closed epoch gets one too, whether or not
-/// anything happened in it. That is what makes a stalled relay visible: the
-/// checkpoint series stops, and a reader can see where. Quiet epochs in between
-/// are not backfilled, because a hundred identical zero rows would bury the gap
-/// rather than show it.
+/// Quiet epochs get no checkpoint. They used to get one each as a heartbeat,
+/// which at a five-minute epoch was 576 messages a day that said nothing, and
+/// which buried the gap a stalled relay leaves under identical zero rows. The
+/// anchors below cover them instead: every epoch, one hash, once an hour.
 async function checkpointsFor(src, epochs, blk) {
     const address = String(c.addresses[SOURCE_ADDRESS_KEY[src]]).toLowerCase();
     const rowsWanted = [...(ROWS_OF[src] || [])].sort((a, b) => a - b);
@@ -432,6 +486,55 @@ async function checkpointsFor(src, epochs, blk) {
         out.push({v: SCHEMA_VERSION, k: "checkpoint", c: src, a: address, e, blk, rows});
     }
     return out;
+}
+
+/// Every `spentBits(row, epoch)` cell in a closed range, read in waves that fit
+/// the provider's batch size. A closed epoch's cells are final, so when they are
+/// read does not matter; that they are all read does, and `anchorPreimage`
+/// refuses a missing one rather than hashing a zero in its place.
+async function cellsFor(src, rows, from, to) {
+    const wanted = [];
+    for (let e = from; e <= to; e++) for (const row of rows) wanted.push({row, e});
+    const cells = new Map();
+    for (let i = 0; i < wanted.length; i += 50) {
+        const wave = wanted.slice(i, i + 50);
+        const values = await Promise.all(wave.map(({row, e}) => meters[src].spentBits(row, e)));
+        wave.forEach(({row, e}, j) => cells.set(row + ":" + e, Number(values[j])));
+    }
+    return cells;
+}
+
+/// The anchors one source owes, and the two things an anchor is for.
+///
+/// **Coverage.** Every closed epoch after `anchoredThrough` ends up inside
+/// exactly one anchor, in spans of at most `MAX_ANCHOR_SPAN`. The verifier
+/// reads the same cells back off the contract and recomputes the hash, so a
+/// charge the relay never published breaks a hash the relay did not write.
+/// That is the omission check, for every epoch, at one message an hour.
+///
+/// **A heartbeat that says something.** The anchor series is where a stalled
+/// relay shows: the range an anchor covers is compared with the epoch it reached
+/// consensus in, and a relay that publishes an hour's anchor two days late has
+/// published a record of its own outage.
+///
+/// Nothing is published until `ANCHOR_EVERY` epochs have closed since the last
+/// anchor, and a range is never extended into the open epoch: its cells could
+/// still move, and an anchor over them would be a hash of a guess.
+async function anchorsFor(src, anchoredThrough, closedEpoch) {
+    const address = String(c.addresses[SOURCE_ADDRESS_KEY[src]]).toLowerCase();
+    const rows = [...(ROWS_OF[src] || [])].sort((a, b) => a - b);
+    const out = [];
+    let through = anchoredThrough;
+    while (rows.length && closedEpoch - through >= ANCHOR_EVERY) {
+        const from = through + 1;
+        const to = Math.min(closedEpoch, from + MAX_ANCHOR_SPAN - 1);
+        const cells = await cellsFor(src, rows, from, to);
+        const h = keccak256(anchorPreimage(from, to, rows, (row, e) => cells.get(row + ":" + e)));
+        const blk = await chain.provider.getBlockNumber();
+        out.push({v: SCHEMA_VERSION, k: "anchor", c: src, a: address, from, to, blk, rows, h});
+        through = to;
+    }
+    return {records: out, through};
 }
 
 // ------------------------------------------------------------------- publish
@@ -472,13 +575,25 @@ async function pass() {
         const records = await recordsFor(src, cur.throughTs, toTs);
 
         const closedEpoch = epochAt(nowSeconds, EPOCH_ORIGIN, EPOCH_PERIOD) - 1;
-        const anchors = records.filter((r) => r.e !== undefined).map((r) => r.e);
-        const wanted = anchors.filter((e) => e <= closedEpoch);
-        if (closedEpoch >= 0 && cur.checkpointedThrough !== closedEpoch) wanted.push(closedEpoch);
+
+        // Checkpoints: every epoch that carried a record, once it has closed.
+        const epochsWithRecords = records.filter((r) => r.e !== undefined).map((r) => r.e);
+        const due = [...new Set([...cur.pendingCheckpoints, ...epochsWithRecords])];
+        const wanted = due.filter((e) => e <= closedEpoch);
+        const stillOpen = due.filter((e) => e > closedEpoch);
         if (wanted.length) {
             const blk = await chain.provider.getBlockNumber();
             records.push(...await checkpointsFor(src, wanted, blk));
         }
+
+        // Anchors: every closed epoch since the last one, once an hour's worth
+        // has closed. On a topic with nothing for this source yet, anchoring
+        // starts at the epoch the relay's own window starts in.
+        if (cur.anchoredThrough === null) {
+            cur.anchoredThrough = epochAt(cur.throughTs, EPOCH_ORIGIN, EPOCH_PERIOD) - 1;
+        }
+        const anchored = await anchorsFor(src, cur.anchoredThrough, closedEpoch);
+        records.push(...anchored.records);
 
         for (const rec of records) {
             let text;
@@ -510,7 +625,8 @@ async function pass() {
         // last record seen would leave a relay on a quiet venue re-scanning the
         // same widening window on every pass, forever.
         cur.throughTs = toTs;
-        if (closedEpoch >= 0) cur.checkpointedThrough = closedEpoch;
+        cur.pendingCheckpoints = stillOpen.sort((a, b) => a - b);
+        cur.anchoredThrough = anchored.through;
     }
 
     cursor.published += published;
@@ -536,6 +652,21 @@ try {
     console.log(`topic ${topic.topicId}: ${on.count} message${on.count === 1 ? "" : "s"} already on it` +
         (on.dropped ? `, ${on.dropped} this relay could not parse` : "") +
         (DRY ? "  (dry run, nothing will be submitted)" : ""));
+
+    // Anchoring resumes from the later of what the topic shows and what the
+    // cursor remembers. The topic wins over a stale cursor, which is what stops
+    // two anchors covering one epoch; the cursor wins over a mirror node that
+    // has not yet indexed the anchor this process submitted seconds ago.
+    for (const src of SOURCES) {
+        const cur = cursor.sources[src];
+        const onTopic = on.covered[src];
+        if (onTopic !== null) {
+            cur.anchoredThrough = cur.anchoredThrough === null ? onTopic : Math.max(cur.anchoredThrough, onTopic);
+        }
+        console.log(`  ${src}: ` + (cur.anchoredThrough === null
+            ? "nothing anchored or checkpointed yet; anchoring starts with the relay's window"
+            : `anchored through epoch ${cur.anchoredThrough}, one anchor per ${ANCHOR_EVERY} closed epoch${ANCHOR_EVERY === 1 ? "" : "s"}`));
+    }
 
     for (let n = 1; !stop; n++) {
         const t0 = Date.now();

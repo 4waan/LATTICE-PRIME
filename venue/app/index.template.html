@@ -465,12 +465,218 @@ document.documentElement.setAttribute("data-theme",
   </div>
 </section>
 
-<!-- ============ 4 · the receipt ============ -->
+<!-- ============ 4 · the disclosure lattice ============ -->
+<section class="frame lattice-frame" id="lattice">
+  <div class="wrap">
+    <div class="lattice-composition">
+      <div class="lattice-copy rise">
+        <p class="kicker">The disclosure lattice</p>
+        <h2>Every disclosure changes what can be known.</h2>
+        <p>A market print can reveal a summary now or exact detail later. Tap the grid to see what this example policy permits.</p>
+      </div>
+
+      <figure class="lattice-instrument rise" data-lattice-surface="landing" data-policy="combined" data-g="2" data-t="1" data-result="inside">
+        <div class="lattice-instrument-head">
+          <p>Illustrative policy</p>
+        </div>
+
+        <div class="lattice-grid-layout">
+          <div class="lattice-y-axis" aria-hidden="true">
+            <span>Print detail</span>
+            <svg viewBox="0 0 12 120">
+              <path d="M6 116V5m0 0L2 11m4-6l4 6"/>
+            </svg>
+          </div>
+
+          <div class="lattice-grid-body">
+            <div class="lattice-matrix" data-lattice-matrix role="group" aria-label="Select print detail and publication timing">
+              <span class="lattice-corner" aria-hidden="true"></span>
+              <span class="lattice-col" aria-hidden="true">Before</span>
+              <span class="lattice-col" aria-hidden="true">Now</span>
+              <span class="lattice-col" aria-hidden="true">+15 min</span>
+              <span class="lattice-col" aria-hidden="true">Day close</span>
+              <span class="lattice-col" aria-hidden="true">Epoch</span>
+              <span class="lattice-col" aria-hidden="true">Never</span>
+
+              <span class="lattice-row" aria-hidden="true">Exact value</span>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="4" data-t="0" data-membership="none" data-permitted="false" aria-label="Exact value, Before" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="4" data-t="1" data-membership="none" data-permitted="false" aria-label="Exact value, Now" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="4" data-t="2" data-membership="none" data-permitted="false" aria-label="Exact value, plus 15 minutes" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="4" data-t="3" data-membership="b" data-permitted="true" aria-label="Exact value, Day close" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="4" data-t="4" data-membership="b" data-permitted="true" aria-label="Exact value, Epoch" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="4" data-t="5" data-membership="b" data-permitted="true" aria-label="Exact value, Never" aria-pressed="false"></button>
+
+              <span class="lattice-row" aria-hidden="true">Range</span>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="3" data-t="0" data-membership="none" data-permitted="false" aria-label="Range, Before" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="3" data-t="1" data-membership="none" data-permitted="false" aria-label="Range, Now" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="3" data-t="2" data-membership="none" data-permitted="false" aria-label="Range, plus 15 minutes" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="3" data-t="3" data-membership="b" data-permitted="true" aria-label="Range, Day close" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="3" data-t="4" data-membership="b" data-permitted="true" aria-label="Range, Epoch" aria-pressed="false"></button>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="3" data-t="5" data-membership="b" data-permitted="true" aria-label="Range, Never" aria-pressed="false"></button>
+
+              <span class="lattice-row" aria-hidden="true">Summary</span>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="2" data-t="0" data-membership="none" data-permitted="false" aria-label="Summary, Before" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied is-selected" type="button" disabled tabindex="-1" data-lattice-cell data-g="2" data-t="1" data-membership="a" data-permitted="true" aria-label="Summary, Now" aria-pressed="true"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="2" data-t="2" data-membership="a" data-permitted="true" aria-label="Summary, plus 15 minutes" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="2" data-t="3" data-membership="both" data-permitted="true" aria-label="Summary, Day close" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="2" data-t="4" data-membership="both" data-permitted="true" aria-label="Summary, Epoch" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="2" data-t="5" data-membership="both" data-permitted="true" aria-label="Summary, Never" aria-pressed="false"></button>
+
+              <span class="lattice-row" aria-hidden="true">Yes/no</span>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="1" data-t="0" data-membership="none" data-permitted="false" aria-label="Yes or no, Before" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="1" data-t="1" data-membership="a" data-permitted="true" aria-label="Yes or no, Now" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="1" data-t="2" data-membership="a" data-permitted="true" aria-label="Yes or no, plus 15 minutes" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="1" data-t="3" data-membership="both" data-permitted="true" aria-label="Yes or no, Day close" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="1" data-t="4" data-membership="both" data-permitted="true" aria-label="Yes or no, Epoch" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="1" data-t="5" data-membership="both" data-permitted="true" aria-label="Yes or no, Never" aria-pressed="false"></button>
+
+              <span class="lattice-row" aria-hidden="true">None</span>
+              <button class="lattice-cell" type="button" disabled tabindex="-1" data-lattice-cell data-g="0" data-t="0" data-membership="none" data-permitted="false" aria-label="None, Before" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="0" data-t="1" data-membership="a" data-permitted="true" aria-label="None, Now" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="0" data-t="2" data-membership="a" data-permitted="true" aria-label="None, plus 15 minutes" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="0" data-t="3" data-membership="both" data-permitted="true" aria-label="None, Day close" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="0" data-t="4" data-membership="both" data-permitted="true" aria-label="None, Epoch" aria-pressed="false"></button>
+              <button class="lattice-cell is-implied" type="button" disabled tabindex="-1" data-lattice-cell data-g="0" data-t="5" data-membership="both" data-permitted="true" aria-label="None, Never" aria-pressed="false"></button>
+            </div>
+
+            <div class="lattice-x-axis" aria-hidden="true">
+              <span>When it can be published</span>
+              <svg viewBox="0 0 180 12">
+                <path d="M2 6h174m0 0l-7-4m7 4l-7 4"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="lattice-legend" aria-label="Policy and selection key">
+          <span><i class="lattice-swatch lattice-swatch-aggregate" aria-hidden="true"></i>Aggregate now</span>
+          <span><i class="lattice-swatch lattice-swatch-exact" aria-hidden="true"></i>Exact at EOD</span>
+          <span><i class="lattice-swatch lattice-swatch-selection" aria-hidden="true"></i>Your selection</span>
+          <span><i class="lattice-swatch lattice-swatch-forbidden" aria-hidden="true"></i>Outside policy</span>
+        </div>
+
+        <div class="lattice-policy-slider" data-lattice-policy-control hidden>
+          <div class="lattice-slider-wire">
+            <span class="lattice-slider-rail" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <input id="lattice-policy-slider" type="range" min="0" max="2" step="1" value="2" disabled data-lattice-policy-slider aria-label="Illustrative disclosure policy" aria-valuetext="Combined policy" aria-describedby="lattice-policy-labels">
+          </div>
+          <div class="lattice-slider-labels" id="lattice-policy-labels">
+            <span data-lattice-policy-label="aggregate">Aggregate now</span>
+            <span data-lattice-policy-label="exact-eod">Exact at EOD</span>
+            <span data-lattice-policy-label="combined" data-active="true">Combined policy</span>
+          </div>
+        </div>
+
+        <p class="lattice-live-result" data-lattice-result-line aria-live="polite" aria-atomic="true" hidden>
+          <strong data-lattice-result>Within policy</strong>
+          <span data-lattice-result-explanation>Summary can be published now under this example policy.</span>
+        </p>
+
+        <div class="lattice-actions">
+          <button type="button" class="lattice-math-open" data-lattice-open hidden>Explore the math</button>
+          <p>Venue publications only. Underlying blockchain activity remains public.</p>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<dialog class="lattice-dialog" id="lattice-dialog" aria-labelledby="lattice-dialog-title">
+  <div class="lattice-dialog-shell">
+    <header class="lattice-dialog-head">
+      <div>
+        <p class="kicker">Disclosure policy</p>
+        <h2 id="lattice-dialog-title">How the disclosure lattice works</h2>
+      </div>
+      <button type="button" class="lattice-dialog-close" data-lattice-close aria-label="Close disclosure lattice explanation">&times;</button>
+    </header>
+
+    <div class="lattice-tabs" role="tablist" aria-label="Disclosure lattice topics">
+      <button type="button" role="tab" id="lattice-tab-policy" aria-controls="lattice-panel-policy" aria-selected="true" tabindex="0">Policy math</button>
+      <button type="button" role="tab" id="lattice-tab-budget" aria-controls="lattice-panel-budget" aria-selected="false" tabindex="-1">Publication budgets</button>
+    </div>
+
+    <section class="lattice-tab-panel" id="lattice-panel-policy" role="tabpanel" aria-labelledby="lattice-tab-policy">
+      <div class="lattice-popup-policy" data-lattice-surface="popup" data-policy="combined" data-g="2" data-t="1" data-result="inside">
+        <div class="lattice-popup-controls" aria-label="Choose an illustrative ceiling">
+          <button type="button" data-lattice-policy="aggregate" aria-pressed="false">Aggregate now</button>
+          <button type="button" data-lattice-policy="exact-eod" aria-pressed="false">Exact at EOD</button>
+          <button type="button" data-lattice-policy="combined" aria-pressed="true">Combined policy</button>
+        </div>
+
+        <div class="lattice-popup-grid" data-lattice-popup-grid></div>
+
+        <div class="lattice-popup-key" aria-label="Policy math key">
+          <span><i class="lattice-swatch lattice-swatch-policy" aria-hidden="true"></i>Permitted cells</span>
+          <span><i class="lattice-swatch lattice-swatch-implied" aria-hidden="true"></i>Candidate closure</span>
+          <span><i class="lattice-swatch lattice-swatch-forbidden" aria-hidden="true"></i>Outside ceiling</span>
+        </div>
+
+        <div class="lattice-popup-notation">
+          <code>A = ↓(aggregate, immediate)</code>
+          <code>B = ↓(exact, EOD)</code>
+          <code>Combined = A ∪ B</code>
+        </div>
+        <p class="lattice-popup-downset"><strong>↓ includes</strong> the selected cell and every coarser, later cell.</p>
+
+        <div class="lattice-popup-check">
+          <div>
+            <code data-lattice-ceiling>ceiling = A ∪ B</code>
+            <code data-lattice-actual>actual = ↓(aggregate, immediate)</code>
+          </div>
+          <p class="lattice-result" data-lattice-result-line aria-live="polite" aria-atomic="true">
+            <strong data-lattice-result>Within policy</strong>
+            <span data-lattice-result-explanation>Every cell implied by this publication fits within the selected policy.</span>
+          </p>
+          <code>Allowed iff actual ⊆ ceiling</code>
+        </div>
+
+        <details class="lattice-contract-representation">
+          <summary>Contract representation</summary>
+          <ul>
+            <li><code>cell index = 6g + t</code></li>
+            <li><code>join = A | B</code></li>
+            <li><code>meet = A &amp; B</code></li>
+            <li><code>permitted = (actual | ceiling) == ceiling</code></li>
+            <li><code>excess = actual &amp; ~ceiling</code></li>
+            <li><code>30 cells packed into uint32</code></li>
+          </ul>
+        </details>
+
+        <div class="lattice-qualifications">
+          <p>Granularity levels describe configured disclosures for one policy row.</p>
+          <p>Join combines represented permissions or capabilities, not every possible inference.</p>
+          <p>Timing categories do not themselves schedule publications.</p>
+          <p>Policy floors do not automatically force publication.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="lattice-tab-panel" id="lattice-panel-budget" role="tabpanel" aria-labelledby="lattice-tab-budget" hidden>
+      <div class="lattice-budget-explainer">
+        <p class="kicker">A separate check</p>
+        <h3>Repeated publications have a budget.</h3>
+        <p>The lattice checks permitted detail and timing. For metered rows, a separate counter charges publications against a configured epoch budget.</p>
+        <code class="lattice-budget-formula">spent + cost ≤ budget</code>
+        <ul>
+          <li>Costs are configured accounting charges, not measured total information leakage.</li>
+          <li>A zero configured budget means unmetered.</li>
+          <li>Accounting is per row and epoch within each contract&rsquo;s meter.</li>
+          <li>Passing the lattice check does not establish budget affordability.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</dialog>
+
+<!-- ============ 5 · the receipt ============ -->
 <section class="frame" id="receipt">
   <div class="wrap receipt-split">
     <div class="receipt-copy rise">
       <p class="kicker">The record</p>
-      <h2>Privacy is a scale, not a toggle</h2>
+      <h2>What the venue withheld is verifiable.</h2>
       <p>A blunt hide-or-show choice does not work for regulated collateral. Each venue publication draws from a governed limit. When that limit is gone, the event is withheld while the valid transaction still completes.</p>
       <p>That silence is written to a Hedera consensus topic, so an independent verifier can check it against the transaction and disclosure limit.</p>
       <p>The lattice governs venue events. Contract storage, transaction inputs, token transfers, and wallet activity remain public.</p>
@@ -525,7 +731,7 @@ document.documentElement.setAttribute("data-theme",
   </div>
 </section>
 
-<!-- ============ 5 · trader outcomes on Hedera ============ -->
+<!-- ============ 6 · trader outcomes on Hedera ============ -->
 <section class="frame" id="chain">
   <div class="wrap">
     <div class="frame-head rise">
@@ -559,7 +765,7 @@ document.documentElement.setAttribute("data-theme",
   </div>
 </section>
 
-<!-- ============ 6 · the next order ============ -->
+<!-- ============ 7 · the next order ============ -->
 <section class="frame closing" id="start">
   <div class="wrap">
     <div class="frame-head rise">

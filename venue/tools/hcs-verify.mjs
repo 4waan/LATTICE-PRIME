@@ -2,6 +2,7 @@
 //
 //   node tools/hcs-verify.mjs             # the table, and a non-zero exit on a mismatch
 //   node tools/hcs-verify.mjs --json      # the same result as JSON
+//   node tools/hcs-verify.mjs --since 900 # skip anchors and checkpoints that close before epoch 900
 //
 // This is the piece that makes the topic evidence rather than decoration.
 // `tools/hcs-relay.mjs` holds the submit key, so a reader has no reason to take
@@ -27,24 +28,49 @@
 //      carries the selector the record names, the row it claims was withheld
 //      carries no charge in that transaction, and the budget it names is the one
 //      `ParameterRoot` publishes.
+//   5. **An anchor is the chain's own hash.** Anchors tile the epochs without a
+//      gap or an overlap, none reaches into an epoch that was still open when it
+//      was written, and every `spentBits` cell in the range, read back off the
+//      contract, hashes to the `h` the record carries. Inside an anchored range
+//      every cell also has to equal the charges the topic published for it, so
+//      the omission check in (3) holds for every epoch and not only for the
+//      epochs the relay printed a checkpoint for.
+//   6. **The index is the topic.** If `deployments/hcs-index.json` exists, its
+//      digest, its `running_hash` and its projection are rebuilt from the topic
+//      and compared. That is the "rebuild the state from the mirror node and
+//      compare it against what your application believes" test, run against the
+//      one artefact the app boots from.
 //
 // What it cannot check is liveness. A relay that stops publishes nothing false;
-// it publishes nothing. The checkpoint series makes the gap visible and no test
+// it publishes nothing. The anchor series makes the gap visible and no test
 // here can close it, which is stated in `docs/HCS-SCOPE.md` rather than hidden
 // behind a passing table.
+import {existsSync, readFileSync} from "node:fs";
+import {join} from "node:path";
 import {keccak256} from "ethers";
 import {
-    client, mirror, paged, epochAt, reader, readTopic, policyHistory, effectiveFrom,
+    ROOT, client, mirror, paged, epochAt, reader, readTopic, policyHistory, effectiveFrom,
 } from "./hcs-chain.mjs";
 import {bits} from "./lattice.mjs";
 import {
     SITES, SOURCE_ADDRESS_KEY, MAX_CHUNK,
-    auditRecord, decode, encode, keyOf, RecordError,
+    auditRecord, auditAnchor, decode, encode, keyOf, RecordError,
     assertSiteAddresses, assertSiteDeployments,
 } from "./hcs.mjs";
+import {project, digestOf, same, comparable} from "./hcs-project.mjs";
+
+const INDEX_PATH = join(ROOT, "deployments/hcs-index.json");
 
 const args = process.argv.slice(2);
 const JSON_OUT = args.includes("--json");
+// Anchors and checkpoints that close before this epoch are listed but not read
+// back. Every anchored epoch costs one `eth_call` per row to re-derive, so a
+// long history is bounded here rather than by giving up on the check.
+const SINCE = (() => {
+    const i = args.indexOf("--since");
+    const v = i >= 0 ? Number(args[i + 1]) : 0;
+    return Number.isInteger(v) && v >= 0 ? v : 0;
+})();
 
 const c = client();
 assertSiteAddresses(c.addresses);
@@ -188,7 +214,7 @@ async function spentOf(src, address, row, epoch) {
 // comparison lives there rather than here so the Rulebook screen's tick and this
 // table's `pass` are the same function, checked by the same vectors.
 for (const {seq, rec} of records) {
-    if (rec.k === "checkpoint") continue;
+    if (rec.k === "checkpoint" || rec.k === "anchor") continue;
     const where = `sequence ${seq} (${rec.k})`;
     const res = await resultOf(rec.tx);
     if (res.__error) {
@@ -226,11 +252,27 @@ for (const {seq, rec} of records) {
 }
 
 const checkpoints = new Map();
-for (const {rec} of records) {
+const anchorsBySource = new Map();
+for (const {seq, rec, consensus} of records) {
     if (rec.k === "checkpoint") {
         checkpoints.set(`${rec.c}:${addressOf(rec)}:${rec.e}`, rec);
+    } else if (rec.k === "anchor") {
+        const k = `${rec.c}:${addressOf(rec)}`;
+        if (!anchorsBySource.has(k)) anchorsBySource.set(k, []);
+        anchorsBySource.get(k).push({seq, rec, consensus});
     }
 }
+
+/// Whether an epoch sits inside a range some anchor on the topic covers. An
+/// anchored epoch is held to the same exact equality a checkpointed one is.
+const anchored = (src, address, epoch) =>
+    (anchorsBySource.get(`${src}:${address}`) || [])
+        .some(({rec}) => rec.from <= Number(epoch) && Number(epoch) <= rec.to);
+
+/// What the topic says each cell spent: the end of the chained running totals
+/// for every `(source, address, row, epoch)` that has at least one charge on
+/// the topic. Cells absent from this map had nothing published for them.
+const publishedTotal = new Map();
 
 for (const [k, list] of byMeter) {
     const [src, address, row, epoch] = k.split(":");
@@ -243,23 +285,26 @@ for (const [k, list] of byMeter) {
         if (running + x.cost !== x.after) { chained = false; break; }
         running = x.after;
     }
+    publishedTotal.set(k, running);
     note(`${src} row ${row} epoch ${epoch}: the running totals chain from zero`, chained,
         chained ? `${list.length} charge${list.length === 1 ? "" : "s"}, ${running} bits` : "a charge is missing");
 
     const onChain = await spentOf(src, address, row, epoch);
     const cp = checkpoints.get(`${src}:${address}:${epoch}`);
-    if (cp) {
-        // The omission check. A closed epoch the topic checkpointed has to add
-        // up, exactly, against a number the relay does not write.
+    if (cp || anchored(src, address, epoch)) {
+        // The omission check. A closed epoch the topic checkpointed or anchored
+        // has to add up, exactly, against a number the relay does not write.
         note(`${src} row ${row} epoch ${epoch}: published charges equal spentBits`,
             running === onChain, `published ${running}, spentBits ${onChain}`);
-        note(`${src} row ${row} epoch ${epoch}: the checkpoint agrees with spentBits`,
-            Number(cp.rows[row] || 0) === onChain, `checkpoint ${cp.rows[row]}, spentBits ${onChain}`);
     } else {
-        // An epoch still open, or one the relay has not checkpointed yet. It can
+        // An epoch still open, or one the relay has not anchored yet. It can
         // still not have published more than the chain shows.
         note(`${src} row ${row} epoch ${epoch}: published charges do not exceed spentBits`,
             running <= onChain, `published ${running}, spentBits ${onChain}`);
+    }
+    if (cp) {
+        note(`${src} row ${row} epoch ${epoch}: the checkpoint agrees with spentBits`,
+            Number(cp.rows[row] || 0) === onChain, `checkpoint ${cp.rows[row]}, spentBits ${onChain}`);
     }
 }
 
@@ -267,7 +312,9 @@ for (const [k, list] of byMeter) {
 // claims a row was quiet when the meter says otherwise is the same omission
 // dressed differently.
 const checkpointReads = [];
+let skippedCheckpoints = 0;
 for (const cp of checkpoints.values()) {
+    if (cp.e < SINCE) { skippedCheckpoints++; continue; }
     for (const row of Object.keys(cp.rows)) {
         checkpointReads.push({cp, row});
     }
@@ -291,6 +338,113 @@ for (let i = 0; i < checkpointReads.length; i += 50) {
     }
 }
 
+// ------------------------------------------------------------------ anchors
+//
+// An anchor is one hash over every `spentBits` cell in a closed range of
+// epochs. Three things have to hold. The anchors on the topic tile: each one
+// starts the epoch after the previous one ended, so no epoch is covered twice
+// and no epoch between the first anchor and the last is covered by nothing.
+// None reaches into an epoch that was still open at its consensus timestamp,
+// because an open epoch's cells can still move. And the cells, read back off
+// the contract, hash to the `h` the record carries, which is `auditAnchor`, the
+// same function the vectors in `tools/hcs.test.mjs` hold to fixture cells.
+//
+// Reading the cells back also answers the omission question for every epoch in
+// the range: a cell the contract says was charged must have exactly that much
+// published for it on the topic, and a cell with nothing published must be
+// zero. That is one assertion per anchor here, with the mismatching cells named
+// in the detail, rather than one per cell, because a day's anchor is 2,592
+// cells and a table of 2,592 identical passes hides the one that failed.
+let skippedAnchors = 0;
+for (const [k, list] of anchorsBySource) {
+    const [src, address] = k.split(":");
+    list.sort((a, b) => a.rec.from - b.rec.from || a.seq - b.seq);
+    for (let i = 1; i < list.length; i++) {
+        const prev = list[i - 1].rec;
+        const cur = list[i].rec;
+        note(`${src} anchor ${cur.from}-${cur.to} follows ${prev.from}-${prev.to} without gap or overlap`,
+            cur.from === prev.to + 1,
+            cur.from === prev.to + 1 ? "" : `starts at ${cur.from}, the previous ended at ${prev.to}`);
+    }
+    for (const {seq, rec, consensus} of list) {
+        const where = `sequence ${seq} (${src} anchor ${rec.from}-${rec.to})`;
+        if (rec.to < SINCE) { skippedAnchors++; continue; }
+        const cells = new Map();
+        const wanted = [];
+        for (let e = rec.from; e <= rec.to; e++) for (const row of rec.rows) wanted.push({row, e});
+        for (let i = 0; i < wanted.length; i += 50) {
+            const wave = wanted.slice(i, i + 50);
+            const values = await Promise.all(wave.map(({row, e}) => spentOf(src, address, row, e)));
+            wave.forEach(({row, e}, j) => cells.set(row + ":" + e, values[j]));
+        }
+        const ctx = {
+            address,
+            closedEpoch: epochAt(consensus, EPOCH_ORIGIN, EPOCH_PERIOD) - 1,
+            valueAt: (row, e) => cells.get(row + ":" + e),
+            hash: keccak256,
+        };
+        for (const x of auditAnchor(rec, ctx)) note(`${where} ${x.name}`, x.pass, x.detail);
+
+        const mismatches = [];
+        let charged = 0;
+        for (const {row, e} of wanted) {
+            const onChain = cells.get(row + ":" + e);
+            const published = publishedTotal.get(`${src}:${address}:${row}:${e}`) || 0;
+            if (onChain > 0) charged++;
+            if (published !== onChain) mismatches.push(`row ${row} epoch ${e}: published ${published}, spentBits ${onChain}`);
+        }
+        note(`${where} published charges equal spentBits in every cell`, mismatches.length === 0,
+            mismatches.length
+                ? mismatches.slice(0, 5).join("; ") + (mismatches.length > 5 ? `; and ${mismatches.length - 5} more` : "")
+                : `${wanted.length} cells, ${charged} charged`);
+    }
+}
+
+// -------------------------------------------------------------------- index
+//
+// The committed projection is what the Issuer screen boots from, so it gets the
+// article's closing test in full: rebuild it from the mirror node and compare it
+// against what the app believes. Four assertions. The index claims no message
+// the topic lacks; its digest is the digest of the topic's bytes to that
+// sequence; its running hash is the network's at that sequence; and the fold
+// over those messages is, field for field, the file. A stale index passes (it
+// is a true statement about a prefix); a wrong one does not.
+let indexChecked = null;
+if (existsSync(INDEX_PATH)) {
+    const committed = JSON.parse(readFileSync(INDEX_PATH, "utf8"));
+    indexChecked = {throughSequence: Number(committed.throughSequence) || 0, head: raw.length};
+    if (committed.topicId !== topic.topicId) {
+        note("the committed index names this topic", false, `index ${committed.topicId}, topic ${topic.topicId}`);
+    } else {
+        const through = indexChecked.throughSequence;
+        const head = raw.length ? Number(raw[raw.length - 1].sequence_number) : 0;
+        note("the committed index claims no message the topic lacks", through <= head,
+            `index through ${through}, topic head ${head}`);
+        const prefix = raw.slice(0, Math.min(through, raw.length));
+        note("the committed digest is the digest of the topic's bytes", digestOf(prefix) === committed.digest,
+            `topic ${digestOf(prefix)}, index ${committed.digest}`);
+        const last = prefix[prefix.length - 1];
+        note("the committed running hash is the mirror node's at that sequence",
+            (last ? last.running_hash : null) === committed.runningHash,
+            last ? `mirror ${last.running_hash}` : "no messages");
+        try {
+            const rebuilt = project(topic.topicId, prefix);
+            const agree = same(rebuilt, committed);
+            let detail = `${rebuilt.messages} messages, ${Object.entries(rebuilt.kinds).map(([k, n]) => `${n} ${k}`).join(", ")}`;
+            if (!agree) {
+                const a = comparable(rebuilt);
+                const b = comparable(committed);
+                const k = [...new Set([...Object.keys(a), ...Object.keys(b)])]
+                    .find((key) => JSON.stringify(a[key]) !== JSON.stringify(b[key]));
+                detail = `first difference at ${k}`;
+            }
+            note("the committed projection is the projection of the topic", agree, detail);
+        } catch (e) {
+            note("the committed projection is the projection of the topic", false, e.message);
+        }
+    }
+}
+
 // -------------------------------------------------------------------- report
 
 chain.close();
@@ -299,6 +453,8 @@ const failed = checks.filter((x) => !x.pass);
 const kinds = {};
 for (const {rec} of records) kinds[rec.k] = (kinds[rec.k] || 0) + 1;
 
+const skipped = {since: SINCE, anchors: skippedAnchors, checkpoints: skippedCheckpoints};
+
 if (JSON_OUT) {
     console.log(JSON.stringify({
         topicId: topic.topicId,
@@ -306,6 +462,8 @@ if (JSON_OUT) {
         messages: raw.length,
         records: records.length,
         kinds,
+        skipped,
+        index: indexChecked,
         assertions: checks.length,
         failures: failed.length,
         checks,
@@ -315,6 +473,10 @@ if (JSON_OUT) {
     console.log(`\ntopic ${topic.topicId}  ${topic.memo}`);
     console.log(`${raw.length} message${raw.length === 1 ? "" : "s"}, ` +
         Object.entries(kinds).map(([k, n]) => `${n} ${k}`).join(", ") || "nothing on it yet");
+    if (SINCE) {
+        console.log(`--since ${SINCE}: ${skippedAnchors} anchor${skippedAnchors === 1 ? "" : "s"} and ` +
+            `${skippedCheckpoints} checkpoint${skippedCheckpoints === 1 ? "" : "s"} closing before it were not read back`);
+    }
     console.log("-".repeat(w + 12));
     for (const x of checks) {
         console.log(`${x.pass ? "pass" : "FAIL"}  ${x.name.padEnd(w)}${x.detail ? "  " + x.detail : ""}`);
