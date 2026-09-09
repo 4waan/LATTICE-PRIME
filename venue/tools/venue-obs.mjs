@@ -1066,6 +1066,21 @@ Venue.refreshOracle = async function () {
     if (!box) return;
     const {oracle, watch} = Venue.c;
     if (!oracle) {
+        if (Venue.page === "trade") {
+            const unavailable = ["feed-price", "feed-rate", "feed-mark", "feed-round"];
+            for (const id of unavailable) if ($(id)) $(id).textContent = "Unavailable";
+            box.classList.add("is-unavailable");
+            if ($("feed-state")) {
+                $("feed-state").textContent = "Unavailable";
+                $("feed-state").className = "feed-state bad";
+            }
+            if ($("feed-age")) $("feed-age").textContent = "No update available";
+            if ($("feed-says")) {
+                $("feed-says").textContent =
+                    "Auction trading remains available with user-supplied limits. Oracle-dependent financing is unavailable.";
+            }
+            return;
+        }
         box.innerHTML = '<div class="empty">This address book carries no PrimeOracle. ' +
             "The venue is running on <code>RepoVault.postMark</code>, which is the " +
             "documented degradation and not a broken screen.</div>";
@@ -1087,25 +1102,40 @@ Venue.refreshOracle = async function () {
 
     const dark = f.dark;
     const age = asBig(f.publishedAt) > 0n ? nowSec() - asBig(f.publishedAt) : null;
+    const published = asBig(f.publishedAt) > 0n
+        ? new Date(Number(asBig(f.publishedAt)) * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z"
+        : null;
     const put = (id, v, cls) => {
         const el = $(id);
         if (!el) return;
         el.innerHTML = v;
-        if (cls !== undefined) el.className = "v " + cls;
+        if (cls !== undefined) {
+            el.className = id === "feed-state"
+                ? "feed-state " + (String(cls).includes("bad") ? "bad" : "ok")
+                : "v " + cls;
+        }
     };
 
-    put("feed-state", dark ? "dark" : "live", dark ? "v bad" : "v ok");
-    put("feed-price", asBig(f.cleanPrice) === 0n ? "Unavailable"
+    put("feed-state",
+        Venue.page === "trade" ? (dark ? "Unavailable" : "Live") : (dark ? "dark" : "live"),
+        dark ? "v bad" : "v ok");
+    put("feed-price", dark || asBig(f.cleanPrice) === 0n ? "Unavailable"
         : esc(formatPrice(asBig(f.cleanPrice))) + " USD");
-    put("feed-rate", asBig(f.cleanPrice) === 0n ? "Unavailable" : String(f.refRateBps) + " bps");
-    put("feed-round", "round " + String(round) +
-        (age === null ? "" : " · " + fmtRemain(Number(age)) + " ago"));
-    put("feed-ourleg", f.ourLegDark ? "dark" : "live", f.ourLegDark ? "v bad" : "v ok");
-    put("feed-cashleg", f.cashLegDark ? "dark" : "live", f.cashLegDark ? "v bad" : "v ok");
+    put("feed-rate", dark || asBig(f.cleanPrice) === 0n ? "Unavailable" : String(f.refRateBps) + " bps");
+    put("feed-round", String(round));
+    put("feed-age", age === null
+        ? "No update timestamp"
+        : "Last update " + fmtRemain(Number(age)) + " ago · " + published);
+    put("feed-ourleg",
+        Venue.page === "trade" ? (f.ourLegDark ? "stale" : "live") : (f.ourLegDark ? "dark" : "live"),
+        f.ourLegDark ? "v bad" : "v ok");
+    put("feed-cashleg",
+        Venue.page === "trade" ? (f.cashLegDark ? "stale" : "live") : (f.cashLegDark ? "dark" : "live"),
+        f.cashLegDark ? "v bad" : "v ok");
     put("feed-hbar", asBig(f.usdPerHbar) === 0n ? "Unavailable"
         : esc(formatPrice(asBig(f.usdPerHbar))) + " USD");
-    put("feed-mark", asBig(f.markPerUnitTinybar) === 0n ? "Unavailable"
-        : esc(formatHbar(asBig(f.markPerUnitTinybar))) + " HBAR");
+    put("feed-mark", dark || asBig(f.markPerUnitTinybar) === 0n ? "Unavailable"
+        : esc(readableHbar(asBig(f.markPerUnitTinybar))) + " HBAR");
     put("feed-quorum", quorum + " of " + panel.length + " seated");
     put("feed-heartbeat", heartbeat + " s · upstream " + cashHeartbeat + " s");
     put("feed-deviation", dev + " bps per round");
@@ -1126,15 +1156,22 @@ Venue.refreshOracle = async function () {
     // to assemble it from.
     const says = $("feed-says");
     if (says) {
-        says.innerHTML = dark
-            ? "The feed is dark, so <code>RepoVault.markToMarket</code> refuses and the " +
-              "margin engine's manual <code>postMark</code> is open. " +
-              (f.ourLegDark ? "The venue's own panel has not published inside its heartbeat. " : "") +
-              (f.cashLegDark ? "The seated HBAR/USD feed is not answering. " : "")
-            : "The feed is live, so <code>postMark</code> refuses and every mark comes " +
-              "from this price. Anyone may call <code>markToMarket</code> on any open repo.";
+        if (Venue.page === "trade") {
+            says.textContent = dark
+                ? "Auction trading remains available with user-supplied limits. Oracle-dependent financing may pause."
+                : "Finalized valuation context. It does not set your auction limit or guarantee execution.";
+        } else {
+            says.innerHTML = dark
+                ? "The feed is dark, so <code>RepoVault.markToMarket</code> refuses and the " +
+                  "margin engine's manual <code>postMark</code> is open. " +
+                  (f.ourLegDark ? "The venue's own panel has not published inside its heartbeat. " : "") +
+                  (f.cashLegDark ? "The seated HBAR/USD feed is not answering. " : "")
+                : "The feed is live, so <code>postMark</code> refuses and every mark comes " +
+                  "from this price. Anyone may call <code>markToMarket</code> on any open repo.";
+        }
     }
 
+    if (Venue.page === "trade") box.classList.toggle("is-unavailable", !!dark);
     box.hidden = false;
 };
 
@@ -1528,8 +1565,7 @@ Venue.refreshBook = async function () {
     const n = Number(count);
     Venue._revealed = n;
     if (!n) {
-        el.innerHTML = '<div class="empty">Nothing revealed. A sealed commitment is not in the book ' +
-            "until it is opened, which is the point.</div>";
+        el.innerHTML = '<div class="empty">The revealed book is empty. Sealed orders remain private and are not counted here.</div>';
         return;
     }
     const capN = Math.min(n, 40);
@@ -1548,26 +1584,29 @@ Venue.refreshBook = async function () {
         return {id, o, live, eligible, backing};
     }));
     const mine = (Venue.viewer() || "").toLowerCase();
-    const head = '<div class="rowline book head"><span>Order</span><span>Side</span><span>Price</span>' +
-        "<span>Qty</span><span>Filled</span><span>Rounds</span><span>State</span><span></span></div>";
-    el.innerHTML = head + rows.map((r) => {
+    const head = '<div class="book-row head"><span>Side and order</span><span>Limit price</span>' +
+        "<span>Remaining</span><span>Status</span></div>";
+    el.innerHTML = '<div class="book-list">' + head + rows.map((r) => {
         const o = r.o;
         const isMine = String(o.trader).toLowerCase() === mine;
         const stale = !o.retired && round > asBig(o.lastRound);
-        const state = o.retired ? "retired" : stale ? "past its last round"
-            : r.eligible ? "eligible" : r.live ? "resting" : "not live";
-        return '<div class="rowline book' + (isMine ? " mine" : "") + '">' +
-            '<span class="mono">' + esc(shortId(r.id)) + (isMine ? " ·you" : "") + "</span>" +
-            '<span class="mono">' + (Number(o.side) === 1 ? "SELL" : "BUY") + "</span>" +
-            '<span class="mono">' + esc(String(o.price)) + "</span>" +
-            '<span class="mono">' + esc(String(o.qty)) + "</span>" +
-            '<span class="mono">' + esc(String(o.filled)) + "</span>" +
-            '<span class="mono">' + esc(String(o.firstRound)) + " to " + esc(String(o.lastRound)) + "</span>" +
-            '<span class="mono">' + esc(state) + "</span>" +
-            "<span>" + (stale
-                ? '<button type="button" class="quiet expire-go" data-id="' + esc(r.id) + '">Expire</button>'
+        const remaining = asBig(o.qty) - asBig(o.filled);
+        const state = o.retired ? "Closed" : stale ? "Release available"
+            : r.eligible ? "Eligible now" : r.live ? "Resting" : "Not live";
+        return '<div class="book-row ' + (Number(o.side) === 1 ? "sell " : "buy ") +
+            (isMine ? "mine" : "") + '">' +
+            '<span class="book-side">' + (Number(o.side) === 1 ? "Sell" : "Buy") +
+            "<small>" + esc(shortId(r.id)) + (isMine ? " · yours" : "") + "</small></span>" +
+            '<span class="num">' + esc(readableHbar(asBig(o.price))) + " HBAR<small>" +
+            esc(String(o.price)) + " tinybar exact</small></span>" +
+            '<span class="num">' + esc(formatQuantity(remaining)) + " LPRC<small>of " +
+            esc(formatQuantity(asBig(o.qty))) + "</small></span>" +
+            '<span class="book-state' + (r.eligible ? " live" : "") + '">' + esc(state) +
+            (stale
+                ? '<button type="button" class="quiet expire-go" data-id="' + esc(r.id) + '">Release</button>'
                 : "") + "</span></div>";
-    }).join("") + (n > capN ? '<p class="note">' + (n - capN) + " further live orders not shown.</p>" : "");
+    }).join("") + "</div>" +
+        (n > capN ? '<p class="note">' + (n - capN) + " further live orders not shown.</p>" : "");
     // expire is permissionless and retires an order the clock has passed. It is
     // not the committer's bond being touched, so offering it is not the thing
     // docs/UI-PLAN.md forbids: that is forfeit, which this client still refuses.
@@ -1586,14 +1625,15 @@ Venue.paintQuote = async function (round) {
     const q = $("book-quote");
     if (q) {
         q.textContent = already
-            ? "Round " + prev + " is already crossed."
+            ? "Last closed round " + prev + " has been processed."
             : willCross
-                ? "Round " + prev + " would cross " + volume + " bonds at " +
-                  (asBig(priceTwice) / 2n) + " tinybar per bond (priceTwice " + priceTwice + ")."
-                : "Round " + prev + " would not cross. Nothing eligible on both sides.";
+                ? "Last closed round " + prev + " indicates " + volume + " LPRC at " +
+                  displayPriceHbar(asBig(priceTwice)) + " HBAR per bond (" +
+                  displayPrice(asBig(priceTwice)) + " tinybar midpoint)."
+                : "Last closed round " + prev + " has no crossing quantity.";
     }
     const f = $("book-fees");
-    if (f) f.textContent = formatHbar(asBig(fees)) + " HBAR";
+    if (f) f.textContent = readableHbar(asBig(fees)) + " HBAR";
 };
 
 Venue.refreshMarketTape = async function () {
@@ -1625,7 +1665,8 @@ Venue.refreshInstrument = async function () {
         el.textContent = v;
         if (cls !== undefined) el.className = "v " + cls;
     };
-    put("in-name", name + " · " + symbol);
+    put("in-name", $("market-symbol") ? name : name + " · " + symbol);
+    put("market-symbol", symbol);
     put("in-supply", supply + " units, no decimals");
     put("in-multi", multi ? "multi-partition" : "single partition " + shortId(part));
     put("in-lists", lists + " external KYC list" + (Number(lists) === 1 ? "" : "s"));
@@ -1710,8 +1751,17 @@ Venue.refreshGateGov = async function () {
 // StillResting, so the button is only drawn where the call would succeed.
 Venue.doExpire = async function (id) {
     await Venue.requireAccount();
-    const rec = await Venue.send(Venue.w.engine.expire(id, {gasLimit: 400_000}), "expire");
-    if (rec) await Venue.refreshBook();
+    Venue.tradeTxStage?.("approval", "Release rested order");
+    const rec = await Venue.send(
+        Venue.w.engine.expire(id, {gasLimit: 400_000}),
+        "Release rested order"
+    );
+    if (rec) {
+        await Promise.all([
+            Venue.refreshBook(),
+            Venue.page === "trade" ? Venue.refreshTrade() : Promise.resolve(),
+        ]);
+    }
 };
 
 // Publish a closed epoch's record from the journal. This is the only write in

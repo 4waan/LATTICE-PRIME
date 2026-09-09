@@ -18,6 +18,7 @@ import {
     PRICE_DECIMALS, PRICE_ONE,
     toWeibar, fromWeibar, formatHbar, parseHbar,
     toUnits, formatQuantity, buyEscrow, notional, displayPrice,
+    displayPriceHbar,
     markPerUnitTinybar, markOfLot, formatPrice, median, deviationBps,
     BPS, COUPON_YEAR, MAX_RATE_BPS, couponBps, couponAccrual, couponOnLot,
     diagnoseWrongBond, UnitError,
@@ -68,6 +69,7 @@ eq("and its value field", toWeibar(buyEscrow(105n, 1000n)), 1050000000000000n);
 // `evidence.reveals.quote`: priceTwice 200, volume 1000.
 eq("notional at the clearing price", notional(200n, 1000n), 100000n);
 eq("the clearing price displays as 100", displayPrice(200n), "100");
+eq("the clearing price displays in HBAR", displayPriceHbar(200n), "0.00000100");
 // `evidence.cross`: the seller's credit is proceeds plus the bond returned.
 eq("seller credit", notional(200n, 1000n) + 1000000n, 1100000n);
 // and the buyer's is the overpayment plus the bond.
@@ -77,6 +79,7 @@ eq("buyer credit", buyEscrow(105n, 1000n) - notional(200n, 1000n) + 1000000n, 10
 // maximiser interval of [95, 106] clears at 100.5 and no rounded price exists.
 eq("an odd interval halves in the product", notional(201n, 1000n), 100500n);
 eq("and displays with the half", displayPrice(201n), "100.5");
+eq("the half tinybar stays exact in HBAR", displayPriceHbar(201n), "0.000001005");
 eq(
     "halving the price first would lose it",
     notional(201n, 1000n) !== (201n / 2n) * 1000n,

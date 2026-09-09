@@ -47,193 +47,409 @@ document.documentElement.setAttribute("data-theme",
   </div>
 </header>
 
-<aside id="clock-float" class="clock-float" aria-label="Venue clocks">
-  <button type="button" class="clock-float-btn" id="clock-float-toggle" aria-expanded="false" aria-controls="clock-panel" aria-label="Venue clocks">
+<aside id="clock-float" class="clock-float market-clock-float" aria-label="Venue clocks">
+  <button type="button" class="clock-float-btn" id="clock-float-toggle" aria-expanded="false" aria-controls="clock-panel" aria-label="Open venue clocks">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-round"><span class="k">Auction</span><span class="v">Loading</span></div>
     <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">Eligibility</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
-<main class="wrap page">
-  <ol class="flow" aria-label="Where you are in the flow">
-    <li><a href="prove.html"><b>01</b> Eligibility</a></li>
-    <li class="here"><span aria-current="step"><b>02</b> Markets</span></li>
-    <li><a href="position.html"><b>03</b> Portfolio</a></li>
-  </ol>
-  <h1>Markets</h1>
-  <p class="lede">Your size stays sealed until you open it. Cancel is yours until then; reveal cannot overlap, and this page will not forfeit a bond. Prints are prior auctions, not guaranteed quotes.</p>
+<main class="wrap page markets-page">
+  <header class="market-hero">
+    <div class="market-identity">
+      <span class="market-kicker">Fixed income <i aria-hidden="true"></i> Testnet</span>
+      <div class="market-title">
+        <span class="market-symbol" id="market-symbol">LPRC</span>
+        <div>
+          <h1 id="in-name">Lattice Prime Repo Collateral 2028</h1>
+          <p>Variable-rate bond <span aria-hidden="true">·</span> $100.00 face value <span aria-hidden="true">·</span> settles in HBAR</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="market-oracle" id="feed-box" aria-labelledby="oracle-heading">
+    <div class="oracle-summary">
+      <div class="oracle-label-row">
+        <h2 id="oracle-heading">Price reference</h2>
+        <span class="feed-state" id="feed-state">Loading</span>
+      </div>
+      <p id="feed-says">Reading the latest finalized oracle round.</p>
+      <span class="oracle-age" id="feed-age">Checking last update</span>
+    </div>
+    <div class="oracle-values">
+      <div class="oracle-quote">
+        <span>Clean price</span>
+        <strong class="num" id="feed-price">Loading</strong>
+        <small>USD per bond</small>
+      </div>
+      <div class="oracle-quote">
+        <span>HBAR valuation</span>
+        <strong class="num" id="feed-mark">Loading</strong>
+        <small>HBAR per bond</small>
+      </div>
+      <div class="oracle-quote">
+        <span>Coupon reference</span>
+        <strong class="num" id="feed-rate">Loading</strong>
+        <small>basis points</small>
+      </div>
+    </div>
+    <details class="oracle-details">
+      <summary>View source details</summary>
+      <div class="oracle-details-body">
+        <p>The clean-price panel and HBAR/USD feed produce the valuation used by financing and collateral checks. The coupon reference fixes the variable rate under contract rules. None of these values sets your auction limit or guarantees execution.</p>
+        <div class="support-grid oracle-source-grid">
+          <div><span>Last oracle round</span><strong id="feed-round">Loading</strong></div>
+          <div><span>Venue price leg</span><strong id="feed-ourleg">Loading</strong></div>
+          <div><span>HBAR/USD leg</span><strong id="feed-cashleg">Loading</strong></div>
+          <div><span>HBAR/USD</span><strong class="num" id="feed-hbar">Loading</strong></div>
+          <div><span>Publisher quorum</span><strong id="feed-quorum">Loading</strong></div>
+          <div><span>Heartbeats</span><strong id="feed-heartbeat">Loading</strong></div>
+          <div><span>Deviation cap</span><strong id="feed-deviation">Loading</strong></div>
+          <div><span>Upstream feed</span><strong id="feed-cashaddr">Loading</strong></div>
+          <div><span>Publishers</span><span class="picks" id="feed-panel"></span></div>
+        </div>
+        <button type="button" id="feed-refresh">Refresh reference</button>
+      </div>
+    </details>
+  </section>
+
+  <div class="order-attention" id="order-attention" hidden role="status">
+    <div class="attention-icon" aria-hidden="true"></div>
+    <div>
+      <strong id="order-attention-title">An order needs attention</strong>
+      <p id="order-attention-copy"></p>
+    </div>
+    <button type="button" id="order-attention-go">Review order</button>
+  </div>
 
   <div class="banner warn" id="kyc-gate" hidden>
-    <p>ATS will refuse locked inventory from an address that is not granted. <a href="prove.html">Prove eligibility first</a>.</p>
+    <p><strong>Eligibility needs attention.</strong> A trade cannot settle while this wallet lacks a current grant.</p>
+    <a class="banner-link" href="prove.html">Review eligibility</a>
   </div>
 
-  <div class="cols trade-cols">
-    <div class="wire">
-      <div class="wcell"><span class="k">Free</span><span class="v num" id="bal-units">Loading</span><span class="n">balanceOfByPartition, held bonds excluded</span></div>
-      <div class="wcell"><span class="k">Held</span><span class="v num" id="bal-held">Loading</span><span class="n">getHeldAmountForByPartition</span></div>
-      <div class="wcell"><span class="k">Credit</span><span class="v num" id="bal-credit">Loading</span><span class="n">pull, not push</span></div>
-      <div class="wcell"><span class="k">Grant</span><span class="v" id="bal-kyc">Loading</span><span class="n">ZkKycRegistry.getKycStatus</span></div>
-    </div>
-
-    <section class="ticket-col">
-      <div class="shead"><h2>Order</h2><span class="src">six slots, sealed</span></div>
-      <div class="ticket">
-        <div class="field sidefield">
-          <div class="side-toggle" id="side-toggle" role="radiogroup" aria-label="Side" data-side="1">
-            <span class="side-thumb" aria-hidden="true"></span>
-            <button type="button" role="radio" aria-checked="true" data-side="1">
-              <span class="dia" aria-hidden="true"></span>Sell
-            </button>
-            <button type="button" role="radio" aria-checked="false" data-side="0">
-              <span class="dia" aria-hidden="true"></span>Buy
-            </button>
+  <div class="market-workspace">
+    <div class="market-main">
+      <section class="account-context" aria-labelledby="available-heading">
+        <div class="section-heading compact">
+          <h2 id="available-heading">Available to trade</h2>
+          <span class="account-grant" id="bal-kyc">Connect wallet</span>
+        </div>
+        <div class="balance-strip">
+          <div>
+            <span>Free inventory</span>
+            <strong class="num"><span id="bal-units">Unavailable</span> <small>LPRC</small></strong>
+            <small>Available for a sell</small>
           </div>
-          <input type="hidden" id="side" value="1">
-          <span class="hint" id="sideHint"></span>
+          <div>
+            <span>Reserved</span>
+            <strong class="num"><span id="bal-held">Unavailable</span> <small>LPRC</small></strong>
+            <small>Already backing orders</small>
+          </div>
+          <div>
+            <span>Balance</span>
+            <strong class="num" id="bal-hbar">Unavailable</strong>
+            <small>HBAR, network fees excluded</small>
+          </div>
+          <button type="button" class="credit-balance" id="withdraw" aria-haspopup="dialog" aria-controls="withdraw-modal" disabled>
+            <span>Ready to withdraw</span>
+            <strong class="num"><span id="bal-credit">Unavailable</span> <small>HBAR</small></strong>
+            <small class="withdraw-action">Connect to withdraw</small>
+          </button>
         </div>
-        <div class="field">
-          <label for="price">Price, tinybar per bond</label>
-          <input id="price" inputmode="numeric" value="100" autocomplete="off">
-          <span class="hint" id="priceHint"></span>
+      </section>
+
+      <aside class="order-panel" id="order-panel" data-stage="details" aria-labelledby="order-heading">
+        <div class="order-panel-head">
+          <div>
+            <span class="section-kicker">Private until reveal</span>
+            <h2 id="order-heading">Place an order</h2>
+          </div>
+          <span class="draft-state" id="draft-state">Order details</span>
         </div>
-        <div class="field">
-          <label for="qty">Quantity</label>
-          <input id="qty" inputmode="numeric" value="1000" autocomplete="off">
-          <span class="hint" id="qtyHint"></span>
+
+        <section class="order-stage stage-details" data-order-stage="details" aria-label="Order details">
+          <div class="side-toggle" id="side-toggle" role="radiogroup" aria-label="Order side" data-side="0">
+            <span class="side-thumb" aria-hidden="true"></span>
+            <button type="button" role="radio" aria-checked="false" data-side="1"><span class="dia" aria-hidden="true"></span>Sell</button>
+            <button type="button" role="radio" aria-checked="true" data-side="0"><span class="dia" aria-hidden="true"></span>Buy</button>
+          </div>
+          <input type="hidden" id="side" value="0">
+          <p class="side-explainer" id="sideHint"></p>
+
+          <div class="order-fields">
+            <div class="order-field">
+              <div class="field-label-row">
+                <label for="price">Limit price</label>
+                <span>HBAR per bond</span>
+              </div>
+              <div class="input-unit">
+                <input id="price" inputmode="decimal" value="" placeholder="Enter price" autocomplete="off" aria-describedby="priceHint">
+                <span>HBAR</span>
+              </div>
+              <span class="field-help" id="priceHint">Up to 8 decimal places.</span>
+            </div>
+            <div class="order-field">
+              <div class="field-label-row">
+                <label for="qty">Quantity</label>
+                <span id="qty-availability">Connect for balance</span>
+              </div>
+              <div class="input-unit">
+                <input id="qty" inputmode="numeric" value="" placeholder="Enter quantity" autocomplete="off" aria-describedby="qtyHint">
+                <span>LPRC</span>
+              </div>
+              <span class="field-help" id="qtyHint">Whole bonds only.</span>
+            </div>
+          </div>
+
+          <div class="sell-prerequisite" id="sell-prerequisite" hidden>
+            <div>
+              <strong id="sell-prerequisite-title">Inventory is required to sell</strong>
+              <span id="sell-prerequisite-copy">Switch to Buy or check Portfolio for LPRC held by this wallet.</span>
+            </div>
+            <div>
+              <button type="button" id="switch-buy">Switch to Buy</button>
+              <a href="position.html">Check Portfolio</a>
+            </div>
+          </div>
+
+          <div class="order-estimate">
+            <span id="details-estimate-label">Maximum order value</span>
+            <strong class="num" id="details-estimate">Enter price and quantity</strong>
+            <small id="details-estimate-note">Deposit and future obligations appear during review.</small>
+          </div>
+
+          <label class="restore-ticket">
+            <input id="load-ticket" type="file" accept="application/json,.json">
+            Restore a saved order
+          </label>
+        </section>
+
+        <section class="order-stage stage-review" data-order-stage="review" aria-label="Review and prepare" hidden>
+          <div class="review-heading">
+            <span>Review and prepare</span>
+            <strong id="review-order">Order summary</strong>
+          </div>
+          <div class="order-summary" aria-live="polite">
+            <div><span id="summary-limit-label">Order value at limit</span><strong class="num" id="summary-limit">Enter order details</strong></div>
+            <div><span>Commit deposit</span><strong class="num" id="summary-deposit">Loading</strong></div>
+            <div><span id="summary-reveal-label">Bonds to reserve</span><strong class="num" id="summary-reveal">Loading</strong></div>
+            <div><span>Network fees</span><strong id="summary-network">Shown by wallet</strong></div>
+            <div class="summary-total"><span id="summary-total-label">Cash required before fees</span><strong class="num" id="summary-total">Enter order details</strong></div>
+          </div>
+          <p class="summary-note" id="escrowHint">Network fees are separate.</p>
+
+          <div class="future-obligation">
+            <strong>After submission</strong>
+            <p id="future-obligation-copy">You must reveal in a later wallet transaction before the deadline. Matching, settlement, and withdrawal remain separate.</p>
+          </div>
+
+          <div class="recovery-callout">
+            <span class="recovery-mark" aria-hidden="true"></span>
+            <div>
+              <strong>Back up the reveal key before submitting</strong>
+              <p>This local file requires no wallet approval. Losing every copy can forfeit the full deposit.</p>
+            </div>
+          </div>
+
+          <div id="hold-field" class="hold-option" hidden>
+            <div>
+              <strong id="hold-label">Sell inventory reservation</strong>
+              <p id="hold-status">A separate wallet transaction must reserve enough LPRC before reveal.</p>
+            </div>
+            <input type="hidden" id="holdId" autocomplete="off">
+            <select id="hold-pick" hidden aria-labelledby="hold-label"></select>
+            <button type="button" id="hold">Reserve now</button>
+          </div>
+
+          <details class="review-detail">
+            <summary>Commitment and recovery details</summary>
+            <div class="review-detail-body">
+              <p>Only the commitment identifier is submitted first. Side, price, and quantity become public when you reveal.</p>
+              <div class="words-slot" id="words">
+                <div class="empty">Connect the submitting wallet to preview the sealed payload.</div>
+              </div>
+              <div class="idbox">
+                <span class="k">Commitment identifier</span>
+                <span class="v" id="idOut">Connect a wallet to bind the order.</span>
+              </div>
+              <div class="key-option">
+                <label for="salt">Reveal key on this device</label>
+                <div class="saltrow" id="salt-row" data-open="0">
+                  <span class="salt-chip" id="salt-chip" aria-hidden="true">Loading</span>
+                  <input id="salt" spellcheck="false" autocomplete="off" aria-label="Reveal key">
+                  <button type="button" id="salt-copy">Copy</button>
+                  <button type="button" id="salt-show" aria-pressed="false">Show</button>
+                </div>
+                <span class="field-help" id="saltHint"></span>
+              </div>
+              <div class="option-actions">
+                <button type="button" id="reroll">Draw a new key</button>
+                <button type="button" id="save-ticket">Download another copy</button>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <section class="order-stage stage-submit" data-order-stage="submit" aria-label="Submit order" hidden>
+          <div class="submit-summary">
+            <span>Ready for wallet approval</span>
+            <strong id="submit-order">Order details</strong>
+            <small id="submit-deposit">Deposit loading</small>
+          </div>
+          <div class="wallet-expectation">
+            <strong>What this transaction does</strong>
+            <p>Submits only the sealed commitment and deposit. It does not reveal, match, settle, or withdraw the order.</p>
+          </div>
+          <div class="future-obligation compact">
+            <strong>Still required afterward</strong>
+            <p id="submit-future-copy">Return to reveal before the deadline. A buy funds its limit value at reveal; a sell needs reserved LPRC.</p>
+          </div>
+        </section>
+
+        <section class="order-stage stage-track" data-order-stage="track" aria-label="Track order" hidden>
+          <div class="track-status">
+            <span id="track-status-label">Submitted</span>
+            <strong id="track-status-title">Reading order status</strong>
+            <p id="track-status-copy">Your order remains sealed.</p>
+          </div>
+          <div class="track-deadline">
+            <span>Personal deadline</span>
+            <strong id="track-deadline">Loading</strong>
+          </div>
+        </section>
+
+        <div class="order-blocker" id="order-blocker" hidden></div>
+        <div class="order-panel-actions">
+          <button type="button" class="order-back" id="order-back" hidden>Back</button>
+          <button type="button" class="primary order-primary" id="commit">Review order</button>
         </div>
-        <div class="field holdfield" id="hold-field">
-          <span class="field-label" id="hold-label">Locked inventory</span>
-          <input type="hidden" id="holdId" autocomplete="off">
-          <select id="hold-pick" hidden aria-labelledby="hold-label"></select>
-          <span class="hint" id="hold-status">Lock inventory to back this sell. This page keeps the reservation.</span>
-          <span class="hint">Not part of the sealed ticket. Created when you lock inventory.</span>
+        <div class="status" id="trade-status" role="status" aria-live="polite"></div>
+      </aside>
+
+      <section class="auction-panel" aria-labelledby="book-heading">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker live-market-kicker" id="live-market-kicker">Live market</span>
+            <h2 id="book-heading">Open order book</h2>
+          </div>
+          <div class="market-book-meta" aria-label="Current auction">
+            <strong id="market-phase">Loading auction</strong>
+            <span><span id="im-live">Reading revealed book</span> <i aria-hidden="true">·</i> Round <span class="num" id="im-round">Loading</span></span>
+            <small>Revealed orders only</small>
+          </div>
         </div>
-        <div class="field span2">
-          <label>What the reveal will cost</label>
-          <span class="hint" id="escrowHint">Fill the ticket and the escrow this order implies appears here.</span>
-          <span class="hint">A sell is backed by locked inventory. A buy sends price by quantity at reveal.</span>
+        <div class="auction-indication">
+          <span>Current auction indication</span>
+          <strong id="quote">Reading the auction.</strong>
+          <small>This can change before the round closes and is not a guaranteed execution.</small>
         </div>
-        <div class="field saltfield">
-          <label for="salt">Reveal key, drawn on this device</label>
-          <div class="saltrow" id="salt-row" data-open="0">
-            <span class="salt-chip" id="salt-chip" aria-hidden="true">Loading</span>
-            <input id="salt" spellcheck="false" autocomplete="off" aria-label="Reveal key">
-            <button type="button" id="salt-copy">Copy</button>
-            <button type="button" id="salt-show" aria-pressed="false">Show</button>
-            <button type="button" id="reroll">Draw a new one</button>
+        <div class="rows market-book" id="book"><div class="empty">Reading revealed orders.</div></div>
+        <div class="auction-footer">
+          <div>
+            <strong>Last closed auction</strong>
+            <p id="book-quote">Reading its result.</p>
+            <small id="cross-help">Processing matches eligible revealed orders. It is a wallet transaction with a network fee.</small>
+          </div>
+          <button type="button" class="quiet" id="cross">Process auction</button>
+        </div>
+      </section>
+      <section class="orders-section" id="active-orders" aria-labelledby="sealed-heading">
+        <div class="section-heading orders-heading">
+          <div>
+            <span class="section-kicker">Deadlines and outcomes</span>
+            <h2 id="sealed-heading">Your orders</h2>
+          </div>
+          <div class="order-vault-actions">
+            <button type="button" id="save-vault">Back up keys</button>
             <label class="file-btn">
-              <input id="load-ticket" type="file" accept="application/json,.json">
-              Load ticket
+              <input id="load-vault" type="file" accept="application/json,.json">
+              Restore backup
             </label>
           </div>
-          <span class="hint" id="saltHint"></span>
         </div>
-      </div>
-      <div class="rowbtns">
-        <button type="button" id="hold">Lock inventory</button>
-        <button type="button" id="save-ticket">Write the ticket</button>
-        <button type="button" class="primary" id="commit" disabled>Commit</button>
-      </div>
-      <div class="status" id="trade-status" role="status"></div>
-    </section>
+        <div class="vault-warning">
+          <strong>Keep reveal keys outside this browser.</strong>
+          <span>They do not follow you to another device. Portable JSON backups contain unencrypted keys and must be stored securely.</span>
+        </div>
+        <div class="list order-list" id="tickets"></div>
+      </section>
+    </div>
 
-    <aside>
-      <div class="panel">
-        <div class="top"><h2>Engine</h2><span class="src">MatchingEngine</span></div>
-        <div class="body">
-          <ul class="readout">
-            <li><span class="k">commitBond</span><span class="v num" id="im-bond">Loading</span></li>
-            <li><span class="k">cancelFee</span><span class="v num" id="im-fee">Loading</span></li>
-            <li><span class="k">currentRound</span><span class="v num" id="im-round">Loading</span></li>
-            <li><span class="k">revealedCount</span><span class="v num" id="im-live">Loading</span></li>
-          </ul>
-          <p class="note" id="quote" style="margin-top:.65rem"></p>
-          <div class="rowbtns">
-            <button type="button" id="cross">Cross last closed round</button>
-            <button type="button" id="withdraw" disabled>Withdraw credit</button>
-          </div>
-        </div>
-      </div>
-    </aside>
   </div>
 
-  <section>
-    <div class="shead">
-      <h2 id="sealed-heading">Your sealed orders</h2>
-      <div class="shead-acts">
-        <button type="button" id="save-vault">Save vault</button>
-        <label class="file-btn">
-          <input id="load-vault" type="file" accept="application/json,.json">
-          Load vault
-        </label>
+  <section class="market-support" aria-labelledby="support-heading">
+    <div class="section-heading">
+      <div>
+        <span class="section-kicker">Secondary records</span>
+        <h2 id="support-heading">Global market records</h2>
       </div>
-      <span class="src">this browser</span>
     </div>
-    <p>Reveal and cancel live on this list. The reveal key stays in this browser; the vault is the portable copy. Cancel only while <code>cancellableUntil</code> is still in the future; forfeit is not offered.</p>
-    <div class="list" id="tickets"></div>
-  </section>
 
-  <section class="receipt-console" id="publication">
-    <div class="shead">
-      <h2>What this action published</h2>
-      <span class="src">row 15 · MatchingEngine · HCS</span>
-    </div>
-    <p>A valid action can complete after its venue event becomes unaffordable. The transaction receipt says what happened now; the consensus topic makes a deliberate silence independently checkable.</p>
-    <div class="publication-meter">
-      <div><span class="k">Disclosure epoch</span><span class="v num" id="pub-epoch">Loading</span></div>
-      <div><span class="k">Activity row</span><span class="v num">15</span></div>
-      <div><span class="k">Spent</span><span class="v num" id="pub-spent">Loading</span></div>
-      <div><span class="k">Budget</span><span class="v num" id="pub-budget">Loading</span></div>
-    </div>
-    <div class="publication-track" id="pub-track" role="progressbar" aria-label="Activity disclosure budget spent" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
-      <i id="pub-fill"></i>
-    </div>
-    <p class="publication-next" id="pub-next">Reading whether the next activity event can be published.</p>
-    <div id="last-view"><div class="empty">Commit, cancel, reveal or cross a round. Its disclosure receipt will stay with this browser session and follow you to Portfolio.</div></div>
-    <div class="receipt-actions">
-      <a href="position.html">Open Portfolio receipt &rarr;</a>
-      <a href="venue.html#hcs-record">Verify the HCS record &rarr;</a>
-      <a href="../docs/disclosure-receipt.html">Open the receipt explainer &rarr;</a>
-    </div>
-  </section>
+    <details class="support-detail">
+      <summary>
+        <span>Last action disclosure</span>
+        <small>Transaction receipt and verifiable publication status</small>
+      </summary>
+      <div class="support-body receipt-console" id="publication">
+        <p>A transaction can succeed even when the venue withholds its optional event. The receipt records the transaction outcome; the consensus topic makes deliberate silence independently checkable.</p>
+        <div class="publication-meter">
+          <div><span class="k">Disclosure epoch</span><span class="v num" id="pub-epoch">Loading</span></div>
+          <div><span class="k">Activity row</span><span class="v num">15</span></div>
+          <div><span class="k">Spent</span><span class="v num" id="pub-spent">Loading</span></div>
+          <div><span class="k">Budget</span><span class="v num" id="pub-budget">Loading</span></div>
+        </div>
+        <div class="publication-track" id="pub-track" role="progressbar" aria-label="Activity disclosure budget spent" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
+          <i id="pub-fill"></i>
+        </div>
+        <p class="publication-next" id="pub-next">Reading whether the next activity event can be published.</p>
+        <div id="last-view"><div class="empty">Your next submitted action will place its verification record here.</div></div>
+        <div class="receipt-actions">
+          <a href="position.html">Open Portfolio receipt &rarr;</a>
+          <a href="venue.html#hcs-record">Verify the HCS record &rarr;</a>
+          <a href="../docs/disclosure-receipt.html">Read the receipt guide &rarr;</a>
+        </div>
+      </div>
+    </details>
 
-  <section>
-    <div class="shead"><h2>Commitment</h2><span class="src">OrderBook.commitmentOf</span></div>
-    <p>Six slots, keccak256, the id the wire carries. Grey is padding; indigo is the order the operators do not see.</p>
-    <div class="words-slot" id="words">
-      <div class="empty">Fill in side, price and quantity. The six slots that go into the
-        sealed ticket, and the id they produce, appear here as you type.</div>
-    </div>
-    <div class="idbox">
-      <span class="k">commitmentOf → the id you send</span>
-      <span class="v" id="idOut">connect to bind the committer</span>
-    </div>
-  </section>
-
-  <section>
-    <div class="shead"><h2>The book, as it stands</h2><span class="src">revealedCount · liveAt · orders</span></div>
-    <p>Only what has been opened. A sealed ticket is not here, which is the whole point of
-      sealing it; your own resting orders are marked. <code>quote</code> says what
-      <code>crossRound</code> would do before anybody pays for it.</p>
-    <div class="rows" id="book"><div class="empty">Reading the book…</div></div>
-    <p class="note" id="book-quote"></p>
-    <p class="note">Fees held by the engine: <span id="book-fees">Loading</span>. <code>feesRetained</code>.</p>
-  </section>
-
-  <section>
-    <div class="shead"><h2>What the engine has done</h2><span class="src">Hedera mirror node</span></div>
-    <p>Crossings, coarse prints, withheld prints, settlements and the ones it refused.
-      Read from the mirror node's index, never by subscribing.</p>
-    <div class="rowbtns" style="margin-bottom:1rem">
-      <button type="button" id="market-reload">Read the tape</button>
-    </div>
-    <div class="tape" id="market-tape"><div class="empty">Press <b>Read the tape</b>.</div></div>
+    <details class="support-detail">
+      <summary>
+        <span>Market activity and fees</span>
+        <small>Mirror-node records and retained cancellation fees</small>
+      </summary>
+      <div class="support-body">
+        <div class="support-inline">
+          <p>Cancellation fees retained by the engine: <strong id="book-fees">Loading</strong>.</p>
+          <button type="button" id="market-reload">Refresh activity</button>
+        </div>
+        <div class="tape" id="market-tape" role="region" aria-label="Market activity records" tabindex="0"><div class="empty">Refresh to read recent market activity.</div></div>
+      </div>
+    </details>
   </section>
 </main>
+
+<div class="modal withdraw-modal" id="withdraw-modal" hidden>
+  <div class="modal-scrim" data-withdraw-close></div>
+  <div class="modal-card withdraw-modal-card" role="dialog" aria-modal="true" aria-labelledby="withdraw-modal-title" aria-describedby="withdraw-modal-copy">
+    <button type="button" class="modal-x" data-withdraw-close aria-label="Close withdrawal confirmation">&times;</button>
+    <span class="section-kicker">Trading credit</span>
+    <h2 id="withdraw-modal-title">Confirm withdrawal?</h2>
+    <p class="sub" id="withdraw-modal-copy">This sends your available trading credit back to the connected wallet.</p>
+    <div class="withdraw-confirm-amount">
+      <span>Amount</span>
+      <strong class="num" id="withdraw-confirm-amount">Unavailable</strong>
+    </div>
+    <p class="withdraw-confirm-note">Your wallet will request approval for one Hedera transaction. A separate network fee applies.</p>
+    <div class="withdraw-confirm-actions">
+      <button type="button" data-withdraw-close>Go back</button>
+      <button type="button" class="primary" id="withdraw-confirm">Yes, withdraw</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <button type="button" class="theme" id="theme">Dark</button>
