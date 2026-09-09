@@ -29,8 +29,20 @@
 /// receipt. `encode` refuses rather than letting the SDK chunk it silently.
 export const MAX_CHUNK = 1024;
 
+/// The most disclosure epochs one `anchor` may cover. Epochs are 300 seconds,
+/// so 288 is a day: a relay that restarts after a longer gap publishes one
+/// anchor per day of gap rather than one record that would take a verifier
+/// thousands of reads to check. The bound is on the record, not the relay, so
+/// a reader can refuse a wider one without knowing who wrote it.
+export const MAX_ANCHOR_SPAN = 288;
+
 /// Version 2 binds each record to the contract address that produced it. The
 /// topic survives deployments, so a source label alone is not enough.
+///
+/// The `anchor` kind joined version 2 on 10 September 2026 without a version
+/// bump: it adds a kind and changes no existing one, so every record already on
+/// the topic still decodes, and a reader built before that date counts anchors
+/// as unreadable rather than misreading them, which is the designed failure.
 export const SCHEMA_VERSION = 2;
 export const LEGACY_SCHEMA_VERSION = 1;
 
@@ -214,7 +226,19 @@ export const FIELDS = {
     ceiling: ["v", "k", "c", "a", "tx", "sel", "fn", "r", "x"],
     silence: ["v", "k", "c", "a", "tx", "sel", "fn", "r", "e", "spent", "budget"],
     checkpoint: ["v", "k", "c", "a", "e", "blk", "rows"],
+    // One hash over every `spentBits(row, epoch)` in a closed range of epochs.
+    // A checkpoint prints the numbers for one epoch; an anchor commits to them
+    // for up to a day of epochs in one message, and a verifier that reads the
+    // same cells back off the contract recomputes the hash. This is the record
+    // that makes "cannot silently omit" hold for every epoch rather than for
+    // the epochs the relay chose to print.
+    anchor: ["v", "k", "c", "a", "from", "to", "blk", "rows", "h"],
 };
+
+/// The kinds that say the relay is alive and the ledger agrees, as opposed to
+/// the kinds that name one thing the venue did. Screens bound these separately
+/// so a quiet month of anchors cannot push a silence off the page.
+export const LIVENESS_KINDS = ["checkpoint", "anchor"];
 
 export const KINDS = [...new Set([...Object.keys(LEGACY_FIELDS), ...Object.keys(FIELDS)])];
 
@@ -320,6 +344,25 @@ function rowsMap(value) {
     return out;
 }
 
+/// The row list an anchor carries: which `spentBits` cells its hash ranges
+/// over. Strictly ascending, so the preimage order is fixed by the record and
+/// not by whoever built it, and so two encoders cannot disagree about it.
+function rowsList(value) {
+    if (!Array.isArray(value) || value.length === 0) {
+        throw new RecordError("rows must be a non-empty array of row numbers");
+    }
+    if (value.length > 64) throw new RecordError("rows carries more than 64 entries");
+    const out = [];
+    for (let i = 0; i < value.length; i++) {
+        const row = uintField("rows[" + i + "]", value[i], U16);
+        if (i > 0 && row <= out[i - 1]) {
+            throw new RecordError("rows must be strictly ascending");
+        }
+        out.push(row);
+    }
+    return out;
+}
+
 /// Validate one decoded object against its kind. Returns a fresh null-prototype
 /// record carrying exactly the schema's fields and nothing else.
 export function validate(raw) {
@@ -415,6 +458,17 @@ export function validate(raw) {
         // anything and is refused rather than displayed.
         if (r.budget === 0) throw new RecordError("a silence on an unmetered row is not a silence");
         if (r.spent < r.budget) throw new RecordError("a silence must name an exhausted budget");
+    } else if (kind === "anchor") {
+        r.from = uintField("from", raw.from, U64_SAFE);
+        r.to = uintField("to", raw.to, U64_SAFE);
+        if (r.to < r.from) throw new RecordError("an anchor must run forward: to is below from");
+        if (r.to - r.from + 1 > MAX_ANCHOR_SPAN) {
+            throw new RecordError(
+                `an anchor covers ${r.to - r.from + 1} epochs, over the ${MAX_ANCHOR_SPAN} epoch span`);
+        }
+        r.blk = uintField("blk", raw.blk, U64_SAFE);
+        r.rows = rowsList(raw.rows);
+        r.h = hexField("h", raw.h, 32);
     } else {
         r.e = uintField("e", raw.e, U64_SAFE);
         r.blk = uintField("blk", raw.blk, U64_SAFE);
@@ -423,15 +477,46 @@ export function validate(raw) {
     return r;
 }
 
+/// The bytes an anchor's `h` is the keccak256 of.
+///
+/// For each epoch from `from` to `to` ascending, for each row in `rows`
+/// ascending, `spentBits(row, epoch)` as one 32-byte big-endian word: the
+/// layout `abi.encodePacked` would give a `uint256[]`, so anyone with the
+/// contract and a hash function can rebuild it. `valueAt(row, epoch)` is a
+/// synchronous lookup; callers read the chain first and hash second, and a
+/// missing or malformed cell throws rather than hashing as zero, because a
+/// preimage with a quiet zero in it would verify a relay that never read the
+/// chain. Hashing is the caller's, injected the way `assertSiteDeployments`
+/// takes its code hash, so this module stays free of imports.
+export function anchorPreimage(from, to, rows, valueAt) {
+    const lo = uintField("from", from, U64_SAFE);
+    const hi = uintField("to", to, U64_SAFE);
+    if (hi < lo) throw new RecordError("an anchor must run forward: to is below from");
+    if (hi - lo + 1 > MAX_ANCHOR_SPAN) {
+        throw new RecordError(`an anchor covers ${hi - lo + 1} epochs, over the ${MAX_ANCHOR_SPAN} epoch span`);
+    }
+    const list = rowsList(rows);
+    if (typeof valueAt !== "function") throw new RecordError("anchorPreimage needs a cell reader");
+    let out = "0x";
+    for (let e = lo; e <= hi; e++) {
+        for (const row of list) {
+            const v = valueAt(row, e);
+            out += uintField(`spentBits(${row}, ${e})`, v, U32).toString(16).padStart(64, "0");
+        }
+    }
+    return out;
+}
+
 /// Canonical JSON for one record: schema field order, no whitespace, one chunk.
 export function encode(record) {
     const r = validate(record);
     const parts = [];
     for (const k of fieldsFor(r.v)[r.k]) {
         let v = r[k];
-        if (k === "rows") {
-            // Rows ascending and numeric, so two relays over the same epoch
-            // produce the same bytes.
+        if (k === "rows" && !Array.isArray(v)) {
+            // A checkpoint's rows ascending and numeric, so two relays over the
+            // same epoch produce the same bytes. An anchor's rows are already a
+            // list that `rowsList` held to ascending order.
             const keys = Object.keys(v).sort((a, b) => Number(a) - Number(b));
             v = keys.reduce((o, key) => ((o[key] = v[key]), o), {});
         }
@@ -475,6 +560,7 @@ export function keyOf(r) {
     if (r.k === "refusal") return `refusal:${r.tx}:${r.li}`;
     if (r.k === "ceiling") return `ceiling:${r.tx}`;
     if (r.k === "silence") return `silence:${r.tx}:${r.r}`;
+    if (r.k === "anchor") return `anchor:${source}:${r.from}:${r.to}`;
     return `checkpoint:${source}:${r.e}`;
 }
 
@@ -493,6 +579,11 @@ export function describe(r) {
     }
     if (r.k === "silence") {
         return `${r.fn} completed and said nothing on row ${r.r}: ${r.spent} of ${r.budget} bits were already gone in epoch ${r.e}`;
+    }
+    if (r.k === "anchor") {
+        const span = r.to - r.from + 1;
+        return `anchored epoch${span === 1 ? ` ${r.from}` : `s ${r.from} to ${r.to}`} at block ${r.blk}: ` +
+            `spentBits over rows ${r.rows.join(", ")} hash to ${r.h.slice(0, 10)}`;
     }
     const rows = Object.keys(r.rows).sort((a, b) => Number(a) - Number(b));
     return `epoch ${r.e} closed at block ${r.blk}: ${rows.map((k) => `row ${k} spent ${r.rows[k]}`).join(", ")}`;
@@ -700,5 +791,49 @@ export function auditRecord(rec, res, ctx) {
     } catch (e) {
         say("the log decodes", false, e.message);
     }
+    return out;
+}
+
+/// Check an anchor against the cells it claims to hash.
+///
+/// `ctx.valueAt(row, epoch)` is `spentBits` as the caller read it off the
+/// contract; `ctx.hash` is keccak256 over a hex string; `ctx.closedEpoch` is
+/// the last disclosure epoch that had closed when the anchor reached consensus,
+/// so an anchor cannot vouch for an epoch that was still open, and so still
+/// mutable, when it was written. The same rule as `auditRecord`: an audit
+/// handed less than it needs fails rather than passing on nothing.
+export function auditAnchor(rec, ctx) {
+    const out = [];
+    const say = (name, pass, detail) => out.push({name, pass: !!pass, detail: detail || ""});
+
+    if (!ctx || typeof ctx.address !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(ctx.address)) {
+        say("the audit was given an address to check against", false, `got ${ctx && ctx.address}`);
+        return out;
+    }
+    if (rec.a && strip(rec.a) !== strip(ctx.address)) {
+        say("the audit uses the contract address bound into the record", false,
+            `record ${rec.a}, audit ${ctx.address}`);
+        return out;
+    }
+    if (!Number.isInteger(ctx.closedEpoch) || ctx.closedEpoch < 0) {
+        say("the audit was given the epoch the anchor reached consensus in", false, `got ${ctx.closedEpoch}`);
+        return out;
+    }
+    if (typeof ctx.valueAt !== "function" || typeof ctx.hash !== "function") {
+        say("the audit was given the chain's cells and a hash function", false);
+        return out;
+    }
+
+    say("every anchored epoch had closed when the anchor was written",
+        rec.to <= ctx.closedEpoch, `anchors through ${rec.to}, epoch ${ctx.closedEpoch} was the last closed`);
+    let h;
+    try {
+        h = strip(ctx.hash(anchorPreimage(rec.from, rec.to, rec.rows, ctx.valueAt)));
+    } catch (e) {
+        say("every anchored cell read back off the contract", false, e.message);
+        return out;
+    }
+    say("the hash is the hash of spentBits over the range", h === strip(rec.h),
+        `the contract's cells hash to 0x${h.slice(0, 8)}`);
     return out;
 }

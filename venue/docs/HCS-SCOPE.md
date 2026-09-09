@@ -233,7 +233,10 @@ history in it when the recording happens.
 lands in `tools/` only. The six built pages stay dependency-free and the page
 build does not touch it, which is the property worth protecting.
 
-Cost is negligible: $0.01 to create the topic, $0.0001 per message.
+Cost: $0.01 to create the topic, $0.0008 per message. This scope was first
+written against the pre-2026 figure of $0.0001; `ConsensusSubmitMessage` has
+been $0.0008 since the January 2026 mainnet upgrade, and the cadence arithmetic
+that follows from the corrected fee is in `docs/HCS.md`.
 
 ## Risks
 

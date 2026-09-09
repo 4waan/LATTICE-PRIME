@@ -6,16 +6,29 @@
 // four of them have no topic panel, so putting the schema next to it would carry
 // fourteen kilobytes of parser into four documents that never call it.
 //
-// The disclosure record as an ordered public stream, read straight off the
-// mirror node's topic index. No key, no SDK, no subscription: `Venue.mirror` is
-// the same paged REST read the tape uses.
+// The disclosure record as an ordered public stream. No key, no SDK, no
+// subscription: `Venue.mirror` is the same paged REST read the tape uses.
+//
+// HCS is an ordered record, not a database. It has no query and no "current
+// value"; to know what the topic says, a reader replays it. Replaying it from
+// sequence one on every page load is the pattern that works at a hundred
+// messages and fails at fifty thousand, so this screen does not. It boots from
+// `HCS_INDEX`, the committed projection `tools/hcs-index.mjs` built and
+// `tools/hcs-verify.mjs` rebuilt and compared, and asks the mirror node only
+// for the messages after the snapshot's `throughSequence`. Before it appends
+// that tail it fetches the snapshot's last message back and compares the
+// network's own `running_hash`: a snapshot the topic does not recognise is not
+// extended, it is set aside, and the screen reads the topic directly and says
+// so. A build with no snapshot reads the topic directly too, as it always did.
 //
 // Two properties this screen is careful about, because it renders bytes that
 // arrived over a network into a page with no server in front of it.
 //
 // **Nothing is rendered that `decode` did not vouch for.** A message that fails
 // the schema is counted and named as unreadable rather than shown "best effort",
-// and every value that does reach the DOM goes through `esc`.
+// and every value that does reach the DOM goes through `esc`. Snapshot records
+// were decoded when the index was built and go through `validate` again here,
+// because the property is cheaper to keep uniform than to argue about.
 //
 // **The tick is the verifier's tick.** "Check every record against the chain"
 // runs `auditRecord`, the same function `tools/hcs-verify.mjs` runs, over the
@@ -25,16 +38,42 @@
 const HCS_PAGE_LIMIT = 100;
 const HCS_MAX_PAGES = 10;
 const HCS_ACTION_LIMIT = 44;
-const HCS_CHECKPOINT_LIMIT = 16;
+const HCS_LIVENESS_LIMIT = 16;
 
 Venue.hcsRecords = null;
 
-Venue.readTopic = async function () {
-    if (!HCS || !HCS.topicId) return null;
-    let next = "/api/v1/topics/" + encodeURIComponent(HCS.topicId) +
-        "/messages?order=desc&limit=" + HCS_PAGE_LIMIT;
+const hcsIsLiveness = (k) => LIVENESS_KINDS.includes(k);
+
+/// The committed snapshot, if this build carries one for this topic.
+Venue.hcsSnapshot = function () {
+    if (typeof HCS_INDEX === "undefined" || !HCS_INDEX) return null;
+    if (!HCS || HCS_INDEX.topicId !== HCS.topicId) return null;
+    if (!Number.isInteger(HCS_INDEX.throughSequence) || HCS_INDEX.throughSequence < 1) return null;
+    return HCS_INDEX;
+};
+
+/// One mirror node message to one row, or null when its bytes are not a record.
+function hcsRow(m) {
+    let text;
+    try {
+        text = new TextDecoder().decode(Uint8Array.from(atob(m.message), (ch) => ch.charCodeAt(0)));
+    } catch (e) {
+        return null;
+    }
+    try {
+        return {seq: Number(m.sequence_number), at: m.consensus_timestamp, rec: decode(text), audit: null};
+    } catch (e) {
+        return null;
+    }
+}
+
+/// Follow a listing from `first`, newest or oldest first as the caller asked,
+/// for at most `HCS_MAX_PAGES` pages. Returns the rows, the unreadable count,
+/// how many messages were scanned, and whether the listing was cut short.
+async function hcsListing(first) {
+    let next = first;
     const seen = new Set();
-    const out = [];
+    const rows = [];
     let unreadable = 0;
     let scanned = 0;
     for (let page = 0; next && page < HCS_MAX_PAGES; page++) {
@@ -45,37 +84,96 @@ Venue.readTopic = async function () {
         const j = await Venue.mirror(next);
         for (const m of j.messages || []) {
             scanned++;
-            let text;
-            try {
-                text = new TextDecoder().decode(
-                    Uint8Array.from(atob(m.message), (ch) => ch.charCodeAt(0)));
-            } catch (e) {
-                unreadable++;
-                continue;
-            }
-            try {
-                out.push({
-                    seq: Number(m.sequence_number),
-                    at: m.consensus_timestamp,
-                    rec: decode(text),
-                    audit: null,
-                });
-            } catch (e) {
-                unreadable++;
-            }
+            const row = hcsRow(m);
+            if (row) rows.push(row);
+            else unreadable++;
         }
         next = j.links && j.links.next ? j.links.next : null;
     }
-    if (next) throw new Error("The topic exceeds the browser scan limit.");
+    return {rows, unreadable, scanned, truncated: !!next};
+}
 
-    // Checkpoints make relay liveness visible, but they must not push the action
-    // receipts they anchor out of the screen. Keep the newest action records and
-    // a bounded recent checkpoint tail, then restore consensus order.
-    const actions = out.filter((row) => row.rec.k !== "checkpoint").slice(0, HCS_ACTION_LIMIT);
-    const checkpoints =
-        out.filter((row) => row.rec.k === "checkpoint").slice(0, HCS_CHECKPOINT_LIMIT);
-    const records = [...actions, ...checkpoints].sort((a, b) => b.seq - a.seq);
-    return {records, unreadable, total: scanned};
+/// Liveness records make a stalled relay visible, but they must not push the
+/// action receipts they vouch for out of the screen. Keep the newest action
+/// records and a bounded recent liveness tail, then restore consensus order.
+function hcsSelect(rows) {
+    const newest = [...rows].sort((a, b) => b.seq - a.seq);
+    const actions = newest.filter((row) => !hcsIsLiveness(row.rec.k)).slice(0, HCS_ACTION_LIMIT);
+    const liveness = newest.filter((row) => hcsIsLiveness(row.rec.k)).slice(0, HCS_LIVENESS_LIMIT);
+    return [...actions, ...liveness].sort((a, b) => b.seq - a.seq);
+}
+
+/// The topic read straight off the mirror node, newest first. What every build
+/// did before the snapshot, and what a build still does when it has none or
+/// when the snapshot turns out not to be the topic.
+Venue.readTopicFull = async function (fallback) {
+    const first = "/api/v1/topics/" + encodeURIComponent(HCS.topicId) +
+        "/messages?order=desc&limit=" + HCS_PAGE_LIMIT;
+    const got = await hcsListing(first);
+    if (got.truncated) throw new Error("The topic exceeds the browser scan limit.");
+    return {
+        records: hcsSelect(got.rows),
+        unreadable: got.unreadable,
+        total: got.scanned,
+        snapshot: null,
+        live: got.scanned,
+        truncated: false,
+        fallback: fallback || null,
+    };
+};
+
+/// The snapshot plus the live tail.
+Venue.readTopicFrom = async function (snap) {
+    const base = "/api/v1/topics/" + encodeURIComponent(HCS.topicId) + "/messages";
+    // The network's running hash at the snapshot's head has to be the one the
+    // snapshot recorded. This is the one check that does not trust the build.
+    const head = await Venue.mirror(base + "/" + encodeURIComponent(String(snap.throughSequence)));
+    if (!head || Number(head.sequence_number) !== snap.throughSequence) {
+        throw new Error("the mirror node has no message at #" + snap.throughSequence);
+    }
+    if (snap.runningHash !== null && head.running_hash !== snap.runningHash) {
+        throw new Error("the running hash at #" + snap.throughSequence + " is not the snapshot's");
+    }
+
+    let unreadable = 0;
+    const rows = [];
+    for (const row of [...(snap.actions || []), ...(snap.liveness || [])]) {
+        try {
+            rows.push({seq: Number(row.seq), at: row.at, rec: validate(row.rec), audit: null});
+        } catch (e) {
+            unreadable++;
+        }
+    }
+
+    // `gte:` rather than `gt:` because the mirror node refuses `gt:0`, and the
+    // two spell the same tail.
+    const tail = await hcsListing(base + "?order=asc&limit=" + HCS_PAGE_LIMIT +
+        "&sequencenumber=gte:" + encodeURIComponent(String(snap.throughSequence + 1)));
+    rows.push(...tail.rows);
+    return {
+        records: hcsSelect(rows),
+        unreadable: unreadable + tail.unreadable + (Number(snap.unreadable) || 0),
+        total: snap.messages + tail.scanned,
+        snapshot: {through: snap.throughSequence, builtAt: snap.builtAt || null, digest: snap.digest || null},
+        live: tail.scanned,
+        truncated: tail.truncated,
+        fallback: null,
+    };
+};
+
+Venue.readTopic = async function () {
+    if (!HCS || !HCS.topicId) return null;
+    const snap = Venue.hcsSnapshot();
+    if (snap) {
+        try {
+            return await Venue.readTopicFrom(snap);
+        } catch (e) {
+            // A snapshot the topic does not recognise is set aside, not
+            // rendered. The reason goes on screen with the full read.
+            return Venue.readTopicFull(e && e.message ? e.message : String(e));
+        }
+    }
+    return Venue.readTopicFull(null);
 };
 
 /// One record's line. `describe` is `tools/hcs.mjs`'s, so this screen and the
@@ -142,10 +240,30 @@ Venue.paintTopic = function (state) {
         esc(Object.keys(kinds).sort().map((k) => kinds[k] + " " + k).join(" · ")) +
         (state.unreadable ? " · " + state.unreadable + " unreadable" : "") +
         "</span></div>";
+    let how;
+    if (state.snapshot) {
+        const built = state.snapshot.builtAt
+            ? " built " + String(state.snapshot.builtAt).replace("T", " ").slice(0, 16) + "Z"
+            : "";
+        how = "Read from the committed snapshot through #" + esc(String(state.snapshot.through)) + esc(built) +
+            ", plus " + esc(String(state.live)) + " live message" + (state.live === 1 ? "" : "s") +
+            " after it from the mirror node." +
+            (state.truncated
+                ? " The snapshot is more than " + (HCS_PAGE_LIMIT * HCS_MAX_PAGES) +
+                  " messages behind the topic and the tail was cut short; rebuild it with <code>make hcs-index</code>."
+                : "");
+    } else {
+        how = "Read straight off the mirror node." +
+            (state.fallback
+                ? " The committed snapshot was set aside because " + esc(state.fallback) + "."
+                : "");
+    }
     el.innerHTML = head + state.records.map(Venue.hcsLine).join("") +
-        '<p class="note">Newest action receipts plus recent checkpoint anchors, selected from ' +
+        '<p class="note">' + how + " Newest action receipts plus recent checkpoints and anchors, selected from " +
         esc(String(state.total)) + " topic messages. Sequence number and consensus timestamp " +
-        "come from the topic, not from this client.</p>";
+        "come from the topic, not from this client. The topic is an ordered record, not a database: " +
+        "the venue's state is on its contracts, and every record here points at the transaction that " +
+        "can be checked against them.</p>";
 };
 
 Venue.refreshTopic = async function () {
@@ -203,7 +321,10 @@ Venue.auditTopic = async function () {
     const state = Venue.hcsRecords;
     if (!state || !state.records.length) return;
 
-    const wanted = state.records.filter((row) => row.rec.k !== "checkpoint");
+    // Checkpoints and anchors are checked against `spentBits`, which is one
+    // `eth_call` per cell and belongs to `make hcs-verify`; the button audits
+    // the records that name a transaction.
+    const wanted = state.records.filter((row) => !hcsIsLiveness(row.rec.k));
     const policyFrom = wanted.some((row) => row.rec.k === "silence")
         ? await Venue.policyFrom()
         : 0;
