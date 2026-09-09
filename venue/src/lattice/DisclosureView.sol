@@ -40,9 +40,9 @@ abstract contract DisclosureView {
     }
 
     /// @notice Gate an event without allowing publication policy to block an action.
-    /// @dev Cash repayment, collateral recovery, margin enforcement, cure, and
-    ///      default enforcement must remain live even after a ceiling narrows.
-    ///      In that case the venue emits nothing here. This controls only the
+    /// @dev Reserved for paths that release cash or collateral, including cure
+    ///      and the transitions required for default recovery. In that case the
+    ///      venue emits nothing when the ceiling narrows. This controls only the
     ///      venue event; transaction calldata, storage, transfers, and upstream
     ///      token events remain public.
     function _emitWithoutBlocking(uint16 row, uint8 g, uint8 t)

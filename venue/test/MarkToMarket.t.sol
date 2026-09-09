@@ -11,6 +11,7 @@ import {ICouponSchedule} from "../src/interfaces/ICouponSchedule.sol";
 import {IExternalKycList} from "../src/interfaces/IExternalKycList.sol";
 import {AggregatorV3Interface} from "../src/interfaces/AggregatorV3Interface.sol";
 import {DisclosureLattice as L} from "../src/lattice/DisclosureLattice.sol";
+import {DisclosureView} from "../src/lattice/DisclosureView.sol";
 import {MockHolds} from "./AtsHolds.sol";
 import {RepoFunding} from "./RepoFunding.sol";
 import {MockAggregator} from "./OracleFixture.sol";
@@ -172,19 +173,22 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture, RepoFunding {
         );
     }
 
-    function test_aNarrowedPublicationCeilingCannotBlockAMarginCall() public {
+    function test_aNarrowedPublicationCeilingRefusesAMarginCallAsPolicyError() public {
         _open();
         _drop(MAX_DEVIATION_BPS);
         vm.prank(SUPERVISOR);
         regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer margin events");
 
-        vm.recordLogs();
+        uint32 over = L.excess(params.ceilingFor(14), L.point(L.G_PRED, L.T_IMM));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DisclosureView.DisclosureExceedsCeiling.selector, uint16(14), over
+            )
+        );
         vm.prank(PASSERBY);
-        bool breach = vault.markToMarket(ID);
+        vault.markToMarket(ID);
 
-        assertTrue(breach);
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
-        assertEq(vm.getRecordedLogs().length, 0, "risk moves while venue speech is withheld");
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
     }
 
     /// @notice A mark that does not breach changes nothing and says nothing.
@@ -310,22 +314,24 @@ contract MarkToMarketTest is Test, PolicyFixture, CouponFixture, RepoFunding {
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
     }
 
-    function test_aNarrowedCeilingCannotBlockTheDarkFeedFallback() public {
+    function test_aNarrowedCeilingRefusesTheDarkFeedFallbackAsPolicyError() public {
         _open();
         vm.warp(block.timestamp + HEARTBEAT + 1);
         vm.prank(SUPERVISOR);
         regime.narrow(L.point(L.G_PRED, L.T_EOD), "defer margin events");
 
         bytes32 commitment = keccak256("dark-feed mark");
-        vm.recordLogs();
+        uint32 over = L.excess(params.ceilingFor(14), L.point(L.G_PRED, L.T_IMM));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DisclosureView.DisclosureExceedsCeiling.selector, uint16(14), over
+            )
+        );
         vm.prank(ENGINE);
         vault.postMark(ID, commitment, true, 1 days);
 
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(vault.repo(ID).markCommitment, commitment);
-        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
-        assertEq(logs.length, 1, "only the unwaived cadence event remains");
-        assertEq(logs[0].topics[0], keccak256("MarkPosted(bytes32,bytes32)"));
+        assertEq(vault.repo(ID).markCommitment, bytes32(0));
+        assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.OPEN));
     }
 
     /// @notice A dark cash leg opens the seat as surely as a dark panel does.
