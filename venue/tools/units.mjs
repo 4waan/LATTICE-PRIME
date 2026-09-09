@@ -170,6 +170,14 @@ export function displayPrice(priceTwice) {
     return p % 2n === 0n ? `${p / 2n}` : `${p / 2n}.5`;
 }
 
+/// A twice-tinybar clearing price as HBAR per bond. An odd midpoint needs nine
+/// decimal places because half a tinybar is exactly 0.000000005 HBAR.
+export function displayPriceHbar(priceTwice) {
+    const p = big(priceTwice, "priceTwice");
+    const wholeTinybar = p / 2n;
+    return formatHbar(wholeTinybar) + (p % 2n === 0n ? "" : "5");
+}
+
 // -------------------------------------------------------------- the feed
 
 /// Decimals on every price this venue reads or publishes.
