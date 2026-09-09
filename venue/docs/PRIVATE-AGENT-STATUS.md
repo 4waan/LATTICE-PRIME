@@ -25,12 +25,16 @@ The trained-model gate passes:
   executions, and exact quantized-graph correspondence.
 - EZKL 23.0.5 generated and verified the trained-model proof. Altered public
   output, expected context, verification key, and model identity were refused.
-- Seventeen Node tests and six Python tests pass.
+- Twenty-five Node tests and six Python tests pass.
 
 The local runtime gate also passes:
 
 - The user-unlocked AES-256-GCM journal writes atomically with a chained entry
   hash, restrictive permissions, restart recovery, and replay-safe counters.
+- Unlock migrates recognized Phase 1 authority and ticket records to explicit
+  v2 schemas. The migration preserves mandates, salts, transaction bytes,
+  nonces, counters, and outstanding recovery state, and refuses unknown prior
+  shapes.
 - A separate process owns the dedicated signing key and accepts only typed
   setup, mandate, evaluation, commit, reveal, status, and broadcast-record
   messages. Commit salt and signed bytes are persisted before broadcast.
@@ -43,6 +47,9 @@ The local runtime gate also passes:
 - A headless deterministic test completed intent, isolated proof, independent
   verification, authority reservation, exact transaction projection, signing,
   unknown-broadcast reconciliation, and a sanitized receipt.
+- A commit is signed only after a second protocol, wall-clock expiry, snapshot
+  freshness, and pending-account-nonce check. An unresolved first commit can
+  reconcile or rebroadcast its exact persisted transaction without re-signing.
 
 These results measure synthetic decision consistency and implementation
 correspondence. They do not measure profitability or validated financial
@@ -56,11 +63,15 @@ The live protocol gate passes on chain 296:
   MatchingEngine and ATS token runtime code by Keccak, found all 13 required
   engine selectors, and checked live wiring and market immutables.
 - Protocol preflight authenticated the execution account, KYC status, halt
-  state, native fee balance, policy epoch, KYC epoch, and latest block.
+  state, native fee balance, policy epoch, KYC epoch, and latest block. Every
+  authoritative value is read at that reported block.
 - Reveal performs a second authoritative identity, KYC, funding, and mandate
   deadline preflight before the signer may post BUY principal. Halt is reported
   but does not block reveal because the deployed protocol permits reveal during
   a halt and locally suppressing it could forfeit the posted bond.
+- Commit performs the same authoritative checks before proving and repeats
+  them immediately after proving. Expired decision context, stale snapshot, or
+  a changed account nonce is refused before commit signing.
 - Every decision context used an adapter-created single-block market snapshot
   whose block hash, timestamp, feature values, and snapshot hash were checked
   again before proving. Post-run hardening added a process-local HMAC, exact
@@ -86,12 +97,18 @@ The live protocol gate passes on chain 296:
 - Independent Foundry readback confirmed transaction status, selectors,
   contract destination, order quantities and fills, retirement, credits, and
   final ATS partition balances.
+- Each action and round accounting report now pins every contract read and its
+  observation timestamp to one block. Recovery does not withdraw account-level
+  credit while the tracked order remains in an active auction.
 
 The optional EZKL EVM verifier is deployed at
 `0x9f035f847a0840e8d6ccdf7ab31c15cbd04cd9dc`. Its 10,027-byte runtime
 accepted the valid released proof in a 712,013-gas testnet transaction and
 refused an altered proof. It is an evidence sidecar. MatchingEngine does not
 call it, and per-order proof publication remains disabled by default.
+The current deployment probe recomputes the Solidity, ABI, proof, and calldata
+hashes from the files it actually compiles and submits, then refuses any stale
+build report before deploying.
 
 Tracked evidence is in `deployments/agent-phase2.json`,
 `deployments/agent-phase2-partial.json`,
@@ -129,30 +146,30 @@ Environment:
 
 Timings:
 
-- settings: 0.073 seconds
-- compile: 0.005 seconds
-- SRS: 1.174 seconds
-- witness: 0.017 seconds
-- setup: 1.102 seconds
-- proof: 1.349 seconds
-- verification: 0.017 seconds
-- altered-circuit setup: 1.013 seconds
-- process high-water RSS: 420,184,064 bytes
+- settings: 0.047 seconds
+- compile: 0.003 seconds
+- SRS: 0.934 seconds
+- witness: 0.015 seconds
+- setup: 1.034 seconds
+- proof: 1.484 seconds
+- verification: 0.015 seconds
+- altered-circuit setup: 1.315 seconds
+- process high-water RSS: 416,776,192 bytes
 
 Artifact sizes and identities:
 
 - ONNX: 1,708 bytes,
   `sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503`
 - compiled circuit: 11,305 bytes,
-  `sha256:c532125bf2ab2cf11ccab7cc1ee5b8ac68de2952e53588c03c845e3da34a0a7f`
+  `sha256:345d7bbb1bdb4e43867673c49d96b66b67fcb287b49216a8aa61355268239fb0`
 - SRS: 2,097,412 bytes,
   `sha256:c09129f064c08ecb07ea3689a2247dcc177de6837e7d2f5f946e30453abbccef`
 - proving key: 117,475,083 bytes,
-  `sha256:1b3d0841c437e42b66cf80b2a9faac53e1033dd731e9a980e58c394ae918ec77`
+  `sha256:3f4a03acdf8a6083e33db9bb6f2e99ca806a31254cb6ab0c793fb1523e2683a6`
 - verification key: 34,055 bytes,
-  `sha256:ca041db091663fd33da8c264eef4f581eb5c0abbe188a5df0497389bd58f2b46`
-- proof JSON: 44,014 bytes,
-  `sha256:8d8402cd576cacd839fe22f2999b3d5f9e60a922a2be4383315859ec07599642`
+  `sha256:eb64504a1a8cf077acbc21384c8548a494c8efbabe8f3590a301d999557d417f`
+- proof JSON: 44,021 bytes,
+  `sha256:4c35056e6733d105ea93bc7328d798741c5beb5bfbe2fd2789face0487d0fb97`
 
 Setup and proof artifacts use randomized material, so key and proof hashes can
 change on a clean run. The model and quantized-weight hashes remain fixed.
@@ -165,8 +182,8 @@ change on a clean run. The model and quantized-weight hashes remain fixed.
 - A direct no-network probe failed to resolve an external host as expected and
   confirmed that no user `.env` path was mounted.
 - The trained-model isolated worker plus independent verifier completed in
-  14,023 milliseconds.
-- The complete local headless execution completed in 9,486 milliseconds and
+  15,087 milliseconds.
+- The complete local headless execution completed in 10,791 milliseconds and
   reconciled a simulated timeout after transaction acceptance.
 
 Machine-readable proof, correspondence, worker, and local end-to-end records

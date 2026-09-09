@@ -68,9 +68,10 @@ async function dispatch(message) {
         }
         case "unlock": {
             const passphrase = message.params.passphrase;
+            const migration = await signer.migrateState(passphrase);
             const address = await signer.account(passphrase);
             sessionPassphrase = passphrase;
-            return {address};
+            return {address, migration};
         }
         case "lock":
             sessionPassphrase = null;

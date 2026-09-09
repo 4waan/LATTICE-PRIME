@@ -39,14 +39,19 @@ these files belong in the public application directory.
   calls from the approved tuple and independently checks decoded transaction
   fields.
 - `runtime/store.mjs` maintains an atomically replaced, user-unlocked encrypted
-  journal with chained entry hashes and restart recovery.
+  journal with chained entry hashes, restart recovery, and a strict migration
+  from recognized Phase 1 authority and ticket records.
 - `runtime/signer-worker.mjs` owns the dedicated key in a separate process and
   accepts only typed agent operations.
 - `runtime/supervisor.mjs` exposes a paired loopback API with exact origin,
   session, CSRF, request-schema, and body-size checks.
 - `runtime/hedera-protocol-adapter.mjs` pins deployment files, ABIs, runtime
   code, wiring, and market immutables before it authenticates snapshots,
-  submits projected transactions, or reports authoritative chain state.
+  runs single-block protocol preflight, submits projected transactions, or
+  reports single-block authoritative chain state.
+- `runtime/agent-runtime.mjs` rechecks protocol authority, context expiry,
+  snapshot freshness, and account nonce after proving and before commit
+  signing. Recovery can rebroadcast the exact persisted first commit.
 - `runtime/order-receipt.mjs` joins the local decision to the existing protocol
   order identifier while keeping inference, chain, venue-disclosure, and local
   runtime evidence scopes distinct.
@@ -84,4 +89,5 @@ These checks cover the declared graph, proof, policy, local isolation, signer,
 transaction projection, authenticated testnet snapshot, and observed protocol
 outcome. They do not prove that every process on the host was silent or enforce
 delegation in a contract. The optional EVM proof verifier is an evidence
-sidecar and does not authorize or settle an order.
+sidecar and does not authorize or settle an order. Its deployment probe
+recomputes the hashes of the exact verifier, ABI, proof, and calldata it uses.

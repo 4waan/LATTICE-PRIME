@@ -4,6 +4,7 @@ import {Transaction, Wallet, getAddress, hexlify} from "ethers";
 import {contextId} from "./context.mjs";
 import {validateMandate} from "./mandate.mjs";
 import {
+    AUTHORITY_STATE_VERSION,
     createAuthorityState,
     mandateId,
     reserveApprovedBuy,
@@ -24,6 +25,39 @@ import {
 const PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/;
 const ACTION_ID = /^sha256:[0-9a-f]{64}$/;
 const OUTSTANDING_STAGES = new Set(["reveal", "cancel", "expire", "withdraw"]);
+const TICKET_STATE_VERSION = "lattice.agent.ticket.v2";
+const LEGACY_AUTHORITY_VERSION = "lattice.agent.authority-state.v1";
+const LEGACY_TICKET_VERSION = "lattice.agent.ticket.v1";
+const LEGACY_AUTHORITY_KEYS = [
+    "schemaVersion",
+    "mandateId",
+    "revocationGeneration",
+    "evaluationsUsed",
+    "evaluatedSlots",
+    "newOrdersUsed",
+    "pendingActionIds",
+    "cumulativePrincipalReserved",
+    "cumulativeBondReserved",
+    "cumulativeCancellationSpent",
+].sort();
+const PHASE2_AUTHORITY_KEYS = [...LEGACY_AUTHORITY_KEYS, "paused"].sort();
+const LEGACY_TICKET_KEYS = [
+    "schemaVersion",
+    "actionId",
+    "mandateId",
+    "context",
+    "salt",
+    "commitNonce",
+    "revealNonce",
+    "lifecycle",
+].sort();
+const PHASE2_TICKET_KEYS = [
+    ...LEGACY_TICKET_KEYS,
+    "cancelNonce",
+    "cancelFeeReserved",
+    "expireNonce",
+    "withdrawNonce",
+].sort();
 
 export class SignerError extends Error {
     constructor(code, message) {
@@ -133,6 +167,52 @@ function assertNonceAvailable(state, requestedNonce, actionId, nonceField) {
     }
 }
 
+function sameKeys(value, expected) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+    const actual = Object.keys(value).sort();
+    return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function migrateAuthorityState(mandate, authority) {
+    if (authority?.schemaVersion === AUTHORITY_STATE_VERSION) return authority;
+    if (
+        authority?.schemaVersion !== LEGACY_AUTHORITY_VERSION ||
+        (!sameKeys(authority, LEGACY_AUTHORITY_KEYS) &&
+            !sameKeys(authority, PHASE2_AUTHORITY_KEYS))
+    ) {
+        throw new SignerError(
+            "STATE_MIGRATION_REFUSED",
+            "authority state is not a recognized prior schema"
+        );
+    }
+    return {
+        ...authority,
+        schemaVersion: AUTHORITY_STATE_VERSION,
+        paused: authority.paused ?? mandate.control.paused,
+    };
+}
+
+function migrateTicketState(ticket) {
+    if (ticket?.schemaVersion === TICKET_STATE_VERSION) return ticket;
+    if (
+        ticket?.schemaVersion !== LEGACY_TICKET_VERSION ||
+        (!sameKeys(ticket, LEGACY_TICKET_KEYS) && !sameKeys(ticket, PHASE2_TICKET_KEYS))
+    ) {
+        throw new SignerError(
+            "STATE_MIGRATION_REFUSED",
+            "ticket state is not a recognized prior schema"
+        );
+    }
+    return {
+        ...ticket,
+        schemaVersion: TICKET_STATE_VERSION,
+        cancelNonce: ticket.cancelNonce ?? null,
+        cancelFeeReserved: ticket.cancelFeeReserved ?? false,
+        expireNonce: ticket.expireNonce ?? null,
+        withdrawNonce: ticket.withdrawNonce ?? null,
+    };
+}
+
 export class LocalTypedSigner {
     constructor({
         store,
@@ -169,8 +249,63 @@ export class LocalTypedSigner {
     }
 
     async account(passphrase) {
+        await this.migrateState(passphrase);
         const wallet = await this.#wallet(passphrase);
         return wallet.address.toLowerCase();
+    }
+
+    async migrateState(passphrase) {
+        const before = await this.store.read(passphrase);
+        const authorityIds = Object.keys(before.authority);
+        const ticketIds = Object.keys(before.tickets);
+        const needsMigration =
+            authorityIds.some(
+                (id) => before.authority[id]?.schemaVersion !== AUTHORITY_STATE_VERSION
+            ) ||
+            ticketIds.some(
+                (id) => before.tickets[id]?.schemaVersion !== TICKET_STATE_VERSION
+            );
+        if (!needsMigration) {
+            return {migrated: false, authorities: 0, tickets: 0};
+        }
+        let migratedAuthorities = 0;
+        let migratedTickets = 0;
+        await this.store.transact(passphrase, "migrate-phase2-state", (state) => {
+            for (const id of Object.keys(state.authority)) {
+                const mandate = state.mandates[id];
+                if (mandate === undefined) {
+                    throw new SignerError(
+                        "STATE_MIGRATION_REFUSED",
+                        "authority state has no corresponding mandate"
+                    );
+                }
+                validateMandate(mandate);
+                const migrated = migrateAuthorityState(mandate, state.authority[id]);
+                if (migrated !== state.authority[id]) {
+                    state.authority[id] = migrated;
+                    migratedAuthorities += 1;
+                }
+            }
+            for (const id of Object.keys(state.tickets)) {
+                const ticket = state.tickets[id];
+                if (state.mandates[ticket?.mandateId] === undefined) {
+                    throw new SignerError(
+                        "STATE_MIGRATION_REFUSED",
+                        "ticket state has no corresponding mandate"
+                    );
+                }
+                const migrated = migrateTicketState(ticket);
+                if (migrated !== ticket) {
+                    state.tickets[id] = migrated;
+                    migratedTickets += 1;
+                }
+            }
+        });
+        return {
+            migrated: true,
+            authorities: migratedAuthorities,
+            tickets: migratedTickets,
+        };
     }
 
     async summary(passphrase) {
@@ -349,7 +484,7 @@ export class LocalTypedSigner {
                     parsedRequest.approval
                 );
                 ticket = {
-                    schemaVersion: "lattice.agent.ticket.v1",
+                    schemaVersion: TICKET_STATE_VERSION,
                     actionId,
                     mandateId: id,
                     context,

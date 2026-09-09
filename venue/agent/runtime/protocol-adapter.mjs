@@ -35,6 +35,7 @@ export class DeterministicProtocolAdapter {
         this.commitments = new Map();
         this.creditTinybar = "0";
         this.failureMode = "none";
+        this.accountNonce = 0;
     }
 
     setFailureMode(mode) {
@@ -78,6 +79,14 @@ export class DeterministicProtocolAdapter {
         };
     }
 
+    async nextNonce() {
+        return this.accountNonce;
+    }
+
+    async accountNonces() {
+        return {latest: this.accountNonce, pending: this.accountNonce};
+    }
+
     async broadcast(record) {
         if (this.failureMode === "timeout-before-accept") {
             throw new AdapterError("BROADCAST_UNKNOWN", "deterministic timeout before acceptance");
@@ -107,6 +116,7 @@ export class DeterministicProtocolAdapter {
                 method: parsed.name,
                 nonce: transaction.nonce,
             });
+            this.accountNonce = Math.max(this.accountNonce, transaction.nonce + 1);
             if (parsed.name === "commit") {
                 this.commitments.set(parsed.args.id.toLowerCase(), {
                     sealed: true,
