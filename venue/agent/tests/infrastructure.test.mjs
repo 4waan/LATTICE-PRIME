@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import {spawnSync} from "node:child_process";
+import path from "node:path";
 import test from "node:test";
+import {fileURLToPath} from "node:url";
 
 import {encodeContext, contextId, ContextError} from "../runtime/context.mjs";
 import {assertContextAuthorized, validateMandate, MandateError} from "../runtime/mandate.mjs";
@@ -25,6 +28,7 @@ const H = {
     activation: `0x${"07".repeat(32)}`,
     salt: `0x${"08".repeat(32)}`,
 };
+const VENUE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function context() {
     return {
@@ -125,6 +129,48 @@ test("context encoding is fixed width and deterministic", () => {
     assert.deepEqual(encoded.slice(0, 6), [600, 1100, 5000, 30, 1, 1]);
     assert.deepEqual(encoded.slice(22, 26), [0, 0, 0, 296]);
     assert.equal(contextId(context()), contextId(context()));
+});
+
+test("JavaScript and independent Python context codecs agree", () => {
+    const cases = [
+        context(),
+        {
+            ...context(),
+            features: {
+                limitRoomBps: 0,
+                recentMoveOffsetBps: 0,
+                roundProgressBps: 0,
+                freshnessSeconds: 0,
+                bufferCategory: 0,
+                horizonCategory: 0,
+            },
+        },
+        {
+            ...context(),
+            decisionSequence: 0xffff_ffff,
+            features: {
+                limitRoomBps: 2000,
+                recentMoveOffsetBps: 2000,
+                roundProgressBps: 10_000,
+                freshnessSeconds: 300,
+                bufferCategory: 2,
+                horizonCategory: 2,
+            },
+        },
+    ];
+    const source = [
+        "import json,sys",
+        "sys.path.insert(0, sys.argv[1])",
+        "from context_codec import encode_context",
+        "print(json.dumps([encode_context(value) for value in json.load(sys.stdin)]))",
+    ].join("\n");
+    const result = spawnSync(
+        path.join(VENUE_ROOT, ".venv/bin/python"),
+        ["-c", source, path.join(VENUE_ROOT, "agent/proof")],
+        {input: JSON.stringify(cases), encoding: "utf8"}
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), cases.map(encodeContext));
 });
 
 test("context rejects unknown fields and unsupported values", () => {

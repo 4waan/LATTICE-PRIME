@@ -83,6 +83,11 @@ export class DeterministicProtocolAdapter {
         if (parsed === null || !["commit", "reveal"].includes(parsed.name)) {
             throw new AdapterError("METHOD_REFUSED", "adapter harness accepts only commit and reveal");
         }
+        const revealedCommitment =
+            parsed.name === "reveal" ? record.projection.commitment.toLowerCase() : null;
+        if (revealedCommitment !== null && !this.commitments.has(revealedCommitment)) {
+            throw new AdapterError("COMMITMENT_MISSING", "reveal has no accepted commitment");
+        }
         if (!this.transactions.has(transaction.hash)) {
             this.transactions.set(transaction.hash, {
                 transactionHash: transaction.hash,
@@ -93,11 +98,7 @@ export class DeterministicProtocolAdapter {
             if (parsed.name === "commit") {
                 this.commitments.set(parsed.args.id.toLowerCase(), {sealed: true, revealed: false});
             } else {
-                const commitment = record.projection.commitment.toLowerCase();
-                const state = this.commitments.get(commitment);
-                if (state === undefined) {
-                    throw new AdapterError("COMMITMENT_MISSING", "reveal has no accepted commitment");
-                }
+                const state = this.commitments.get(revealedCommitment);
                 state.revealed = true;
             }
         }

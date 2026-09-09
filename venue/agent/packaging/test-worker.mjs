@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {readFile} from "node:fs/promises";
+import {mkdir, readFile, writeFile} from "node:fs/promises";
 import path from "node:path";
 
 import {IsolatedProvingWorker} from "../runtime/worker.mjs";
@@ -22,16 +22,16 @@ const verifier = new EzklVerifier({
 const started = performance.now();
 const result = await worker.prove(context);
 const verification = await verifier.verify({proof: result.proof, context});
-console.log(
-    JSON.stringify(
-        {
-            schemaVersion: "lattice.agent.worker-test.v1",
-            status: "passed",
-            elapsedMilliseconds: Math.round(performance.now() - started),
-            verification,
-            evidence: result.evidence,
-        },
-        null,
-        2
-    )
-);
+const report = {
+    schemaVersion: "lattice.agent.worker-test.v1",
+    status: "passed",
+    elapsedMilliseconds: Math.round(performance.now() - started),
+    processMaxRssKiB: process.resourceUsage().maxRSS,
+    verification,
+    evidence: result.evidence,
+};
+const evidenceDir = path.join(venueRoot, "agent/artifacts/evidence");
+await mkdir(evidenceDir, {recursive: true});
+const rendered = `${JSON.stringify(report, null, 2)}\n`;
+await writeFile(path.join(evidenceDir, "worker-test.json"), rendered, "utf8");
+console.log(rendered);

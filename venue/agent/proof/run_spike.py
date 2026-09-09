@@ -24,6 +24,9 @@ from context_codec import encode_context
 
 AGENT_ROOT = Path(__file__).resolve().parents[1]
 VENUE_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(AGENT_ROOT / "formal"))
+
+from decision_relation import relation_decision  # noqa: E402
 
 
 class ExpectedInstancesMismatch(ValueError):
@@ -59,7 +62,7 @@ def synthetic_context(model_hash: str) -> dict:
         "publicSlot": "1788950000",
         "expiresAt": "1788950060",
         "features": {
-            "limitRoomBps": 600,
+            "limitRoomBps": 700,
             "recentMoveOffsetBps": 1100,
             "roundProgressBps": 5000,
             "freshnessSeconds": 30,
@@ -71,27 +74,16 @@ def synthetic_context(model_hash: str) -> dict:
 
 def decision_for(context: dict) -> bool:
     features = context["features"]
-    hidden = [
-        max(features["limitRoomBps"] - 250, 0),
-        max(features["recentMoveOffsetBps"] - 1000, 0),
-        max(180 - features["freshnessSeconds"], 0),
-        max(features["roundProgressBps"] - 2500, 0),
-        max(8000 - features["roundProgressBps"], 0),
-        features["bufferCategory"],
-        features["horizonCategory"],
-        1,
-    ]
-    scaled_score = (
-        128 * hidden[0]
-        + 32 * hidden[1]
-        + 128 * hidden[2]
-        + 2 * hidden[3]
-        + hidden[4]
-        - 12_800 * hidden[5]
-        + 2_560 * hidden[6]
-        - 64_000 * hidden[7]
+    return relation_decision(
+        [
+            features["limitRoomBps"],
+            features["recentMoveOffsetBps"],
+            features["roundProgressBps"],
+            features["freshnessSeconds"],
+            features["bufferCategory"],
+            features["horizonCategory"],
+        ]
     )
-    return scaled_score > 0
 
 
 def normalize_felt(value: str) -> str:
@@ -336,7 +328,7 @@ def run(output_dir: Path) -> dict:
     return {
         "schemaVersion": "lattice.agent.proof-spike-evidence.v1",
         "status": "passed",
-        "releaseStatus": "proof-spike-only",
+        "releaseStatus": "trained-model-local-verification",
         "versions": {
             "ezkl": ezkl.__version__,
             "onnx": onnx.__version__,
@@ -363,10 +355,10 @@ def run(output_dir: Path) -> dict:
         "negativeResults": negative_results,
         "artifacts": artifacts,
         "limitations": [
-            "The graph is a deterministic proof-spike fixture and is not approved for live trading.",
+            "The trained graph is a synthetic decision-consistency model and is not approved for live trading.",
             "The proof binds the supplied context but does not authenticate that market snapshot against Hedera.",
             "The memory figure is a process high-water mark, not isolated per proof stage.",
-            "Worker container isolation is not available on this host yet and was not tested.",
+            "This proof command does not attest worker isolation; agent-worker-test records that separate result.",
         ],
     }
 

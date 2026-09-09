@@ -5,6 +5,9 @@ import path from "node:path";
 
 import {encodeContext} from "./context.mjs";
 
+const PINNED_IMAGE =
+    "lattice-agent-worker@sha256:6e064bc5d6141df238b3e39a7fb8fa05893d3e69440a6d58a23eeb6cbfd1eee4";
+
 export class WorkerError extends Error {
     constructor(code, message) {
         super(message);
@@ -39,7 +42,7 @@ function run(command, args, timeoutMilliseconds, diagnosticOutput) {
 export class IsolatedProvingWorker {
     constructor({
         bundleDir,
-        image = "lattice-agent-worker:23.0.5",
+        image = PINNED_IMAGE,
         timeoutMilliseconds = 120_000,
         diagnosticOutput = false,
         jobRoot = path.join(os.homedir(), ".lattice-agent", "worker-jobs"),
@@ -47,7 +50,10 @@ export class IsolatedProvingWorker {
         if (typeof bundleDir !== "string" || !path.isAbsolute(bundleDir)) {
             throw new WorkerError("BUNDLE_INVALID", "worker bundle path must be absolute");
         }
-        if (typeof image !== "string" || !/^lattice-agent-worker:[a-zA-Z0-9._-]+$/.test(image)) {
+        if (
+            typeof image !== "string" ||
+            !/^lattice-agent-worker@sha256:[0-9a-f]{64}$/.test(image)
+        ) {
             throw new WorkerError("IMAGE_REFUSED", "worker image is not in the local allowlist");
         }
         if (!Number.isSafeInteger(timeoutMilliseconds) || timeoutMilliseconds < 1000) {

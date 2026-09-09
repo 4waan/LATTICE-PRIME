@@ -217,12 +217,6 @@ export class AgentSupervisor {
         } else if (request.method === "POST" && url.pathname === "/v1/mandates/activate") {
             exactObject(body, ["mandate"], "activate request");
             result = await this.signer.call("activateMandate", {mandate: body.mandate});
-        } else if (request.method === "POST" && url.pathname === "/v1/evaluations/reserve") {
-            exactObject(body, ["context", "mandate"], "evaluation request");
-            result = await this.signer.call("reserveEvaluation", {
-                mandate: body.mandate,
-                context: body.context,
-            });
         } else if (request.method === "POST" && url.pathname === "/v1/evaluate") {
             if (this.runtime === null) {
                 throw new SupervisorError("RUNTIME_UNAVAILABLE", "proof runtime is not configured", 503);

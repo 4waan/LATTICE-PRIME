@@ -231,6 +231,7 @@ test("deterministic adapter distinguishes unknown broadcast from rejection", asy
             proofVerified: true,
         },
     });
+    const reveal = await signer.prepareReveal(PASSPHRASE, m, c, {nonce: 1});
     const adapter = new DeterministicProtocolAdapter({
         chainId: "296",
         engine: ENGINE,
@@ -238,11 +239,14 @@ test("deterministic adapter distinguishes unknown broadcast from rejection", asy
         token: TOKEN,
         features: c.features,
     });
+    await assert.rejects(() => adapter.broadcast(reveal), {code: "COMMITMENT_MISSING"});
+    assert.equal((await adapter.reconcile(reveal.transactionHash)).known, false);
     adapter.setFailureMode("timeout-after-accept");
     await assert.rejects(() => adapter.broadcast(commit), {code: "BROADCAST_UNKNOWN"});
     assert.equal((await adapter.reconcile(commit.transactionHash)).status, "confirmed");
     adapter.setFailureMode("none");
     assert.equal((await adapter.broadcast(commit)).status, "confirmed");
+    assert.equal((await adapter.broadcast(reveal)).status, "confirmed");
 });
 
 test("headless runtime completes verified decision to reconciled commitment", async () => {

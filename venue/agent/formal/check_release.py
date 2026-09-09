@@ -23,27 +23,33 @@ def relu(value):
 
 def decision(public, buffer_category, horizon_category):
     room, move_offset, round_progress, freshness = public
-    hidden = [
-        relu(room - 250),
-        relu(move_offset - 1000),
-        relu(180 - freshness),
-        relu(round_progress - 2500),
-        relu(8000 - round_progress),
-        buffer_category,
-        horizon_category,
-        1,
-    ]
-    score_scaled_128 = (
-        128 * hidden[0]
-        + 32 * hidden[1]
-        + 128 * hidden[2]
-        + 2 * hidden[3]
-        + hidden[4]
-        - 12_800 * hidden[5]
-        + 2_560 * hidden[6]
-        - 64_000 * hidden[7]
+    score = (
+        6 * (room - 1000)
+        + 4 * (move_offset - 1000)
+        + (round_progress - 5000)
+        - 16 * (freshness - 150)
+        + 1000 * (buffer_category - 1)
+        + 700 * (horizon_category - 1)
     )
-    return score_scaled_128 > 0
+    return score > 0
+
+
+def quantized_graph_decision(public, buffer_category, horizon_category):
+    room, move_offset, round_progress, freshness = public
+    projection_numerator = (
+        6 * room
+        + 4 * move_offset
+        + round_progress
+        - 16 * freshness
+        + 1000 * buffer_category
+        + 700 * horizon_category
+        - 14_300
+    )
+    positive_hidden = [relu(projection_numerator) for _ in range(4)]
+    negative_hidden = [relu(-projection_numerator) for _ in range(4)]
+    wait_logit_numerator = 64 * sum(negative_hidden)
+    execute_logit_numerator = 64 * sum(positive_hidden)
+    return execute_logit_numerator > wait_logit_numerator
 
 
 def public_domain(public):
@@ -93,6 +99,22 @@ def check_optional_mode():
     return result, solver
 
 
+def check_quantized_graph_correspondence():
+    public = [Int(f"correspondence_public_{i}") for i in range(4)]
+    buffer_category = Int("correspondence_buffer_category")
+    horizon_category = Int("correspondence_horizon_category")
+    solver = Solver()
+    solver.add(public_domain(public))
+    solver.add(buffer_category >= 0, buffer_category <= 2)
+    solver.add(horizon_category >= 0, horizon_category <= 2)
+    solver.add(
+        decision(public, buffer_category, horizon_category)
+        != quantized_graph_decision(public, buffer_category, horizon_category)
+    )
+    result = solver.check()
+    return result, solver
+
+
 def require_unsat(name, outcome):
     result, solver = outcome
     if result == sat:
@@ -104,8 +126,10 @@ def require_unsat(name, outcome):
 def main() -> None:
     default = check_default_mode()
     optional = check_optional_mode()
+    correspondence = check_quantized_graph_correspondence()
     require_unsat("default excluded context", default)
     require_unsat("optional category release", optional)
+    require_unsat("quantized graph correspondence", correspondence)
 
     source_hash = f"sha256:{hashlib.sha256(open(__file__, 'rb').read()).hexdigest()}"
     print(
@@ -117,6 +141,7 @@ def main() -> None:
                 "results": {
                     "defaultExcludedContext": "unsat",
                     "optionalEqualCategories": "unsat",
+                    "quantizedGraphCorrespondence": "unsat",
                 },
                 "domains": {
                     "bufferRatioBps": [0, 10_000],
@@ -127,8 +152,9 @@ def main() -> None:
                     "freshnessSeconds": [0, 300],
                 },
                 "scope": (
-                    "Two-run integer decision core and approved category release. "
-                    "The optional product mode remains disabled pending executable correspondence tests."
+                    "Two-run integer decision core, approved category release, and exact "
+                    "trained quantized graph correspondence. The optional product mode "
+                    "remains disabled by product policy."
                 ),
             },
             indent=2,

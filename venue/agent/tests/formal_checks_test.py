@@ -14,7 +14,12 @@ AGENT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(AGENT_ROOT / "formal"))
 
 from check_graph import GraphRefused, inspect_graph  # noqa: E402
-from check_release import check_default_mode, check_optional_mode  # noqa: E402
+from check_release import (  # noqa: E402
+    check_default_mode,
+    check_optional_mode,
+    check_quantized_graph_correspondence,
+)
+from decision_relation import check_correspondence, relation_decision, relation_score  # noqa: E402
 
 
 class FormalChecksTest(unittest.TestCase):
@@ -57,6 +62,23 @@ class FormalChecksTest(unittest.TestCase):
     def test_two_run_queries_are_unsatisfiable(self):
         self.assertEqual(str(check_default_mode()[0]), "unsat")
         self.assertEqual(str(check_optional_mode()[0]), "unsat")
+        self.assertEqual(str(check_quantized_graph_correspondence()[0]), "unsat")
+
+    def test_boundary_and_generated_correspondence(self):
+        report = check_correspondence(AGENT_ROOT / "model", random_case_count=512)
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(report["boundaryCasesComparedAcrossFloatIntegerAndRelation"], 51)
+
+    def test_relation_ties_wait_and_adjacent_values_execute_strictly(self):
+        center = [1000, 1000, 5000, 150, 1, 1]
+        self.assertEqual(relation_score(center), 0)
+        self.assertFalse(relation_decision(center))
+        above = center.copy()
+        above[2] += 1
+        below = center.copy()
+        below[2] -= 1
+        self.assertTrue(relation_decision(above))
+        self.assertFalse(relation_decision(below))
 
 
 if __name__ == "__main__":

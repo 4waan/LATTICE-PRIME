@@ -1,6 +1,6 @@
 {
   "schemaVersion": "lattice.agent.information-flow.v1",
-  "releaseStatus": "proof-spike",
+  "releaseStatus": "trained-model-local-verification",
   "defaultMode": {
     "name": "excluded",
     "bufferCategory": 1,
@@ -32,7 +32,7 @@
         {"category": 2, "min": 72, "max": 168}
       ]
     },
-    "enablementGate": "Graph property and executable boundary correspondence must both pass."
+    "enablementGate": "Graph property and executable boundary correspondence must both pass; mandate v1 keeps this mode disabled after the gate."
   },
   "releasedOutputs": [
     "decision",
