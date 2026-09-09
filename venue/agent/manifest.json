@@ -1,6 +1,6 @@
 {
   "schemaVersion": "lattice.agent.capabilities.v1",
-  "bundleVersion": "0.3.0-phase2-testnet",
+  "bundleVersion": "0.3.1-phase2-hardened",
   "releaseStatus": "phase2-testnet-passed",
   "network": {
     "name": "hedera-testnet",
@@ -77,10 +77,14 @@
     "deploymentCodeAndAbiPinned": true,
     "snapshotOriginHmac": true,
     "snapshotTicketAndWallClockFreshnessChecked": true,
+    "protocolPreflightPinnedToOneBlock": true,
+    "commitAuthorizationRecheckedAfterProof": true,
+    "commitNonceMatchedBeforeAndAfterProof": true,
     "eligibilityReadFromProtocol": true,
     "eligibilityAndFundingRecheckedBeforeReveal": true,
     "haltReadFromProtocol": true,
     "backingAndAccountingReadFromProtocol": true,
+    "actionAccountingPinnedToOneBlock": true,
     "localMandateOnlyNarrowsProtocolAuthority": true
   },
   "recovery": {
@@ -90,7 +94,10 @@
     "pinnedCancellationFeeBudgetEnforced": true,
     "maximumTransactionFeeReserveEnforced": true,
     "accountNonceReservationsReplaySafe": true,
-    "unknownBroadcastReconciliationTestedLocally": true
+    "unknownBroadcastReconciliationTestedLocally": true,
+    "firstCommitExactRebroadcastTestedLocally": true,
+    "phase1JournalMigrationTestedLocally": true,
+    "activeAuctionCreditWithdrawalSuppressed": true
   },
   "receipts": {
     "schemaVersion": "lattice.order-receipt.v1",
@@ -104,6 +111,7 @@
     "testnetVerifier": "0x9f035f847a0840e8d6ccdf7ab31c15cbd04cd9dc",
     "validProofTransactionPassed": true,
     "alteredProofRefused": true,
+    "deploymentProbeRecomputesArtifactHashes": true,
     "perOrderPublicationEnabled": false,
     "reason": "A proof is published only after its order reveals and only when the user explicitly selects that evidence release."
   },

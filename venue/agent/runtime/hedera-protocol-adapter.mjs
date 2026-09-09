@@ -342,7 +342,7 @@ export class HederaProtocolAdapter {
                 "feeReserveTinybar",
                 "price",
                 "quantity",
-                        "stage",
+                "stage",
                 "token",
             ],
             "preflight request"
@@ -350,37 +350,38 @@ export class HederaProtocolAdapter {
         const price = decimal(request.price, "price", {nonzero: true});
         const quantity = decimal(request.quantity, "quantity", {nonzero: true});
         const feeReserve = decimal(request.feeReserveTinybar, "feeReserveTinybar");
-            if (!["commit", "reveal"].includes(request.stage)) {
-                throw new HederaAdapterError("REQUEST_INVALID", "preflight stage is invalid");
-            }
+        if (!["commit", "reveal"].includes(request.stage)) {
+            throw new HederaAdapterError("REQUEST_INVALID", "preflight stage is invalid");
+        }
         const identityMatches =
             decimal(request.chainId, "chainId").toString() === this.manifest.network.chainId &&
             address(request.engine, "engine") === this.engineAddress &&
             address(request.executionAccount, "executionAccount") === this.executionAccount &&
             address(request.token, "token") === this.tokenAddress &&
             String(request.deploymentHash).toLowerCase() === this.deploymentHash;
-        const [kycStatus, halted, balance, latestBlock, policyEpoch, kycEpoch] = await Promise.all([
-            this.registry.getKycStatus(this.executionAccount),
-            this.halt.haltedNow(),
-            this.provider.getBalance(this.executionAccount),
-            this.provider.getBlock("latest"),
-            this.parameterRoot.currentEpoch(),
-            this.registry.currentEpoch(),
-        ]);
+        const latestBlock = await this.provider.getBlock("latest");
         if (latestBlock === null) {
             throw new HederaAdapterError("BLOCK_UNAVAILABLE", "latest block is unavailable");
         }
-            const requiredTinybar =
-                (request.stage === "commit"
-                    ? BigInt(this.manifest.immutables.commitBondTinybar)
-                    : 0n) +
-                price * quantity +
-                feeReserve;
+        const atBlock = {blockTag: latestBlock.number};
+        const [kycStatus, halted, balance, policyEpoch, kycEpoch] = await Promise.all([
+            this.registry.getKycStatus(this.executionAccount, atBlock),
+            this.halt.haltedNow(atBlock),
+            this.provider.getBalance(this.executionAccount, latestBlock.number),
+            this.parameterRoot.currentEpoch(atBlock),
+            this.registry.currentEpoch(atBlock),
+        ]);
+        const requiredTinybar =
+            (request.stage === "commit"
+                ? BigInt(this.manifest.immutables.commitBondTinybar)
+                : 0n) +
+            price * quantity +
+            feeReserve;
         const requiredWeibar = toWeibar(requiredTinybar);
         return {
             schemaVersion: "lattice.agent.adapter-preflight.v2",
             adapter: "hedera-testnet",
-                stage: request.stage,
+            stage: request.stage,
             chainId: this.manifest.network.chainId,
             checkedAtBlock: latestBlock.number,
             checkedAtTimestamp: latestBlock.timestamp.toString(),
@@ -555,6 +556,14 @@ export class HederaProtocolAdapter {
         return this.provider.getTransactionCount(this.executionAccount, "pending");
     }
 
+    async accountNonces() {
+        const [latest, pending] = await Promise.all([
+            this.provider.getTransactionCount(this.executionAccount, "latest"),
+            this.provider.getTransactionCount(this.executionAccount, "pending"),
+        ]);
+        return {latest, pending};
+    }
+
     async broadcast(record) {
         if (record === null || typeof record !== "object" || Array.isArray(record)) {
             throw new HederaAdapterError("SIGNED_RECORD_INVALID", "signed transaction record is invalid");
@@ -625,14 +634,19 @@ export class HederaProtocolAdapter {
 
     async readRound(roundValue) {
         const round = decimal(roundValue, "round");
+        const block = await this.provider.getBlock("latest");
+        if (block === null) throw new HederaAdapterError("BLOCK_UNAVAILABLE", "latest block is unavailable");
+        const atBlock = {blockTag: block.number};
         const [currentRound, end, crossed, quote] = await Promise.all([
-            this.engine.currentRound(),
-            this.engine.roundEnd(round),
-            this.engine.crossed(round),
-            this.engine.quote(round),
+            this.engine.currentRound(atBlock),
+            this.engine.roundEnd(round, atBlock),
+            this.engine.crossed(round, atBlock),
+            this.engine.quote(round, atBlock),
         ]);
         return {
             schemaVersion: "lattice.agent.round-state.v1",
+            observedAtBlock: block.number,
+            observedAtTimestamp: block.timestamp.toString(),
             round: round.toString(),
             currentRound: currentRound.toString(),
             endsAt: end.toString(),
@@ -654,16 +668,17 @@ export class HederaProtocolAdapter {
         if (account !== this.executionAccount) {
             throw new HederaAdapterError("ACCOUNT_MISMATCH", "action account differs from the adapter account");
         }
-        const [commitment, order, backing, credit, currentRound, live, block] = await Promise.all([
-            this.engine.commitments(commitmentId),
-            this.engine.orders(commitmentId),
-            this.engine.backingOf(commitmentId),
-            this.engine.credit(account),
-            this.engine.currentRound(),
-            this.engine.isLive(commitmentId),
-            this.provider.getBlock("latest"),
-        ]);
+        const block = await this.provider.getBlock("latest");
         if (block === null) throw new HederaAdapterError("BLOCK_UNAVAILABLE", "latest block is unavailable");
+        const atBlock = {blockTag: block.number};
+        const [commitment, order, backing, credit, currentRound, live] = await Promise.all([
+            this.engine.commitments(commitmentId, atBlock),
+            this.engine.orders(commitmentId, atBlock),
+            this.engine.backingOf(commitmentId, atBlock),
+            this.engine.credit(account, atBlock),
+            this.engine.currentRound(atBlock),
+            this.engine.isLive(commitmentId, atBlock),
+        ]);
         const normalizedCommitment = {
             committer: address(commitment.committer, "commitment.committer"),
             committedAt: commitment.committedAt.toString(),
@@ -687,7 +702,9 @@ export class HederaProtocolAdapter {
         const closesAt = opensAt + BigInt(this.manifest.immutables.revealWindowSeconds);
         let retireAfter = "0";
         if (normalizedOrder.trader !== ZERO_ADDRESS) {
-            retireAfter = (await this.engine.roundEnd(normalizedOrder.lastRound)).toString();
+            retireAfter = (
+                await this.engine.roundEnd(normalizedOrder.lastRound, atBlock)
+            ).toString();
         }
         return {
             schemaVersion: "lattice.agent.chain-action-state.v1",

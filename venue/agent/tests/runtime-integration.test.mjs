@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {createHash} from "node:crypto";
 import {mkdtemp, readFile, stat, writeFile} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -6,8 +7,10 @@ import test from "node:test";
 
 import {Wallet} from "ethers";
 
+import {verifyEvmBuildArtifacts} from "../packaging/evm-verifier-artifacts.mjs";
 import {AgentRuntime} from "../runtime/agent-runtime.mjs";
 import {contextId} from "../runtime/context.mjs";
+import {HederaProtocolAdapter} from "../runtime/hedera-protocol-adapter.mjs";
 import {DeterministicProtocolAdapter} from "../runtime/protocol-adapter.mjs";
 import {LocalTypedSigner} from "../runtime/signer.mjs";
 import {SignerProcess} from "../runtime/signer-process.mjs";
@@ -128,6 +131,10 @@ async function temporaryDirectory() {
     return mkdtemp(path.join(os.tmpdir(), "lattice-agent-test-"));
 }
 
+function sha256(bytes) {
+    return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
 test("encrypted journal is atomic, chained, restrictive, and rejects tampering", async () => {
     const rootDir = await temporaryDirectory();
     const store = new EncryptedJournalStore({rootDir});
@@ -218,6 +225,67 @@ test("typed signer persists tickets before signing and retries exact bytes", asy
     });
     const recovered = await recoveredSigner.prepareReveal(PASSPHRASE, m, c, {nonce: 1});
     assert.equal(recovered.signedTransaction, reveal.signedTransaction);
+});
+
+test("Phase 1 authority and ticket state migrate before journal use", async () => {
+    const rootDir = await temporaryDirectory();
+    const store = new EncryptedJournalStore({rootDir});
+    await store.initialize(PASSPHRASE);
+    const signer = new LocalTypedSigner({
+        store,
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
+    await signer.initializeAccount(PASSPHRASE, PRIVATE_KEY);
+    const m = mandate();
+    const c = context();
+    const activation = await signer.activateMandate(PASSPHRASE, m);
+    await signer.reserveEvaluation(PASSPHRASE, m, c);
+    await signer.prepareCommit(PASSPHRASE, m, c, {
+        nonce: 0,
+        approval: {
+            actionId: contextId(c),
+            commitBond: "1000000",
+            decision: "EXECUTE",
+            proofVerified: true,
+        },
+    });
+    await store.transact(PASSPHRASE, "install-phase1-fixture", (state) => {
+        const authority = state.authority[activation.mandateId];
+        authority.schemaVersion = "lattice.agent.authority-state.v1";
+        delete authority.paused;
+        const ticket = state.tickets[contextId(c)];
+        ticket.schemaVersion = "lattice.agent.ticket.v1";
+        delete ticket.cancelNonce;
+        delete ticket.cancelFeeReserved;
+        delete ticket.expireNonce;
+        delete ticket.withdrawNonce;
+    });
+
+    const restarted = new LocalTypedSigner({
+        store: new EncryptedJournalStore({rootDir}),
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
+    const migration = await restarted.migrateState(PASSPHRASE);
+    assert.deepEqual(migration, {migrated: true, authorities: 1, tickets: 1});
+    const migrated = await store.read(PASSPHRASE);
+    assert.equal(
+        migrated.authority[activation.mandateId].schemaVersion,
+        "lattice.agent.authority-state.v2"
+    );
+    assert.equal(migrated.authority[activation.mandateId].paused, false);
+    assert.equal(migrated.tickets[contextId(c)].schemaVersion, "lattice.agent.ticket.v2");
+    assert.equal(migrated.tickets[contextId(c)].cancelNonce, null);
+    assert.equal(migrated.tickets[contextId(c)].cancelFeeReserved, false);
+    const reveal = await restarted.prepareReveal(PASSPHRASE, m, c, {nonce: 1});
+    assert.equal(reveal.stage, "reveal");
+    assert.deepEqual(
+        await restarted.migrateState(PASSPHRASE),
+        {migrated: false, authorities: 0, tickets: 0}
+    );
 });
 
 test("local pause refuses new work and preserves outstanding recovery", async () => {
@@ -440,6 +508,376 @@ test("headless runtime completes verified decision to reconciled commitment", as
     assert.equal(receipt.transaction.exactProjectionMatched, true);
     assert.match(receipt.transaction.transactionHash, /^0x[0-9a-f]{64}$/);
     assert.equal((await typedSigner.summary(PASSPHRASE)).tickets[0].lifecycle, "SEALED");
+});
+
+test("runtime refuses a caller nonce that differs from pending chain state", async () => {
+    const c = context();
+    let signerCalled = false;
+    const runtime = new AgentRuntime({
+        signer: {
+            async call() {
+                signerCalled = true;
+                throw new Error("signer must not be reached");
+            },
+        },
+        adapter: new DeterministicProtocolAdapter({
+            chainId: "296",
+            engine: ENGINE,
+            executionAccount: ACCOUNT,
+            token: TOKEN,
+            features: c.features,
+        }),
+        worker: {},
+        verifier: {},
+    });
+    await assert.rejects(
+        () => runtime.evaluate({mandate: mandate(), context: c, nonce: 1}),
+        {code: "NONCE_MISMATCH"}
+    );
+    assert.equal(signerCalled, false);
+});
+
+test("runtime rechecks authorization after proving and before commit signing", async () => {
+    const c = context();
+    let preflights = 0;
+    let prepareCalled = false;
+    const adapter = new DeterministicProtocolAdapter({
+        chainId: "296",
+        engine: ENGINE,
+        executionAccount: ACCOUNT,
+        token: TOKEN,
+        features: c.features,
+    });
+    adapter.preflight = async () => ({
+        checkedAtTimestamp: preflights++ === 0 ? c.publicSlot : "1051",
+        identityMatches: true,
+        eligible: true,
+        halted: false,
+        feeBalanceSufficient: true,
+    });
+    const runtime = new AgentRuntime({
+        signer: {
+            async call(method) {
+                if (method === "reserveEvaluation") return {};
+                if (method === "prepareCommit") prepareCalled = true;
+                throw new Error("unexpected signer method");
+            },
+        },
+        adapter,
+        worker: {
+            async prove() {
+                return {proof: {synthetic: true}, evidence: {}};
+            },
+        },
+        verifier: {
+            async verify() {
+                return {
+                    verified: true,
+                    decision: "EXECUTE",
+                    modelHash: HASHES.model,
+                    settingsHash: `sha256:${"08".repeat(32)}`,
+                    verificationKeyHash: `sha256:${"09".repeat(32)}`,
+                };
+            },
+        },
+    });
+    await assert.rejects(
+        () => runtime.evaluate({mandate: mandate(), context: c, nonce: 0}),
+        {code: "AUTHORIZATION_EXPIRED"}
+    );
+    assert.equal(preflights, 2);
+    assert.equal(prepareCalled, false);
+});
+
+test("runtime recovers an unresolved first commit by rebroadcasting persisted bytes", async () => {
+    const rootDir = await temporaryDirectory();
+    const store = new EncryptedJournalStore({rootDir});
+    await store.initialize(PASSPHRASE);
+    const typedSigner = new LocalTypedSigner({
+        store,
+        feePolicy: FEES,
+        commitBondTinybar: "1000000",
+        cancelFeeTinybar: "100000",
+    });
+    await typedSigner.initializeAccount(PASSPHRASE, PRIVATE_KEY);
+    const m = mandate();
+    const c = context();
+    await typedSigner.activateMandate(PASSPHRASE, m);
+    const signer = {
+        call(method, params) {
+            if (method === "reserveEvaluation") {
+                return typedSigner.reserveEvaluation(PASSPHRASE, params.mandate, params.context);
+            }
+            if (method === "prepareCommit") {
+                return typedSigner.prepareCommit(
+                    PASSPHRASE,
+                    params.mandate,
+                    params.context,
+                    params.request
+                );
+            }
+            if (method === "recordBroadcast") {
+                return typedSigner.recordBroadcast(PASSPHRASE, params);
+            }
+            if (method === "action") {
+                return typedSigner.action(PASSPHRASE, params.actionId);
+            }
+            throw new Error("unexpected test signer method");
+        },
+    };
+    const adapter = new DeterministicProtocolAdapter({
+        chainId: "296",
+        engine: ENGINE,
+        executionAccount: ACCOUNT,
+        token: TOKEN,
+        features: c.features,
+    });
+    adapter.setFailureMode("timeout-before-accept");
+    const runtime = new AgentRuntime({
+        signer,
+        adapter,
+        worker: {
+            async prove() {
+                return {proof: {synthetic: true}, evidence: {}};
+            },
+        },
+        verifier: {
+            async verify() {
+                return {
+                    verified: true,
+                    decision: "EXECUTE",
+                    modelHash: HASHES.model,
+                    settingsHash: `sha256:${"08".repeat(32)}`,
+                    verificationKeyHash: `sha256:${"09".repeat(32)}`,
+                };
+            },
+        },
+    });
+    await assert.rejects(
+        () => runtime.evaluate({mandate: m, context: c, nonce: 0}),
+        {code: "RECOVERY_REQUIRED"}
+    );
+    const persisted = await typedSigner.action(PASSPHRASE, contextId(c));
+    adapter.setFailureMode("none");
+    const accountNonces = adapter.accountNonces.bind(adapter);
+    adapter.accountNonces = undefined;
+    await assert.rejects(
+        () => runtime.recoverAction({actionId: contextId(c), nonce: 1}),
+        {code: "NONCE_STATE_UNAVAILABLE"}
+    );
+    adapter.accountNonces = accountNonces;
+    const recovered = await runtime.recoverAction({actionId: contextId(c), nonce: 1});
+    assert.equal(recovered.stage, "commit");
+    assert.equal(recovered.after.lifecycle, "REVEALABLE");
+    assert.equal(
+        recovered.transaction.transactionHash,
+        persisted.transactions.commit.transactionHash
+    );
+    assert.equal((await typedSigner.summary(PASSPHRASE)).tickets[0].lifecycle, "SEALED");
+});
+
+test("recovery waits rather than withdrawing account credit during an active auction", async () => {
+    const c = context();
+    let reads = 0;
+    const runtime = new AgentRuntime({
+        signer: {
+            async call(method) {
+                assert.equal(method, "action");
+                return {
+                    actionId: contextId(c),
+                    mandate: mandate(),
+                    context: c,
+                    commitment: `0x${"11".repeat(32)}`,
+                    transactions: {commit: {}, reveal: {}, cancel: null, expire: null, withdraw: null},
+                };
+            },
+        },
+        adapter: {
+            async readAction() {
+                reads += 1;
+                return {lifecycle: "IN_AUCTION", creditTinybar: "1"};
+            },
+        },
+        worker: {},
+        verifier: {},
+    });
+    const result = await runtime.recoverAction({actionId: contextId(c), nonce: 2});
+    assert.equal(result.schemaVersion, "lattice.agent.lifecycle-wait.v1");
+    assert.equal(result.nextAction, "wait-for-auction-or-expiry");
+    assert.equal(reads, 1);
+});
+
+test("live action accounting reads every contract value at one block", async () => {
+    const blockTags = [];
+    const atBlock = (...args) => {
+        blockTags.push(args.at(-1).blockTag);
+    };
+    const adapter = Object.create(HederaProtocolAdapter.prototype);
+    adapter.executionAccount = ACCOUNT;
+    adapter.manifest = {
+        immutables: {
+            revealDelaySeconds: 5,
+            revealWindowSeconds: 60,
+        },
+    };
+    adapter.provider = {
+        async getBlock(tag) {
+            assert.equal(tag, "latest");
+            return {number: 77, timestamp: 1100};
+        },
+    };
+    adapter.engine = {
+        async commitments(...args) {
+            atBlock(...args);
+            return {
+                committer: ACCOUNT,
+                committedAt: 1000n,
+                revealed: true,
+                cancelled: false,
+                bond: 1000000n,
+            };
+        },
+        async orders(...args) {
+            atBlock(...args);
+            return {
+                trader: ACCOUNT,
+                side: 0n,
+                price: 2500000n,
+                qty: 2n,
+                filled: 0n,
+                revealedAt: 1070n,
+                firstRound: 1n,
+                lastRound: 1n,
+                retired: false,
+            };
+        },
+        async backingOf(...args) {
+            atBlock(...args);
+            return {holdId: 0n, snapshot: 5000000n, escrow: 5000000n};
+        },
+        async credit(...args) {
+            atBlock(...args);
+            return 123n;
+        },
+        async currentRound(...args) {
+            atBlock(...args);
+            return 1n;
+        },
+        async isLive(...args) {
+            atBlock(...args);
+            return true;
+        },
+        async roundEnd(...args) {
+            atBlock(...args);
+            return 1200n;
+        },
+    };
+    const result = await adapter.readAction({
+        commitment: `0x${"11".repeat(32)}`,
+        account: ACCOUNT,
+    });
+    assert.equal(result.observedAtBlock, 77);
+    assert.equal(result.observedAtTimestamp, "1100");
+    assert.equal(result.retireAfter, "1200");
+    assert.deepEqual(blockTags, [77, 77, 77, 77, 77, 77, 77]);
+});
+
+test("live protocol preflight reads eligibility and funding at one block", async () => {
+    const reads = [];
+    const adapter = Object.create(HederaProtocolAdapter.prototype);
+    adapter.executionAccount = ACCOUNT;
+    adapter.engineAddress = ENGINE;
+    adapter.tokenAddress = TOKEN;
+    adapter.deploymentHash = HASHES.deployment;
+    adapter.lastDeploymentEvidence = {status: "passed"};
+    adapter.manifest = {
+        network: {chainId: "296"},
+        immutables: {commitBondTinybar: "1000000"},
+    };
+    adapter.provider = {
+        async getBlock(tag) {
+            assert.equal(tag, "latest");
+            return {number: 88, timestamp: 1200};
+        },
+        async getBalance(account, blockTag) {
+            assert.equal(account, ACCOUNT);
+            reads.push(["balance", blockTag]);
+            return 10n ** 30n;
+        },
+    };
+    const pinned = (name, args) => {
+        reads.push([name, args.at(-1).blockTag]);
+    };
+    adapter.registry = {
+        async getKycStatus(...args) {
+            pinned("kycStatus", args);
+            return 1n;
+        },
+        async currentEpoch(...args) {
+            pinned("kycEpoch", args);
+            return 3n;
+        },
+    };
+    adapter.halt = {
+        async haltedNow(...args) {
+            pinned("halted", args);
+            return false;
+        },
+    };
+    adapter.parameterRoot = {
+        async currentEpoch(...args) {
+            pinned("policyEpoch", args);
+            return 4n;
+        },
+    };
+    const result = await adapter.preflight({
+        chainId: "296",
+        deploymentHash: HASHES.deployment,
+        engine: ENGINE,
+        executionAccount: ACCOUNT,
+        feeReserveTinybar: "1",
+        price: "1",
+        quantity: "1",
+        stage: "commit",
+        token: TOKEN,
+    });
+    assert.equal(result.checkedAtBlock, 88);
+    assert.equal(result.checkedAtTimestamp, "1200");
+    assert.equal(result.eligible, true);
+    assert.equal(result.halted, false);
+    assert.equal(result.feeBalanceSufficient, true);
+    assert.deepEqual(reads, [
+        ["kycStatus", 88],
+        ["halted", 88],
+        ["balance", 88],
+        ["policyEpoch", 88],
+        ["kycEpoch", 88],
+    ]);
+});
+
+test("EVM verifier evidence recomputes hashes from deployed artifacts", () => {
+    const artifacts = {
+        abiBytes: Buffer.from("[{\"type\":\"function\"}]"),
+        verifierBytes: Buffer.from("contract Halo2Verifier {}"),
+        proofBytes: Buffer.from("{\"proof\":\"0x01\"}"),
+        calldataBytes: Buffer.from("010203", "hex"),
+    };
+    const build = {
+        verifierSolidityHash: sha256(artifacts.verifierBytes),
+        verifierAbiHash: sha256(artifacts.abiBytes),
+        proofHash: sha256(artifacts.proofBytes),
+        calldataHash: sha256(artifacts.calldataBytes),
+        calldataBytes: artifacts.calldataBytes.length,
+    };
+    assert.deepEqual(verifyEvmBuildArtifacts({...artifacts, build}), build);
+    assert.throws(
+        () => verifyEvmBuildArtifacts({
+            ...artifacts,
+            proofBytes: Buffer.from("{\"proof\":\"0x02\"}"),
+            build,
+        }),
+        {code: "EVM_ARTIFACT_MISMATCH"}
+    );
 });
 
 test("reveal rechecks protocol eligibility before signing", async () => {

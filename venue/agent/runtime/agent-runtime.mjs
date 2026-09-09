@@ -99,24 +99,14 @@ export class AgentRuntime {
                 );
             }
         }
-        const preflight = await this.adapter.preflight({
-            chainId: context.chainId,
-            deploymentHash: context.deploymentHash,
-            engine: context.engine,
-            executionAccount: context.executionAccount,
-            feeReserveTinybar: mandate.limits.feeReserve,
-            price: context.price,
-            quantity: context.quantity,
-            stage: "commit",
-            token: context.token,
-        });
-        if (
-            preflight.identityMatches !== true ||
-            preflight.eligible !== true ||
-            preflight.halted !== false ||
-            preflight.feeBalanceSufficient !== true
-        ) {
-            throw new AgentRuntimeError("PREFLIGHT_REFUSED", "protocol preflight refused the evaluation");
+        const preflight = await this.#commitPreflight(mandate, context);
+        this.#assertCommitPreflight(preflight, mandate, context);
+        const expectedNonce = await this.adapter.nextNonce();
+        if (expectedNonce !== nonce) {
+            throw new AgentRuntimeError(
+                "NONCE_MISMATCH",
+                "requested commit nonce does not match the pending chain nonce"
+            );
         }
 
         await this.signer.call("reserveEvaluation", {mandate, context});
@@ -158,6 +148,15 @@ export class AgentRuntime {
         };
         if (verification.decision === "WAIT") return receipt;
 
+        const finalPreflight = await this.#commitPreflight(mandate, context);
+        this.#assertCommitPreflight(finalPreflight, mandate, context);
+        const finalNonce = await this.adapter.nextNonce();
+        if (finalNonce !== nonce) {
+            throw new AgentRuntimeError(
+                "NONCE_CHANGED",
+                "account nonce changed while the decision proof was generated"
+            );
+        }
         const signed = await this.signer.call("prepareCommit", {
             mandate,
             context,
@@ -290,13 +289,19 @@ export class AgentRuntime {
             commitment: action.commitment,
             account: action.context.executionAccount,
         });
+        if (state.lifecycle === "UNKNOWN" && action.transactions.commit !== null) {
+            return this.#recoverCommit(action, state);
+        }
         if (state.lifecycle === "REVEALABLE") {
             return this.continueAction({actionId, stage: "reveal", nonce});
         }
         if (state.lifecycle === "EXPIREABLE") {
             return this.continueAction({actionId, stage: "expire", nonce});
         }
-        if (BigInt(state.creditTinybar) > 0n && !["SEALED", "REVEALABLE"].includes(state.lifecycle)) {
+        if (
+            BigInt(state.creditTinybar) > 0n &&
+            !["SEALED", "REVEALABLE", "IN_AUCTION"].includes(state.lifecycle)
+        ) {
             return this.continueAction({actionId, stage: "withdraw", nonce});
         }
         return {
@@ -342,6 +347,131 @@ export class AgentRuntime {
             throw new AgentRuntimeError("CHAIN_TRANSACTION_REVERTED", `${stage} transaction reverted`);
         }
         return broadcast;
+    }
+
+    async #commitPreflight(mandate, context) {
+        return this.adapter.preflight({
+            chainId: context.chainId,
+            deploymentHash: context.deploymentHash,
+            engine: context.engine,
+            executionAccount: context.executionAccount,
+            feeReserveTinybar: mandate.limits.feeReserve,
+            price: context.price,
+            quantity: context.quantity,
+            stage: "commit",
+            token: context.token,
+        });
+    }
+
+    #assertCommitPreflight(preflight, mandate, context) {
+        if (
+            preflight.identityMatches !== true ||
+            preflight.eligible !== true ||
+            preflight.halted !== false ||
+            preflight.feeBalanceSufficient !== true
+        ) {
+            throw new AgentRuntimeError("PREFLIGHT_REFUSED", "protocol preflight refused the evaluation");
+        }
+        const checkedAt = BigInt(preflight.checkedAtTimestamp);
+        const wallClock =
+            preflight.liveChainChecked === true
+                ? BigInt(Math.floor(Date.now() / 1000))
+                : checkedAt;
+        const authorizationTime = checkedAt > wallClock ? checkedAt : wallClock;
+        const publicSlot = BigInt(context.publicSlot);
+        if (
+            authorizationTime > BigInt(context.expiresAt) ||
+            authorizationTime > BigInt(mandate.time.lastNewEntryAt)
+        ) {
+            throw new AgentRuntimeError(
+                "AUTHORIZATION_EXPIRED",
+                "decision context expired before commit authorization completed"
+            );
+        }
+        if (
+            authorizationTime > publicSlot &&
+            authorizationTime - publicSlot > BigInt(mandate.time.snapshotFreshnessSeconds)
+        ) {
+            throw new AgentRuntimeError(
+                "STALE_SNAPSHOT",
+                "market snapshot became stale before commit authorization completed"
+            );
+        }
+    }
+
+    async #recoverCommit(action, before) {
+        const signed = action.transactions.commit;
+        const reconciled = await this.adapter.reconcile(signed.transactionHash);
+        let outcome = reconciled;
+        if (reconciled.known !== true) {
+            if (typeof this.adapter.accountNonces !== "function") {
+                throw new AgentRuntimeError(
+                    "NONCE_STATE_UNAVAILABLE",
+                    "commit recovery requires separate latest and pending account nonces"
+                );
+            }
+            const nonces = await this.adapter.accountNonces();
+            if (
+                !Number.isSafeInteger(nonces?.latest) ||
+                nonces.latest < 0 ||
+                !Number.isSafeInteger(nonces?.pending) ||
+                nonces.pending < nonces.latest
+            ) {
+                throw new AgentRuntimeError(
+                    "NONCE_STATE_INVALID",
+                    "adapter returned invalid account nonce state"
+                );
+            }
+            if (nonces.latest > signed.nonce) {
+                throw new AgentRuntimeError(
+                    "COMMIT_NONCE_CONSUMED",
+                    "commit nonce was consumed but the persisted transaction is not on chain"
+                );
+            }
+            if (nonces.pending < signed.nonce) {
+                throw new AgentRuntimeError(
+                    "COMMIT_NONCE_GAP",
+                    "commit recovery is waiting for an earlier account nonce"
+                );
+            }
+            outcome = await this.#broadcast(action.actionId, "commit", signed);
+        } else {
+            const status = reconciled.status === "confirmed" ? "confirmed" : "reverted";
+            await this.signer.call("recordBroadcast", {
+                actionId: action.actionId,
+                stage: "commit",
+                transactionHash: signed.transactionHash,
+                status,
+            });
+            if (status === "reverted") {
+                throw new AgentRuntimeError(
+                    "CHAIN_TRANSACTION_REVERTED",
+                    "commit transaction reverted"
+                );
+            }
+        }
+        const after = await this.adapter.readAction({
+            commitment: action.commitment,
+            account: action.context.executionAccount,
+        });
+        return {
+            schemaVersion: "lattice.agent.lifecycle-step.v1",
+            actionId: action.actionId,
+            stage: "commit",
+            commitment: action.commitment,
+            transaction: {
+                transactionHash: signed.transactionHash,
+                status: outcome.status,
+                blockNumber: outcome.blockNumber,
+                gasUsed: outcome.gasUsed,
+                logs: outcome.logs ?? [],
+                exactProjectionMatched: true,
+            },
+            before,
+            after,
+            protocolPreflight: null,
+            recovery: "persisted commit transaction reconciled or rebroadcast without re-signing",
+        };
     }
 
     #assertStageAvailable(stage, state) {

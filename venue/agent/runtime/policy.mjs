@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
 import {assertContextAuthorized, validateMandate, MandateError} from "./mandate.mjs";
 
-export const AUTHORITY_STATE_VERSION = "lattice.agent.authority-state.v1";
+export const AUTHORITY_STATE_VERSION = "lattice.agent.authority-state.v2";
 
 function canonicalJson(value) {
     if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;

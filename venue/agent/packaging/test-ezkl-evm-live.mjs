@@ -17,6 +17,7 @@ import {
 } from "ethers";
 
 import {env as baseEnvironment} from "../../tools/hcs-chain.mjs";
+import {verifyEvmBuildArtifacts} from "./evm-verifier-artifacts.mjs";
 
 const execFile = promisify(execFileCallback);
 const VENUE_ROOT = path.dirname(path.dirname(fileURLToPath(new URL(".", import.meta.url))));
@@ -79,10 +80,21 @@ async function main() {
     });
     const wallet = new Wallet(actors.BUYER_PRIVATE_KEY, provider);
     assert.equal(wallet.address.toLowerCase(), actors.BUYER_ADDRESS.toLowerCase());
-    const abi = JSON.parse(await readFile(path.join(BUNDLE_DIR, "Verifier.abi.json"), "utf8"));
+    const abiBytes = await readFile(path.join(BUNDLE_DIR, "Verifier.abi.json"));
+    const verifierBytes = await readFile(path.join(BUNDLE_DIR, "Verifier.sol"));
+    const proofBytes = await readFile(path.join(BUNDLE_DIR, "proof.json"));
+    const calldataBytes = await readFile(path.join(BUNDLE_DIR, "evm-calldata.bin"));
+    const abi = JSON.parse(abiBytes.toString("utf8"));
     const build = JSON.parse(
         await readFile(path.join(VENUE_ROOT, "agent/artifacts/evidence/evm-verifier-build.json"), "utf8")
     );
+    const artifactHashes = verifyEvmBuildArtifacts({
+        abiBytes,
+        verifierBytes,
+        proofBytes,
+        calldataBytes,
+        build,
+    });
     const bytecode = await compiledBytecode();
     const feeData = await provider.getFeeData();
     const gasPrice = feeData.gasPrice ?? feeData.maxFeePerGas;
@@ -103,7 +115,7 @@ async function main() {
         }
         const verifierAddress = await verifier.getAddress();
         const runtimeCode = await provider.getCode(verifierAddress);
-        const calldata = hexlify(await readFile(path.join(BUNDLE_DIR, "evm-calldata.bin")));
+        const calldata = hexlify(calldataBytes);
         const iface = new Interface(abi);
         const validRaw = await provider.call({to: verifierAddress, data: calldata});
         assert.equal(iface.decodeFunctionResult("verifyProof", validRaw)[0], true);
@@ -156,9 +168,10 @@ async function main() {
                 deploymentGasUsed: deploymentReceipt.gasUsed.toString(),
             },
             proof: {
-                hash: build.proofHash,
-                calldataHash: build.calldataHash,
-                calldataBytes: build.calldataBytes,
+                hash: artifactHashes.proofHash,
+                calldataHash: artifactHashes.calldataHash,
+                calldataBytes: artifactHashes.calldataBytes,
+                artifactHashesRecomputed: true,
                 validEthCallAccepted: true,
                 alteredProofRefused: true,
                 verificationTransaction: verificationReceipt.hash,
