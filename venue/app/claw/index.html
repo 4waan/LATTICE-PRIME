@@ -221,6 +221,7 @@ body{
   background:var(--claw-surface);
   border:1px solid var(--claw-rule);
   border-bottom-left-radius:.3rem;
+  white-space:pre-line;
 }
 
 .msg.typing{display:inline-flex;gap:.3rem;padding:.85rem .9rem}
@@ -375,7 +376,7 @@ body{
             <input
               id="claw-prompt"
               type="text"
-              placeholder="Ask Lattice Claw..."
+              placeholder="Ask Lattice Claw... try: demo"
               aria-describedby="claw-chat-note"
               autocomplete="off"
               maxlength="280"
@@ -387,36 +388,164 @@ body{
               </svg>
             </button>
           </form>
-          <p class="chat-note" id="claw-chat-note">The decision model is trained. Replies are previews until launch.</p>
+          <p class="chat-note" id="claw-chat-note">Decisions run the shipped quantized network right here in the page. Product chat opens at launch.</p>
         </div>
       </section>
     </main>
   </div>
 
   <script>
+// The array wrapper keeps this template parseable as JavaScript: the INLINE
+// marker is a comment until the build replaces it with the weights JSON, and
+// an array literal is the one place both readings are valid.
+const CLAW_MODEL = [
+{"architecture":{"activation":"ReLU","hiddenUnits":8,"inputFeatures":6,"logits":["WAIT","EXECUTE"]},"modelVersion":"lattice.agent.synthetic-decision-model.v1","provenance":{"datasetSha256":"sha256:fd3fac25943ee180cdd2b9f93ce9a4fab05bdf94c5fc9f00e2627ac2e3af41f8","seed":20260909,"trainingConfigSha256":"sha256:a2d18e4bab2ac53cee5f4b5c4d11abff38d1739ca03139bbe295eda51cad5c99"},"quantization":{"dequantization":"float32_value = integer / scale","float32Exact":true,"scale":256,"schemeVersion":"lattice.dyadic-parameter-quantization.v1"},"schemaVersion":"lattice.agent.quantized-weights.v1","serialization":"UTF-8 sorted-key compact JSON with one trailing LF","tensors":{"bias1":{"integers":[-14300,-14300,-14300,-14300,14300,14300,14300,14300],"layout":"hidden_unit","shape":[8]},"bias2":{"integers":[0,0],"layout":"logit_WAIT_EXECUTE","shape":[2]},"weights1":{"integers":[[6,6,6,6,-6,-6,-6,-6],[4,4,4,4,-4,-4,-4,-4],[1,1,1,1,-1,-1,-1,-1],[-16,-16,-16,-16,16,16,16,16],[1000,1000,1000,1000,-1000,-1000,-1000,-1000],[700,700,700,700,-700,-700,-700,-700]],"layout":"input_feature_by_hidden_unit","shape":[6,8]},"weights2":{"integers":[[0,64],[0,64],[0,64],[0,64],[64,0],[64,0],[64,0],[64,0]],"layout":"hidden_unit_by_logit_WAIT_EXECUTE","shape":[8,2]}}}
+
+][0];
+// Exact integer inference for the shipped Claw decision network.
+//
+// The quantized tensors carry integers at dyadic scale 256 and every feature
+// is an integer, so the float32 network is reproduced exactly in integer
+// arithmetic: hidden values live at scale 256, logits at scale 65536, and the
+// largest possible magnitude stays far inside Number.MAX_SAFE_INTEGER. The tie
+// rule is WAIT, the same rule the spec and the ONNX graph carry.
+const CLAW_FEATURE_ORDER = [
+    "limitRoomBps",
+    "recentMoveOffsetBps",
+    "roundProgressBps",
+    "freshnessSeconds",
+    "bufferCategory",
+    "horizonCategory",
+];
+
+function clawDecide(model, features) {
+    const weights1 = model.tensors.weights1.integers;
+    const bias1 = model.tensors.bias1.integers;
+    const weights2 = model.tensors.weights2.integers;
+    const bias2 = model.tensors.bias2.integers;
+    const scale = model.quantization.scale;
+    const hidden = bias1.map((bias, unit) => {
+        let sum = bias;
+        for (let index = 0; index < features.length; index += 1) {
+            sum += features[index] * weights1[index][unit];
+        }
+        return Math.max(sum, 0);
+    });
+    const logits = bias2.map((bias, label) => {
+        let sum = bias * scale;
+        for (let unit = 0; unit < hidden.length; unit += 1) {
+            sum += hidden[unit] * weights2[unit][label];
+        }
+        return sum;
+    });
+    const denominator = scale * scale;
+    return {
+        decision: logits[1] > logits[0] ? "EXECUTE" : "WAIT",
+        logits: [logits[0] / denominator, logits[1] / denominator],
+        margin: (logits[1] - logits[0]) / denominator,
+    };
+}
+
     (() => {
       const form = document.getElementById("claw-chat");
       const input = document.getElementById("claw-prompt");
       const log = document.getElementById("claw-log");
 
+      // The decision network above is the shipped one: the same 1.3KB of
+      // quantized integers the local runtime loads, reproduced exactly in
+      // integer arithmetic. Everything else is offline copy; nothing typed
+      // here leaves the page.
+      const CATEGORY = {
+        buffer: {low: 0, tight: 0, balanced: 1, mid: 1, medium: 1, high: 2, deep: 2},
+        horizon: {short: 0, mid: 1, medium: 1, long: 2},
+      };
+      const WORDS = {
+        buffer: ["low", "balanced", "high"],
+        horizon: ["short", "medium", "long"],
+      };
+      const PRESETS = [
+        [/calm/, [1500, 1150, 8500, 5, 2, 2], "Calm market, deep buffer:"],
+        [/stress|panic|chop/, [60, 340, 1500, 240, 0, 0], "Stressed tape, stale data:"],
+        [/knife|edge|\btie\b|boundary/, [1000, 1000, 5000, 150, 1, 1], "The exact decision boundary:"],
+      ];
+
+      const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+
+      const readout = (v) => [
+        `room ${v[0]}bps`,
+        `move ${v[1] >= 1000 ? "+" : ""}${v[1] - 1000}bps`,
+        `round ${v[2] / 100}%`,
+        `snapshot ${v[3]}s`,
+        `buffer ${WORDS.buffer[v[4]]}`,
+        `horizon ${WORDS.horizon[v[5]]}`,
+      ].join(" · ");
+
+      const verdictLine = (out) => {
+        if (out.margin === 0) return "WAIT · dead heat, the tie rule holds";
+        const sign = out.margin > 0 ? "+" : "";
+        return `${out.decision} · margin ${sign}${out.margin.toFixed(2)}`;
+      };
+
+      const decisionReply = (vector, intro) => {
+        const started = performance.now();
+        const out = clawDecide(CLAW_MODEL, vector);
+        const elapsed = Math.max(performance.now() - started, 0.01).toFixed(2);
+        return {
+          text: `${intro}\n${verdictLine(out)}\n${readout(vector)}\nShipped quantized weights, exact integer pass, ${elapsed}ms in your browser.`,
+          sealed: {decision: out.decision, features: vector, logits: out.logits},
+        };
+      };
+
+      const demoReply = () => {
+        const lines = ["Three live decisions from the shipped network:"];
+        for (const [, vector, intro] of PRESETS) {
+          lines.push(`${intro} ${verdictLine(clawDecide(CLAW_MODEL, vector))}`);
+        }
+        lines.push("Say calm market, stressed market, or knife edge for the full readout.");
+        lines.push("Or set the dials: decide room=1400 move=-80 progress=60 fresh=4 buffer=high horizon=long");
+        return {text: lines.join("\n")};
+      };
+
+      const parsedReply = (asked) => {
+        const grab = (key) => {
+          const hit = asked.match(new RegExp(`${key}\\s*[=:]?\\s*(-?\\d+)`));
+          return hit === null ? null : Number(hit[1]);
+        };
+        const category = (key) => {
+          const hit = asked.match(new RegExp(`${key}\\s*[=:]?\\s*([a-z]+|\\d)`));
+          if (hit === null) return null;
+          if (/^\d$/.test(hit[1])) return clamp(Number(hit[1]), 0, 2);
+          return CATEGORY[key][hit[1]] ?? null;
+        };
+        const vector = [
+          clamp(grab("room") ?? 1000, 0, 2000),
+          clamp((grab("move") ?? 0) + 1000, 0, 2000),
+          clamp((grab("progress") ?? 50) * 100, 0, 10000),
+          clamp(grab("fresh") ?? 150, 0, 300),
+          category("buffer") ?? 1,
+          category("horizon") ?? 1,
+        ];
+        return decisionReply(vector, "Your scenario, decided live:");
+      };
+
       // Claw answers offline. Nothing typed here leaves the page: the pairs
       // below are the whole brain until the venue hookup goes live.
       const answers = [
         [/\b(hi|hello|hey|gm|yo|sup)\b/, "Hey. I am Claw, the execution agent for Lattice Prime. Ask me about mandates, receipts, or the model."],
-        [/\bhelp\b|what can i ask/, "Ask what I do, how mandates keep me on a leash, what receipts prove, or when I go live."],
+        [/\bhelp\b|what can i ask/, "Say demo for three live decisions from my network. Name a scenario: calm market, stressed market, knife edge. Set the dials yourself: decide room=1400 move=-80 progress=60 fresh=4 buffer=high horizon=long. Or ask about mandates, receipts, and launch."],
         [/when|launch|live|ready|soon|eta/, "Soon. The decision model is trained and formally checked; the venue hookup is in final review."],
         [/claw|who are you|what do you do|what are you/, "I watch Lattice Prime and execute only inside a mandate you sign. Private by default, with a receipt for every move."],
         [/prime|venue|market|trade|bond/, "Lattice Prime is the venue: sealed orders, tokenised bonds, disclosure you can audit. The logo up top switches you over."],
         [/mandate|limit|control|permission|leash/, "A mandate is our contract: price and size limits, a horizon, a budget. I act inside it and never outside it."],
         [/receipt|proof|verif|trust|audit/, "Every action leaves a signed receipt you can check independently. You never have to take my word for anything."],
-        [/model|train|network|onnx|decision|brain|ai\b/, "My core is a small decision network, deterministically trained and evaluated at every boundary. It answers one question: execute or wait."],
+        [/model|train|network|onnx|brain|ai\b/, "My core is a small decision network, deterministically trained and evaluated at every boundary. It answers one question: execute or wait. Say demo and watch it decide, live, in this page."],
         [/hedera|hcs|chain|testnet|consensus/, "I run against Lattice Prime on Hedera testnet, and consensus timestamps keep the clocks honest."],
         [/price|cost|fee|pay/, "Pricing lands at launch. The venue publishes its tariff; mine will sit right next to it."],
       ];
       const fallbacks = [
-        "That one waits for launch. Ask me about mandates, receipts, or the model.",
-        "Outside my mandate for now. Try asking what I do or when I go live.",
-        "I keep answers small until launch. Mandates, receipts, the model: pick one.",
+        "That one waits for launch. Say demo to watch my decision network run live instead.",
+        "Outside my mandate for now. Try demo, calm market, stressed market, or knife edge.",
+        "I keep answers small until launch. Say help to see everything I answer today.",
       ];
 
       let fallbackTurn = 0;
@@ -434,10 +563,28 @@ body{
 
       const replyTo = (text) => {
         const asked = text.toLowerCase();
+        if (/\bdemo\b|impress/.test(asked)) return demoReply();
+        const preset = PRESETS.find(([pattern]) => pattern.test(asked));
+        if (preset) return decisionReply(preset[1], preset[2]);
+        if (/\bdecide\b|should (you|we|i) (execute|buy|trade|act)|(room|move|progress|fresh|buffer|horizon)\s*[=:]/.test(asked)) {
+          return parsedReply(asked);
+        }
         const hit = answers.find(([pattern]) => pattern.test(asked));
-        if (hit) return hit[1];
+        if (hit) return {text: hit[1]};
         fallbackTurn += 1;
-        return fallbacks[(fallbackTurn - 1) % fallbacks.length];
+        return {text: fallbacks[(fallbackTurn - 1) % fallbacks.length]};
+      };
+
+      // A short digest of what was decided, appended once computed. The point
+      // is the reflex: every Claw decision arrives with something checkable.
+      const seal = (element, payload) => {
+        if (!globalThis.crypto || !crypto.subtle) return;
+        const bytes = new TextEncoder().encode(JSON.stringify(payload));
+        crypto.subtle.digest("SHA-256", bytes).then((buffer) => {
+          const hex = Array.from(new Uint8Array(buffer).slice(0, 6), (b) => b.toString(16).padStart(2, "0")).join("");
+          element.textContent += `\ndecision digest ${hex}`;
+          log.scrollTop = log.scrollHeight;
+        });
       };
 
       form.addEventListener("submit", (event) => {
@@ -455,9 +602,11 @@ body{
         clearTimeout(timer);
         const answer = replyTo(text);
         timer = setTimeout(() => {
-          typing.className = "msg claw";
-          typing.replaceChildren();
-          typing.textContent = answer;
+          const element = typing;
+          element.className = "msg claw";
+          element.replaceChildren();
+          element.textContent = answer.text;
+          if (answer.sealed) seal(element, answer.sealed);
           typing = null;
           log.scrollTop = log.scrollHeight;
         }, 700);
