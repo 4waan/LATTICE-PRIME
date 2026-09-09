@@ -6,7 +6,11 @@
     },
     "evaluationReport": {
       "path": "evaluation-report.json",
-      "sha256": "sha256:867e3d5858bc1a7af9fb07413e4d441d9be145193b604dc97dc5e5305cafc6b2"
+      "sha256": "sha256:c133527f5a2b7a41c51f9daf16a702bbfcf1dba89eaa3f28443a83f12c127724"
+    },
+    "floatCorrespondence": {
+      "path": "float-correspondence.json",
+      "sha256": "sha256:93f0abb329220f8d8a82c511327fb47ac85b296ef52782d4e027d3e3c3e438fc"
     },
     "network": {
       "opset": 17,

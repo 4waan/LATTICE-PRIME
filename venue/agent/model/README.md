@@ -30,6 +30,10 @@ Committed outputs:
   strict `EXECUTE > WAIT`, and returns the complete context through Identity.
 - `boundary-corpus.json`: compact extrema, threshold, category, tie, WAIT, and
   EXECUTE cases.
+- `float-correspondence.json`: lossless float logit bit patterns and strict
+  float decisions for every boundary case, plus a digest over the ordered
+  held-out float decisions tied to the generated dataset hash. This lets local
+  checks compare float, integer, ONNX, and formal results without retraining.
 - `evaluation-report.json`: synthetic decision-consistency metrics, confusion
   counts, dependency versions, hashes, quantization comparisons, and
   limitations.
