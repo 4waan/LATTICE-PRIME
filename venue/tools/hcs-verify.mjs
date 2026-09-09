@@ -32,6 +32,7 @@
 // it publishes nothing. The checkpoint series makes the gap visible and no test
 // here can close it, which is stated in `docs/HCS-SCOPE.md` rather than hidden
 // behind a passing table.
+import {keccak256} from "ethers";
 import {
     client, mirror, paged, epochAt, reader, readTopic, policyHistory, effectiveFrom,
 } from "./hcs-chain.mjs";
@@ -39,12 +40,14 @@ import {bits} from "./lattice.mjs";
 import {
     SITES, SOURCE_ADDRESS_KEY, MAX_CHUNK,
     auditRecord, decode, encode, keyOf, RecordError,
+    assertSiteAddresses, assertSiteDeployments,
 } from "./hcs.mjs";
 
 const args = process.argv.slice(2);
 const JSON_OUT = args.includes("--json");
 
 const c = client();
+assertSiteAddresses(c.addresses);
 const topic = readTopic();
 if (!topic || !topic.topicId) {
     console.error("no deployments/hcs.json. Run `make hcs-topic` first.");
@@ -55,6 +58,7 @@ const EPOCH_ORIGIN = Number(c.clocks.disclosure.origin);
 const EPOCH_PERIOD = Number(c.clocks.disclosure.period);
 
 const chain = reader(c.network.rpc, c.network.chainId);
+await assertSiteDeployments(c.addresses, (address) => chain.provider.getCode(address), keccak256);
 const meterCache = new Map();
 function meterAt(src, address) {
     const key = `${src}:${String(address).toLowerCase()}`;
@@ -167,6 +171,19 @@ async function budgetOf(row) {
     return budgetCache.get(row);
 }
 
+const spentCache = new Map();
+async function spentOf(src, address, row, epoch) {
+    const at = String(address).toLowerCase();
+    const key = `${src}:${at}:${row}:${epoch}`;
+    if (!spentCache.has(key)) {
+        spentCache.set(
+            key,
+            meterAt(src, at).spentBits(Number(row), Number(epoch)).then(Number),
+        );
+    }
+    return spentCache.get(key);
+}
+
 // The record against the transaction, through `hcs.mjs`'s `auditRecord`. The
 // comparison lives there rather than here so the Rulebook screen's tick and this
 // table's `pass` are the same function, checked by the same vectors.
@@ -229,8 +246,7 @@ for (const [k, list] of byMeter) {
     note(`${src} row ${row} epoch ${epoch}: the running totals chain from zero`, chained,
         chained ? `${list.length} charge${list.length === 1 ? "" : "s"}, ${running} bits` : "a charge is missing");
 
-    const onChain =
-        Number(await meterAt(src, address).spentBits(Number(row), Number(epoch)));
+    const onChain = await spentOf(src, address, row, epoch);
     const cp = checkpoints.get(`${src}:${address}:${epoch}`);
     if (cp) {
         // The omission check. A closed epoch the topic checkpointed has to add
@@ -250,12 +266,28 @@ for (const [k, list] of byMeter) {
 // Every checkpoint, including the epochs no charge landed in: a checkpoint that
 // claims a row was quiet when the meter says otherwise is the same omission
 // dressed differently.
+const checkpointReads = [];
 for (const cp of checkpoints.values()) {
     for (const row of Object.keys(cp.rows)) {
-        const onChain =
-            Number(await meterAt(cp.c, addressOf(cp)).spentBits(Number(row), cp.e));
-        note(`${cp.c} checkpoint epoch ${cp.e} row ${row}`, Number(cp.rows[row]) === onChain,
-            `checkpoint ${cp.rows[row]}, spentBits ${onChain}`);
+        checkpointReads.push({cp, row});
+    }
+}
+// Keep each wave within the JSON-RPC reader's batch size. This is the same set
+// of independent eth_calls as the serial verifier, but one network round trip
+// per wave instead of one per row.
+for (let i = 0; i < checkpointReads.length; i += 50) {
+    const wave = checkpointReads.slice(i, i + 50);
+    const values = await Promise.all(
+        wave.map(({cp, row}) => spentOf(cp.c, addressOf(cp), row, cp.e))
+    );
+    for (let j = 0; j < wave.length; ++j) {
+        const {cp, row} = wave[j];
+        const onChain = values[j];
+        note(
+            `${cp.c} checkpoint epoch ${cp.e} row ${row}`,
+            Number(cp.rows[row]) === onChain,
+            `checkpoint ${cp.rows[row]}, spentBits ${onChain}`,
+        );
     }
 }
 
