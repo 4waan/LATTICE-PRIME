@@ -852,6 +852,13 @@ def run(config_path: Path, output_dir: Path) -> dict[str, Any]:
             },
         },
         "claim": report["claim"],
+        "cloudTraining": {
+            "branch": "cursor/lattice-prime-model-training-3c95",
+            "floatReferenceCommit": "e80404c6c9685a12276042ad480ae61ec4d1b832",
+            "foundationCommit": "2792b9da7eb930dfa4a9cfb6e2eecd01c5e8a5a5",
+            "provider": "Cursor cloud agent",
+            "trainingArtifactCommit": "d39cd53da23ae47c435b25592e473491c72cdea5",
+        },
         "graph": {
             "activation": "ReLU",
             "allowedOperators": ["Add", "Gather", "Greater", "Identity", "MatMul", "Relu"],

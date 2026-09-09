@@ -309,6 +309,18 @@ export class LocalTypedSigner {
             }
             throw error;
         }
+        if (
+            decoded.type !== 2 ||
+            decoded.nonce !== requestedNonce ||
+            decoded.gasLimit !== this.fees.gasLimit ||
+            decoded.maxFeePerGas !== this.fees.maxFeePerGas ||
+            decoded.maxPriorityFeePerGas !== this.fees.maxPriorityFeePerGas
+        ) {
+            throw new SignerError(
+                "SIGNED_TRANSACTION_REFUSED",
+                "signed transaction differs from the configured nonce or fee envelope"
+            );
+        }
         const record = {
             schemaVersion: "lattice.agent.signed-transaction.v1",
             actionId,

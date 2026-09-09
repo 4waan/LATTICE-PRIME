@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {createHash} from "node:crypto";
-import {mkdir, mkdtemp, readFile, rm} from "node:fs/promises";
+import {mkdir, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -119,7 +119,7 @@ try {
         publicSlot: "1788950000",
         expiresAt: "1788950060",
         features: {
-            limitRoomBps: 600,
+            limitRoomBps: 700,
             recentMoveOffsetBps: 1100,
             roundProgressBps: 5000,
             freshnessSeconds: 30,
@@ -152,12 +152,18 @@ try {
     if (receipt.decision !== "EXECUTE" || receipt.transaction.confirmed !== true) {
         throw new Error("synthetic end to end context did not produce a confirmed commitment");
     }
-    console.log(JSON.stringify({
+    const report = {
         schemaVersion: "lattice.agent.e2e-test.v1",
         status: "passed",
         elapsedMilliseconds: Math.round(performance.now() - started),
+        processMaxRssKiB: process.resourceUsage().maxRSS,
         receipt,
-    }, null, 2));
+    };
+    const evidenceDir = path.join(AGENT_ROOT, "artifacts/evidence");
+    await mkdir(evidenceDir, {recursive: true});
+    const rendered = `${JSON.stringify(report, null, 2)}\n`;
+    await writeFile(path.join(evidenceDir, "e2e-test.json"), rendered, "utf8");
+    console.log(rendered);
 } finally {
     await signer.stop();
     await rm(stateDir, {recursive: true, force: true});

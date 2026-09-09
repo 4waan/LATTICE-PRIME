@@ -6,7 +6,8 @@ scenarios only. It never reads investor data, account data, credentials,
 wallet material, private preference values, proof witnesses, or hosted model
 APIs.
 
-Run from the repository root:
+Run the training command only in a Cursor cloud training environment, from the
+repository root:
 
 ```sh
 venue/agent/model/reproduce.sh
@@ -17,6 +18,9 @@ versions in `requirements-training.txt`, regenerates the dataset in memory,
 trains with the recorded seed, selects the smallest dyadic parameter scale
 with zero evaluated float-versus-quantized decision disagreements, exports
 ONNX opset 17, and rewrites the small committed artifacts.
+
+On the local integration device, use `make agent-model`. That command rebuilds
+the ONNX file from committed integer weights without training.
 
 Committed outputs:
 

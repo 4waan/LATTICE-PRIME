@@ -204,6 +204,8 @@ agent-model:
 agent-formal: agent-model
 	.venv/bin/python agent/formal/check_graph.py agent/artifacts/model/network.onnx
 	.venv/bin/python agent/formal/check_release.py
+	.venv/bin/python agent/formal/decision_relation.py \
+		--output agent/artifacts/model/correspondence-report.json
 
 agent-test:
 	@test -x .venv/bin/python || { echo "run make agent-bootstrap first"; exit 1; }
@@ -217,6 +219,8 @@ agent-proof: agent-formal agent-test
 agent-worker:
 	docker build --platform linux/arm64 -f agent/packaging/Dockerfile.worker \
 		-t lattice-agent-worker:23.0.5 .
+	@test "$$(docker image inspect lattice-agent-worker:23.0.5 --format '{{.Id}}')" = \
+		"sha256:6e064bc5d6141df238b3e39a7fb8fa05893d3e69440a6d58a23eeb6cbfd1eee4"
 
 agent-worker-test: agent-proof agent-worker
 	$(NODE) node agent/packaging/test-worker.mjs
