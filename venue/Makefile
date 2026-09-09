@@ -117,7 +117,7 @@ pages: vectors
 # is deliberately not a prerequisite: rebuilding the UI must never be able to
 # move the address book underneath it.
 app: vectors
-	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
+	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
 	$(NODE) node tools/gen-app.mjs
 
 # The receipt beat, on chain: two sealed orders committed and both withdrawn
