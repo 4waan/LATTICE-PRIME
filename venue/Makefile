@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -213,6 +213,16 @@ agent-test:
 
 agent-proof: agent-formal agent-test
 	.venv/bin/python agent/proof/run_spike.py
+
+agent-worker:
+	docker build --platform linux/arm64 -f agent/packaging/Dockerfile.worker \
+		-t lattice-agent-worker:23.0.5 .
+
+agent-worker-test: agent-proof agent-worker
+	$(NODE) node agent/packaging/test-worker.mjs
+
+agent-e2e: agent-worker-test
+	$(NODE) node agent/packaging/test-e2e.mjs
 
 report:
 	@echo

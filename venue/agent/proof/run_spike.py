@@ -303,6 +303,35 @@ def run(output_dir: Path) -> dict:
     artifacts = {}
     for path in [model_path, settings_path, compiled_path, srs_path, vk_path, pk_path, proof_path]:
         artifacts[path.name] = {"bytes": path.stat().st_size, "sha256": sha256_file(path)}
+    verifier_manifest = {
+        "schemaVersion": "lattice.agent.verifier-bundle.v1",
+        "modelHash": artifacts["network.onnx"]["sha256"],
+        "compiledCircuit": {
+            "file": compiled_path.name,
+            "sha256": artifacts["network.ezkl"]["sha256"],
+        },
+        "settings": {
+            "file": settings_path.name,
+            "sha256": artifacts["settings.json"]["sha256"],
+        },
+        "verificationKey": {
+            "file": vk_path.name,
+            "sha256": artifacts["vk.key"]["sha256"],
+        },
+        "srs": {
+            "file": srs_path.name,
+            "sha256": artifacts["kzg.srs"]["sha256"],
+        },
+    }
+    verifier_manifest_path = proof_dir / "verifier-manifest.json"
+    verifier_manifest_path.write_text(
+        json.dumps(verifier_manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    artifacts["verifier-manifest.json"] = {
+        "bytes": verifier_manifest_path.stat().st_size,
+        "sha256": sha256_file(verifier_manifest_path),
+    }
 
     return {
         "schemaVersion": "lattice.agent.proof-spike-evidence.v1",

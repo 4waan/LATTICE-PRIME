@@ -1,0 +1,7 @@
+**
+!agent/
+agent/**
+!agent/packaging/
+agent/packaging/**
+!agent/packaging/Dockerfile.worker
+!agent/packaging/worker-entrypoint.sh
