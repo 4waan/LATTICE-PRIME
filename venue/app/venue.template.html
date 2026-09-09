@@ -308,7 +308,14 @@ document.documentElement.setAttribute("data-theme",
       specifies an oracle between the two services rather than a precompile, which is what
       <code>tools/hcs-relay.mjs</code> is. The operator holds the submit key and the topic has no
       admin key, so it cannot be deleted, renamed or reassigned. What the operator can do is stop,
-      which the checkpoint series makes visible and nothing here can prevent.</p>
+      which the anchor series makes visible and nothing here can prevent.</p>
+    <p class="note">The topic is an ordered record, not a database. The venue&rsquo;s state stays on
+      its contracts; the topic carries what happened, in order, with a consensus timestamp, and
+      once an hour an <code>anchor</code> that hashes every <code>spentBits</code> cell of the
+      epochs since the last one, so a charge the relay never published breaks a hash it did not
+      write. This screen reads a committed snapshot of the topic plus the live tail from the
+      mirror node, after checking the network&rsquo;s own running hash at the snapshot&rsquo;s
+      last message.</p>
     <div class="rowbtns" style="margin-bottom:1rem">
       <button type="button" id="hcs-reload">Read the topic</button>
       <button type="button" id="hcs-audit">Check every record against the chain</button>
@@ -333,6 +340,7 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/lattice.mjs*/
 /*INLINE tools/hcs.mjs*/
 /*INLINE tools/client-bundle.mjs*/
+/*INLINE tools/hcs-index-bundle.mjs*/
 /*INLINE tools/venue-app.mjs*/
 /*INLINE tools/venue-obs.mjs*/
 /*INLINE tools/hcs-view.mjs*/

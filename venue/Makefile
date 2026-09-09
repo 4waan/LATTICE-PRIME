@@ -117,7 +117,7 @@ pages: vectors
 # is deliberately not a prerequisite: rebuilding the UI must never be able to
 # move the address book underneath it.
 app: vectors
-	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
+	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
 	$(NODE) node tools/gen-app.mjs
 
 # The receipt beat, on chain: two sealed orders committed and both withdrawn
@@ -173,12 +173,21 @@ coupon-cash:
 # taken on trust.
 #
 #   make hcs-topic          # once, ever. Costs about $0.01 and writes deployments/hcs.json
-#   make hcs-relay          # poll and publish until interrupted
+#   make hcs-relay          # poll and publish until interrupted. $0.0008 a message
 #   make hcs-relay MODE=dry # build every record, submit none
 #   make hcs-verify         # read the topic back and check it against the chain
+#   make hcs-index          # project the topic into deployments/hcs-index.json
+#   make hcs-index MODE=check  # rebuild from sequence 1 and compare digests
 #
 # `hcs-topic` is deliberately not a prerequisite of anything: creating a second
 # topic would split the record in two and neither half would be the venue's.
+#
+# The topic is an ordered record, not a database. Nothing reads current state
+# off it: `spentBits` lives on the contracts, the mirror node is the index, and
+# `hcs-index` is the projection the Issuer screen boots from before it reads the
+# live tail. `ConsensusSubmitMessage` has cost $0.0008 since January 2026, so the
+# relay anchors every closed epoch with one hashed record an hour per source
+# rather than one checkpoint per five-minute epoch.
 hcs-topic:
 	$(NODE) node tools/hcs-topic.mjs
 
@@ -190,6 +199,15 @@ hcs-relay:
 hcs-verify: vectors
 	$(NODE) node tools/hcs-verify.mjs
 	$(NODE) node tools/hcs-verify.mjs --json > deployments/hcs-verify.json
+
+# The projection the Issuer screen boots from. Extends deployments/hcs-index.json
+# from the topic's tail; `MODE=check` rebuilds it from sequence 1 and compares.
+# Committed like client.json, and deliberately not a prerequisite of `app`: the
+# page build must stay offline, and moving the index is a decision, not a side
+# effect of rebuilding a template.
+hcs-index: vectors
+	$(NODE) node --test tools/hcs-project.test.mjs
+	$(NODE) node tools/hcs-index.mjs $(if $(filter check,$(MODE)),--check,)
 
 # The private-agent layer stays an explicit build until its release gate passes.
 # Generated keys, witnesses, proofs, and local state remain under ignored paths.

@@ -14,12 +14,12 @@
 import {readFileSync} from "node:fs";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
-import {Interface, id as keccakId} from "ethers";
+import {Interface, id as keccakId, keccak256, solidityPacked} from "ethers";
 import {
-    MAX_CHUNK, SCHEMA_VERSION, SITES, SOURCES, SOURCE_ADDRESS_KEY,
-    SITE_ADDRESSES, SITE_CODE_HASHES,
+    MAX_CHUNK, MAX_ANCHOR_SPAN, SCHEMA_VERSION, SITES, SOURCES, SOURCE_ADDRESS_KEY,
+    SITE_ADDRESSES, SITE_CODE_HASHES, LIVENESS_KINDS,
     TOPIC_CHARGED, TOPIC_REFUSED, ERROR_CEILING, FIELDS, LEGACY_FIELDS,
-    encode, decode, validate, keyOf, describe, auditRecord,
+    encode, decode, validate, keyOf, describe, auditRecord, auditAnchor, anchorPreimage,
     assertSiteAddresses, assertSiteDeployments,
     decodeChargeLog, decodeRefusalLog, decodeCeilingError, RecordError,
 } from "./hcs.mjs";
@@ -193,6 +193,19 @@ const CHECKPOINT = {
 };
 const CHARGE_V2 = {...CHARGE, v: SCHEMA_VERSION, a: ENGINE};
 
+// An anchor over twelve closed epochs of the engine's six rows, with one charge
+// in the range: row 15 spent one bit in epoch 945. The cells are the fixture the
+// hash is computed from, so the vector runs offline, and the audit below has to
+// notice when any one of them is moved.
+const ANCHOR_ROWS = [3, 4, 12, 13, 15, 17];
+const CELLS = new Map([["15:945", 1]]);
+const cellAt = (row, epoch) => CELLS.get(row + ":" + epoch) || 0;
+const ANCHOR_H = keccak256(anchorPreimage(943, 954, ANCHOR_ROWS, cellAt));
+const ANCHOR = {
+    v: SCHEMA_VERSION, k: "anchor", c: "engine", a: ENGINE,
+    from: 943, to: 954, blk: 40200000, rows: ANCHOR_ROWS, h: ANCHOR_H,
+};
+
 eq("a charge encodes to its canonical bytes", encode(CHARGE),
     '{"v":1,"k":"charge","c":"engine","tx":"0xa7e2287bec0fadcdeccc3c3484acab1d081eae2a6eca219b20b76b80c41950f3",'
     + '"li":0,"r":15,"e":39,"g":1,"cost":1,"after":1}');
@@ -203,9 +216,13 @@ eq("a legacy refusal keeps its canonical bytes", encode(REFUSAL),
     '{"v":1,"k":"refusal","c":"vault","tx":"0x1111111111111111111111111111111111111111111111111111111111111111",'
     + '"li":3,"id":"0x2222222222222222222222222222222222222222222222222222222222222222","r":14,"x":2}');
 
+eq("an anchor encodes to its canonical bytes", encode(ANCHOR),
+    '{"v":2,"k":"anchor","c":"engine","a":"' + ENGINE + '","from":943,"to":954,"blk":40200000,'
+    + '"rows":[3,4,12,13,15,17],"h":"' + ANCHOR_H + '"}');
+
 for (const [name, rec] of [["charge", CHARGE], ["silence", SILENCE],
                            ["legacy refusal", REFUSAL], ["ceiling", CEILING],
-                           ["checkpoint", CHECKPOINT],
+                           ["checkpoint", CHECKPOINT], ["anchor", ANCHOR],
                            ["address-bound charge", CHARGE_V2]]) {
     const text = encode(rec);
     const back = decode(text);
@@ -229,6 +246,32 @@ for (const [name, rec] of [["charge", CHARGE], ["silence", SILENCE],
     const size = new TextEncoder().encode(wide).length;
     ok(`the widest checkpoint is one chunk (${size} bytes)`, size <= MAX_CHUNK);
 }
+
+// The widest anchor: sixty-four five-digit rows, the longest permitted span,
+// every number at the top of its width. The span bound is what keeps a verifier's
+// work per record proportionate; this is what keeps the record itself one chunk.
+{
+    const rows = [];
+    for (let i = 0; i < 64; i++) rows.push(65535 - 63 + i);
+    const wide = encode({
+        v: SCHEMA_VERSION, k: "anchor", c: "vault", a: VAULT,
+        from: 9007199254740991 - MAX_ANCHOR_SPAN + 1, to: 9007199254740991,
+        blk: 9007199254740991, rows, h: "0x" + "ff".repeat(32),
+    });
+    const size = new TextEncoder().encode(wide).length;
+    ok(`the widest anchor is one chunk (${size} bytes)`, size <= MAX_CHUNK);
+}
+
+eq("anchors and checkpoints are the liveness kinds", LIVENESS_KINDS.join(","), "checkpoint,anchor");
+eq("the anchor order binds its address and its range", FIELDS.anchor.join(","),
+    "v,k,c,a,from,to,blk,rows,h");
+eq("an anchor's dedupe key is its source and range", keyOf(decode(encode(ANCHOR))),
+    `anchor:engine:${ENGINE}:943:954`);
+eq("an anchor describes its range and digest", describe(decode(encode(ANCHOR))),
+    `anchored epochs 943 to 954 at block 40200000: spentBits over rows 3, 4, 12, 13, 15, 17 hash to ${ANCHOR_H.slice(0, 10)}`);
+eq("a one-epoch anchor describes one epoch",
+    describe(validate({...ANCHOR, to: 943, h: keccak256(anchorPreimage(943, 943, ANCHOR_ROWS, cellAt))})).slice(0, 18),
+    "anchored epoch 943");
 
 eq("the current record order binds its address", FIELDS.charge.join(","),
     "v,k,c,a,tx,li,r,e,g,cost,after");
@@ -328,6 +371,57 @@ refuses("a checkpoint with more than 64 rows is refused", () => {
     for (let i = 0; i < 65; i++) rows[i] = 0;
     validate({v: 1, k: "checkpoint", c: "engine", e: 1, blk: 1, rows});
 }, "more than 64");
+
+// An anchor is a claim about a range of cells, so the range and the cell list
+// are held as tightly as the hash: a backwards range, a span a verifier cannot
+// afford to check, a row list whose order the preimage would depend on, and a
+// digest of the wrong width are each refused before anything is hashed.
+refuses("a legacy anchor kind is refused",
+    () => validate({...ANCHOR, v: 1, a: undefined}), "unknown kind");
+refuses("an anchor running backwards is refused",
+    () => validate({...ANCHOR, from: 955}), "run forward");
+refuses("an anchor over the span bound is refused",
+    () => validate({...ANCHOR, to: 943 + MAX_ANCHOR_SPAN}), "over the 288 epoch span");
+ok("an anchor at the span bound is accepted",
+    validate({...ANCHOR, to: 943 + MAX_ANCHOR_SPAN - 1}).to === 943 + MAX_ANCHOR_SPAN - 1);
+refuses("an anchor with unsorted rows is refused",
+    () => validate({...ANCHOR, rows: [4, 3, 12]}), "strictly ascending");
+refuses("an anchor with a repeated row is refused",
+    () => validate({...ANCHOR, rows: [3, 3, 4]}), "strictly ascending");
+refuses("an anchor with no rows is refused", () => validate({...ANCHOR, rows: []}), "non-empty");
+refuses("an anchor with a rows object is refused",
+    () => validate({...ANCHOR, rows: {3: 0}}), "non-empty array");
+refuses("an anchor with more than 64 rows is refused",
+    () => validate({...ANCHOR, rows: Array.from({length: 65}, (_, i) => i)}), "more than 64");
+refuses("an anchor with a row over uint16 is refused",
+    () => validate({...ANCHOR, rows: [3, 70000]}), "integer in");
+refuses("an anchor with a short digest is refused",
+    () => validate({...ANCHOR, h: "0xdeadbeef"}), "32 lowercase hex bytes");
+refuses("an anchor with an upper case digest is refused",
+    () => validate({...ANCHOR, h: "0xAB" + "00".repeat(31)}), "lowercase");
+refuses("an anchor from another deployment is refused",
+    () => validate({...ANCHOR, a: "0x" + "ab".repeat(20)}), "not the bound deployment");
+refuses("an anchor with an extra field is refused",
+    () => validate({...ANCHOR, e: 943}), "unexpected field");
+refuses("a reordered anchor is refused",
+    () => decode('{"k":"anchor","v":2,"c":"engine","a":"' + ENGINE
+        + '","from":943,"to":954,"blk":1,"rows":[3],"h":"' + ANCHOR_H + '"}'), "canonical");
+
+// The preimage is the layout `abi.encodePacked` gives a `uint256[]`, in epoch
+// major order, so it can be rebuilt with any ABI library or by hand.
+eq("the preimage is packed uint256 words in epoch-major order",
+    anchorPreimage(1, 2, [3, 15], (row, e) => row * 10 + e),
+    solidityPacked(["uint256", "uint256", "uint256", "uint256"], [31, 151, 32, 152]));
+eq("the preimage of a quiet range is all zero words",
+    anchorPreimage(5, 6, [7], () => 0), "0x" + "0".repeat(128));
+refuses("a preimage with a missing cell is refused rather than hashed as zero",
+    () => anchorPreimage(1, 1, [3], () => undefined), "spentBits(3, 1)");
+refuses("a preimage with a cell over uint32 is refused",
+    () => anchorPreimage(1, 1, [3], () => 0x100000000), "spentBits(3, 1)");
+refuses("a preimage over the span bound is refused",
+    () => anchorPreimage(1, MAX_ANCHOR_SPAN + 1, [3], () => 0), "over the 288 epoch span");
+refuses("a preimage without a cell reader is refused",
+    () => anchorPreimage(1, 1, [3]), "cell reader");
 
 // ------------------------------------------------------------- the forgeries
 //
@@ -474,6 +568,50 @@ audits("a ceiling record with a changed row is caught",
     CTX_CEILING, false);
 audits("a ceiling record without the typed revert data is caught",
     validate(CEILING), {...RES_CEILING, error_message: "0x"}, CTX_CEILING, false);
+
+// An anchor has the most cells to lie about, so its audit is checked the same
+// way: the real anchor over the fixture cells audits clean, and one moved cell,
+// a range that had not closed, or an audit handed less than it needs is caught.
+{
+    const CTX_ANCHOR = {address: ENGINE, closedEpoch: 954, valueAt: cellAt, hash: keccak256};
+    const anchorAudits = (what, rec, ctx, wantPass) => {
+        const rows = auditAnchor(rec, ctx);
+        const failed = rows.filter((x) => !x.pass);
+        if (wantPass && failed.length) {
+            console.error(`FAIL ${what}: expected a clean audit, got\n  ` +
+                failed.map((x) => x.name + " :: " + x.detail).join("\n  "));
+            bad++;
+        } else if (!wantPass && failed.length === 0) {
+            console.error(`FAIL ${what}: the audit passed an anchor it should have caught`);
+            bad++;
+        }
+        return rows;
+    };
+    const real = decode(encode(ANCHOR));
+    anchorAudits("the real anchor audits clean", real, CTX_ANCHOR, true);
+    anchorAudits("an anchor audited long after its range closed still audits clean",
+        real, {...CTX_ANCHOR, closedEpoch: 5000}, true);
+    anchorAudits("an anchor whose charge the chain does not show is caught",
+        real, {...CTX_ANCHOR, valueAt: () => 0}, false);
+    anchorAudits("an anchor that missed a charge the chain shows is caught",
+        real, {...CTX_ANCHOR, valueAt: (row, e) => cellAt(row, e) + (row === 13 && e === 950 ? 1 : 0)}, false);
+    anchorAudits("an anchor whose charge is in the wrong epoch is caught",
+        real, {...CTX_ANCHOR, valueAt: (row, e) => (row === 15 && e === 946 ? 1 : 0)}, false);
+    anchorAudits("an anchor with a forged digest is caught",
+        validate({...ANCHOR, h: "0x" + "00".repeat(32)}), CTX_ANCHOR, false);
+    anchorAudits("an anchor over an epoch still open when it was written is caught",
+        real, {...CTX_ANCHOR, closedEpoch: 953}, false);
+    anchorAudits("an anchor attributed to the wrong contract is caught",
+        real, {...CTX_ANCHOR, address: "0x" + "ab".repeat(20)}, false);
+    anchorAudits("an anchor audit with no address is caught",
+        real, {closedEpoch: 954, valueAt: cellAt, hash: keccak256}, false);
+    anchorAudits("an anchor audit with no consensus epoch is caught",
+        real, {address: ENGINE, valueAt: cellAt, hash: keccak256}, false);
+    anchorAudits("an anchor audit with no cells is caught",
+        real, {address: ENGINE, closedEpoch: 954, hash: keccak256}, false);
+    anchorAudits("an anchor audit whose cell reader comes up empty is caught",
+        real, {...CTX_ANCHOR, valueAt: () => undefined}, false);
+}
 
 // The log decoders refuse a shape that is not the event, rather than reading
 // five numbers out of whatever is there.
