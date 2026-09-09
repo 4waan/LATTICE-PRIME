@@ -1,0 +1,22 @@
+FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS fetch
+
+ARG EZKL_VERSION=23.0.5
+ARG EZKL_SHA256=384af10d6d6c24379789ba29559c7deacf1b4e287a89ad48e13949939d9dffa6
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && curl --fail --location --output /tmp/ezkl.tar.gz \
+       "https://github.com/zkonduit/ezkl/releases/download/v${EZKL_VERSION}/ezkl-linux-aarch64.tar.gz" \
+    && echo "${EZKL_SHA256}  /tmp/ezkl.tar.gz" | sha256sum --check --strict \
+    && tar -xzf /tmp/ezkl.tar.gz -C /usr/local/bin \
+    && rm -rf /tmp/ezkl.tar.gz /var/lib/apt/lists/*
+
+FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
+
+COPY --from=fetch /usr/local/bin/ezkl /usr/local/bin/ezkl
+COPY agent/packaging/worker-entrypoint.sh /usr/local/bin/lattice-agent-worker
+RUN chmod 0555 /usr/local/bin/ezkl /usr/local/bin/lattice-agent-worker
+
+USER 65532:65532
+WORKDIR /job
+ENTRYPOINT ["/usr/local/bin/lattice-agent-worker"]

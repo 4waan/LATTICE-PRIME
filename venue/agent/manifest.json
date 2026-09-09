@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "lattice.agent.capabilities.v1",
+  "bundleVersion": "0.5.0-lattice-claw-preview",
+  "releaseStatus": "phase2-testnet-passed-claw-shell-local-gate-passed",
+  "product": {
+    "name": "Lattice Claw",
+    "relationship": "Separate agent product for the Lattice Prime venue",
+    "uiStatus": "coming-soon"
+  },
+  "network": {
+    "name": "hedera-testnet",
+    "chainId": "296",
+    "deploymentHash": "0xbfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
+    "deploymentBinding": "protocol/manifest.json",
+    "matchingEngine": "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
+    "token": "0x5efb2ed7b36728d4893156b9ce41b7068fb52fe2"
+  },
+  "execution": {
+    "side": "BUY",
+    "accountModel": "dedicated local-signer EOA",
+    "perMandateNewOrderLimit": 1,
+    "methods": [
+      "commit",
+      "reveal",
+      "cancel",
+      "expire",
+      "withdraw"
+    ],
+    "testedOutcomes": [
+      "filled",
+      "partial-fill",
+      "no-fill",
+      "paused-cancel-recovery"
+    ],
+    "productUiEnabled": false,
+    "productUiScope": "lattice-claw-coming-soon-shell",
+    "comingSoonShellEnabled": true,
+    "uiOriginatedLiveOrderRecorded": false
+  },
+  "model": {
+    "claim": "Synthetic decision consistency only; not profitability or validated financial prediction.",
+    "onnxSha256": "sha256:da8f5f55246a902a0cb1110bfa2725aae8a3ffab901e76b2bd916fdaa7fd5503",
+    "weightsSha256": "sha256:5bd29c9515e7428832e354d0b865d5209d48f2b47763027edbf19d6ba2ffa18e",
+    "cloudBranch": "cursor/lattice-prime-model-training-3c95",
+    "cloudTrainingCommit": "d39cd53da23ae47c435b25592e473491c72cdea5",
+    "seed": 20260909,
+    "quantizationScale": 256,
+    "privateContextMode": "excluded",
+    "localProofRequiredBeforeCommit": true
+  },
+  "toolchain": {
+    "node": "22.21.1",
+    "python": "3.9.6",
+    "ezkl": {
+      "version": "23.0.5",
+      "sourceCommit": "534ff3e6c13d4c2c1aca2358910d62dac466d3cc",
+      "macosUniversalWheelSha256": "a457f2b1930ceb6a2d73c24e874edf4e197107ded8f97a86d38b13045e7ffe44"
+    },
+    "onnx": "1.17.0",
+    "numpy": "2.0.2",
+    "z3Solver": "4.15.3.0",
+    "ethers": "6.17.x",
+    "workerImage": "lattice-agent-worker@sha256:6e064bc5d6141df238b3e39a7fb8fa05893d3e69440a6d58a23eeb6cbfd1eee4"
+  },
+  "baseline": {
+    "gitCommit": "f81a727d10b4666128463284521e2cee1b8fea7a",
+    "sources": {
+      "deployments/client.json": "sha256:bfe7557a9ff2450cb9959a339e3424de4c8bbb43bb21d7f02c279188010dda6b",
+      "tools/commitment.mjs": "sha256:9339723409e7e76c74e17fba4d5af370def5ca73996cfbacb16f3a012fe784f9",
+      "tools/units.mjs": "sha256:4f4b32e7c8e2a645678af75732d3b2549fd2f1b0b1589a86dccf0c4806ca2820",
+      "src/market/OrderBook.sol": "sha256:eb701ba10e37d68a620012d0dc8bdc13af28d16a3932b81a9a4b42d516ddcc36",
+      "src/market/MatchingEngine.sol": "sha256:78409596c0b6c40596575fa00b1fad023a0a0cb11f8f465a51c14974f7026243",
+      "agent/formal/spec.json": "sha256:0859163363a68a7cd719bbfc1541b3bf0f02341d824af2f80bf621079d98d26c",
+      "agent/proof/instances.json": "sha256:cb5accf2e8373b2767ce56ef88b0e0f11d5506d5427180ada3c41c9366d8c97f"
+    }
+  },
+  "privacy": {
+    "defaultMode": "excluded",
+    "optionalPrivatePreferencesEnabled": false,
+    "proofPackagePublication": "local-only-before-reveal",
+    "browserCapabilitiesStored": false,
+    "privateSignerActionExposedToBrowser": false,
+    "pairingCapabilityInUrl": false
+  },
+  "protocolAuthority": {
+    "deploymentCodeAndAbiPinned": true,
+    "snapshotOriginHmac": true,
+    "snapshotTicketAndWallClockFreshnessChecked": true,
+    "protocolPreflightPinnedToOneBlock": true,
+    "commitAuthorizationRecheckedAfterProof": true,
+    "commitNonceMatchedBeforeAndAfterProof": true,
+    "eligibilityReadFromProtocol": true,
+    "eligibilityAndFundingRecheckedBeforeReveal": true,
+    "haltReadFromProtocol": true,
+    "backingAndAccountingReadFromProtocol": true,
+    "actionAccountingPinnedToOneBlock": true,
+    "localMandateOnlyNarrowsProtocolAuthority": true
+  },
+  "recovery": {
+    "encryptedJournalRestartTested": true,
+    "pauseRefusesNewEvaluations": true,
+    "pausePreservesOutstandingRecovery": true,
+    "pinnedCancellationFeeBudgetEnforced": true,
+    "maximumTransactionFeeReserveEnforced": true,
+    "accountNonceReservationsReplaySafe": true,
+    "unknownBroadcastReconciliationTestedLocally": true,
+    "firstCommitExactRebroadcastTestedLocally": true,
+    "unsignedCommitCrashRecoveryTestedLocally": true,
+    "unsignedCommitAbandonmentRaceRefused": true,
+    "phase1JournalMigrationTestedLocally": true,
+    "activeAuctionCreditWithdrawalSuppressed": true,
+    "serializedBackgroundSchedulerTestedLocally": true,
+    "pausedSealedActionRoutesToCancel": true,
+    "schedulerContinuesAfterPerActionFailure": true,
+    "receiptFailureDoesNotBlockRecovery": true,
+    "singleLauncherLockTestedLocally": true
+  },
+  "receipts": {
+    "schemaVersion": "lattice.order-receipt.v1",
+    "sameProtocolOrderIdentifier": true,
+    "inferenceChainDisclosureAndRuntimeScopesSeparated": true,
+    "sanitizedByDefault": true,
+    "durableLocalSchemaVersion": "lattice.agent.durable-receipt.v1",
+    "atomicChecksumChainedJournalTested": true,
+    "dormantReceiptRendererUsesTextNodes": true
+  },
+  "onChainInferenceVerification": {
+    "role": "optional evidence sidecar",
+    "matchingEngineDependency": false,
+    "testnetVerifier": "0x9f035f847a0840e8d6ccdf7ab31c15cbd04cd9dc",
+    "validProofTransactionPassed": true,
+    "alteredProofRefused": true,
+    "deploymentProbeRecomputesArtifactHashes": true,
+    "perOrderPublicationEnabled": false,
+    "reason": "A proof is published only after its order reveals and only when the user explicitly selects that evidence release."
+  },
+  "hcs": {
+    "agentEvidenceSubmitted": false,
+    "privateWitnessSubmitted": false,
+    "unrevealedTicketSubmitted": false,
+    "proofPackageSubmitted": false
+  },
+  "evidence": [
+    "../deployments/agent-phase2.json",
+    "../deployments/agent-phase2-partial.json",
+    "../deployments/agent-phase2-pause.json",
+    "../deployments/agent-ezkl-verifier.json"
+  ],
+  "limitations": [
+    "The Lattice Claw chat is a non-functional coming-soon preview and is not connected to the execution API.",
+    "Lattice Prime no longer embeds agent controls; future execution UI belongs to Lattice Claw.",
+    "Lifecycle scheduling requires the local launcher process to remain running and the signer to be unlocked after process restart.",
+    "Optional private preference categories remain disabled.",
+    "The local container boundary is not remote attestation.",
+    "The durable receipt checksum chain detects corruption and inconsistent edits; it is not a signature against a writer that can replace the entire receipt file.",
+    "The optional EVM verifier is not an execution or settlement gate.",
+    "Per-order proof publication is disabled by default and was not used for the recorded orders.",
+    "The v1 mandate does not sign permissionless forfeit after a missed reveal window."
+  ]
+}

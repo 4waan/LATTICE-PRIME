@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "lattice.agent.phase2-pause-evidence.v1",
+  "status": "passed",
+  "checkedAt": "2026-09-09T04:16:29.654Z",
+  "chainId": "296",
+  "orderIdentifier": "0x79ef6f0a3dabcf93eb54bf51e057ca0de93832a9a8792a92885dac0937eeab44",
+  "mandateId": "sha256:66308bdf3ce94e59708808e914aa7bdca9bfc550cecebe821c6e22bdec308d21",
+  "checks": {
+    "executeDecisionVerified": true,
+    "commitmentConfirmed": true,
+    "localPauseActivated": true,
+    "newEvaluationRefusedWhilePaused": true,
+    "outstandingCancelConfirmedWhilePaused": true,
+    "cancelRefundDeltaTinybar": "900000",
+    "creditWithdrawn": true
+  },
+  "transactions": {
+    "commit": "0x92a013b12e3878cc2847192fe4109cb979a968b5ab094cb202c013a4b22ad521",
+    "cancel": "0x02328a21d594623f3caaabf0f24098e1a9a481dc64df3530aec87ee210bc1c9d",
+    "withdraw": "0xe62f818da7899354d0d9d57246feb8870edefd4e56114dca630e1047e97424e0"
+  },
+  "privacy": "No proof body, reveal salt, signed bytes, key, witness, or agent evidence was submitted to HCS."
+}
