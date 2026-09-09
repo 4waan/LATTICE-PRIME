@@ -47,6 +47,12 @@ cd "$(dirname "$0")/../.."          # venue/
 ROOT="$(cd .. && pwd)"
 
 set -a; . "$ROOT/.env"; set +a
+
+_clientAddress() {
+    python3 -c 'import json,sys; print(json.load(open("deployments/client.json"))["addresses"][sys.argv[1]])' "$1"
+}
+REGISTRATION_GATE="${REGISTRATION_GATE:-$(_clientAddress RegistrationGate)}"
+ZK_KYC_REGISTRY="${ZK_KYC_REGISTRY:-$(_clientAddress ZkKycRegistry)}"
 : "${REGISTRATION_GATE:?set REGISTRATION_GATE}"
 : "${ZK_KYC_REGISTRY:?set ZK_KYC_REGISTRY}"
 RPC="$HEDERA_TESTNET_RPC"
