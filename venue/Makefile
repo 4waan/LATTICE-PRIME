@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -91,7 +91,7 @@ census:
 #                                                test/UnitVectors.t.sol
 #   hcs.mjs        -> the topic record schema, the silence table, and the audit
 #                      that says a record matches the chain
-#                                                 deployments/abi/*.json
+#                       canonical deployed sites + addresses + runtime hashes
 vectors:
 	$(NODE) node tools/keccak.test.mjs
 	$(NODE) node tools/commitment.test.mjs
@@ -115,6 +115,7 @@ pages: vectors
 # is deliberately not a prerequisite: rebuilding the UI must never be able to
 # move the address book underneath it.
 app: vectors
+	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/landing.test.mjs
 	$(NODE) node tools/gen-app.mjs
 
 # The receipt beat, on chain: two sealed orders committed and both withdrawn
@@ -132,11 +133,26 @@ app: vectors
 beat:
 	bash script/live/receipt-beat.sh $(or $(MODE),plan)
 
-# What a frontend compiles against: the ABIs out of `out/`, the addresses out of
-# the deployment records, and the immutables read back off chain 296. One file,
-# generated, so a client cannot be holding an address book that drifted.
+# Funded-offer financing on the bound vault. Plan reads FINANCING_VERSION and
+# quotes principal. Run needs two actor keys and a version-5 vault; it will not
+# send against a historical vault.
+#
+#   make financing-beat
+#   make financing-beat MODE=run
+financing-beat:
+	bash script/live/financing-beat.sh $(or $(MODE),plan)
+
+# Refresh the chain-bound client only after a coordinated deployment. The
+# acknowledgement prevents an ordinary local build from pairing source ABIs
+# with older live addresses. Source-only ABI previews belong under `out/`.
+#
+#   DEPLOY_BOUND=1 make client
 client:
-	bash script/live/export-abis.sh
+	@test "$(DEPLOY_BOUND)" = "1" || { \
+		echo "refusing to move chain-bound ABIs without DEPLOY_BOUND=1"; \
+		exit 1; \
+	}
+	DEPLOY_BOUND=1 bash script/live/export-abis.sh
 	$(NODE) node tools/gen-client.mjs
 
 # A native HTS cash token for a coupon deployment. This sends one transaction
