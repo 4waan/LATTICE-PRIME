@@ -3408,6 +3408,10 @@ Venue.bindTicketList = function () {
         if (act === "reserve") Venue.reserveForTicket(id).catch((err) => Venue.fail(err));
         if (act === "load") Venue.continueTicket(id);
         if (act === "discard") Venue.discardDraft(id);
+        if (act === "new") {
+            Venue.startNewOrder();
+            document.querySelector(".order-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
+        }
         if (act === "expire") Venue.doExpire(id).catch((err) => Venue.fail(err));
         if (act === "process") Venue.doCross().catch((err) => Venue.fail(err));
         if (act === "eligibility") window.location.href = "prove.html";
@@ -3478,23 +3482,27 @@ Venue.paintOrderAttention = function ({urgent = 0, release = 0, missed = 0} = {}
     const copy = $("order-attention-copy");
     if (urgent) {
         box.hidden = false;
+        box.dataset.tone = "warning";
         title.textContent = urgent + " order" + (urgent === 1 ? "" : "s") + " must be revealed now";
         copy.textContent = "Reveal before the deadline to protect the deposit and enter the auction.";
         return;
     }
-    if (release) {
-        box.hidden = false;
-        title.textContent = release + " rested order" + (release === 1 ? " is" : "s are") + " ready to close";
-        copy.textContent = "Release the remaining reserve and move the deposit to withdrawable credit.";
-        return;
-    }
     if (missed) {
         box.hidden = false;
+        box.dataset.tone = "danger";
         title.textContent = missed + " reveal deadline" + (missed === 1 ? " was" : "s were") + " missed";
         copy.textContent = "The affected deposit is now exposed to permissionless forfeiture.";
         return;
     }
+    if (release) {
+        box.hidden = false;
+        box.dataset.tone = "info";
+        title.textContent = release + " order" + (release === 1 ? " has" : "s have") + " funds ready to unlock";
+        copy.textContent = "Release the remaining reserve and move the deposit to withdrawable credit. There is no deadline.";
+        return;
+    }
     box.hidden = true;
+    delete box.dataset.tone;
 };
 
 Venue.paintTickets = async function () {
@@ -3600,14 +3608,14 @@ Venue.paintTickets = async function () {
                 badgeTone = filled > 0n ? "live" : "";
                 nextTitle = "Order complete";
                 nextCopy = "Check inventory and trading credit for the settled outcome and released remainder.";
-                actions = "";
+                actions = '<button type="button" class="primary" data-act="new">Place another order</button>';
                 deadline = "Closed";
             } else if (pastLast) {
-                tone = "urgent";
-                badge = "Release available";
-                badgeTone = "urgent";
-                nextTitle = "Close this rested order";
-                nextCopy = "Its final auction round has passed. Anyone may retire it and release the remaining reserve.";
+                tone = "waiting";
+                badge = "Ready to release";
+                badgeTone = "waiting";
+                nextTitle = "Funds ready to unlock";
+                nextCopy = "Its final auction round has passed. Release remains available without a deadline.";
                 actions = '<button type="button" class="primary" data-act="expire" data-id="' +
                     esc(t.id) + '">Release order</button>';
                 needs = "release";

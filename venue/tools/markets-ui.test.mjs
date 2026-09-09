@@ -99,6 +99,120 @@ test("the order stages control which content is visible", () => {
     assert.equal(elements["order-back"].hidden, true);
 });
 
+test("completed orders offer another order and return to a clean form", () => {
+    assert.match(
+        runtime,
+        /if \(retired\) \{[\s\S]*?data-act="new">Place another order<\/button>/,
+    );
+
+    const fields = {
+        price: {value: "105", dataset: {touched: "1"}, focus: () => {}},
+        qty: {value: "25", dataset: {touched: "1"}},
+        holdId: {value: "7", dataset: {}},
+        side: {value: "1", dataset: {}},
+    };
+    let stage = "";
+    let rerolled = 0;
+    const Venue = {
+        trackTicketId: "old-order",
+        showOrderStage: (next) => { stage = next; },
+        reroll: () => { rerolled++; },
+        status: () => {},
+    };
+    const start = runtime.indexOf("Venue.startNewOrder = function");
+    const end = runtime.indexOf("\nVenue.doGuidedOrderAction", start);
+    assert.ok(start >= 0 && end > start, "new-order reset should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        $: (id) => fields[id] || null,
+    });
+
+    Venue.startNewOrder();
+
+    assert.equal(Venue.trackTicketId, null);
+    assert.equal(stage, "details");
+    assert.equal(fields.price.value, "");
+    assert.equal(fields.qty.value, "");
+    assert.equal(fields.holdId.value, "");
+    assert.equal(fields.side.value, "1");
+    assert.equal("touched" in fields.price.dataset, false);
+    assert.equal("touched" in fields.qty.dataset, false);
+    assert.equal(rerolled, 1);
+
+    fields.price.value = "99";
+    fields.qty.value = "10";
+    Venue.trackTicketId = "completed-order";
+    let click;
+    let scrolled = 0;
+    const button = {
+        getAttribute: (name) => name === "data-act" ? "new" : null,
+    };
+    const ticketBox = {
+        dataset: {},
+        addEventListener: (_name, handler) => { click = handler; },
+        contains: (node) => node === button,
+    };
+    const bindStart = runtime.indexOf("Venue.bindTicketList = function");
+    const bindEnd = runtime.indexOf("\nfunction ticketDate", bindStart);
+    assert.ok(bindStart >= 0 && bindEnd > bindStart, "order action handler should be extractable");
+    runInNewContext(runtime.slice(bindStart, bindEnd), {
+        Venue,
+        $: (id) => id === "tickets" ? ticketBox : null,
+        document: {
+            querySelector: () => ({
+                scrollIntoView: () => { scrolled++; },
+            }),
+        },
+        window: {location: {href: ""}},
+    });
+    Venue.bindTicketList();
+    click({target: {closest: () => button}});
+
+    assert.equal(Venue.trackTicketId, null);
+    assert.equal(fields.price.value, "");
+    assert.equal(fields.qty.value, "");
+    assert.equal(scrolled, 1);
+});
+
+test("order attention distinguishes deadlines, losses, and routine release", () => {
+    const elements = {
+        "order-attention": {hidden: true, dataset: {}},
+        "order-attention-title": {textContent: ""},
+        "order-attention-copy": {textContent: ""},
+    };
+    const Venue = {};
+    const start = runtime.indexOf("Venue.paintOrderAttention = function");
+    const end = runtime.indexOf("\nVenue.paintTickets", start);
+    assert.ok(start >= 0 && end > start, "attention renderer should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        $: (id) => elements[id] || null,
+    });
+
+    Venue.paintOrderAttention({release: 2});
+    assert.equal(elements["order-attention"].hidden, false);
+    assert.equal(elements["order-attention"].dataset.tone, "info");
+    assert.match(elements["order-attention-title"].textContent, /funds ready to unlock/);
+    assert.match(elements["order-attention-copy"].textContent, /no deadline/i);
+
+    Venue.paintOrderAttention({release: 2, missed: 1});
+    assert.equal(elements["order-attention"].dataset.tone, "danger");
+    assert.match(elements["order-attention-title"].textContent, /reveal deadline.*missed/);
+
+    Venue.paintOrderAttention({release: 2, missed: 1, urgent: 1});
+    assert.equal(elements["order-attention"].dataset.tone, "warning");
+    assert.match(elements["order-attention-title"].textContent, /must be revealed now/);
+
+    Venue.paintOrderAttention();
+    assert.equal(elements["order-attention"].hidden, true);
+    assert.equal("tone" in elements["order-attention"].dataset, false);
+
+    assert.match(
+        runtime,
+        /else if \(pastLast\) \{[\s\S]*?tone = "waiting";[\s\S]*?badgeTone = "waiting";/,
+    );
+});
+
 test("guided order action exposes every real prerequisite", () => {
     const Venue = guidedHarness();
     const wallet = "0x00000000000000000000000000000000000000aa";
@@ -492,6 +606,8 @@ test("Markets styles and oracle states stay responsive and honest", () => {
     assert.match(css, /\.order-primary\{flex:1;width:auto;min-height:46px/);
     assert.match(css, /withdraw-ready-pulse/);
     assert.match(css, /live-market-pulse/);
+    assert.match(css, /\.order-attention\[data-tone="info"\][\s\S]*?--attention-color:var\(--market-blue\)/);
+    assert.match(css, /\.order-attention\[data-tone="danger"\][\s\S]*?--attention-color:var\(--market-red\)/);
     assert.match(css, /@media\(max-width:520px\)\{/);
     assert.match(css, /:focus-visible/);
     assert.match(template, /id="withdraw-modal" hidden/);
