@@ -1,7 +1,7 @@
-<title>Repo · Lattice Prime</title>
+<title>Financing · Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="The repo vault: the price the collateral is marked at, half of it the venue's own panel and half of it the network's own rate, plus state, the price to repurchase now, the settlement penalty now, and whether the margin log can be believed.">
+<meta name="description" content="Borrow HBAR against LPRC. A lender funds an offer; you accept a hold; close releases the lot. Title stays with the borrower until default.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -36,11 +36,11 @@ document.documentElement.setAttribute("data-theme",
       <span class="net-chip">TESTNET</span>
     </div>
     <nav class="nav" aria-label="Screens">
-      <a href="prove.html">Prove</a>
-      <a href="trade.html">Trade</a>
-      <a href="position.html">Position</a>
-      <a href="repo.html" aria-current="page">Repo</a>
-      <a href="venue.html">Rulebook</a>
+      <a href="trade.html">Markets</a>
+      <a href="position.html">Portfolio</a>
+      <a href="repo.html" aria-current="page">Financing</a>
+      <a href="prove.html">Eligibility</a>
+      <a href="venue.html">Issuer</a>
     </nav>
     <div class="mast-end">
       <button type="button" class="wallet-btn" id="connect">Connect Wallet</button>
@@ -53,110 +53,146 @@ document.documentElement.setAttribute("data-theme",
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>
   </button>
   <div class="clocks" id="clock-panel" hidden>
-    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">—</span></div>
-    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">—</span></div>
-    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">—</span></div>
+    <div class="clk" id="clk-round"><span class="k">Round</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-disc"><span class="k">Disclosure</span><span class="v">Loading</span></div>
+    <div class="clk" id="clk-kyc"><span class="k">KYC</span><span class="v">Loading</span></div>
   </div>
 </aside>
 
 <main class="wrap page">
-  <h1>Repo</h1>
-  <p class="lede">The collateral side of the venue. A repo is opened against a hold on the same
-    bond the engine trades, marked against a live price while it is open, and repurchased or
-    defaulted at the end. This screen reads it; the vault's writes are an operator path and
-    are not offered here.</p>
+  <h1>Financing</h1>
+  <p class="lede">Borrow HBAR against free LPRC. The lender funds exact principal. You accept: the vault holds the lot and credits you cash. Close releases the hold. Title stays yours until default.</p>
 
+  <div class="banner warn" id="fin-gate" hidden>
+    <p id="fin-gate-copy">Financing writes are unavailable on this bound vault.</p>
+  </div>
+
+  <section id="fin-wizard">
+    <div class="shead"><h2>Open a facility</h2><span class="src">Lender funds · borrower accepts · cash withdraws</span></div>
+    <p>The lender names the borrower and funds the live quote. The named borrower reviews the same economics, authorizes the exact collateral lot, then accepts. Nothing is priced while the market feed is unavailable.</p>
+
+    <div class="ticket finance" style="margin-bottom:1rem">
+      <div class="field span2">
+        <label for="fin-id">Facility id</label>
+        <div class="saltrow" data-open="1">
+          <input id="fin-id" spellcheck="false" placeholder="0x… thirty-two bytes">
+          <button type="button" id="fin-id-new">New id</button>
+          <button type="button" id="fin-id-copy">Copy id</button>
+        </div>
+        <span class="hint">Share this id with the named borrower so both desks open the same agreement.</span>
+      </div>
+      <div class="field span2">
+        <label for="fin-borrower">Borrower wallet</label>
+        <input id="fin-borrower" spellcheck="false" placeholder="0x… account receiving the cash">
+      </div>
+      <div class="field">
+        <label for="fin-lot">Lot (free LPRC)</label>
+        <input id="fin-lot" inputmode="numeric" placeholder="1000">
+      </div>
+      <div class="field">
+        <label for="fin-haircut">Haircut, bps</label>
+        <input id="fin-haircut" inputmode="numeric" value="200">
+      </div>
+      <div class="field">
+        <label for="fin-rate">Repo rate, bps</label>
+        <input id="fin-rate" inputmode="numeric" value="450">
+      </div>
+      <div class="field">
+        <label for="fin-maint">Maintenance, bps</label>
+        <input id="fin-maint" inputmode="numeric" value="200">
+      </div>
+      <div class="field">
+        <label for="fin-term">Term, days</label>
+        <input id="fin-term" inputmode="numeric" value="30">
+      </div>
+      <div class="field">
+        <label for="fin-expiry">Offer lives, hours</label>
+        <input id="fin-expiry" inputmode="numeric" value="2">
+      </div>
+    </div>
+    <div class="rowbtns">
+      <button type="button" id="fin-quote">Preview quote</button>
+      <button type="button" class="primary" id="fin-fund" disabled>Fund offer (lender)</button>
+      <button type="button" class="primary" id="fin-accept" disabled>Accept (borrower)</button>
+      <button type="button" id="fin-cancel" disabled>Cancel unused offer</button>
+      <button type="button" id="fin-withdraw" disabled>Withdraw cash</button>
+    </div>
+    <div id="fin-preview" class="fin-preview"><div class="empty">Preview the live economics. Nothing is signed yet.</div></div>
+  </section>
+
+  <details class="lab"><summary>Contract connections &amp; risk settings</summary>
   <div class="wire" style="margin-bottom:1rem">
-    <div class="wcell"><span class="k">Fail grace</span><span class="v num" id="rv-grace">—</span><span class="n">failGrace</span></div>
-    <div class="wcell"><span class="k">Penalty</span><span class="v num" id="rv-penalty">—</span><span class="n">penaltyRate</span></div>
-    <div class="wcell"><span class="k">Margin engine</span><span class="v" id="rv-engine">—</span><span class="n">marginEngine</span></div>
-    <div class="wcell"><span class="k">Watcher points at</span><span class="v" id="rv-watchvault">—</span><span class="n">MarginWatch.vault</span></div>
+    <div class="wcell"><span class="k">Fail grace</span><span class="v num" id="rv-grace">Loading</span><span class="n">failGrace</span></div>
+    <div class="wcell"><span class="k">Penalty</span><span class="v num" id="rv-penalty">Loading</span><span class="n">penaltyRate</span></div>
+    <div class="wcell"><span class="k">Margin engine</span><span class="v" id="rv-engine">Loading</span><span class="n">marginEngine</span></div>
+    <div class="wcell"><span class="k">Watcher points at</span><span class="v" id="rv-watchvault">Loading</span><span class="n">MarginWatch.vault</span></div>
   </div>
 
   <div class="wire" style="margin-bottom:1.4rem">
-    <div class="wcell"><span class="k">Security</span><span class="v" id="rv-security">—</span><span class="n">vault.security</span></div>
-    <div class="wcell"><span class="k">Policy</span><span class="v" id="rv-policy">—</span><span class="n">vault.policy</span></div>
-    <div class="wcell" style="grid-column:span 2"><span class="k">Disclosure stream</span><span class="v" id="rv-stream">—</span><span class="n">MarginWatch.stream</span></div>
+    <div class="wcell"><span class="k">Security</span><span class="v" id="rv-security">Loading</span><span class="n">vault.security</span></div>
+    <div class="wcell"><span class="k">Policy</span><span class="v" id="rv-policy">Loading</span><span class="n">vault.policy</span></div>
+    <div class="wcell" style="grid-column:span 2"><span class="k">Disclosure stream</span><span class="v" id="rv-stream">Loading</span><span class="n">MarginWatch.stream</span></div>
   </div>
 
+  </details>
   <section id="feed-box">
-    <div class="shead"><h2>The price the collateral is marked at</h2><span class="src">PrimeOracle · two legs</span></div>
-    <p>Two legs, and only one of them is the venue's. The seated panel publishes LPRC's
-      clean price in USD, because a private bond has no other quote. <b>HBAR/USD is somebody
-      else's number</b>, because the bond is denominated in USD and this venue settles in
-      tinybars, and nothing on chain converted between them before this. The mark is the
-      first divided by the second, and <code>RepoVault.markToMarket</code> multiplies it by
-      a repo's own lot in memory and stores nothing.</p>
-    <p>The cash seat is a governed address in Chainlink's <code>AggregatorV3Interface</code>
-      shape, and on this chain it does <b>not</b> hold a Chainlink feed. Chainlink runs
-      HBAR/USD on Hedera and its proxies refuse a contract caller with <code>No access</code>
-      while answering <code>decimals()</code> to anyone, on testnet and mainnet alike. So the
-      seat holds an adapter over Hedera's own exchange rate at <code>0x168</code>, which is
-      the rate every transaction fee on this network is priced at. The measurement, including
-      the on-chain probe that shows what an <code>eth_call</code> cannot, is
-      <code>probes/chainlink-hedera.out</code>.</p>
+    <div class="shead"><h2>Collateral pricing</h2><span class="src">PrimeOracle · two legs</span></div>
+    <p>Bond price and the Hedera exchange rate determine collateral value. Both feeds must be current before you can check margin on-chain.</p>
     <p class="note" id="feed-says"></p>
 
     <div class="wire" style="margin-bottom:1rem">
-      <div class="wcell"><span class="k">Feed</span><span class="v" id="feed-state">—</span><span class="n">oracle.stale()</span></div>
-      <div class="wcell"><span class="k">Clean price</span><span class="v num" id="feed-price">—</span><span class="n">per unit of face</span></div>
-      <div class="wcell"><span class="k">Coupon reference</span><span class="v num" id="feed-rate">—</span><span class="n">refRateBps</span></div>
-      <div class="wcell"><span class="k">Round</span><span class="v" id="feed-round">—</span><span class="n">lastRound</span></div>
+      <div class="wcell"><span class="k">Feed</span><span class="v" id="feed-state">Loading</span><span class="n">oracle.stale()</span></div>
+      <div class="wcell"><span class="k">Clean price</span><span class="v num" id="feed-price">Loading</span><span class="n">per unit of face</span></div>
+      <div class="wcell"><span class="k">Coupon reference</span><span class="v num" id="feed-rate">Loading</span><span class="n">refRateBps</span></div>
+      <div class="wcell"><span class="k">Round</span><span class="v" id="feed-round">Loading</span><span class="n">lastRound</span></div>
     </div>
 
     <div class="wire" style="margin-bottom:1rem">
-      <div class="wcell"><span class="k">Our leg</span><span class="v" id="feed-ourleg">—</span><span class="n">seated panel</span></div>
-      <div class="wcell"><span class="k">Cash leg</span><span class="v" id="feed-cashleg">—</span><span class="n">HBAR/USD, seated</span></div>
-      <div class="wcell"><span class="k">HBAR/USD</span><span class="v num" id="feed-hbar">—</span><span class="n">cashLeg()</span></div>
-      <div class="wcell"><span class="k">Mark per unit</span><span class="v num" id="feed-mark">—</span><span class="n">markPerUnitTinybar</span></div>
+      <div class="wcell"><span class="k">Our leg</span><span class="v" id="feed-ourleg">Loading</span><span class="n">seated panel</span></div>
+      <div class="wcell"><span class="k">Cash leg</span><span class="v" id="feed-cashleg">Loading</span><span class="n">HBAR/USD, seated</span></div>
+      <div class="wcell"><span class="k">HBAR/USD</span><span class="v num" id="feed-hbar">Loading</span><span class="n">cashLeg()</span></div>
+      <div class="wcell"><span class="k">Mark per unit</span><span class="v num" id="feed-mark">Loading</span><span class="n">markPerUnitTinybar</span></div>
     </div>
 
     <div class="wire" style="margin-bottom:1rem">
-      <div class="wcell"><span class="k">Quorum</span><span class="v" id="feed-quorum">—</span><span class="n">median over the panel</span></div>
-      <div class="wcell"><span class="k">Heartbeat</span><span class="v" id="feed-heartbeat">—</span><span class="n">ours · theirs</span></div>
-      <div class="wcell"><span class="k">Deviation cap</span><span class="v" id="feed-deviation">—</span><span class="n">maxDeviationBps</span></div>
-      <div class="wcell"><span class="k">Upstream</span><span class="v" id="feed-cashaddr">—</span><span class="n">cashFeed</span></div>
+      <div class="wcell"><span class="k">Quorum</span><span class="v" id="feed-quorum">Loading</span><span class="n">median over the panel</span></div>
+      <div class="wcell"><span class="k">Heartbeat</span><span class="v" id="feed-heartbeat">Loading</span><span class="n">ours · theirs</span></div>
+      <div class="wcell"><span class="k">Deviation cap</span><span class="v" id="feed-deviation">Loading</span><span class="n">maxDeviationBps</span></div>
+      <div class="wcell"><span class="k">Upstream</span><span class="v" id="feed-cashaddr">Loading</span><span class="n">cashFeed</span></div>
     </div>
 
     <p>Who may price this bond. A change to the panel is proposed an epoch before it binds,
       and adopting it is permissionless.</p>
     <div class="picks" id="feed-panel"></div>
     <div class="rowbtns" style="margin-top:1rem">
-      <button type="button" id="feed-refresh">Re-read the feed</button>
+      <button type="button" id="feed-refresh">Refresh prices</button>
     </div>
   </section>
 
   <section>
-    <div class="shead"><h2>Repos this vault has touched</h2><span class="src">mirror node · calledAmong</span></div>
-    <p>Repo ids are not enumerable on chain. Every vault event carries the id as its first
-      indexed topic, so the history is the index. <span id="repo-called" class="note"></span></p>
+    <div class="shead"><h2>Recent financing activity</h2><span class="src">mirror node · calledAmong</span></div>
+    <p>Select a facility to view collateral, repayment, and next steps. <span id="repo-called" class="note"></span></p>
     <div class="rowbtns" style="margin-bottom:1rem">
-      <button type="button" id="repo-discover">Re-read the vault history</button>
+      <button type="button" id="repo-discover">Refresh activity</button>
     </div>
     <div class="picks" id="repo-known"></div>
   </section>
 
   <section>
-    <div class="shead"><h2>One repo</h2><span class="src">RepoVault.repo · MarginWatch.alertOf</span></div>
-    <p><code>repurchasePriceNow</code> and <code>settlementPenaltyNow</code> move with the clock,
-      so they are read at the moment you ask and never derived from <code>openedAt</code> here.
-      <b>Mark now</b> is <code>previewMark</code>: what <code>markToMarket</code> would find
-      in this block, without sending anything, so a margin call can be seen before it lands
-      rather than read about afterwards. Native settlement obligations appear below the repo.
-      A scheduled one links to its HashScan record; an unscheduled one keeps the same
-      permissionless <code>settle</code> fallback after its due time.</p>
+    <div class="shead"><h2>Facility details</h2><span class="src">RepoVault.repo · offers · MarginWatch.alertOf</span></div>
+    <p>Live terms, coverage, and scheduled obligations. Select a recent facility above, or look up a reference below. Under hold custody, issuer coupons remain with the borrower; this facility records the observation but does not invent a second payment.</p>
     <div class="field" style="padding:0 0 .65rem">
-      <label for="repo-id">Repo id</label>
+      <label for="repo-id">Facility reference</label>
       <input id="repo-id" spellcheck="false" placeholder="0x… thirty-two bytes">
     </div>
-    <div class="rowbtns"><button type="button" class="primary" id="repo-go">Read it</button></div>
+    <div class="rowbtns"><button type="button" class="primary" id="repo-go">View facility</button></div>
     <div id="repo-out" style="margin-top:1rem">
       <div class="empty">Pick one above, or paste an id.</div>
     </div>
   </section>
 
   <section>
-    <div class="shead"><h2>What happened to it</h2><span class="src">Hedera mirror node</span></div>
+    <div class="shead"><h2>Lifecycle history</h2><span class="src">Hedera mirror node</span></div>
     <div class="tape" id="repo-tape"><div class="empty">Read a repo above and its history lands here.</div></div>
   </section>
 </main>

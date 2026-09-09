@@ -22,7 +22,7 @@
 const REPO_FIELDS = [
     "state", "borrower", "lender", "partition", "collateralHoldId",
     "collateralAmount", "principal", "repoRateBps", "openedAt", "maturity",
-    "cureDeadline", "maintenanceBps", "markCommitment", "manufacturedCommitment",
+    "cureDeadline", "maintenanceBps", "markCommitment", "lastCouponCommitment",
 ];
 const PAYER = ["none", "taker", "maker", "venue", "operator"];
 // ISeamJournal.Reason. canTransfer is a bool, so this enum is the only channel a
@@ -114,7 +114,7 @@ Venue.historyOf = async function (names, {limit = 25} = {}) {
 };
 
 Venue.fmtLogArg = function (name, value) {
-    if (value === null || value === undefined) return "—";
+    if (value === null || value === undefined) return "Unavailable";
     if (typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value)) return shortAddr(value);
     if (typeof value === "string" && value.length > 26) return shortId(value);
     if (typeof value === "bigint" || typeof value === "number") {
@@ -140,7 +140,7 @@ Venue.paintTape = function (id, entries, note) {
                 '<span class="targ"><i>' + esc(inp.name) + "</i>" +
                 esc(Venue.fmtLogArg(inp.name, e.args[i])) + "</span>").join("")
             : '<span class="targ"><i>topic0</i>' + esc(shortId(e.topic0 || "")) + "</span>";
-        const when = e.at ? new Date(e.at * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z" : "—";
+        const when = e.at ? new Date(e.at * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z" : "Unavailable";
         return '<div class="tline' + (e.fragment ? "" : " unknown") + '">' +
             '<span class="tsrc">' + esc(e.source) + "</span>" +
             '<span class="tname">' + esc(e.name) + "</span>" +
@@ -157,7 +157,10 @@ Venue.mountVenue = async function () {
     $("param-row")?.addEventListener("change", () => Venue.refreshParamRow().catch((e) => Venue.fail(e)));
     $("journal-go")?.addEventListener("click", () => Venue.doExplain().catch((e) => Venue.fail(e)));
     $("disclose-go")?.addEventListener("click", () => Venue.doDisclose().catch((e) => Venue.fail(e)));
-    await Venue.refreshVenue();
+    await Promise.all([
+        Venue.refreshVenue(),
+        Venue.refreshInstrument(),
+    ]);
     await Venue.refreshTape();
     // `tools/hcs-view.mjs` is inlined only into this screen, so a build without
     // it still mounts the rest of the Rulebook rather than throwing at boot.
@@ -227,6 +230,7 @@ Venue.refreshVenue = async function () {
         Venue.refreshParamSet(),
         Venue.refreshImmutables(),
         Venue.refreshCoupon(),
+        Venue.refreshInstrument().catch(() => {}),
     ]);
     const [rPermits, cStart] = await Promise.all([
         regime.permits(rCur),
@@ -234,7 +238,7 @@ Venue.refreshVenue = async function () {
     ]);
 
     const bps = (v) => (Number(v) / 100).toFixed(2) + "%";
-    const at = (ts) => asBig(ts) === 0n ? "—" : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
+    const at = (ts) => asBig(ts) === 0n ? "Unavailable" : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
     const put = (id, v, cls) => {
         const el = $(id);
         if (!el) return;
@@ -292,7 +296,7 @@ Venue.refreshVenue = async function () {
     // TradingHalt. A halt has a budget per epoch, so how much is left is the
     // part a trader actually needs.
     put("th-now", hNow ? "HALTED" : "trading", hNow ? "v bad" : "v ok");
-    put("th-until", hNow ? at(hUntil) : "—");
+    put("th-until", hNow ? at(hUntil) : "Unavailable");
     put("th-band", bps(band));
     put("th-breaker", breaker + " s");
     put("th-budget", remaining + " / " + budgetS + " s left this epoch");
@@ -312,20 +316,20 @@ Venue.refreshVenue = async function () {
     put("pr-pending", asBig(pendingEpoch) === 0n
         ? "no proposal"
         : shortId(pendingRoot) + " · adoptable in epoch " + pendingEpoch);
-    put("pr-window", asBig(windowAt) === 0n ? "—" : at(windowAt));
+    put("pr-window", asBig(windowAt) === 0n ? "Unavailable" : at(windowAt));
 
     // Rulebook. `reconcile` is the getter that says whether the published fee
     // schedule still matches what the contracts charge.
     const noEdition = asBig(edition) === 0n;
     put("rb-edition", noEdition ? "none adopted" : shortId(edition), noEdition ? "v" : "v ok");
-    put("rb-document", noEdition ? "—" : shortId(document_));
+    put("rb-document", noEdition ? "Unavailable" : shortId(document_));
     put("rb-charges", noEdition && asBig(chargeCount) === 0n
         ? "no schedule published" : String(chargeCount));
     put("rb-take", (asBig(take) < 0n ? "-" : "") + formatHbar(asBig(take) < 0n ? -asBig(take) : asBig(take)) + " HBAR");
     put("rb-pending", asBig(pendEdEpoch) === 0n
         ? "no proposal"
         : shortId(pendEd) + " · adoptable in epoch " + pendEdEpoch);
-    put("rb-window", asBig(rbWindow) === 0n ? "—" : at(rbWindow));
+    put("rb-window", asBig(rbWindow) === 0n ? "Unavailable" : at(rbWindow));
     put("rb-reconcile", !rec[0]
         ? "MISMATCH on " + shortId(rec[1]) + ": published " + rec[2] + ", live " + rec[3]
         : noEdition
@@ -543,10 +547,26 @@ Venue.mountRepo = async function () {
         if (e.key === "Enter") Venue.doRepo().catch((x) => Venue.fail(x));
     });
     $("repo-discover")?.addEventListener("click", () => Venue.discoverRepos().catch((e) => Venue.fail(e)));
+    $("fin-id-new")?.addEventListener("click", () => {
+        if ($("fin-id")) $("fin-id").value = ethers.hexlify(ethers.randomBytes(32));
+        Venue.previewFinance().catch(() => {});
+    });
+    $("fin-id-copy")?.addEventListener("click", () => {
+        Venue.copyFinanceId().catch((e) => Venue.fail(e));
+    });
+    for (const id of [
+        "fin-id", "fin-borrower", "fin-lot", "fin-haircut", "fin-rate",
+        "fin-maint", "fin-term", "fin-expiry",
+    ]) {
+        $(id)?.addEventListener("input", () => Venue.previewFinance().catch(() => {}));
+    }
+    $("fin-quote")?.addEventListener("click", () => Venue.previewFinance().catch((e) => Venue.fail(e)));
+    $("fin-fund")?.addEventListener("click", () => Venue.doFundOffer().catch((e) => Venue.fail(e)));
+    $("fin-accept")?.addEventListener("click", () => Venue.doAcceptOffer().catch((e) => Venue.fail(e)));
+    $("fin-cancel")?.addEventListener("click", () => Venue.doCancelOffer().catch((e) => Venue.fail(e)));
+    $("fin-withdraw")?.addEventListener("click", () => Venue.doVaultWithdraw().catch((e) => Venue.fail(e)));
+    Venue.paintFinancingGate();
     await Venue.refreshVault();
-    // Not swallowed. A feed panel full of em dashes and no reason for them is a
-    // screen that lies by omission, and the whole point of this section is to
-    // say whether the price can be believed.
     await Venue.refreshOracle().catch((e) => {
         const says = $("feed-says");
         if (says) {
@@ -555,6 +575,480 @@ Venue.mountRepo = async function () {
         }
     });
     await Venue.discoverRepos().catch(() => {});
+};
+
+Venue.copyFinanceId = async function () {
+    const input = $("fin-id");
+    const value = (input?.value || "").trim();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
+        throw new Error("Create or enter a valid facility id before copying it.");
+    }
+    try {
+        await navigator.clipboard.writeText(value);
+    } catch {
+        input.focus();
+        input.select();
+        if (!document.execCommand("copy")) {
+            throw new Error("Could not copy the facility id.");
+        }
+    }
+    const button = $("fin-id-copy");
+    if (button) {
+        button.textContent = "Copied";
+        setTimeout(() => {
+            if ($("fin-id-copy")) $("fin-id-copy").textContent = "Copy id";
+        }, 1_200);
+    }
+};
+
+Venue.paintFinancingGate = function () {
+    const gate = $("fin-gate");
+    const copy = $("fin-gate-copy");
+    const wizard = $("fin-wizard");
+    const ready = !!Venue.financing?.ready;
+    if (gate) gate.hidden = ready;
+    if (copy && !ready) {
+        copy.textContent = Venue.financing?.reason ||
+            "This bound vault predates funded offers. Financing writes stay unavailable.";
+    }
+    if (wizard) wizard.hidden = !ready;
+    for (const id of ["fin-fund", "fin-accept", "fin-cancel", "fin-withdraw", "fin-quote"]) {
+        const el = $(id);
+        if (el && id !== "fin-quote") el.disabled = !ready;
+        if (el && id === "fin-quote") el.disabled = !ready;
+    }
+};
+
+function financeUint(id, label, {zero = false, max = null} = {}) {
+    const raw = ($(id)?.value || "").trim();
+    if (!/^\d+$/.test(raw)) throw new Error(label + " must be a whole number.");
+    const value = BigInt(raw);
+    if (!zero && value === 0n) throw new Error(label + " must be greater than zero.");
+    if (max !== null && value > max) throw new Error(label + " is over " + max + ".");
+    return value;
+}
+
+function financeId() {
+    const id = ($("fin-id")?.value || "").trim();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(id)) {
+        throw new Error("Facility id must be thirty-two bytes. Use New id.");
+    }
+    return id;
+}
+
+function financeAddress(id, label) {
+    const value = ($(id)?.value || "").trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(value) || addrEq(value, ZERO)) {
+        throw new Error(label + " must be a non-zero wallet address.");
+    }
+    return value;
+}
+
+Venue.financeDraft = function () {
+    const id = financeId();
+    const borrower = financeAddress("fin-borrower", "Borrower");
+    const lot = financeUint("fin-lot", "Lot");
+    const haircut = financeUint("fin-haircut", "Haircut", {zero: true, max: 9_999n});
+    const rate = financeUint("fin-rate", "Repo rate", {zero: true, max: 10_000n});
+    const maintenance =
+        financeUint("fin-maint", "Maintenance", {zero: true, max: 65_535n});
+    const days = financeUint("fin-term", "Term");
+    const hours = financeUint("fin-expiry", "Offer life");
+    const term = days * 86_400n;
+    const expiresAt = nowSec() + hours * 3_600n;
+    if (term > (1n << 64n) - 1n || expiresAt > (1n << 64n) - 1n) {
+        throw new Error("Term or offer expiry is outside uint64.");
+    }
+    return {
+        id,
+        borrower,
+        terms: {
+            partition: CLIENT.immutables.partition,
+            collateralAmount: lot,
+            haircutBps: haircut,
+            maintenanceBps: maintenance,
+            repoRateBps: rate,
+            term,
+        },
+        expiresAt,
+        days,
+        hours,
+    };
+};
+
+function maturityRepayment(principal, rate, term) {
+    const numerator = principal * rate * term;
+    const denominator = 10_000n * 365n * 86_400n;
+    const interest = numerator === 0n ? 0n : (numerator + denominator - 1n) / denominator;
+    return principal + interest;
+}
+
+function financeAt(ts) {
+    return new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
+}
+
+Venue.previewFinance = async function () {
+    if (!Venue.financing?.ready) {
+        throw new Error(Venue.financing?.reason || "Financing writes are unavailable.");
+    }
+    const out = $("fin-preview");
+    let id;
+    try {
+        id = financeId();
+    } catch (e) {
+        if (out) out.innerHTML = '<div class="empty">' + esc(e.message) + "</div>";
+        for (const id of ["fin-fund", "fin-accept", "fin-cancel"]) {
+            if ($(id)) $(id).disabled = true;
+        }
+        return null;
+    }
+
+    const {vault, oracle, token, registry} = Venue.c;
+    const [offer, state] = await Promise.all([
+        vault.offers(id),
+        vault.stateOf(id),
+    ]);
+    const hasOffer = !addrEq(offer.lender, ZERO);
+    if (hasOffer && $("fin-borrower")) $("fin-borrower").value = offer.borrower;
+    let draft;
+    try {
+        draft = hasOffer
+            ? {
+                id,
+                borrower: offer.borrower,
+                terms: offer.terms,
+                expiresAt: asBig(offer.expiresAt),
+                days: asBig(offer.terms.term) / 86_400n,
+                hours: 0n,
+            }
+            : Venue.financeDraft();
+    } catch (e) {
+        if (out) out.innerHTML = '<div class="empty">' + esc(e.message) + "</div>";
+        for (const id of ["fin-fund", "fin-accept", "fin-cancel"]) {
+            if ($(id)) $(id).disabled = true;
+        }
+        return null;
+    }
+
+    let livePrincipal = null;
+    let quoteError = "";
+    try {
+        livePrincipal = asBig(await vault.quotePrincipal(draft.terms));
+    } catch (e) {
+        quoteError = decodeRevert(e).name === "FeedIsDark"
+            ? "Coverage cannot be evaluated because the feed is dark."
+            : decodeRevert(e).message;
+    }
+    const principal = hasOffer ? asBig(offer.principal) : livePrincipal;
+    const who = Venue.viewer();
+    const collateralOwner = hasOffer ? offer.borrower : draft.borrower;
+    const account = Venue.account;
+    const lender = hasOffer ? offer.lender : account;
+    const [markPerUnit, free, credit, allowance, borrowerKyc, lenderKyc] = await Promise.all([
+        oracle.markPerUnitTinybar().catch(() => null),
+        token.balanceOfByPartition(draft.terms.partition, collateralOwner).catch(() => null),
+        who ? vault.credit(who) : null,
+        typeof token.allowance === "function"
+            ? token.allowance(collateralOwner, CLIENT.addresses.RepoVault).catch(() => null)
+            : null,
+        registry?.getKycStatus
+            ? registry.getKycStatus(collateralOwner).catch(() => null)
+            : null,
+        lender && registry?.getKycStatus
+            ? registry.getKycStatus(lender).catch(() => null)
+            : null,
+    ]);
+    const isLender = !!account && hasOffer && addrEq(account, offer.lender);
+    const isBorrower = !!account && hasOffer && addrEq(account, offer.borrower);
+    const borrowerEligible = borrowerKyc !== null && Number(borrowerKyc) === 1;
+    const lenderEligible = lenderKyc !== null && Number(lenderKyc) === 1;
+    const expired = hasOffer && asBig(offer.expiresAt) <= nowSec();
+    const freeText = free === null ? "unavailable" : String(free) + " LPRC";
+    const lot = asBig(draft.terms.collateralAmount);
+    const enoughCollateral = free !== null && asBig(free) >= lot;
+    const enoughAllowance = allowance !== null && asBig(allowance) >= lot;
+    const repriced = hasOffer && livePrincipal !== null && livePrincipal !== principal;
+    const repay = principal === null
+        ? null
+        : maturityRepayment(principal, asBig(draft.terms.repoRateBps), asBig(draft.terms.term));
+    const projectedMaturity = nowSec() + draft.terms.term;
+
+    if (out) {
+        out.innerHTML =
+            (quoteError
+                ? '<div class="banner warn"><p>' + esc(quoteError) + "</p></div>"
+                : "") +
+            '<ul class="readout">' +
+            '<li><span class="k">live mark per bond</span><span class="v">' +
+            (markPerUnit === null ? "Unavailable" : esc(formatHbar(asBig(markPerUnit))) + " HBAR") +
+            "</span></li>" +
+            '<li><span class="k">collateral lot</span><span class="v">' +
+            esc(String(lot)) + " LPRC</span></li>" +
+            '<li><span class="k">borrower</span><span class="v">' +
+            esc(shortAddr(collateralOwner)) + "</span></li>" +
+            '<li><span class="k">borrower eligibility</span><span class="v">' +
+            (borrowerKyc === null ? "unavailable" : borrowerEligible ? "granted" : "not granted") +
+            "</span></li>" +
+            '<li><span class="k">lender eligibility</span><span class="v">' +
+            (lenderKyc === null ? "unavailable" : lenderEligible ? "granted" : "not granted") +
+            "</span></li>" +
+            '<li><span class="k">free balance</span><span class="v">' +
+            esc(freeText) + "</span></li>" +
+            '<li><span class="k">collateral authorization</span><span class="v">' +
+            (allowance === null
+                ? "unavailable"
+                : esc(String(allowance)) + " LPRC" +
+                  (enoughAllowance ? " · ready" : " · approval required before acceptance")) +
+            "</span></li>" +
+            '<li><span class="k">principal</span><span class="v">' +
+            (principal === null ? "Unavailable" : esc(formatHbar(principal)) + " HBAR") +
+            "</span></li>" +
+            (hasOffer
+                ? '<li><span class="k">current live quote</span><span class="v">' +
+                  (livePrincipal === null
+                      ? "Unavailable"
+                      : esc(formatHbar(livePrincipal)) + " HBAR" +
+                        (repriced ? " · moved since funding" : " · still matches")) +
+                  "</span></li>"
+                : "") +
+            '<li><span class="k">repayment at maturity</span><span class="v">' +
+            (repay === null ? "Unavailable" : esc(formatHbar(repay)) + " HBAR") +
+            "</span></li>" +
+            '<li><span class="k">projected maturity</span><span class="v">' +
+            esc(financeAt(projectedMaturity)) + "</span></li>" +
+            '<li><span class="k">haircut</span><span class="v">' +
+            esc(String(draft.terms.haircutBps)) + " bps</span></li>" +
+            '<li><span class="k">repo rate</span><span class="v">' +
+            esc(String(draft.terms.repoRateBps)) + " bps</span></li>" +
+            '<li><span class="k">maintenance</span><span class="v">' +
+            esc(String(draft.terms.maintenanceBps)) + " bps</span></li>" +
+            '<li><span class="k">offer</span><span class="v">' +
+            (hasOffer
+                ? esc(shortAddr(offer.lender)) + " funded " +
+                  esc(formatHbar(asBig(offer.principal))) + " HBAR until " +
+                  esc(financeAt(offer.expiresAt)) + (expired ? " (expired)" : "")
+                : "not funded") +
+            "</span></li></ul>" +
+            "<p class='note'>Review: the lender deposits exact principal for the named borrower. " +
+            "The borrower may need a separate wallet signature to authorize the collateral lot. " +
+            "Acceptance locks that lot. Withdraw " +
+            "is a separate pull. Title stays with the borrower until default.</p>";
+    }
+
+    if ($("fin-fund")) {
+        $("fin-fund").disabled =
+            !account || addrEq(account, draft.borrower) || hasOffer || Number(state) !== 0 ||
+            principal === null || principal === 0n || !borrowerEligible || !lenderEligible;
+    }
+    if ($("fin-accept")) {
+        $("fin-accept").disabled =
+            !isBorrower || expired || Number(state) !== 0 ||
+            !borrowerEligible || !lenderEligible || !enoughCollateral ||
+            livePrincipal === null || repriced;
+        $("fin-accept").textContent = enoughAllowance
+            ? "Accept and lock collateral (borrower)"
+            : "Approve collateral, then accept (borrower)";
+    }
+    if ($("fin-cancel")) {
+        $("fin-cancel").disabled = !isLender;
+    }
+    if ($("fin-withdraw")) {
+        $("fin-withdraw").disabled = !account || asBig(credit ?? 0n) === 0n;
+    }
+    Venue.financePreview = {
+        ...draft,
+        principal,
+        livePrincipal,
+        hasOffer,
+        borrowerEligible,
+        lenderEligible,
+    };
+    return Venue.financePreview;
+};
+
+Venue.doFundOffer = async function () {
+    await Venue.requireAccount();
+    const draft = await Venue.previewFinance();
+    if (!draft) throw new Error("A live quote is required before funding.");
+    if (draft.hasOffer) throw new Error("This facility id already has a funded offer.");
+    if (draft.principal === null) throw new Error("The live vault did not return a principal.");
+    if (!draft.borrowerEligible || !draft.lenderEligible) {
+        throw new Error("Both borrower and lender need current eligibility before funding.");
+    }
+    const value = toWeibar(draft.principal);
+    const call = Venue.w.vault.fundOffer;
+    await call.staticCall(draft.id, draft.borrower, draft.terms, draft.expiresAt, {value});
+    const receipt = await Venue.send(
+        call(
+            draft.id,
+            draft.borrower,
+            draft.terms,
+            draft.expiresAt,
+            {value, gasLimit: 700_000},
+        ),
+        "fund offer",
+    );
+    if (!receipt) return;
+    if ($("repo-id")) $("repo-id").value = draft.id;
+    await Venue.noteReceipt(
+        "offer funded", receipt, 14, G.PRED, T.IMM, "vault", "OfferFunded"
+    ).catch(() => {});
+    await Venue.previewFinance();
+    await Venue.discoverRepos().catch(() => {});
+};
+
+Venue.ensureVaultAllowance = async function (amount) {
+    await Venue.requireAccount();
+    const token = Venue.c?.token;
+    const writer = Venue.w?.token;
+    const vaultAddress = CLIENT.addresses.RepoVault;
+    if (
+        !token || !writer || typeof token.allowance !== "function" ||
+        typeof writer.approve !== "function"
+    ) {
+        throw new Error(
+            "This client bundle cannot authorize ATS collateral. Regenerate the token ABI.",
+        );
+    }
+    const required = asBig(amount);
+    const current = asBig(await token.allowance(Venue.account, vaultAddress));
+    if (current >= required) return false;
+
+    const approve = writer.approve;
+    await approve.staticCall(vaultAddress, required);
+    const receipt = await Venue.send(
+        approve(vaultAddress, required, {gasLimit: 350_000}),
+        "authorize collateral",
+    );
+    if (!receipt) throw new Error("Collateral authorization was not confirmed.");
+
+    const after = asBig(await token.allowance(Venue.account, vaultAddress));
+    if (after < required) {
+        throw new Error("ATS recorded less collateral authorization than this offer requires.");
+    }
+    return true;
+};
+
+Venue.doAcceptOffer = async function () {
+    if (Venue.busy || Venue.repoActionPending) return;
+    Venue.repoActionPending = true;
+    try {
+        await Venue.requireAccount();
+        const id = financeId();
+        const offer = await Venue.c.vault.offers(id);
+        if (addrEq(offer.lender, ZERO)) throw new Error("This facility has no funded offer.");
+        if (!addrEq(offer.borrower, Venue.account)) {
+            throw new Error("Only the borrower named by the lender can accept this offer.");
+        }
+        if (asBig(offer.expiresAt) <= nowSec()) {
+            throw new Error("This offer expired. The lender must cancel it and fund a new one.");
+        }
+        const [borrowerKyc, lenderKyc, livePrincipal, freeCollateral] = await Promise.all([
+            Venue.c.registry.getKycStatus(offer.borrower),
+            Venue.c.registry.getKycStatus(offer.lender),
+            Venue.c.vault.quotePrincipal(offer.terms),
+            Venue.c.token.balanceOfByPartition(offer.terms.partition, Venue.account),
+        ]);
+        if (Number(borrowerKyc) !== 1 || Number(lenderKyc) !== 1) {
+            throw new Error(
+                "Both borrower and lender need current eligibility before acceptance.",
+            );
+        }
+        if (asBig(livePrincipal) !== asBig(offer.principal)) {
+            throw new Error(
+                "The live valuation moved since funding. The lender must cancel and reprice.",
+            );
+        }
+        if (asBig(freeCollateral) < asBig(offer.terms.collateralAmount)) {
+            throw new Error("The borrower does not have the required free collateral lot.");
+        }
+        await Venue.ensureVaultAllowance(offer.terms.collateralAmount);
+
+        const call = Venue.w.vault.accept;
+        await call.staticCall(id);
+        const receipt = await Venue.send(
+            call(id, {gasLimit: 1_500_000}),
+            "accept financing",
+        );
+        if (!receipt) return;
+        if ($("repo-id")) $("repo-id").value = id;
+        await Venue.doRepo();
+        await Venue.discoverRepos().catch(() => {});
+        await Venue.noteReceipt(
+            "financing accepted", receipt, 7, G.EXACT, T.IMM, "vault", "Opened"
+        );
+        if ($("fin-withdraw")) $("fin-withdraw").disabled = false;
+    } finally {
+        Venue.repoActionPending = false;
+    }
+};
+
+Venue.doCancelOffer = async function () {
+    await Venue.requireAccount();
+    const id = financeId();
+    const call = Venue.w.vault.cancelOffer;
+    await call.staticCall(id);
+    const receipt = await Venue.send(call(id, {gasLimit: 350_000}), "cancel offer");
+    if (!receipt) return;
+    await Venue.noteReceipt(
+        "offer cancelled", receipt, 14, G.PRED, T.IMM, "vault", "OfferCancelled"
+    ).catch(() => {});
+    await Venue.previewFinance();
+    if ($("fin-withdraw")) $("fin-withdraw").disabled = false;
+};
+
+Venue.paintOffer = function (id, offer) {
+    const out = $("repo-out");
+    if (!out) return;
+    const terms = offer.terms;
+    out.innerHTML =
+        '<article class="card sealed"><div class="id">' + esc(shortId(id)) + "</div>" +
+        "<div class='meta'>funded offer, not yet accepted</div></article>" +
+        '<ul class="readout">' +
+        '<li><span class="k">lender</span><span class="v">' +
+        esc(shortAddr(offer.lender)) + "</span></li>" +
+        '<li><span class="k">borrower</span><span class="v">' +
+        esc(shortAddr(offer.borrower)) + "</span></li>" +
+        '<li><span class="k">lot</span><span class="v">' +
+        esc(String(terms.collateralAmount)) + " LPRC</span></li>" +
+        '<li><span class="k">principal</span><span class="v">' +
+        esc(formatHbar(asBig(offer.principal))) + " HBAR</span></li>" +
+        '<li><span class="k">haircut</span><span class="v">' +
+        esc(String(terms.haircutBps)) + " bps</span></li>" +
+        '<li><span class="k">repo rate</span><span class="v">' +
+        esc(String(terms.repoRateBps)) + " bps</span></li>" +
+        '<li><span class="k">maintenance</span><span class="v">' +
+        esc(String(terms.maintenanceBps)) + " bps</span></li>" +
+        '<li><span class="k">expires</span><span class="v">' +
+        esc(financeAt(offer.expiresAt)) + "</span></li></ul>" +
+        "<p class='note'>Accept is the borrower signature. It creates the hold and " +
+        "credits HBAR in one reverting transaction.</p>";
+
+    const actions = document.createElement("div");
+    actions.className = "rowbtns";
+    if (Venue.account && addrEq(Venue.account, offer.borrower)
+        && asBig(offer.expiresAt) > nowSec()) {
+        const accept = document.createElement("button");
+        accept.type = "button";
+        accept.className = "primary";
+        accept.textContent = "Accept and lock collateral";
+        accept.addEventListener("click", () => {
+            if ($("fin-id")) $("fin-id").value = id;
+            Venue.doAcceptOffer().catch((e) => Venue.fail(e));
+        });
+        actions.appendChild(accept);
+    }
+    if (Venue.account && addrEq(Venue.account, offer.lender)) {
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.textContent = "Cancel and credit lender";
+        cancel.addEventListener("click", () => {
+            if ($("fin-id")) $("fin-id").value = id;
+            Venue.doCancelOffer().catch((e) => Venue.fail(e));
+        });
+        actions.appendChild(cancel);
+    }
+    out.appendChild(actions);
 };
 
 // ---------- the feed ----------
@@ -601,16 +1095,16 @@ Venue.refreshOracle = async function () {
     };
 
     put("feed-state", dark ? "dark" : "live", dark ? "v bad" : "v ok");
-    put("feed-price", asBig(f.cleanPrice) === 0n ? "—"
+    put("feed-price", asBig(f.cleanPrice) === 0n ? "Unavailable"
         : esc(formatPrice(asBig(f.cleanPrice))) + " USD");
-    put("feed-rate", asBig(f.cleanPrice) === 0n ? "—" : String(f.refRateBps) + " bps");
+    put("feed-rate", asBig(f.cleanPrice) === 0n ? "Unavailable" : String(f.refRateBps) + " bps");
     put("feed-round", "round " + String(round) +
         (age === null ? "" : " · " + fmtRemain(Number(age)) + " ago"));
     put("feed-ourleg", f.ourLegDark ? "dark" : "live", f.ourLegDark ? "v bad" : "v ok");
     put("feed-cashleg", f.cashLegDark ? "dark" : "live", f.cashLegDark ? "v bad" : "v ok");
-    put("feed-hbar", asBig(f.usdPerHbar) === 0n ? "—"
+    put("feed-hbar", asBig(f.usdPerHbar) === 0n ? "Unavailable"
         : esc(formatPrice(asBig(f.usdPerHbar))) + " USD");
-    put("feed-mark", asBig(f.markPerUnitTinybar) === 0n ? "—"
+    put("feed-mark", asBig(f.markPerUnitTinybar) === 0n ? "Unavailable"
         : esc(formatHbar(asBig(f.markPerUnitTinybar))) + " HBAR");
     put("feed-quorum", quorum + " of " + panel.length + " seated");
     put("feed-heartbeat", heartbeat + " s · upstream " + cashHeartbeat + " s");
@@ -656,8 +1150,11 @@ Venue.refreshVault = async function () {
         el.textContent = v;
         if (cls !== undefined) el.className = "v " + cls;
     };
-    put("rv-grace", grace + " s");
-    put("rv-penalty", penalty + " bps per second");
+    put("rv-grace", fmtRemain(asBig(grace)));
+    // RepoMath stores hundredths of a basis point per started 24-hour day.
+    const dailyPenalty = asBig(penalty);
+    put("rv-penalty", (dailyPenalty / 100n) + "." +
+        String(dailyPenalty % 100n).padStart(2, "0") + " bps per day");
     // The margin engine is who may post a mark and call the borrower. On this
     // deployment it is an externally owned account, which is a fact about the
     // deployment and not something a client should round off to a contract name.
@@ -675,8 +1172,8 @@ Venue.refreshVault = async function () {
 };
 
 // Repo ids are not enumerable on chain. They are, however, the indexed topic of
-// every event the vault emits, so the history the mirror node already indexes is
-// the discovery mechanism. The Position screen asks a trader to paste an id and
+// repo lifecycle events. Scheduling events index an obligation id instead, and
+// must not become phantom positions. The Position screen asks a trader to paste an id and
 // never says where one comes from; this is where one comes from.
 Venue.discoverRepos = async function () {
     const el = $("repo-known");
@@ -684,8 +1181,13 @@ Venue.discoverRepos = async function () {
     el.innerHTML = '<div class="empty">Reading the vault history…</div>';
     const logs = await Venue.history("RepoVault", {limit: 100});
     const seen = new Map();
+    const repoEvents = new Set([
+        "Opened", "OfferFunded", "OfferCancelled", "CollateralAdded",
+        "MarkPosted", "MarginCalled", "Cured", "CouponObserved",
+        "Failing", "Defaulted", "Closed",
+    ]);
     for (const l of logs) {
-        if (!l.args || !l.args.length) continue;
+        if (!repoEvents.has(l.name) || !l.args || !l.args.length) continue;
         const id = l.args[0];
         if (typeof id !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(id)) continue;
         if (!seen.has(id)) seen.set(id, {id, last: l.name, at: l.at, n: 0});
@@ -693,8 +1195,8 @@ Venue.discoverRepos = async function () {
     }
     Venue.knownRepos = [...seen.values()];
     if (!Venue.knownRepos.length) {
-        el.innerHTML = '<div class="empty">The vault has no history on this network yet. ' +
-            "Paste an id above if you have one.</div>";
+        el.innerHTML = '<div class="empty">No repos found in the recent activity loaded. ' +
+            "You can look up an older repo by its id below.</div>";
         return;
     }
     el.innerHTML = Venue.knownRepos.map((r) =>
@@ -767,9 +1269,29 @@ Venue.doRepo = async function () {
         vault.repo(id), vault.stateOf(id), watch.alertOf(id),
     ]);
     if (Number(state) === 0) {
-        out.innerHTML = '<div class="empty">The vault has no repo under that id.</div>';
+        if (Venue.financing?.ready && typeof vault.offers === "function") {
+            const offer = await vault.offers(id).catch(() => null);
+            if (offer && !addrEq(offer.lender, ZERO)) {
+                Venue.paintOffer(id, offer);
+                return;
+            }
+        }
+        out.innerHTML = '<div class="empty">The vault has no facility under that id.</div>';
         return;
     }
+    let borrowerEligibility = null;
+    let lenderEligibility = null;
+    try {
+        [borrowerEligibility, lenderEligibility] = await Promise.all([
+            Venue.c.registry.getKycStatus(r.borrower),
+            Venue.c.registry.getKycStatus(r.lender),
+        ]);
+    } catch (_) {
+        // The contract treats an unreadable registry as ineligible. Keep the
+        // position readable and render the same operational conclusion.
+    }
+    const borrowerEligible = Number(borrowerEligibility) === 1;
+    const lenderEligible = Number(lenderEligibility) === 1;
     // repurchasePriceNow and settlementPenaltyNow are the two figures that move
     // with the clock, so they are read now rather than derived from openedAt.
     //
@@ -778,20 +1300,21 @@ Venue.doRepo = async function () {
     // a margin call coming rather than reading about it afterwards. It is a
     // view and it is total, so a dark feed renders as a dark feed instead of
     // taking this panel down.
-    const [price, penalty, sub, mk, schedules] = await Promise.all([
+    const [price, exposure, penalty, sub, mk, schedules] = await Promise.all([
         vault.repurchasePriceNow(id).catch(() => null),
+        vault.exposureNow(id).catch(() => null),
         vault.settlementPenaltyNow(id).catch(() => null),
         vault.substitute(id).catch(() => null),
         vault.previewMark(id).catch(() => null),
         Venue.repoSchedules(vault, id, r).catch(() => null),
     ]);
-    const at = (ts) => asBig(ts) === 0n ? "—"
+    const at = (ts) => asBig(ts) === 0n ? "Unavailable"
         : new Date(Number(ts) * 1000).toISOString().slice(0, 19).replace("T", " ") + "Z";
     const st = REPO_STATE[Number(state)] || String(state);
     const li = (k, v) => '<li><span class="k">' + esc(k) + '</span><span class="v">' + v + "</span></li>";
     out.innerHTML =
         '<div class="card ' + (Number(state) >= 5 ? "dead" : Number(state) === 3 ? "sealed" : "open") + '">' +
-        '<div class="id">' + esc(id) + "</div>" +
+        '<div class="id">' + esc(shortId(id)) + "</div>" +
         "<div class='meta'>state <b>" + esc(st) + "</b>" +
         (alert.called ? " · under a margin call" : "") +
         (alert.cureExpired ? " · cure window expired" : "") +
@@ -799,34 +1322,42 @@ Venue.doRepo = async function () {
         (alert.defaultable ? " · defaultable" : "") + "</div></div>" +
         '<ul class="readout">' +
         li("borrower", esc(shortAddr(r.borrower))) +
+        li("borrower eligibility", borrowerEligible
+            ? '<b class="ok">current</b>'
+            : '<b class="bad">renew before adding collateral</b>') +
         li("lender", esc(shortAddr(r.lender))) +
-        li("partition", esc(shortId(r.partition))) +
-        li("collateral", esc(String(r.collateralAmount)) + " units, hold " + esc(String(r.collateralHoldId))) +
+        li("lender eligibility", lenderEligible
+            ? '<b class="ok">current</b>'
+            : '<b class="bad">renew before default recovery</b>') +
+        li("collateral", esc(String(r.collateralAmount)) + " LPRC locked") +
         li("principal", esc(formatHbar(asBig(r.principal))) + " HBAR") +
         li("repo rate", esc(String(r.repoRateBps)) + " bps") +
         li("maintenance", esc(String(r.maintenanceBps)) + " bps") +
         li("opened", esc(at(r.openedAt))) +
         li("maturity", esc(at(r.maturity))) +
         li("cure deadline", esc(at(r.cureDeadline))) +
-        li("repurchase now", price === null
+        li("margin exposure now", exposure === null
+            ? "<i>not answerable in this state</i>"
+            : esc(formatHbar(asBig(exposure))) + " HBAR") +
+        li("repayment due now", price === null
             ? "<i>not answerable in this state</i>"
             : esc(formatHbar(asBig(price))) + " HBAR") +
         li("settlement penalty now", penalty === null
             ? "<i>not answerable in this state</i>"
             : esc(formatHbar(asBig(penalty))) + " HBAR") +
-        li("mark now", mk === null ? "<i>this vault has no feed</i>"
+        li("mark now", mk === null ? "<i>valuation unavailable in this state</i>"
             : mk.dark ? "<i>the feed is dark, so nothing is marked</i>"
                 : esc(formatHbar(asBig(mk.mark))) + " HBAR" +
                   (mk.breach
                       ? ' <b class="v bad">short of the maintenance margin</b>'
                       : ' <b class="v ok">covered</b>')) +
         li("mark commitment", asBig(r.markCommitment) === 0n
-            ? "none posted. markToMarket stores nothing"
+            ? "No manual valuation posted"
             : esc(shortId(r.markCommitment)) + " · posted by hand while the feed was dark") +
-        li("manufactured", asBig(r.manufacturedCommitment) === 0n
-            ? "none observed" : esc(shortId(r.manufacturedCommitment))) +
+        li("latest coupon observation", asBig(r.lastCouponCommitment) === 0n
+            ? "none observed" : esc(shortId(r.lastCouponCommitment))) +
         li("substitute", sub === null || addrEq(sub, ZERO)
-            ? "none. RepoVault.substitute reverts SubstitutionRefused by design"
+            ? "Collateral substitution is not supported"
             : esc(String(sub))) +
         "</ul>" +
         '<div class="shead" style="margin-top:1.35rem"><h3>Native settlements</h3>' +
@@ -852,6 +1383,114 @@ Venue.doRepo = async function () {
                     ' <span class="meta">' + esc(shortId(obligationId)) + "</span>",
                 );
             }).join("") + "</ul>");
+
+    const actions = document.createElement("div");
+    actions.className = "rowbtns";
+    const addAction = (label, method, reference) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", async () => {
+            button.disabled = true;
+            try { await Venue.doRepoAction(method, reference, label); }
+            catch (e) { Venue.fail(e); }
+            finally { button.disabled = false; }
+        });
+        actions.appendChild(button);
+    };
+    if ([2, 3].includes(Number(state)) && mk && !mk.dark) {
+        addAction(mk.breach ? "Record margin shortfall" : "Check margin on-chain", "markToMarket", id);
+    }
+    if (Venue.financing?.ready) {
+        const who = (Venue.account || "").toLowerCase();
+        const borrower = String(r.borrower).toLowerCase() === who;
+        if (borrower && [2, 3, 5].includes(Number(state)) && price !== null) {
+            const due = asBig(price) + asBig(penalty ?? 0n);
+            const repay = document.createElement("button");
+            repay.type = "button";
+            repay.className = "primary";
+            repay.textContent = "Repay " + formatHbar(due) + " HBAR and release";
+            repay.addEventListener("click", async () => {
+                repay.disabled = true;
+                try { await Venue.closeFacility(id); }
+                catch (e) { Venue.fail(e); }
+                finally { repay.disabled = false; }
+            });
+            actions.appendChild(repay);
+        }
+        const cureOpen = Number(state) !== 3 || !alert.cureExpired;
+        if (borrower && [2, 3].includes(Number(state)) && cureOpen) {
+            const wrap = document.createElement("span");
+            wrap.style.display = "inline-flex";
+            wrap.style.gap = ".4rem";
+            wrap.style.alignItems = "center";
+            const extra = document.createElement("input");
+            extra.id = "fin-add-lot";
+            extra.inputMode = "numeric";
+            extra.placeholder = "extra LPRC";
+            extra.style.minWidth = "8rem";
+            extra.style.minHeight = "44px";
+            const add = document.createElement("button");
+            add.type = "button";
+            add.disabled = !borrowerEligible;
+            add.textContent = borrowerEligible
+                ? "Add collateral"
+                : "Renew eligibility to add collateral";
+            add.addEventListener("click", async () => {
+                add.disabled = true;
+                try { await Venue.addFacilityCollateral(id, extra.value); }
+                catch (e) { Venue.fail(e); }
+                finally { add.disabled = false; }
+            });
+            wrap.append(extra, add);
+            actions.appendChild(wrap);
+        }
+        if (Number(state) === 3 && !alert.cureExpired && mk && !mk.dark && !mk.breach) {
+            const cure = document.createElement("button");
+            cure.type = "button";
+            cure.textContent = "Cure (feed shows coverage)";
+            cure.addEventListener("click", async () => {
+                cure.disabled = true;
+                try { await Venue.cureFacility(id); }
+                catch (e) { Venue.fail(e); }
+                finally { cure.disabled = false; }
+            });
+            actions.appendChild(cure);
+        }
+        if (alert.defaultable && [3, 5].includes(Number(state))) {
+            const def = document.createElement("button");
+            def.type = "button";
+            def.textContent = "Declare default";
+            def.addEventListener("click", async () => {
+                def.disabled = true;
+                try { await Venue.declareFacilityDefault(id); }
+                catch (e) { Venue.fail(e); }
+                finally { def.disabled = false; }
+            });
+            actions.appendChild(def);
+        }
+        if (Number(state) === 6) {
+            const execute = document.createElement("button");
+            execute.type = "button";
+            execute.disabled = !lenderEligible;
+            execute.textContent = lenderEligible
+                ? "Execute collateral to lender"
+                : "Lender must renew eligibility";
+            execute.addEventListener("click", async () => {
+                execute.disabled = true;
+                try { await Venue.settleFacilityDefault(id); }
+                catch (e) { Venue.fail(e); }
+                finally { execute.disabled = false; }
+            });
+            actions.appendChild(execute);
+        }
+    }
+    for (const entry of schedules || []) {
+        if (Number(entry.obligation.status) === 1 && asBig(entry.obligation.dueAt) <= nowSec()) {
+            addAction("Process " + entry.label, "settle", entry.id);
+        }
+    }
+    out.appendChild(actions);
 
     const tape = (await Venue.history("RepoVault", {limit: 100}))
         .filter((l) => l.args && String(l.args[0]).toLowerCase() === id.toLowerCase());
@@ -923,7 +1562,7 @@ Venue.refreshBook = async function () {
             '<span class="mono">' + esc(String(o.price)) + "</span>" +
             '<span class="mono">' + esc(String(o.qty)) + "</span>" +
             '<span class="mono">' + esc(String(o.filled)) + "</span>" +
-            '<span class="mono">' + esc(String(o.firstRound)) + "–" + esc(String(o.lastRound)) + "</span>" +
+            '<span class="mono">' + esc(String(o.firstRound)) + " to " + esc(String(o.lastRound)) + "</span>" +
             '<span class="mono">' + esc(state) + "</span>" +
             "<span>" + (stale
                 ? '<button type="button" class="quiet expire-go" data-id="' + esc(r.id) + '">Expire</button>'
@@ -949,8 +1588,8 @@ Venue.paintQuote = async function (round) {
         q.textContent = already
             ? "Round " + prev + " is already crossed."
             : willCross
-                ? "Round " + prev + " would cross " + volume + " units at " +
-                  (asBig(priceTwice) / 2n) + " tinybar per unit (priceTwice " + priceTwice + ")."
+                ? "Round " + prev + " would cross " + volume + " bonds at " +
+                  (asBig(priceTwice) / 2n) + " tinybar per bond (priceTwice " + priceTwice + ")."
                 : "Round " + prev + " would not cross. Nothing eligible on both sides.";
     }
     const f = $("book-fees");
@@ -997,6 +1636,14 @@ Venue.refreshInstrument = async function () {
     // balanceOfByPartition excludes them. Two different questions, so both.
     put("in-balance", whole === null ? "connect or watch an address"
         : whole + " total · " + inPart + " free in this partition");
+    put("iss-name", name);
+    put("iss-symbol", symbol);
+    const issAddr = $("iss-addr");
+    if (issAddr) {
+        issAddr.innerHTML = '<a href="' + esc(explorerAddr(CLIENT.addresses.token)) +
+            '" target="_blank" rel="noopener">' + esc(shortAddr(CLIENT.addresses.token)) + "</a>";
+    }
+    put("iss-paused", "No issuer writes exposed. Venue halt and compliance reads follow below.");
 };
 
 // ---------- the gate's own governance, for the prove screen ----------
@@ -1150,11 +1797,11 @@ Venue.refreshParamSet = async function () {
     const nameOf = (key) => {
         if (String(key).toLowerCase() === String(waivedKey).toLowerCase()) return "waived-rows mask";
         const k = Number(asBig(key));
-        if (!Number.isSafeInteger(k)) return "—";
+        if (!Number.isSafeInteger(k)) return "Unavailable";
         if (k < card) return "row " + k + " ceiling" + (ROW_NAMES[k] ? " · " + ROW_NAMES[k] : "");
         if (k < 2 * card) return "row " + (k - card) + " floor";
         if (k < 3 * card) return "row " + (k - 2 * card) + " budget";
-        return "—";
+        return "Unavailable";
     };
     const head = '<div class="rowline pset head"><span>Key</span><span>What it sets</span><span>Value</span></div>';
     el.innerHTML = head + keys.map((k, i) => {
@@ -1220,4 +1867,116 @@ Venue.refreshImmutables = async function () {
     }
     const mf = $("imm-minfee");
     if (mf) mf.textContent = minFee + " tinybar minimum, engine charges " + fee;
+};
+
+Venue.doFinanceWrite = async function (method, args, label, valueTinybar) {
+    if (!Venue.financing?.ready) {
+        throw new Error(Venue.financing?.reason || "Financing writes are unavailable.");
+    }
+    const allowed =
+        ["close", "addCollateral", "cure", "declareDefault", "settleDefault"];
+    if (!allowed.includes(method)) throw new Error("Unsupported financing action.");
+    if (Venue.busy || Venue.repoActionPending) return;
+    Venue.repoActionPending = true;
+    try {
+        await Venue.requireAccount();
+        const call = Venue.w.vault[method];
+        if (typeof call !== "function") throw new Error("This ABI has no " + method + ".");
+        const opts = valueTinybar != null ? {value: toWeibar(asBig(valueTinybar))} : undefined;
+        if (opts) {
+            await call.staticCall(...args, opts);
+            const receipt = await Venue.send(call(...args, opts), label);
+            if (receipt) await Venue.afterFinance(method);
+        } else {
+            await call.staticCall(...args);
+            const receipt = await Venue.send(call(...args), label);
+            if (receipt) await Venue.afterFinance(method);
+        }
+    } finally {
+        Venue.repoActionPending = false;
+    }
+};
+
+Venue.afterFinance = async function (method) {
+    const eventName = {
+        close: "Closed",
+        addCollateral: "CollateralAdded",
+        cure: "Cured",
+        declareDefault: "Defaulted",
+        settleDefault: "Closed",
+    }[method];
+    if (
+        eventName
+    ) {
+        await Venue.noteReceipt(
+            method, Venue.lastReceipt, 14, G.PRED, T.IMM, "vault", eventName
+        ).catch(() => {});
+    }
+    await Venue.doRepo().catch(() => {});
+    await Venue.discoverRepos().catch(() => {});
+    await Venue.refreshPosition?.().catch(() => {});
+};
+
+Venue.closeFacility = async function (id) {
+    const [repo, price, penalty] = await Promise.all([
+        Venue.c.vault.repo(id),
+        Venue.c.vault.repurchasePriceNow(id),
+        Venue.c.vault.settlementPenaltyNow(id),
+    ]);
+    const horizon = 60n;
+    const denominator = 10_000n * 365n * 86_400n;
+    const numerator = asBig(repo.principal) * asBig(repo.repoRateBps) * horizon;
+    const buffer = (numerator + denominator - 1n) / denominator + 1n;
+    await Venue.doFinanceWrite(
+        "close",
+        [id],
+        "Repay and release",
+        asBig(price) + asBig(penalty) + buffer,
+    );
+};
+
+Venue.addFacilityCollateral = async function (id, raw) {
+    const amount = BigInt((raw || "").trim() || "0");
+    if (amount <= 0n) throw new Error("Add a positive lot of LPRC.");
+    await Venue.requireAccount();
+    if (Number(await Venue.c.registry.getKycStatus(Venue.account)) !== 1) {
+        throw new Error("Renew borrower eligibility before adding collateral.");
+    }
+    await Venue.ensureVaultAllowance(amount);
+    await Venue.doFinanceWrite("addCollateral", [id, amount], "Add collateral");
+};
+
+Venue.cureFacility = async function (id) {
+    await Venue.doFinanceWrite("cure", [id], "Cure");
+};
+
+Venue.declareFacilityDefault = async function (id) {
+    await Venue.doFinanceWrite("declareDefault", [id], "Declare default");
+};
+
+Venue.settleFacilityDefault = async function (id) {
+    const repo = await Venue.c.vault.repo(id);
+    if (Number(await Venue.c.registry.getKycStatus(repo.lender)) !== 1) {
+        throw new Error(
+            "The lender must renew eligibility before ATS can deliver defaulted collateral.",
+        );
+    }
+    await Venue.doFinanceWrite("settleDefault", [id], "Execute default to lender");
+};
+
+// Only supported permissionless lifecycle operations are exposed here.
+Venue.doRepoAction = async function (method, id, label) {
+    if (!["markToMarket", "settle"].includes(method)) throw new Error("Unsupported repo action.");
+    if (!/^0x[0-9a-fA-F]{64}$/.test(id)) throw new Error("Invalid repo reference.");
+    if (Venue.busy || Venue.repoActionPending) return;
+    Venue.repoActionPending = true;
+    try {
+        await Venue.requireAccount();
+        const call = Venue.w.vault[method];
+        await call.staticCall(id);
+        const receipt = await Venue.send(call(id), label);
+        if (receipt) await Venue.doRepo();
+    } finally {
+        Venue.repoActionPending = false;
+    }
 };
