@@ -1461,7 +1461,12 @@ Venue.validateOracleEvidenceRecord = function (record) {
 Venue.refreshOracleEvidence = async function () {
     const topics = typeof ORACLE_TOPICS === "undefined" ? [] : ORACLE_TOPICS;
     if (!topics.length) {
-        Venue.oracleEvidence = {configured: false, records: [], errors: []};
+        Venue.oracleEvidence = {
+            configured: false,
+            records: [],
+            errors: [],
+            skipped: [],
+        };
         return Venue.oracleEvidence;
     }
     const topicRows = await Promise.all(topics.map(async (topic) => {
@@ -1482,7 +1487,12 @@ Venue.refreshOracleEvidence = async function () {
                         !addrEq(record.oracle, CLIENT.addresses.PrimeOracle) ||
                         !addrEq(record.publisher, topic.publisher)
                     ) {
-                        throw new Error("message does not match this deployment and publisher");
+                        return {
+                            topic,
+                            sequence: String(message.sequence_number),
+                            skipped: true,
+                            skipReason: "message does not match this deployment and publisher",
+                        };
                     }
                     Venue.validateOracleEvidenceRecord(record);
                     return {
@@ -1509,6 +1519,7 @@ Venue.refreshOracleEvidence = async function () {
         records: rows.filter((row) => row.record),
         errors: rows.filter((row) => row.error),
         empty: rows.filter((row) => row.empty),
+        skipped: rows.filter((row) => row.skipped),
     };
     return Venue.oracleEvidence;
 };
@@ -2241,6 +2252,15 @@ Venue.refreshOracle = async function () {
             !answered.has(String(publisher).toLowerCase()))
         : [];
     const failureParts = [];
+    const quoteUnreadable = !!(f.ourLegDark || f.cashLegDark ||
+        openPanelError || finalizedPanelError);
+    const healthyStatusCodes = new Set(["NOT_DUE", "ALREADY_ANSWERED"]);
+    const blockingCodes = [...new Set(
+        evidenceView.freshStatuses
+            .map((row) => row.record.code)
+            .filter((code) => !healthyStatusCodes.has(code)),
+    )];
+    const fetchErrors = (evidence.errors || []).filter((row) => row.fetchError);
     if (f.ourLegDark) {
         const expiredAt = asBig(f.publishedAt) > 0n
             ? new Date((Number(f.publishedAt) + Number(heartbeat)) * 1000).toISOString()
@@ -2274,53 +2294,16 @@ Venue.refreshOracle = async function () {
         failureParts.push("Finalized panel read failed: " + finalizedPanelError +
             ". HCS provenance cannot be verified.");
     }
-    for (const row of evidenceView.freshStatuses) {
-        const divergence = row.record.hbarDivergenceBps != null
-            ? " Reported divergence " + row.record.hbarDivergenceBps + " bps."
-            : "";
-        failureParts.push(
-            Venue.oracleStatusLabel(row.record.code) + " [" + row.record.code +
-            "] from " + row.topic.profile + ": " +
-            Venue.oracleStatusMessage(row.record.code) + divergence +
-            " This publisher status is HCS evidence only and is not an EVM answer."
-        );
+    if (quoteUnreadable && blockingCodes.length) {
+        failureParts.push("Publishers withheld: " + blockingCodes.join(", ") + ".");
     }
-    if (evidenceView.staleStatuses.length) {
-        failureParts.push(
-            "Stale publisher status rejected: " +
-            evidenceView.staleStatuses.map((row) =>
-                row.topic.profile + " [" + row.record.code + "]").join(", ") + "."
-        );
-    }
-    if (evidence.errors.length) {
+    if (quoteUnreadable && fetchErrors.length) {
         failureParts.push("HCS evidence missing or failed: " +
-            evidence.errors.map((row) =>
+            fetchErrors.map((row) =>
                 row.topic?.profile + ": " + row.error).join("; ") + ".");
     }
-    if (asBig(round) > 0n && evidence.configured && !verifiedEvidenceQuorum) {
-        failureParts.push(
-            "Current HCS provenance is not verified to publisher quorum against the finalized EVM panel."
-        );
-    } else if (asBig(round) > 0n && evidence.configured && !verifiedProvenanceQuorum) {
-        failureParts.push(
-            "Current EVM-matched HCS evidence predates source timestamp and identity commitments."
-        );
-    }
-    if (scheduler.status === "not-deployed") {
-        failureParts.push("Scheduler not deployed.");
-    } else if (scheduler.status === "deployment-missing") {
-        failureParts.push("Scheduler deployment is missing at its configured address.");
-    } else if (scheduler.status === "rpc-failed") {
+    if (quoteUnreadable && scheduler.status === "rpc-failed") {
         failureParts.push("Scheduler RPC failure: " + scheduler.error + ".");
-    } else if (scheduler.status === "binding-failed") {
-        failureParts.push("Scheduler binding failure: " +
-            scheduler.bindingIssues.join("; ") + ".");
-    } else if (scheduler.latestProblem) {
-        const exactReason = Venue.schedulerEventReason(scheduler.latestProblem);
-        if (!exactReason.includes("STOP_FINALIZED")) {
-            failureParts.push("Latest scheduler failure or stop: " +
-                exactReason + ".");
-        }
     }
     const failure = $("feed-failure");
     if (failure) {

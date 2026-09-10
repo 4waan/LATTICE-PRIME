@@ -87,6 +87,12 @@ function harness({now = 10_000, topics = [], schedulerRecord = null} = {}) {
         document: {execCommand: () => false},
         setTimeout: () => {},
         ethers,
+        atob,
+        TextDecoder,
+        Uint8Array,
+        JSON,
+        Promise,
+        Buffer,
     });
     return {
         Venue,
@@ -352,13 +358,111 @@ test("current publisher statuses are deduplicated with exact blockers", async ()
         evidence: {configured: true, records: rows, errors: [], empty: []},
     });
     await h.Venue.refreshOracle();
-    const failure = h.element("feed-failure").textContent;
-    assert.match(failure, /Source quorum missing \[SOURCE_QUORUM\]/);
-    assert.match(failure, /HBAR-rate divergence \[HBAR_RATE_DIVERGENCE\]/);
-    assert.match(failure, /Reported divergence 450 bps/);
-    assert.doesNotMatch(failure, /SOURCE_ERROR/);
+    assert.equal(h.element("feed-failure").hidden, true);
+    assert.doesNotMatch(h.element("feed-failure").textContent, /SOURCE_QUORUM|HBAR_RATE_DIVERGENCE|NOT_DUE/);
     assert.match(h.element("feed-evidence").innerHTML, /Unverified publisher status only/);
     assert.match(h.element("feed-evidence").className, /\bbad\b/);
+
+    installOracle(h, {
+        feed: {dark: true, ourLegDark: true, markPerUnitTinybar: 0n},
+        evidence: {configured: true, records: rows, errors: [], empty: []},
+    });
+    await h.Venue.refreshOracle();
+    const failure = h.element("feed-failure").textContent;
+    assert.match(failure, /Publishers withheld: HBAR_RATE_DIVERGENCE, SOURCE_QUORUM/);
+    assert.doesNotMatch(failure, /SOURCE_ERROR|NOT_DUE|from issuer|from seller/);
+    assert.match(h.element("feed-evidence").innerHTML, /Unverified publisher status only/);
+});
+
+test("a live quote hides keepalive status and historical HCS mismatches", async () => {
+    const topics = [
+        {topicId: "0.0.11", profile: "buyer", publisher: PUBLISHER_A},
+        {topicId: "0.0.12", profile: "issuer", publisher: PUBLISHER_B},
+    ];
+    const h = harness({topics});
+    const rows = [
+        statusRow({
+            publisher: PUBLISHER_A,
+            profile: "buyer",
+            sequence: 21,
+            code: "NOT_DUE",
+            observedAt: 9_995,
+        }),
+        statusRow({
+            publisher: PUBLISHER_B,
+            profile: "issuer",
+            sequence: 22,
+            code: "NOT_DUE",
+            observedAt: 9_996,
+        }),
+    ];
+    installOracle(h, {
+        evidence: {
+            configured: true,
+            records: rows,
+            errors: [],
+            empty: [],
+            skipped: [
+                {
+                    topic: topics[0],
+                    sequence: "1",
+                    skipped: true,
+                    skipReason: "message does not match this deployment and publisher",
+                },
+            ],
+        },
+        finalizedAnswers: [
+            {price: 10_000_000_000n, rate: 364n, by: PUBLISHER_A},
+            {price: 10_000_000_000n, rate: 364n, by: PUBLISHER_B},
+        ],
+    });
+    await h.Venue.refreshOracle();
+    assert.equal(h.element("feed-failure").hidden, true);
+    assert.doesNotMatch(
+        h.element("feed-failure").textContent,
+        /NOT_DUE|does not match this deployment|Publisher status/,
+    );
+    assert.notEqual(h.element("feed-price").innerHTML, "Unavailable");
+    assert.notEqual(h.element("feed-mark").innerHTML, "Unavailable");
+});
+
+test("historical HCS mismatches are skipped instead of counted as evidence errors", async () => {
+    const topics = [
+        {topicId: "0.0.11", profile: "issuer", publisher: PUBLISHER_A},
+    ];
+    const h = harness({topics});
+    const current = statusRow({
+        publisher: PUBLISHER_A,
+        profile: "issuer",
+        sequence: 9,
+        code: "NOT_DUE",
+        observedAt: 9_995,
+    }).record;
+    const stale = {
+        ...current,
+        oracle: "0x00000000000000000000000000000000000000ff",
+        publisher: "0x00000000000000000000000000000000000000ee",
+    };
+    h.Venue.mirror = async () => ({
+        messages: [
+            {
+                message: Buffer.from(JSON.stringify(current), "utf8").toString("base64"),
+                sequence_number: 9,
+                consensus_timestamp: "9995.000000001",
+            },
+            {
+                message: Buffer.from(JSON.stringify(stale), "utf8").toString("base64"),
+                sequence_number: 1,
+                consensus_timestamp: "1000.000000001",
+            },
+        ],
+    });
+    const evidence = await h.Venue.refreshOracleEvidence();
+    assert.equal(evidence.records.length, 1);
+    assert.equal(evidence.records[0].record.code, "NOT_DUE");
+    assert.equal(evidence.errors.length, 0);
+    assert.equal(evidence.skipped.length, 1);
+    assert.match(evidence.skipped[0].skipReason, /does not match this deployment/);
 });
 
 test("HCS source claims turn green only after EVM panel verification", async () => {
@@ -549,6 +653,23 @@ test("missing and failed evidence is explicit", async () => {
     assert.match(h.element("feed-evidence").innerHTML, /0\/1 topic tails readable/);
     assert.match(h.element("feed-evidence").innerHTML, /Mirror node answered 503/);
     assert.match(h.element("feed-evidence").className, /\bbad\b/);
+    assert.equal(h.element("feed-failure").hidden, true);
+    assert.doesNotMatch(h.element("feed-failure").textContent, /HCS evidence missing or failed/);
+
+    installOracle(h, {
+        feed: {dark: true, ourLegDark: true, markPerUnitTinybar: 0n},
+        evidence: {
+            configured: true,
+            records: [],
+            empty: [],
+            errors: [{
+                topic: topics[0],
+                error: "Mirror node answered 503",
+                fetchError: true,
+            }],
+        },
+    });
+    await h.Venue.refreshOracle();
     assert.match(h.element("feed-failure").textContent, /HCS evidence missing or failed/);
 });
 
@@ -635,7 +756,8 @@ test("scheduler RPC failure is not rendered as an absent deployment", async () =
     assert.match(h.element("feed-scheduler").textContent, /Scheduler RPC failed/);
     assert.match(h.element("feed-scheduler").textContent, /eth_call timed out/);
     assert.doesNotMatch(h.element("feed-scheduler").textContent, /Not deployed/);
-    assert.match(h.element("feed-failure").textContent, /Scheduler RPC failure/);
+    assert.equal(h.element("feed-failure").hidden, true);
+    assert.doesNotMatch(h.element("feed-failure").textContent, /Scheduler RPC failure/);
 });
 
 test("scheduler displays exact capacity, funding, and stop reasons", () => {
