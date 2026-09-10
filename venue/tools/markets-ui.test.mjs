@@ -890,7 +890,9 @@ test("Markets styles and oracle states stay responsive and honest", () => {
     assert.match(css, /\.orders-section\{grid-column:1\/-1;grid-row:3\}/);
     assert.match(css, /\.trade-balances-popout\{[\s\S]*?position:absolute/);
     assert.match(css, /\.trade-balance-grid\{[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-    assert.match(css, /\.oracle-primary-value strong\{[\s\S]*?font-size:clamp/);
+    assert.match(css, /\.market-oracle\{[\s\S]*?grid-template-columns:minmax\(13rem,1fr\) minmax\(18rem,1\.25fr\) auto/);
+    assert.match(css, /\.oracle-label-row h2\{font-size:1rem/);
+    assert.match(css, /\.oracle-values\{[\s\S]*?grid-template-columns:repeat\(2,minmax\(9rem,1fr\)\)/);
     assert.match(css, /\.side-toggle button \.dia\{[\s\S]*?clip-path:polygon/);
     assert.match(css, /\.order-primary\{flex:1;width:auto;min-height:46px/);
     assert.match(css, /withdraw-ready-pulse/);
@@ -910,7 +912,7 @@ test("Markets styles and oracle states stay responsive and honest", () => {
     assert.match(css, /overscroll-behavior:contain;scrollbar-gutter:stable/);
     assert.match(runtime, /Auction · Round/);
     assert.match(runtime, /liveKicker\.classList\.toggle\("is-live"/);
-    assert.match(oracleRuntime, /Venue\.page === "trade" \? \(dark \? "Unavailable" : "Live"\)/);
+    assert.match(oracleRuntime, /stateLabel = Venue\.page === "trade" \? "Live" : "live"/);
     assert.doesNotMatch(oracleRuntime, /Finalized valuation context|Auction trading remains available with user-supplied limits/);
     assert.match(oracleRuntime, /Venue\.page === "trade" \? "" : " HBAR"/);
     assert.match(oracleRuntime, /box\.classList\.toggle\("is-unavailable"/);

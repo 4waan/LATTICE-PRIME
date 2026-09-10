@@ -11,6 +11,7 @@ const ORDER_SCALE_LIMIT = 1n << 96n;
 const RECEIPT_SESSION = "seamme.disclosure-receipt.v1";
 const TRADE_SIDE_KEY = "seamme.trade.side";
 const ELIGIBILITY_RELAY_PATH = "/api/eligibility/register";
+const ORACLE_REFRESH_MS = 30_000;
 const ROW_NAMES = {
     3: "Order size",
     4: "Order price",
@@ -717,6 +718,7 @@ Venue.contracts = function (runner) {
             : null,
         oracleScheduler: typeof ORACLE_SCHEDULER !== "undefined" && ORACLE_SCHEDULER?.address
             ? new ethers.Contract(ORACLE_SCHEDULER.address, [
+                "function oracle() view returns (address)",
                 "function activeSchedule() view returns (address)",
                 "function nextCheckAt() view returns (uint64)",
                 "function trackedRound() view returns (uint64)",
@@ -725,6 +727,13 @@ Venue.contracts = function (runner) {
                 "function MAX_RETRY_STREAK() view returns (uint8)",
                 "function MAX_CHECKS_PER_ROUND() view returns (uint8)",
                 "function MIN_BALANCE_TINYBAR() view returns (uint256)",
+                "event CheckScheduled(address indexed scheduleAddress,uint64 indexed dueAt)",
+                "event CheckUnscheduled(uint64 indexed dueAt,int64 reason)",
+                "event QuorumObserved(uint64 indexed round,uint256 answers,uint8 quorum)",
+                "event FinalizeAttempt(uint64 indexed round,bool success,bytes result)",
+                "event OracleReadFailed(bytes4 indexed selector)",
+                "event ArmRefused(uint64 indexed round,uint256 answers,bytes32 reason)",
+                "event AutomationStopped(uint64 indexed round,bytes32 reason)",
             ], runner)
             : null,
         couponSchedule: A.CouponSchedule
@@ -1600,14 +1609,14 @@ Venue.tick = async function () {
             if (viewer) work.push(Venue.refreshTrade({quiet: true}));
             work.push(Venue.refreshBook());
             const now = Date.now();
-            if (Venue.pollOracle && now - (Venue._tradeOracleAt || 0) > 15000) {
+            if (Venue.pollOracle && now - (Venue._tradeOracleAt || 0) >= ORACLE_REFRESH_MS) {
                 Venue._tradeOracleAt = now;
                 work.push(Venue.pollOracle());
             }
         }
         if (Venue.page === "repo") {
             const now = Date.now();
-            if (Venue.pollOracle && now - (Venue._repoOracleAt || 0) > 15000) {
+            if (Venue.pollOracle && now - (Venue._repoOracleAt || 0) >= ORACLE_REFRESH_MS) {
                 Venue._repoOracleAt = now;
                 work.push(Venue.pollOracle());
             }

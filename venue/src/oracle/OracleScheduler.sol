@@ -48,8 +48,10 @@ contract OracleScheduler {
     uint64 public lastCheckedRound;
     uint64 public lastFinalizedRound;
     uint8 public retryStreak;
+    /// @notice Scheduling attempts spent for the tracked round, including failed HSS paths.
     uint8 public checksThisRound;
     uint256 public lastAnswerCount;
+    mapping(uint64 round => bool finalized) public isFinalizedRound;
 
     event CheckScheduled(address indexed scheduleAddress, uint64 indexed dueAt);
     event CheckUnscheduled(uint64 indexed dueAt, int64 reason);
@@ -102,6 +104,10 @@ contract OracleScheduler {
         }
         (bool readable, uint64 round,, uint256 answers) = _snapshot();
         if (!readable) return false;
+        if (isFinalizedRound[round]) {
+            emit ArmRefused(round, answers, STOP_FINALIZED);
+            return false;
+        }
         if (answers == 0) {
             emit ArmRefused(round, answers, STOP_EMPTY_ROUND);
             return false;
@@ -153,6 +159,10 @@ contract OracleScheduler {
             emit AutomationStopped(trackedRound, STOP_ROUND_ADVANCED);
             return (false, false);
         }
+        if (isFinalizedRound[round]) {
+            emit AutomationStopped(round, STOP_FINALIZED);
+            return (false, false);
+        }
         if (answers == 0) {
             emit AutomationStopped(round, STOP_EMPTY_ROUND);
             return (false, false);
@@ -171,6 +181,7 @@ contract OracleScheduler {
             if (ok && result.length == 64) {
                 finalized = true;
                 lastFinalizedRound = round;
+                isFinalizedRound[round] = true;
                 emit AutomationStopped(round, STOP_FINALIZED);
                 return (true, false);
             }
@@ -236,6 +247,10 @@ contract OracleScheduler {
             emit AutomationStopped(trackedRound, STOP_RETRY_LIMIT);
             return false;
         }
+        // Capacity probes and all later HSS paths are attempts. Charge the round
+        // budget before interacting so unavailable, malformed, refused, and
+        // unfunded paths cannot be retried without bound.
+        ++checksThisRound;
         (bool probeOk, bytes memory probe) = HSS.staticcall(
             abi.encodeCall(
                 IHederaScheduleService.hasScheduleCapacity, (uint256(dueAt), SCHEDULE_GAS_LIMIT)
@@ -304,7 +319,6 @@ contract OracleScheduler {
 
         activeSchedule = scheduleAddress;
         nextCheckAt = dueAt;
-        ++checksThisRound;
         ++retryStreak;
         emit CheckScheduled(scheduleAddress, dueAt);
         return true;

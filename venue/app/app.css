@@ -1703,13 +1703,15 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .market-session i{padding:0 .16rem;color:var(--faint);font-style:normal}
 
 .market-oracle{
-  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
-  gap:.75rem 1rem;margin:.75rem 0;padding:.9rem 1rem;
+  display:grid;grid-template-columns:minmax(13rem,1fr) minmax(18rem,1.25fr) auto;
+  align-items:stretch;gap:0;margin:.75rem 0;padding:.72rem .8rem;
   border-radius:13px;overflow:visible;box-shadow:none;
 }
-.oracle-primary{min-width:0}
-.oracle-label-row{justify-content:flex-start;gap:.5rem;margin-bottom:.25rem}
-.oracle-label-row h2{font-size:.75rem}
+.oracle-summary{
+  min-width:0;display:flex;flex-direction:column;justify-content:center;padding:.2rem .8rem .2rem .1rem;
+}
+.oracle-label-row{justify-content:flex-start;gap:.55rem;margin:0}
+.oracle-label-row h2{font-size:1rem;line-height:1.1;letter-spacing:-.025em}
 .market-oracle .feed-state{padding:.14rem .42rem;font-size:.56rem}
 .market-oracle .feed-state.ok{
   background:var(--market-blue-soft);color:var(--market-blue);
@@ -1717,14 +1719,18 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .market-oracle .feed-state.bad{
   background:var(--sunk);color:var(--slate);
 }
-.oracle-primary-value{display:flex;align-items:baseline;gap:.55rem;min-width:0}
-.oracle-primary-value strong{
-  color:var(--ink);font-size:clamp(1.55rem,4vw,2.2rem);line-height:1;
-  letter-spacing:-.045em;
+.oracle-values{
+  display:grid;grid-template-columns:repeat(2,minmax(9rem,1fr));align-self:stretch;
 }
-.oracle-primary-value > span{color:var(--slate);font-size:.65rem;font-weight:650}
-.oracle-primary .note{margin:.35rem 0 0;font-size:.62rem}
-.oracle-primary .note:empty{display:none}
+.oracle-quote{
+  min-width:0;padding:.25rem .8rem;border:0;border-left:1px solid var(--rule);
+  display:flex;flex-direction:column;justify-content:center;gap:.02rem;
+}
+.oracle-quote > span{color:var(--slate);font-size:.58rem;font-weight:650}
+.oracle-quote strong{font-size:.82rem;line-height:1.25}
+.oracle-quote small{font-size:.53rem}
+.oracle-summary .note{margin:.3rem 0 0;font-size:.62rem}
+.oracle-summary .note:empty{display:none}
 @media(prefers-reduced-motion:no-preference){
   .market-oracle .feed-state.ok{animation:oracle-live-pulse 2.4s ease-in-out infinite}
   @keyframes oracle-live-pulse{
@@ -1746,7 +1752,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .oracle-details-body{padding:.2rem .1rem .15rem}
 .oracle-details-body > p{margin:0;max-width:54rem;color:var(--slate);font-size:.64rem}
 .oracle-secondary-values{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;
   margin:0 0 .65rem;border-radius:10px;overflow:hidden;background:var(--rule);
 }
 .oracle-secondary-values > div{
@@ -1760,7 +1766,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 }
 .oracle-source-grid > div{border:0;padding:.55rem .6rem}
 .oracle-details-body > button{min-height:32px;padding:0 .7rem;font-size:.61rem}
-.market-oracle.is-unavailable .oracle-primary-value strong{color:var(--slate)}
+.market-oracle.is-unavailable .oracle-values{display:none}
 
 .order-attention{
   margin:.75rem 0;padding:.68rem .75rem;border-radius:11px;
@@ -2083,9 +2089,10 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 @media(max-width:700px){
   .market-hero{align-items:flex-start}
   .market-oracle{grid-template-columns:1fr auto}
-  .oracle-primary{grid-column:1}
+  .oracle-summary{grid-column:1}
+  .oracle-values{grid-column:1/-1;grid-row:2}
   .oracle-details{grid-column:2;grid-row:1}
-  .oracle-details[open]{grid-column:1/-1;grid-row:auto}
+  .oracle-details[open]{grid-column:1/-1;grid-row:3}
   .oracle-secondary-values{grid-template-columns:1fr}
   .oracle-source-grid{grid-template-columns:1fr 1fr}
   .order-fields{grid-template-columns:1fr 1fr}
@@ -2098,6 +2105,10 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   .market-session{align-items:flex-start;text-align:left}
   .market-session > span:last-child{display:block}
   .market-oracle{grid-template-columns:minmax(0,1fr) auto;padding:.65rem}
+  .oracle-summary{padding:.1rem .4rem .35rem 0}
+  .oracle-values{grid-template-columns:1fr 1fr}
+  .oracle-quote{padding:.35rem .45rem}
+  .oracle-values .oracle-quote:first-child{border-left:0}
   .oracle-details > summary{padding:0 .25rem;font-size:.55rem}
   .oracle-details > summary::after{display:none}
   .oracle-source-grid{grid-template-columns:1fr}
@@ -2130,9 +2141,10 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .markets-page .account-grant,
 .markets-page .privacy-chip,
 .markets-page .draft-state{font-size:.65rem}
-.markets-page .oracle-label-row h2{font-size:.82rem}
+.markets-page .oracle-label-row h2{font-size:1.02rem}
 .markets-page .market-oracle .feed-state{font-size:.59rem}
-.markets-page .oracle-primary-value > span{font-size:.7rem}
+.markets-page .oracle-quote > span{font-size:.66rem}
+.markets-page .oracle-quote strong{font-size:.84rem}
 .markets-page .oracle-secondary-values span,
 .markets-page .oracle-secondary-values small{font-size:.63rem}
 .markets-page .oracle-secondary-values strong{font-size:.76rem}

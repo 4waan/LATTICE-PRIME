@@ -11,8 +11,6 @@ x-publisher: &publisher
     - no-new-privileges:true
   tmpfs:
     - /tmp
-  volumes:
-    - ../config.json:/config/oracle.json:ro
   environment:
     ORACLE_CONFIG: /config/oracle.json
 
@@ -22,7 +20,8 @@ services:
     env_file:
       - ../secrets/publisher-a.env
     volumes:
-      - ../config.json:/config/oracle.json:ro
+      - ../profiles/publisher-a.json:/config/oracle.json:ro
+      - ../quotes/publisher-a:/dealer:ro
       - publisher-a-state:/state
 
   publisher-b:
@@ -30,7 +29,8 @@ services:
     env_file:
       - ../secrets/publisher-b.env
     volumes:
-      - ../config.json:/config/oracle.json:ro
+      - ../profiles/publisher-b.json:/config/oracle.json:ro
+      - ../quotes/publisher-b:/dealer:ro
       - publisher-b-state:/state
 
   publisher-c:
@@ -38,7 +38,8 @@ services:
     env_file:
       - ../secrets/publisher-c.env
     volumes:
-      - ../config.json:/config/oracle.json:ro
+      - ../profiles/publisher-c.json:/config/oracle.json:ro
+      - ../quotes/publisher-c:/dealer:ro
       - publisher-c-state:/state
 
 volumes:
