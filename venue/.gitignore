@@ -14,6 +14,7 @@ deployments/.financing-beat/
 deployments/.financing-deploy/
 deployments/.financing-lifecycle/
 deployments/.financing-hss-canary/
+deployments/.bond-lifecycle/
 
 # Where the relay stopped, per contract. Runtime state, not evidence: every
 # published record carries tx and log index, so a consumer dedupes without it,

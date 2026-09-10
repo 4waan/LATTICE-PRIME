@@ -7,6 +7,11 @@
 //          packages/ats/contracts/contracts/facets/accessControl/IAccessControl.sol
 //          packages/ats/contracts/contracts/facets/compliance/IComplianceFacet.sol
 //          packages/ats/contracts/contracts/facets/mint/IMint.sol
+//          packages/ats/contracts/contracts/facets/coupon/ICoupon.sol
+//          packages/ats/contracts/contracts/facets/coupon/ICouponTypes.sol
+//          packages/ats/contracts/contracts/facets/couponSecurityHolders/ICouponSecurityHolders.sol
+//          packages/ats/contracts/contracts/facets/scheduledCrossOrderedTask/IScheduledCrossOrderedTasks.sol
+//          packages/ats/contracts/contracts/facets/maturity/IMaturity.sol
 //
 // This file is in `script/`, not `src/`. Nothing the venue ships calls the
 // factory: a token is deployed once by an operator and the venue is pointed at
@@ -99,6 +104,44 @@ interface IAtsTypes {
         RegulationSubType regulationSubType;
         AdditionalSecurityData additionalSecurityData;
     }
+
+    enum RateCalculationStatus {
+        PENDING,
+        SET
+    }
+
+    struct Coupon {
+        uint256 recordDate;
+        uint256 executionDate;
+        uint256 startDate;
+        uint256 endDate;
+        uint256 fixingDate;
+        uint256 rate;
+        uint8 rateDecimals;
+        RateCalculationStatus rateStatus;
+    }
+
+    struct RegisteredCoupon {
+        Coupon coupon;
+        uint256 snapshotId;
+    }
+
+    struct CouponAmountFor {
+        uint256 numerator;
+        uint256 denominator;
+        bool recordDateReached;
+    }
+
+    struct CouponFor {
+        uint256 tokenBalance;
+        uint8 decimals;
+        uint256 nominalValue;
+        uint256 nominalValueDecimals;
+        bool recordDateReached;
+        Coupon coupon;
+        CouponAmountFor couponAmount;
+        bool isDisabled;
+    }
 }
 
 interface IAtsFactory is IAtsTypes {
@@ -129,4 +172,32 @@ interface IAtsToken {
     function isExternalKycList(address kycList) external view returns (bool);
     function getExternalKycListsCount() external view returns (uint256);
     function isMultiPartition() external view returns (bool);
+    function getSecurityHolders(uint256 pageIndex, uint256 pageLength)
+        external
+        view
+        returns (address[] memory);
+    function getTotalSecurityHolders() external view returns (uint256);
+    function setCoupon(IAtsTypes.Coupon calldata coupon) external returns (uint256 couponId);
+    function getCoupon(uint256 couponId)
+        external
+        view
+        returns (IAtsTypes.RegisteredCoupon memory registeredCoupon, bool isDisabled);
+    function getCouponFor(uint256 couponId, address account)
+        external
+        view
+        returns (IAtsTypes.CouponFor memory);
+    function getCouponAmountFor(uint256 couponId, address account)
+        external
+        view
+        returns (IAtsTypes.CouponAmountFor memory);
+    function getCouponHolders(uint256 couponId, uint256 pageIndex, uint256 pageLength)
+        external
+        view
+        returns (address[] memory);
+    function getCouponCount() external view returns (uint256);
+    function getTotalCouponHolders(uint256 couponId) external view returns (uint256);
+    function triggerScheduledCrossOrderedTasks(uint256 maxTasks) external returns (uint256);
+    function scheduledCrossOrderedTaskCount() external view returns (uint256);
+    function getMaturityDate() external view returns (uint256);
+    function fullRedeemAtMaturity(address tokenHolder) external;
 }

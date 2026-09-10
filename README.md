@@ -113,7 +113,7 @@ Settlement is public. A confidential settlement circuit and a private supervisor
 
 Each integration has a job in the product:
 
-- **Asset Tokenization Studio:** LPRC is issued through Hashgraph's ATS v8.0.0 factory and resolver. The venue attaches eligibility and compliance contracts to the asset and uses ATS partition holds for settlement. [Bond on HashScan](https://hashscan.io/testnet/contract/0.0.10381562) · [ATS integration](venue/script/DeployAtsBond.s.sol).
+- **Asset Tokenization Studio:** LPRC is issued through Hashgraph's ATS v8.0.0 factory and resolver. The venue attaches eligibility and compliance contracts to the asset and uses ATS partition holds for settlement. A separate nonproduction ATS bond records issuance, coupon snapshot, and full maturity redemption without changing the LPRC binding. [Bond on HashScan](https://hashscan.io/testnet/contract/0.0.10381562) · [ATS integration](venue/script/DeployAtsBond.s.sol) · [Lifecycle evidence](venue/deployments/bond-lifecycle.json).
 - **Smart Contract Service:** Solidity contracts verify eligibility, clear auctions, enforce policy, and implement the repo lifecycle. [Matching engine](venue/src/market/MatchingEngine.sol) · [Registration gate](venue/src/kyc/RegistrationGate.sol) · [Repo vault](venue/src/repo/RepoVault.sol).
 - **Hedera Token Service:** a separate native HTS coupon cash token carries an inclusive 25-basis-point fractional fee. The distributor requires funding before declaration and prevents duplicate claims. [LPCASH on HashScan](https://hashscan.io/testnet/token/0.0.10419905) · [Distributor](venue/src/coupon/CouponDistributor.sol).
 - **Hedera Consensus Service:** the disclosure relay publishes charges, refusals, qualifying silences, checkpoints, and range anchors. Oracle publishers use separate immutable topics to record canonical source evidence before broadcasting each matching EVM answer. The independent verifier checks both records against Mirror Node. [Disclosure verifier](venue/tools/hcs-verify.mjs) · [Oracle verifier](venue/oracle/verify-evidence.mjs).
@@ -132,6 +132,10 @@ The primary fit is Hedera's **Tokenization of Anything** track: an ATS-issued as
 ## What is live, and what is next
 
 **On testnet:** the ATS bond, PLONK registration, secondary-market engine, policy stack, disclosure receipt, HCS topics, live hybrid oracle, bounded HSS finalizer, coupon contracts, and timestamp-tolerant [RepoVault v5](https://hashscan.io/testnet/contract/0.0.10454144) with its bound [MarginWatch](https://hashscan.io/testnet/contract/0.0.10454146). The [address book](venue/deployments/client.json) enables financing writes only after reading `FINANCING_VERSION = 5`, checking every immutable dependency, and matching the live runtime bytecode hash.
+
+**Canonical coupon zero, fully claimed:** the last complete Hedera block before the 8 September due time records 3,000 seller units, including 1,000 held units, and 1,000 buyer units. The superseded oracle's pre-due 425-basis-point fixing plus the 75-basis-point spread produced gross LPCASH entitlements of 171 and 57. The distributor was [funded](https://hashscan.io/testnet/transaction/0x55dd95cb5c09e996457e9713cfb132f2dc14fd249409675312ae9677ebd8c8b3), [declared](https://hashscan.io/testnet/transaction/0xc10e07430521358fa1088d875682ac56502769deca59889598e9dcc4e1f6bad8), and both proofs were claimed. Inclusive HTS fees left the holders with 170 and 56 units. [Canonical coupon evidence](venue/deployments/bond-coupon-zero.json).
+
+**Bond issuance through redemption, demonstrated separately:** a clearly labelled nonproduction ATS bond issued 10,000 units to an eligible holder, registered a 500-basis-point coupon before record date, materialised ATS snapshot 1, paid a gross 190 LPCASH claim, and [redeemed the full supply at maturity](https://hashscan.io/testnet/transaction/0x78d43e038203bf6ba305eab2d06b4c6963d23ce9c3390b0370485184636dee84). Its bond, schedule, and distributor remain outside `deployments/client.json`; the canonical LPRC address and 2028 maturity are unchanged. [Complete bond lifecycle evidence](venue/deployments/bond-lifecycle.json).
 
 **Automatic HSS settlement, completed on the bound vault:** the compressed canary records [fundOffer](https://hashscan.io/testnet/transaction/0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91), [accept and create ATS hold 44](https://hashscan.io/testnet/transaction/0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789), and [close and release](https://hashscan.io/testnet/transaction/0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01). The lender advanced 1,273.52970084 HBAR and received 1,273.53024602 HBAR at close. The repo closed before its 300-second maturity, leaving a safe no-op observation for HSS. Its [scheduled transaction](https://hashscan.io/testnet/transaction/0.0.7314364@1789020209.540687199) expired at economic due plus two seconds, returned `SUCCESS`, ran in an EVM block timestamped exactly at economic due, settled the obligation, and released the five-HBAR reservation without a manual `settle` receipt. [Automatic canary record](venue/deployments/financing-hss-canary.json).
 
@@ -178,6 +182,7 @@ git submodule update --init --recursive
 cd venue
 forge test
 make financing-verify NODE=
+make bond-lifecycle-verify NODE=
 make app NODE=
 ```
 
@@ -191,6 +196,12 @@ fuzzing, disclosure limits, refusal paths, settlement, scheduling, and coupon
 accounting. The current runs passed **362 Mirror Node assertions across 32
 receipts**, plus **732 Solidity tests across 51 suites**.
 [Contract tests and reference fixtures](venue/test/).
+
+`make bond-lifecycle-verify` independently reconstructs coupon zero from archive
+state, rebuilds both Merkle roots, checks all 16 lifecycle receipts and six
+contract identities through Mirror Node, and confirms the compressed bond's
+zero final holder balance and supply. The committed records pass **273
+assertions**.
 
 <details>
 <summary><strong>Re-check the HCS evidence or work on the proof toolchain</strong></summary>

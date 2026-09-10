@@ -99,6 +99,7 @@ vectors:
 	$(NODE) node tools/lattice.test.mjs
 	$(NODE) node tools/units.test.mjs
 	$(NODE) node tools/entitlements.test.mjs
+	$(NODE) node --test tools/bond-coupon-entitlements.test.mjs
 	$(NODE) node tools/hcs.test.mjs
 
 # The two pages a trader reads: the commitment before signing `commit(bytes32)`,
@@ -146,7 +147,7 @@ beat:
 financing-beat:
 	bash script/live/financing-beat.sh $(or $(MODE),plan)
 
-.PHONY: financing-deploy financing-lifecycle financing-hss-canary financing-promote financing-verify
+.PHONY: financing-deploy financing-lifecycle financing-hss-canary financing-promote financing-verify bond-lifecycle bond-lifecycle-verify
 
 # Guarded deployment sequence. `oracle` is required only when the bound feed
 # does not expose RepoVault v5's historical fixing selector.
@@ -180,6 +181,19 @@ financing-promote:
 # coupon commitment, and decoded fallback reasons.
 financing-verify:
 	$(NODE) node tools/verify-financing-evidence.mjs
+
+# Recover canonical coupon zero, then prove a separate compressed ATS bond from
+# issuance through its coupon snapshot, LPCASH claim, and maturity redemption.
+#
+#   make bond-lifecycle
+#   make bond-lifecycle MODE=run
+bond-lifecycle:
+	bash script/live/bond-lifecycle.sh $(or $(MODE),plan)
+
+# Replay the two committed lifecycle records against archive RPC and Mirror Node.
+bond-lifecycle-verify:
+	$(NODE) node --test tools/bond-coupon-entitlements.test.mjs
+	$(NODE) node tools/verify-bond-lifecycle-evidence.mjs
 
 # Refresh the chain-bound client only after a coordinated deployment. The
 # acknowledgement prevents an ordinary local build from pairing source ABIs
