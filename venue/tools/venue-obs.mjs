@@ -547,7 +547,7 @@ Venue.refreshTape = async function () {
 
 Venue.mountRepo = async function () {
     $("repo-go")?.addEventListener("click", () => Venue.doRepo().catch((e) => Venue.fail(e)));
-    $("feed-refresh")?.addEventListener("click", () => Venue.refreshOracle().catch((e) => Venue.fail(e)));
+    $("feed-refresh")?.addEventListener("click", () => Venue.pollOracle());
     $("repo-id")?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") Venue.doRepo().catch((x) => Venue.fail(x));
     });
@@ -571,15 +571,171 @@ Venue.mountRepo = async function () {
     $("fin-cancel")?.addEventListener("click", () => Venue.doCancelOffer().catch((e) => Venue.fail(e)));
     $("fin-withdraw")?.addEventListener("click", () => Venue.doVaultWithdraw().catch((e) => Venue.fail(e)));
     Venue.paintFinancingGate();
+    Venue.paintFinancingEvidence();
     await Venue.refreshVault();
-    await Venue.refreshOracle().catch((e) => {
-        const says = $("feed-says");
-        if (says) {
-            says.innerHTML = "This screen could not read the feed: " +
-                esc(decodeRevert(e).message);
-        }
-    });
+    await Venue.pollOracle();
     await Venue.discoverRepos().catch(() => {});
+};
+
+Venue.paintFinancingEvidence = function () {
+    const out = $("fin-evidence");
+    if (!out) return;
+    const evidence = typeof FINANCING_EVIDENCE === "undefined"
+        ? {} : FINANCING_EVIDENCE;
+    const automatic = evidence?.automatic;
+    const production = evidence?.production;
+    const lifecycle = evidence?.lifecycle;
+    if (!automatic && !production && !lifecycle) {
+        out.innerHTML = '<div class="empty">No verified financing run is bundled yet.</div>';
+        return;
+    }
+
+    const txLinks = (receipts, labels) => labels
+        .filter(([key]) => receipts?.[key]?.tx)
+        .map(([key, label]) => {
+            const row = receipts[key];
+            const url = row.hashscan ||
+                CLIENT.network.explorer + "/transaction/" + row.tx;
+            return '<a class="chip" target="_blank" rel="noreferrer" href="' +
+                esc(url) + '">' + esc(label) + "</a>";
+        }).join("");
+
+    const cards = [];
+    if (automatic) {
+        const cash = automatic.cash || {};
+        const settlement = automatic.automaticSettlement || {};
+        const vault = automatic.vault || {};
+        const vaultId = vault.contractId || vault.address || "";
+        const vaultLink = vaultId
+            ? '<a target="_blank" rel="noreferrer" href="' +
+            esc(CLIENT.network.explorer + "/contract/" + vaultId) + '">' +
+            esc(vaultId) + "</a>"
+            : "Unavailable";
+        const hssLink = settlement.hashscan
+            ? '<a class="chip" target="_blank" rel="noreferrer" href="' +
+            esc(settlement.hashscan) + '">automatic HSS success</a>'
+            : "";
+        cards.push(
+            '<div class="wire" style="margin-bottom:1rem">' +
+            '<div class="wcell"><span class="k">Current production vault</span>' +
+            '<span class="v">' + vaultLink +
+            '</span><span class="n">RepoVault v5 · timestamp-tolerant HSS</span></div>' +
+            '<div class="wcell"><span class="k">Funded canary</span><span class="v">' +
+            esc(shortId(automatic.id || "")) +
+            '</span><span class="n">' +
+            esc(readableHbar(asBig(cash.principalTinybar || 0))) +
+            ' HBAR principal · ATS hold released</span></div>' +
+            '<div class="wcell"><span class="k">Automatic settlement</span>' +
+            '<span class="v ok">' + esc(settlement.result || "Unavailable") +
+            '</span><span class="n">HSS expiry = economic due + ' +
+            esc(settlement.executionDelaySeconds || "0") +
+            ' s · no fallback receipt</span></div>' +
+            '<div class="wcell"><span class="k">Clock check</span><span class="v num">' +
+            esc(settlement.evmBlockTimestamp || "") +
+            '</span><span class="n">EVM timestamp at economic due · obligation SETTLED</span>' +
+            "</div></div>" +
+            '<div class="picks" style="margin-bottom:1.4rem">' +
+            txLinks(automatic.receipts, [
+                ["fundOffer", "fundOffer"],
+                ["accept", "accept and hold"],
+                ["withdrawBorrower", "borrower cash"],
+                ["close", "close and release"],
+                ["withdrawLender", "lender cash"],
+            ]) + hssLink + "</div>"
+        );
+    }
+    if (production) {
+        const cash = production.cash || {};
+        const boundary = production.hssBoundary || {};
+        const scheduled = boundary.scheduledExecution || {};
+        const boundaryCell = boundary.manualFallback
+            ? '<div class="wcell"><span class="k">HSS maturity</span>' +
+            '<span class="v">Fallback settled</span>' +
+            '<span class="n">scheduled call met a 1 s EVM clock boundary</span></div>'
+            : "";
+        const scheduledLink = scheduled.hashscan
+            ? '<a class="chip" target="_blank" rel="noreferrer" href="' +
+            esc(scheduled.hashscan) + '">HSS boundary receipt</a>'
+            : "";
+        cards.push(
+            '<div class="wire" style="margin-bottom:1rem">' +
+            '<div class="wcell"><span class="k">Historical facility</span><span class="v">' +
+            esc(shortId(production.id || "")) +
+            '</span><span class="n">superseded RepoVault v5 · exact-due boundary</span></div>' +
+            '<div class="wcell"><span class="k">Principal moved</span><span class="v num">' +
+            esc(readableHbar(asBig(cash.principalTinybar || 0))) +
+            ' HBAR</span><span class="n">lender deposit, borrower withdrawal</span></div>' +
+            '<div class="wcell"><span class="k">Close paid</span><span class="v num">' +
+            esc(readableHbar(asBig(cash.closePaidTinybar || 0))) +
+            ' HBAR</span><span class="n">hold released, lender credited</span></div>' +
+            '<div class="wcell"><span class="k">Assertions</span><span class="v">Passed</span>' +
+            '<span class="n">cash round trip · hold created and released</span></div>' +
+            boundaryCell + "</div>" +
+            '<div class="picks" style="margin-bottom:1.4rem">' +
+            txLinks(production.receipts, [
+                ["fundOffer", "fundOffer"],
+                ["approveCollateral", "approve collateral"],
+                ["accept", "accept and hold"],
+                ["withdrawBorrower", "borrower cash"],
+                ["close", "close and release"],
+                ["withdrawLender", "lender cash"],
+                ["settleFailFallback", "maturity fallback"],
+            ]) + scheduledLink + "</div>"
+        );
+    }
+    if (lifecycle) {
+        const p1 = lifecycle.position1 || {};
+        const p2 = lifecycle.position2 || {};
+        const demo = lifecycle.deployment?.contracts || {};
+        const executed = lifecycle.collateral?.executedToLender || "0";
+        const fallback = lifecycle.hssFallback?.unscheduled || {};
+        const fallbackCopy = [fallback.fail?.meaning, fallback.coupon?.meaning]
+            .filter(Boolean).join(" + ") || "manual fallback";
+        const contract = (name, label) => {
+            const row = demo[name];
+            if (!row) return esc(label) + " unavailable";
+            const id = row.contractId || row.address;
+            return '<a target="_blank" rel="noreferrer" href="' +
+                esc(CLIENT.network.explorer + "/contract/" + id) + '">' +
+                esc(label) + "</a>";
+        };
+        cards.push(
+            '<div class="wire" style="margin-bottom:1rem">' +
+            '<div class="wcell"><span class="k">Compressed demo</span><span class="v">' +
+            contract("RepoVault", "RepoVault") + " · " +
+            contract("MarginWatch", "MarginWatch") +
+            '</span><span class="n">separate from the production binding</span></div>' +
+            '<div class="wcell"><span class="k">Margin route</span><span class="v">' +
+            esc(shortId(p1.id || "")) +
+            '</span><span class="n">call · add collateral · cure · close</span></div>' +
+            '<div class="wcell"><span class="k">Fail route</span><span class="v">' +
+            esc(shortId(p2.id || "")) +
+            '</span><span class="n">coupon ' +
+            esc(p2.couponOwedSmallestCashUnits || "0") + " · penalty " +
+            esc(p2.penaltyTinybar || "0") + " tinybar · " +
+            esc(executed) + " LPRC executed</span></div>" +
+            '<div class="wcell"><span class="k">Compressed clocks</span><span class="v num">' +
+            "5 min cure · 2 min fail grace" +
+            '</span><span class="n">testnet only · HSS ' +
+            esc(fallbackCopy) + "</span></div></div>" +
+            '<div class="picks">' +
+            txLinks(lifecycle.receipts, [
+                ["position1-fund", "margin offer"],
+                ["position1-accept", "margin accept"],
+                ["position1-mark", "markToMarket"],
+                ["position1-add-collateral", "addCollateral"],
+                ["position1-cure", "cure"],
+                ["position1-close", "cure route close"],
+                ["position2-fund", "default offer"],
+                ["position2-accept", "default accept"],
+                ["position2-note-coupon", "noteCoupon"],
+                ["position2-mark-failing", "markFailing"],
+                ["position2-declare-default", "declareDefault"],
+                ["position2-settle-default", "settleDefault"],
+            ]) + "</div>"
+        );
+    }
+    out.innerHTML = cards.join("");
 };
 
 Venue.copyFinanceId = async function () {
@@ -1069,6 +1225,171 @@ Venue.paintOffer = function (id, offer) {
 // Every figure here is read from the chain in this call. Nothing is taken from
 // `client.json`, which carries the same numbers as of the run that generated it
 // and is exactly the sort of thing that goes stale without saying so.
+Venue.oracleStatusMessage = function (code) {
+    return {
+        SOURCE_QUORUM: "No qualified auction exists and the model has no signed dealer quote.",
+        SOURCE_DIVERGENCE: "Qualified auction and independent valuation cross-check disagree.",
+        CROSS_CHECK_MISSING: "A qualified auction exists but its independent cross-check is missing.",
+        HBAR_MARKET_UNAVAILABLE: "The required market HBAR/USD cross-check could not be read.",
+        HBAR_RATE_DIVERGENCE: "Hedera network conversion and market HBAR/USD exceed the safety cap.",
+        ORACLE_DEVIATION_CAP: "The truthful valuation exceeds the oracle's round-to-round cap.",
+        NOT_SEATED: "This publisher is not seated in the oracle panel.",
+        ALREADY_ANSWERED: "This publisher already answered the open round.",
+        NOT_DUE: "Sources are healthy, but no movement or keepalive threshold is due.",
+        SOURCE_ERROR: "A required valuation source could not be read.",
+    }[code] || String(code || "Publisher status unavailable").replaceAll("_", " ").toLowerCase();
+};
+
+Venue.refreshOracleEvidence = async function () {
+    const topics = typeof ORACLE_TOPICS === "undefined" ? [] : ORACLE_TOPICS;
+    if (!topics.length) {
+        Venue.oracleEvidence = {configured: false, records: [], errors: []};
+        return Venue.oracleEvidence;
+    }
+    const topicRows = await Promise.all(topics.map(async (topic) => {
+        try {
+            const path = "/api/v1/topics/" + encodeURIComponent(topic.topicId) +
+                "/messages?order=desc&limit=25";
+            const result = await Venue.mirror(path);
+            if (!result.messages?.length) return [{topic, empty: true}];
+            return result.messages.map((message) => {
+                try {
+                    const binary = atob(message.message);
+                    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+                    const record = JSON.parse(new TextDecoder().decode(bytes));
+                    if (
+                        record.v !== 1 ||
+                        !["oracle-answer", "oracle-status"].includes(record.k) ||
+                        Number(record.chain) !== Number(CLIENT.network.chainId) ||
+                        !addrEq(record.oracle, CLIENT.addresses.PrimeOracle) ||
+                        !addrEq(record.publisher, topic.publisher)
+                    ) {
+                        throw new Error("message does not match this deployment and publisher");
+                    }
+                    return {
+                        topic,
+                        record,
+                        sequence: String(message.sequence_number),
+                        consensus: String(message.consensus_timestamp),
+                    };
+                } catch (error) {
+                    return {
+                        topic,
+                        sequence: String(message.sequence_number),
+                        error: error.message,
+                    };
+                }
+            });
+        } catch (error) {
+            return [{topic, error: error.message}];
+        }
+    }));
+    const rows = topicRows.flat();
+    Venue.oracleEvidence = {
+        configured: true,
+        records: rows.filter((row) => row.record),
+        errors: rows.filter((row) => row.error),
+        empty: rows.filter((row) => row.empty),
+    };
+    return Venue.oracleEvidence;
+};
+
+Venue.readOracleScheduler = async function () {
+    const scheduler = Venue.c.oracleScheduler;
+    if (!scheduler) return null;
+    const [active, nextCheckAt, trackedRound, retryStreak, checks, maxRetry, maxChecks, minimum] =
+        await Promise.all([
+            scheduler.activeSchedule(),
+            scheduler.nextCheckAt(),
+            scheduler.trackedRound(),
+            scheduler.retryStreak(),
+            scheduler.checksThisRound(),
+            scheduler.MAX_RETRY_STREAK(),
+            scheduler.MAX_CHECKS_PER_ROUND(),
+            scheduler.MIN_BALANCE_TINYBAR(),
+        ]);
+    const balanceWeibar = await Venue.reader.getBalance(scheduler.target);
+    return {
+        address: scheduler.target,
+        active: String(active),
+        nextCheckAt: Number(nextCheckAt),
+        trackedRound: Number(trackedRound),
+        retryStreak: Number(retryStreak),
+        checks: Number(checks),
+        maxRetry: Number(maxRetry),
+        maxChecks: Number(maxChecks),
+        minimumTinybar: asBig(minimum),
+        balanceTinybar: asBig(balanceWeibar) / WEIBAR_PER_TINYBAR,
+    };
+};
+
+Venue.paintOracleCountdown = function () {
+    const clock = Venue.oracleClock;
+    const countdown = $("feed-countdown");
+    if (clock && countdown) {
+        if (!clock.publishedAt) {
+            countdown.textContent = "No finalized round";
+        } else {
+            const remaining = BigInt(clock.expiresAt) - nowSec();
+            countdown.textContent = remaining > 0n
+                ? fmtRemain(remaining) + " remaining"
+                : "Expired " + fmtRemain(-remaining) + " ago";
+            countdown.className = remaining > 0n ? "v ok" : "v bad";
+        }
+    }
+    const scheduler = clock?.scheduler;
+    const schedulerElement = $("feed-scheduler");
+    if (!schedulerElement) return;
+    if (!scheduler) {
+        schedulerElement.textContent = "Not deployed";
+        return;
+    }
+    if (addrEq(scheduler.active, ZERO) || !scheduler.nextCheckAt) {
+        schedulerElement.textContent = scheduler.checks >= scheduler.maxChecks ||
+            scheduler.retryStreak >= scheduler.maxRetry
+            ? "Stopped at bounded retry limit · " + readableHbar(scheduler.balanceTinybar) + " HBAR"
+            : "Idle until a publisher answers · " + readableHbar(scheduler.balanceTinybar) + " HBAR";
+        schedulerElement.className = "v";
+        return;
+    }
+    const until = BigInt(scheduler.nextCheckAt) - nowSec();
+    schedulerElement.textContent = "Check " +
+        (until > 0n ? "in " + fmtRemain(until) : "due now") +
+        " · " + scheduler.checks + "/" + scheduler.maxChecks + " scheduled · " +
+        readableHbar(scheduler.balanceTinybar) + " HBAR";
+    schedulerElement.className = "v ok";
+};
+
+Venue.oracleReadFailed = function (error) {
+    const message = decodeRevert(error).message;
+    const failure = $("feed-failure");
+    if (failure) {
+        failure.hidden = false;
+        failure.className = "note bad";
+        failure.textContent =
+            "RPC refresh failed: " + message + ". Last confirmed values are not presented as current.";
+    }
+    const state = $("feed-state");
+    if (state) {
+        state.textContent = "RPC unavailable";
+        state.className = "feed-state bad";
+    }
+    for (const id of ["feed-price", "feed-rate", "feed-mark"]) {
+        if ($(id)) $(id).textContent = "Unavailable";
+    }
+    $("feed-box")?.classList.add("is-unavailable");
+};
+
+Venue.pollOracle = async function () {
+    try {
+        await Venue.refreshOracle();
+        return true;
+    } catch (error) {
+        Venue.oracleReadFailed(error);
+        return false;
+    }
+};
+
 Venue.refreshOracle = async function () {
     const box = $("feed-box");
     if (!box) return;
@@ -1083,9 +1404,9 @@ Venue.refreshOracle = async function () {
                 $("feed-state").className = "feed-state bad";
             }
             if ($("feed-age")) $("feed-age").textContent = "No update available";
-            if ($("feed-says")) {
+            if ($("feed-says") && Venue.page !== "trade") {
                 $("feed-says").textContent =
-                    "Auction trading remains available with user-supplied limits. Oracle-dependent financing is unavailable.";
+                    "Oracle-dependent financing is unavailable until a feed is configured.";
             }
             return;
         }
@@ -1098,7 +1419,8 @@ Venue.refreshOracle = async function () {
     // One call for the composite, because MarginWatch already exists to answer
     // "can the thing beside this be believed" and the feed is the third such
     // question. The panel and the immutables come alongside it.
-    const [f, panel, quorum, heartbeat, cashHeartbeat, dev, round] = await Promise.all([
+    const [f, panel, quorum, heartbeat, cashHeartbeat, dev, round, openRound, cash, evidence, scheduler] =
+        await Promise.all([
         watch.feed(),
         oracle.publishers(),
         oracle.quorum(),
@@ -1106,7 +1428,12 @@ Venue.refreshOracle = async function () {
         oracle.cashHeartbeat(),
         oracle.maxDeviationBps(),
         oracle.lastRound(),
+        oracle.openRound(),
+        oracle.cashLeg(),
+        Venue.refreshOracleEvidence(),
+        Venue.readOracleScheduler().catch(() => null),
     ]);
+    const openAnswers = await oracle.panelOf(openRound).catch(() => []);
 
     const dark = f.dark;
     const age = asBig(f.publishedAt) > 0n ? nowSec() - asBig(f.publishedAt) : null;
@@ -1128,12 +1455,16 @@ Venue.refreshOracle = async function () {
         Venue.page === "trade" ? (dark ? "Unavailable" : "Live") : (dark ? "dark" : "live"),
         dark ? "v bad" : "v ok");
     put("feed-price", dark || asBig(f.cleanPrice) === 0n ? "Unavailable"
-        : esc(formatPrice(asBig(f.cleanPrice))) + " USD");
-    put("feed-rate", dark || asBig(f.cleanPrice) === 0n ? "Unavailable" : String(f.refRateBps) + " bps");
+        : esc(formatPrice(asBig(f.cleanPrice))) + (Venue.page === "trade" ? "" : " USD"));
+    put("feed-rate", dark || asBig(f.cleanPrice) === 0n
+        ? "Unavailable"
+        : String(f.refRateBps) + (Venue.page === "trade" ? "" : " bps"));
     put("feed-round", String(round));
+    put("feed-open", openAnswers.length + " of " + quorum + " for round " + openRound,
+        openAnswers.length >= Number(quorum) ? "v ok" : "v bad");
     put("feed-age", age === null
         ? "No update timestamp"
-        : "Last update " + fmtRemain(Number(age)) + " ago · " + published);
+        : fmtRemain(Number(age)) + " ago · " + published);
     put("feed-ourleg",
         Venue.page === "trade" ? (f.ourLegDark ? "stale" : "live") : (f.ourLegDark ? "dark" : "live"),
         f.ourLegDark ? "v bad" : "v ok");
@@ -1143,14 +1474,108 @@ Venue.refreshOracle = async function () {
     put("feed-hbar", asBig(f.usdPerHbar) === 0n ? "Unavailable"
         : esc(formatPrice(asBig(f.usdPerHbar))) + " USD");
     put("feed-mark", dark || asBig(f.markPerUnitTinybar) === 0n ? "Unavailable"
-        : esc(readableHbar(asBig(f.markPerUnitTinybar))) + " HBAR");
+        : esc(readableHbar(asBig(f.markPerUnitTinybar))) + (Venue.page === "trade" ? "" : " HBAR"));
     put("feed-quorum", quorum + " of " + panel.length + " seated");
-    put("feed-heartbeat", heartbeat + " s · upstream " + cashHeartbeat + " s");
+    put("feed-heartbeat", heartbeat + " s panel · " + cashHeartbeat + " s cash adapter");
     put("feed-deviation", dev + " bps per round");
     put("feed-cashaddr", f.cashFeed && !addrEq(f.cashFeed, ZERO)
         ? '<a href="' + explorerAddr(f.cashFeed) + '" target="_blank" rel="noopener">' +
             esc(shortAddr(f.cashFeed)) + "</a>"
         : "not seated");
+
+    const newest = [...evidence.records].sort((a, b) =>
+        Number(String(b.consensus).split(".")[0]) - Number(String(a.consensus).split(".")[0]));
+    const newestAnswer = newest.find((row) =>
+        row.record.k === "oracle-answer" && String(row.record.round) === String(round));
+    const currentStatuses = newest.filter((row) =>
+        row.record.k === "oracle-status" &&
+        String(row.record.round) === String(openRound));
+    let sourceLabel = {
+        "qualified-market": "Qualified Hedera auction + fixed-point model",
+        "model-dealer-fallback": "SOFR model + signed dealer quote",
+        "market-only": "Qualified Hedera auction",
+    }[newestAnswer?.record.mode];
+    if (sourceLabel && newestAnswer.record.mode === "qualified-market") {
+        sourceLabel += " · " + newestAnswer.record.exactPrints + " qualified prints";
+    } else if (sourceLabel && newestAnswer.record.mode === "model-dealer-fallback") {
+        sourceLabel += " · " + newestAnswer.record.dealerQuotes + " dealer quote";
+    }
+    put("feed-source", sourceLabel || (currentStatuses.length
+        ? "Publishers withheld: " +
+          [...new Set(currentStatuses.map((row) => row.record.code))].join(", ")
+        : evidence.configured ? "No current publisher evidence" : "Evidence topics not configured"),
+    sourceLabel ? "v ok" : "v bad");
+
+    const marketObservation = newest.find((row) => row.record.hbarMarket != null);
+    put("feed-hbar-market", marketObservation
+        ? esc(formatPrice(asBig(marketObservation.record.hbarMarket))) + " USD"
+        : "No publisher observation",
+    marketObservation ? "v ok" : "v bad");
+
+    const evidenceElement = $("feed-evidence");
+    if (evidenceElement) {
+        const readableTopics = new Set(evidence.records.map((row) => row.topic.topicId));
+        evidenceElement.innerHTML = evidence.configured
+            ? (readableTopics.size + "/" +
+                (typeof ORACLE_TOPICS === "undefined" ? 0 : ORACLE_TOPICS.length) +
+                " topic tails readable" +
+                (newestAnswer ? " · answer #" + esc(newestAnswer.sequence) : "") + " · " +
+                (typeof ORACLE_TOPICS === "undefined" ? [] : ORACLE_TOPICS).map((topic) =>
+                    '<a href="' + CLIENT.network.explorer + "/topic/" +
+                    encodeURIComponent(topic.topicId) +
+                    '" target="_blank" rel="noopener">' + esc(topic.profile) + "</a>"
+                ).join(", "))
+            : "Not configured";
+    }
+
+    const answered = new Set(openAnswers.map((answer) => String(answer.by).toLowerCase()));
+    const missing = panel.filter((publisher) => !answered.has(String(publisher).toLowerCase()));
+    const failureParts = [];
+    if (f.ourLegDark) {
+        const expiredAt = asBig(f.publishedAt) > 0n
+            ? new Date((Number(f.publishedAt) + Number(heartbeat)) * 1000).toISOString()
+            : null;
+        failureParts.push(
+            expiredAt
+                ? "The panel heartbeat expired at " + expiredAt + "."
+                : "The panel has never finalized a round."
+        );
+        failureParts.push(
+            "Open round " + openRound + " has " + openAnswers.length + "/" + quorum +
+            " answers" + (missing.length
+                ? "; missing " + missing.map(shortAddr).join(", ") + "."
+                : ".")
+        );
+    }
+    if (f.cashLegDark) {
+        failureParts.push(
+            asBig(cash.updatedAt ?? cash[2]) === 0n
+                ? "The Hedera network conversion adapter returned no rate."
+                : "The Hedera network conversion adapter failed its freshness checks."
+        );
+    }
+    const statusReasons = currentStatuses.map((row) =>
+        row.topic.profile + ": " + Venue.oracleStatusMessage(row.record.code));
+    if (statusReasons.length) failureParts.push(...statusReasons);
+    const failure = $("feed-failure");
+    if (failure) {
+        failure.textContent = failureParts.join(" ");
+        failure.hidden = failureParts.length === 0;
+        failure.className = "note" + (dark ? " bad" : "");
+    }
+
+    Venue.oracleClock = {
+        publishedAt: Number(f.publishedAt),
+        expiresAt: Number(f.publishedAt) + Number(heartbeat),
+        scheduler,
+    };
+    Venue.paintOracleCountdown();
+    const schedulerElement = $("feed-scheduler");
+    if (schedulerElement && scheduler) {
+        schedulerElement.title = readableHbar(scheduler.balanceTinybar) +
+            " HBAR balance; minimum " + readableHbar(scheduler.minimumTinybar) +
+            " HBAR before creating another check";
+    }
 
     const seats = $("feed-panel");
     if (seats) {
@@ -1160,26 +1585,21 @@ Venue.refreshOracle = async function () {
             : '<div class="empty">No publisher is seated.</div>';
     }
 
-    // The sentence a reader actually needs, rather than eight fields they have
-    // to assemble it from.
     const says = $("feed-says");
     if (says) {
-        if (Venue.page === "trade") {
-            says.textContent = dark
-                ? "Auction trading remains available with user-supplied limits. Oracle-dependent financing may pause."
-                : "Finalized valuation context. It does not set your auction limit or guarantee execution.";
-        } else {
+        if (Venue.page !== "trade") {
             says.innerHTML = dark
                 ? "The feed is dark, so <code>RepoVault.markToMarket</code> refuses and the " +
                   "margin engine's manual <code>postMark</code> is open. " +
                   (f.ourLegDark ? "The venue's own panel has not published inside its heartbeat. " : "") +
-                  (f.cashLegDark ? "The seated HBAR/USD feed is not answering. " : "")
+                  (f.cashLegDark ? "The Hedera network conversion adapter is not answering. " : "")
                 : "The feed is live, so <code>postMark</code> refuses and every mark comes " +
                   "from this price. Anyone may call <code>markToMarket</code> on any open repo.";
         }
     }
 
     if (Venue.page === "trade") box.classList.toggle("is-unavailable", !!dark);
+    else box.classList.remove("is-unavailable");
     box.hidden = false;
 };
 

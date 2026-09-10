@@ -33,7 +33,7 @@
 html{min-height:100%;color-scheme:light}
 :root[data-theme="dark"]{color-scheme:dark}
 /* Author `display` on buttons beats the UA [hidden] rule. Clock and modal
-   already special-cased this; one rule covers the rest, including #kyc-act. */
+   already special-case this, so one rule covers the rest. */
 [hidden]{display:none !important}
 body{
   margin:0;
@@ -191,6 +191,81 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .page{padding:1.75rem 0 4rem}
 .page h1{font-size:clamp(1.85rem,4vw,2.6rem);line-height:1.08;margin:0 0 .5rem;letter-spacing:-.04em}
 .page > p.lede{font-family:var(--font);font-size:1.05rem;line-height:1.45;color:var(--ink-2);max-width:36rem;margin:0 0 1.5rem;font-weight:400}
+
+.eligibility-page{
+  max-width:58rem;padding-top:clamp(2.5rem,8vh,6rem);
+}
+.eligibility-page .eligibility-card{
+  position:relative;width:min(100%,42rem);margin:0 auto;
+  padding:clamp(4rem,7vw,5.2rem) clamp(2rem,6vw,4.5rem) clamp(3.75rem,6vw,4.75rem);
+  border:1px solid var(--rule);border-radius:clamp(20px,4vw,32px);
+  background:var(--surface);
+  box-shadow:
+    0 0 36px rgba(79,70,229,.18),
+    0 22px 60px color-mix(in srgb,var(--ink) 10%,transparent);
+  text-align:center;display:flex;flex-direction:column;align-items:center;
+}
+:root[data-theme="dark"] .eligibility-card{
+  border-color:#3c4052;background:#252b3b;
+  box-shadow:
+    0 0 44px rgba(130,89,239,.32),
+    0 24px 64px rgba(0,0,0,.34);
+}
+.eligibility-mark{
+  position:absolute;top:0;left:50%;z-index:1;transform:translate(-50%,-50%);
+  width:4.25rem;height:4.25rem;border-radius:1.35rem;
+  display:grid;place-items:center;background:var(--sealed-wash);color:var(--primary);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 16%,transparent);
+}
+.eligibility-mark svg{width:2.2rem;height:2.2rem}
+.eligibility-card[data-state="busy"] .eligibility-mark{animation:eligibility-pulse 1.35s ease-in-out infinite}
+.eligibility-card[data-state="granted"] .eligibility-mark{
+  background:color-mix(in srgb,var(--success-fill) 22%,var(--surface));color:var(--success);
+}
+.eligibility-card[data-state="error"] .eligibility-mark{
+  background:var(--exposed-wash);color:var(--exposed);
+}
+@keyframes eligibility-pulse{50%{filter:brightness(1.15)}}
+@media(prefers-reduced-motion:reduce){.eligibility-card[data-state="busy"] .eligibility-mark{animation:none}}
+.eligibility-kicker{
+  margin:0 0 .55rem;color:var(--primary);font-size:.7rem;font-weight:700;
+  letter-spacing:.11em;text-transform:uppercase;
+}
+.eligibility-card h1{font-size:clamp(2.15rem,6vw,3.65rem);margin:0;letter-spacing:-.055em}
+.eligibility-copy{
+  max-width:31rem;margin:1rem auto 0;color:var(--ink-2);font-size:1.02rem;line-height:1.55;
+}
+.eligibility-page button.eligibility-action{
+  min-width:min(100%,17rem);min-height:52px;margin-top:1.7rem;padding:.8rem 1.5rem;
+  border:0;background:var(--grad);background-size:210% 100%;background-position:0 0;
+  color:#fff;box-shadow:0 4px 16px var(--grad-glow);font-size:.96rem;font-weight:600;
+}
+.eligibility-page button.eligibility-action:hover{
+  background-position:100% 0;box-shadow:0 8px 24px var(--grad-glow);filter:none;
+}
+.eligibility-action[aria-busy="true"]{cursor:progress}
+.eligibility-card[data-state="busy"] .eligibility-action:disabled{
+  background:var(--grad);color:#fff;box-shadow:0 4px 16px var(--grad-glow);opacity:.72;
+}
+.eligibility-status{
+  width:100%;max-width:31rem;min-height:1.3em;margin:.85rem auto 0;text-align:center;
+}
+.eligibility-privacy{
+  max-width:29rem;margin:1.4rem auto 0;padding-top:1.25rem;border-top:1px solid var(--rule);
+  color:var(--slate);font-size:.78rem;line-height:1.55;
+}
+.eligibility-page .eligibility-details{width:min(100%,42rem);margin:1.2rem auto 0}
+.eligibility-page .eligibility-details > summary{
+  justify-content:space-between;padding:1rem 1.15rem;color:var(--slate);
+}
+.eligibility-page .eligibility-details > summary::after{margin-left:auto}
+@media(max-width:560px){
+  .eligibility-page{padding-top:3rem}
+  .eligibility-page .eligibility-card{
+    padding:3.5rem 1.25rem 3rem;border-radius:20px;
+  }
+  .eligibility-page button.eligibility-action{width:100%}
+}
 
 .own-file{
   display:inline-block;margin-top:.9rem;padding:0;border:0;background:none;
@@ -411,12 +486,6 @@ button.primary.stale:hover{background:var(--sunk);color:var(--slate)}
 }
 .banner p{flex:1 1 22rem}
 .banner button{flex:0 0 auto;min-height:38px;font-size:.82rem}
-#kyc-act.connected{
-  background:var(--surface);color:var(--ink);
-  border:1px solid var(--rule-hard);
-}
-#kyc-act.connected:hover{filter:none;border-color:var(--primary);background:var(--sunk)}
-#kyc-act .dot{width:7px;height:7px;border-radius:50%;background:var(--success-fill);flex:0 0 auto}
 .banner.warn{background:var(--exposed-wash);border-color:color-mix(in srgb, var(--exposed) 35%, var(--rule))}
 .banner.held{background:var(--held-wash)}
 .banner p{margin:0;max-width:none}
@@ -512,6 +581,7 @@ button.primary.stale:hover{background:var(--sunk);color:var(--slate)}
 .status{font-size:.85rem;font-weight:500;color:var(--ink-2);min-height:1.3em;margin-top:.65rem}
 .status.bad{color:var(--exposed)}
 .status.ok{color:var(--success)}
+.note.bad{color:var(--market-red)}
 .status.flash{animation:status-flash .55s var(--ease)}
 @keyframes status-flash{from{filter:brightness(1.8)}to{filter:none}}
 @media(prefers-reduced-motion:reduce){
@@ -1633,30 +1703,35 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .market-session i{padding:0 .16rem;color:var(--faint);font-style:normal}
 
 .market-oracle{
-  display:grid;grid-template-columns:minmax(15rem,1fr) auto auto;align-items:center;
-  gap:.75rem 1rem;margin:.75rem 0;padding:.72rem .8rem;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:.75rem 1rem;margin:.75rem 0;padding:.9rem 1rem;
   border-radius:13px;overflow:visible;box-shadow:none;
 }
-.oracle-summary{min-width:0}
-.oracle-label-row{margin-bottom:.12rem}
-.oracle-label-row h2{font-size:.72rem}
-.market-oracle .feed-state{padding:.12rem .38rem;font-size:.54rem}
+.oracle-primary{min-width:0}
+.oracle-label-row{justify-content:flex-start;gap:.5rem;margin-bottom:.25rem}
+.oracle-label-row h2{font-size:.75rem}
+.market-oracle .feed-state{padding:.14rem .42rem;font-size:.56rem}
 .market-oracle .feed-state.ok{
   background:var(--market-blue-soft);color:var(--market-blue);
 }
 .market-oracle .feed-state.bad{
   background:var(--sunk);color:var(--slate);
 }
-.oracle-summary p{margin:0;max-width:36rem;color:var(--slate);font-size:.65rem;line-height:1.42}
-.oracle-age{display:block;margin-top:.14rem;color:var(--faint);font-size:.57rem}
-.oracle-values{display:grid;grid-template-columns:repeat(3,minmax(7.5rem,1fr));align-self:stretch}
-.oracle-quote{
-  min-width:0;padding:.25rem .8rem;border:0;border-left:1px solid var(--rule);
-  display:flex;flex-direction:column;justify-content:center;gap:.02rem;
+.oracle-primary-value{display:flex;align-items:baseline;gap:.55rem;min-width:0}
+.oracle-primary-value strong{
+  color:var(--ink);font-size:clamp(1.55rem,4vw,2.2rem);line-height:1;
+  letter-spacing:-.045em;
 }
-.oracle-quote > span{color:var(--slate);font-size:.56rem;font-weight:650}
-.oracle-quote strong{font-size:.75rem}
-.oracle-quote small{font-size:.53rem}
+.oracle-primary-value > span{color:var(--slate);font-size:.65rem;font-weight:650}
+.oracle-primary .note{margin:.35rem 0 0;font-size:.62rem}
+.oracle-primary .note:empty{display:none}
+@media(prefers-reduced-motion:no-preference){
+  .market-oracle .feed-state.ok{animation:oracle-live-pulse 2.4s ease-in-out infinite}
+  @keyframes oracle-live-pulse{
+    0%,100%{opacity:.78;box-shadow:0 0 0 0 color-mix(in srgb,var(--market-blue) 0%,transparent)}
+    50%{opacity:1;box-shadow:0 0 0 4px color-mix(in srgb,var(--market-blue) 12%,transparent)}
+  }
+}
 .oracle-details{position:relative}
 .oracle-details > summary{
   min-height:34px;display:flex;align-items:center;padding:0 .65rem;
@@ -1670,14 +1745,22 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .oracle-details[open] > summary::after{content:"−"}
 .oracle-details-body{padding:.2rem .1rem .15rem}
 .oracle-details-body > p{margin:0;max-width:54rem;color:var(--slate);font-size:.64rem}
+.oracle-secondary-values{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  margin:0 0 .65rem;border-radius:10px;overflow:hidden;background:var(--rule);
+}
+.oracle-secondary-values > div{
+  display:flex;flex-direction:column;gap:.08rem;padding:.6rem .65rem;background:var(--paper);
+}
+.oracle-secondary-values span,.oracle-secondary-values small{color:var(--slate);font-size:.57rem}
+.oracle-secondary-values strong{font-size:.7rem}
 .oracle-source-grid{
   grid-template-columns:repeat(5,minmax(0,1fr));margin:.6rem 0;
   border:0;border-radius:10px;background:var(--paper);
 }
 .oracle-source-grid > div{border:0;padding:.55rem .6rem}
 .oracle-details-body > button{min-height:32px;padding:0 .7rem;font-size:.61rem}
-.market-oracle.is-unavailable{grid-template-columns:minmax(0,1fr) auto}
-.market-oracle.is-unavailable .oracle-values{display:none}
+.market-oracle.is-unavailable .oracle-primary-value strong{color:var(--slate)}
 
 .order-attention{
   margin:.75rem 0;padding:.68rem .75rem;border-radius:11px;
@@ -1690,16 +1773,15 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 
 .market-workspace{display:block;margin-top:.85rem}
 .market-main{
-  display:grid;grid-template-columns:minmax(18rem,2fr) minmax(0,3fr);
+  display:grid;grid-template-columns:minmax(0,1fr);
   gap:1.25rem;align-items:stretch;
 }
-.account-context{grid-column:1;grid-row:1;display:flex;flex-direction:column;min-height:22rem}
-.order-panel{grid-column:2;grid-row:1}
+.order-panel{grid-column:1;grid-row:1}
 .auction-panel{grid-column:1/-1;grid-row:2}
 .orders-section{grid-column:1/-1;grid-row:3}
 .section-heading{margin-bottom:.72rem}
 .section-heading h2{font-size:.92rem;letter-spacing:-.018em}
-.account-context,.auction-panel,.orders-section{
+.auction-panel,.orders-section{
   padding:var(--market-panel-pad) !important;border:1px solid var(--rule) !important;
   border-radius:14px;background:var(--surface);box-shadow:none;
 }
@@ -1709,29 +1791,44 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   content:"";width:5px;height:5px;border-radius:50%;background:var(--market-green);
 }
 .account-grant.bad{background:var(--market-amber-soft);color:var(--market-amber)}
-.balance-strip{
-  flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-  grid-template-rows:repeat(2,minmax(0,1fr));
-  border:0;border-radius:10px;background:var(--paper);
+.order-panel-meta{display:flex;align-items:center;gap:.5rem}
+.trade-balances{position:relative}
+.trade-balances > summary{
+  display:flex;align-items:baseline;gap:.45rem;min-height:31px;padding:.3rem .55rem;
+  border:1px solid var(--rule);border-radius:9px;cursor:pointer;list-style:none;background:var(--paper);
 }
-.balance-strip > :is(div,button){
-  position:relative;display:flex;flex-direction:column;align-items:flex-start;
-  justify-content:center;gap:.1rem;min-width:0;padding:.72rem .78rem;
-  border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);
+.trade-balances > summary::-webkit-details-marker{display:none}
+.trade-balances > summary::after{content:"+";color:var(--faint);font-size:.7rem}
+.trade-balances[open] > summary::after{content:"−"}
+.trade-balances > summary span{color:var(--slate);font-size:.55rem;font-weight:650}
+.trade-balances > summary strong{font-size:.65rem}
+.trade-balances-popout{
+  position:absolute;z-index:8;top:calc(100% + .45rem);right:0;width:min(22rem,calc(100vw - 2rem));
+  padding:.75rem;border:1px solid var(--rule-hard);border-radius:11px;background:var(--surface);
+  box-shadow:0 14px 36px color-mix(in srgb,var(--ink) 16%,transparent);
 }
-.balance-strip > :is(div,button):nth-child(2n){border-right:0}
-.balance-strip > :is(div,button):nth-last-child(-n+2){border-bottom:0}
-.balance-strip span{font-size:.57rem}
-.balance-strip strong{font-size:.75rem}
-.balance-strip > :is(div,button) > small{font-size:.52rem}
-.balance-strip .credit-balance,
-.balance-strip .credit-balance:disabled{
-  width:100%;min-height:0;border-radius:0;background:transparent;color:var(--ink);
-  text-align:left;white-space:normal;cursor:default;filter:none;transform:none;
+.trade-balance-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.trade-balance-heading > strong{font-size:.68rem}
+.trade-balance-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  margin-top:.6rem;border-radius:8px;overflow:hidden;background:var(--rule);
 }
-.balance-strip .credit-balance.is-ready{
-  z-index:1;cursor:pointer;
-  background:color-mix(in srgb,var(--accent) 8%,var(--surface));
+.trade-balance-grid > div{display:flex;flex-direction:column;gap:.08rem;padding:.58rem;background:var(--paper)}
+.trade-balance-grid span{color:var(--slate);font-size:.54rem}
+.trade-balance-grid strong{font-size:.65rem}
+.trade-balance-grid small{font-family:var(--font);font-size:.5rem;color:var(--faint)}
+.trade-balances-popout .credit-balance,
+.trade-balances-popout .credit-balance:disabled{
+  width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:.08rem .5rem;align-items:center;min-height:42px;margin-top:.55rem;padding:.5rem .6rem;
+  border:1px solid var(--rule);border-radius:8px;background:var(--paper);color:var(--ink);
+  text-align:left;white-space:normal;filter:none;transform:none;
+}
+.trade-balances-popout .credit-balance > span{color:var(--slate);font-size:.55rem}
+.trade-balances-popout .credit-balance > strong{font-size:.68rem;text-align:right}
+.trade-balances-popout .credit-balance > small{grid-column:1/-1;font-size:.52rem}
+.trade-balances-popout .credit-balance.is-ready{
+  cursor:pointer;background:color-mix(in srgb,var(--accent) 8%,var(--surface));
   box-shadow:inset 0 0 0 1.5px var(--accent),0 0 14px color-mix(in srgb,var(--accent) 22%,transparent);
 }
 .credit-balance .withdraw-action{
@@ -1740,7 +1837,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .credit-balance:disabled .withdraw-action{color:var(--faint)}
 .credit-balance.is-ready .withdraw-action::after{content:" →"}
 @media(prefers-reduced-motion:no-preference){
-  .balance-strip .credit-balance.is-ready{
+  .trade-balances-popout .credit-balance.is-ready{
     animation:withdraw-ready-pulse 2.4s ease-in-out infinite;
   }
   @keyframes withdraw-ready-pulse{
@@ -1807,7 +1904,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   border-radius:15px;box-shadow:0 10px 28px color-mix(in srgb,var(--ink) 6%,transparent);
   max-height:none;overflow:visible;
 }
-.order-panel-head{margin-bottom:.72rem}
+.order-panel-head{align-items:flex-start;margin-bottom:.72rem}
 .order-panel-head h2{font-size:1.05rem;letter-spacing:-.025em}
 .draft-state{background:var(--sunk);color:var(--slate)}
 .draft-state.stage-submit{background:var(--market-blue-soft);color:var(--market-blue)}
@@ -1873,8 +1970,11 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .recovery-callout strong{font-size:.62rem}
 .recovery-callout p{font-size:.55rem}
 .hold-option{
-  margin-top:.62rem;padding:.62rem .68rem;border:0;border-radius:9px;background:var(--paper);
+  grid-template-columns:minmax(0,1fr);margin-top:.62rem;padding:.62rem .68rem;
+  border:0;border-radius:9px;background:var(--paper);
 }
+.hold-option.is-complete{background:var(--market-green-soft)}
+.hold-option.is-complete strong{color:var(--market-green)}
 .hold-option strong,.key-option > label{font-size:.61rem}
 .hold-option p{font-size:.54rem}
 .hold-option button{min-height:31px;font-size:.57rem}
@@ -1891,6 +1991,12 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .review-detail .words{max-height:10rem;overflow:auto}
 .review-detail .words-slot > .empty{min-height:3.5rem;padding:.6rem;font-size:.56rem}
 .review-detail .idbox{margin-top:.45rem}
+.device-vault-state{
+  margin:.5rem 0;padding:.5rem .55rem;border-radius:8px;background:var(--paper);
+  color:var(--slate);font-size:.56rem;line-height:1.4;
+}
+.device-vault-state.ok{background:var(--market-green-soft);color:var(--market-green)}
+.device-vault-state.bad{background:var(--market-amber-soft);color:var(--market-amber)}
 .key-option{margin-top:.5rem;padding:.6rem;border:0;border-radius:9px;background:var(--paper)}
 .option-actions{margin-top:.45rem}
 .submit-summary{
@@ -1928,6 +2034,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 }
 .order-primary{flex:1;width:auto;min-height:46px;border-radius:10px;font-size:.74rem}
 .order-primary:not(:disabled){background:var(--primary);box-shadow:0 5px 16px color-mix(in srgb,var(--primary) 20%,transparent)}
+.order-primary.is-danger:not(:disabled){background:var(--market-red)}
 .order-panel .status{margin-top:.35rem;font-size:.57rem}
 
 .orders-section{margin-top:0}
@@ -1958,20 +2065,15 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .support-detail > summary small{font-size:.56rem}
 
 @media(max-width:1060px){
-  .market-main{grid-template-columns:minmax(17rem,2fr) minmax(0,3fr)}
-  .oracle-values{grid-template-columns:repeat(3,minmax(6.5rem,1fr))}
   .oracle-source-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
 @media(max-width:900px){
   body[data-screen="trade"] .clock-inline-copy{display:none}
   body[data-screen="trade"] .clock-inline .clock-float-btn{width:38px;padding:0}
-  .market-main{grid-template-columns:minmax(0,1fr)}
   .order-panel{grid-column:1;grid-row:1;height:auto;min-height:22rem}
-  .account-context{grid-column:1;grid-row:2;min-height:20rem}
-  .auction-panel{grid-column:1;grid-row:3}
-  .orders-section{grid-column:1;grid-row:4}
-  .oracle-values{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .auction-panel{grid-column:1;grid-row:2}
+  .orders-section{grid-column:1;grid-row:3}
 }
 
 @media(max-width:840px){
@@ -1981,10 +2083,10 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 @media(max-width:700px){
   .market-hero{align-items:flex-start}
   .market-oracle{grid-template-columns:1fr auto}
-  .oracle-summary{grid-column:1}
-  .oracle-values{grid-column:1/-1;width:100%;border-top:1px solid var(--rule);padding-top:.55rem}
+  .oracle-primary{grid-column:1}
   .oracle-details{grid-column:2;grid-row:1}
   .oracle-details[open]{grid-column:1/-1;grid-row:auto}
+  .oracle-secondary-values{grid-template-columns:1fr}
   .oracle-source-grid{grid-template-columns:1fr 1fr}
   .order-fields{grid-template-columns:1fr 1fr}
 }
@@ -1996,18 +2098,15 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   .market-session{align-items:flex-start;text-align:left}
   .market-session > span:last-child{display:block}
   .market-oracle{grid-template-columns:minmax(0,1fr) auto;padding:.65rem}
-  .oracle-values{grid-template-columns:1fr}
-  .oracle-quote{padding:.42rem .1rem;border-left:0;border-bottom:1px solid var(--rule)}
-  .oracle-quote:last-child{border-bottom:0}
-  .market-oracle.is-unavailable .oracle-values{display:none}
   .oracle-details > summary{padding:0 .25rem;font-size:.55rem}
   .oracle-details > summary::after{display:none}
   .oracle-source-grid{grid-template-columns:1fr}
   .order-fields{grid-template-columns:1fr}
+  .order-panel-head{gap:.6rem}
+  .order-panel-meta{align-items:flex-end;flex-direction:column}
+  .trade-balances-popout{right:-.1rem}
+  .trade-balance-grid{grid-template-columns:1fr}
   .sell-prerequisite{align-items:flex-start;flex-direction:column}
-  .balance-strip{grid-template-columns:1fr 1fr}
-  .balance-strip > div:nth-child(2){border-right:0}
-  .balance-strip > div:nth-child(-n+2){border-bottom:1px solid var(--rule)}
   .auction-footer{align-items:stretch;flex-direction:column}
   .auction-footer button{width:100%}
   .auction-panel .section-heading{align-items:flex-start}
@@ -2027,22 +2126,16 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .markets-page .market-kicker,
 .markets-page .section-kicker{font-size:.69rem}
 .markets-page .market-title h1{font-size:clamp(1.38rem,2.3vw,1.72rem)}
-.markets-page .market-title p{font-size:.8rem}
 .markets-page .section-heading h2{font-size:1.08rem}
 .markets-page .account-grant,
 .markets-page .privacy-chip,
 .markets-page .draft-state{font-size:.65rem}
-.markets-page .balance-strip span{font-size:.72rem}
-.markets-page .balance-strip strong{font-size:.92rem}
-.markets-page .balance-strip strong > span{font-size:inherit;color:inherit;font-weight:inherit}
-.markets-page .balance-strip > :is(div,button) > small{font-size:.64rem}
 .markets-page .oracle-label-row h2{font-size:.82rem}
 .markets-page .market-oracle .feed-state{font-size:.59rem}
-.markets-page .oracle-summary p{font-size:.72rem}
-.markets-page .oracle-age{font-size:.63rem}
-.markets-page .oracle-quote > span{font-size:.63rem}
-.markets-page .oracle-quote strong{font-size:.84rem}
-.markets-page .oracle-quote small{font-size:.58rem}
+.markets-page .oracle-primary-value > span{font-size:.7rem}
+.markets-page .oracle-secondary-values span,
+.markets-page .oracle-secondary-values small{font-size:.63rem}
+.markets-page .oracle-secondary-values strong{font-size:.76rem}
 .markets-page .oracle-details > summary{font-size:.68rem}
 .markets-page .oracle-details-body > p{font-size:.71rem}
 .markets-page .market-book-meta strong{font-size:.76rem}
@@ -2079,9 +2172,8 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .markets-page .summary-note{font-size:.61rem}
 .markets-page .future-obligation strong{font-size:.7rem}
 .markets-page .future-obligation p{font-size:.63rem}
-.markets-page .recovery-callout strong{font-size:.7rem}
-.markets-page .recovery-callout p{font-size:.62rem}
 .markets-page .review-detail > summary{font-size:.65rem}
+.markets-page .device-vault-state{font-size:.63rem}
 .markets-page .wallet-expectation strong{font-size:.75rem}
 .markets-page .wallet-expectation p,
 .markets-page .track-status > p{font-size:.67rem}

@@ -1,0 +1,37 @@
+{
+  "schema": "lattice.oracle.scheduler.v1",
+  "deployedAt": "2026-09-10T01:07:59.173062+00:00",
+  "address": "0xb2896395b7eb36f9bea4e9c4fe5e59dd30f20e6d",
+  "oracle": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
+  "treasury": "0xcfc5923def1f25db05fe50754ef0822175afd449",
+  "transactionHash": "0x15b4a6d09b5ac9d1d61dce97e9d0fe6ee69fc42d200fb406c1d68832a82d7adf",
+  "runtimeBytecodeHash": "0xf386f7c11c7685b7877c794b18058b0b8d2adc191aab157bd8b2eb8b94f1bea8",
+  "immutableMaskedRuntimeBytecodeHash": "0x3833e5b90395a8f42438e451400c6658c8f1dd222e91ecf094488ec3afa00d12",
+  "chainId": 296,
+  "configuration": {
+    "initialDelaySeconds": 90,
+    "retrySeconds": [
+      300,
+      900,
+      3600
+    ],
+    "maximumUnchangedChecks": 4,
+    "maximumChecksPerRound": 8,
+    "executionClockToleranceSeconds": 2,
+    "minimumBalanceTinybar": "500000000"
+  },
+  "supersedes": [
+    {
+      "address": "0x1ee298148a9e7825ca919d9983127600a4001736",
+      "transactionHash": "0x19ef8d24af6801877e79d3076cbba8ca5e6dbe3c0de4c7e25cb3a8f85bf3bfe2",
+      "reason": "Added recovery for a consumed schedule that never updated contract state.",
+      "fundingRecoveryTransactionHash": "0xce092bb6f34d09d58b2c31d6107c97f3adc67b2000b5e72f3a9cfa758256eeaf"
+    },
+    {
+      "address": "0x6981331f639f371ba1ed4696053fe83f52e6330f",
+      "transactionHash": "0x2c50ec9ad725c6ec3a1e27a9c807431808ea52a6becafcf297da5b9a78c24d9d",
+      "reason": "Testnet showed consensus expiry one second ahead of EVM block time. The strict early check was replaced with a measured two-second tolerance.",
+      "unrecoverableTestnetFundingHbar": "19.97166512"
+    }
+  ]
+}

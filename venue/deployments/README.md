@@ -84,8 +84,56 @@ unit. `CouponDistributor` publishes the same number through
 `payingAgentFeeBps()`. `make client` checks the contract value against the live
 HTS fee schedule and fails on drift.
 
-The current RepoVault is the scheduled-settlement deployment. It points to the
-fixed CouponSchedule and holds a 100 HBAR operating reserve. Its immutable
-funding requirement is five HBAR per HSS call at `0x16b`, so the initial reserve
-funds 20 additional calls. Every obligation remains manually settleable after
-its due time when native HSS capacity is unavailable.
+## RepoVault v5 and its evidence
+
+The client is bound to production
+[RepoVault `0.0.10454144`](https://hashscan.io/testnet/contract/0.0.10454144)
+and [MarginWatch `0.0.10454146`](https://hashscan.io/testnet/contract/0.0.10454146).
+The vault answers `FINANCING_VERSION() == 5` and points to the existing LPRC
+token, policy, KYC registry, fixed CouponSchedule, and compatible PrimeOracle.
+Its deployment record also pins runtime hash
+`0xec4ff4f7e69ff5e576bf0e41a502f0f3fe077b6ac7a7a6580bfac5782d51185b`.
+The client generator compares that hash with live runtime code before writing
+an address bundle. The vault started with a separate 20 HBAR operating reserve.
+Every obligation remains manually settleable at or after its economic due time.
+
+`financing-hss-canary.json` proves the current scheduling revision. A
+one-LPRC, 300-second funded repo created ATS hold 44, moved 1,273.52970084 HBAR,
+closed before maturity, released the hold, and drained both actor credits. HSS
+schedule
+[`0.0.10454245`](https://hashscan.io/testnet/transaction/0.0.7314364@1789020209.540687199)
+expired at economic due plus two seconds and returned `SUCCESS`. Its EVM block
+timestamp equalled economic due, the obligation became `SETTLED`, and the
+five-HBAR reservation returned to zero. No manual `settle` receipt belongs to
+this canary.
+
+`financing-beat.json` remains historical boundary and fallback evidence for
+superseded RepoVault `0.0.10452732`. Its exact-due HSS call reached consensus
+while the EVM block timestamp was one second before maturity, so the strict
+due-time guard reverted. The recorded permissionless `settle` fallback then
+settled the obligation. The old contract remains callable and retains an
+unreserved 19.9696972 HBAR because it has no operator reserve withdrawal path.
+The deployment record does not describe that balance as migrated or deleted.
+
+`financing-lifecycle.json` is intentionally not a client binding. It records a
+separate compressed-clock testnet deployment and labels its five-minute cure
+window, two-minute fail grace, and capital-bounded demo haircut. Two positions
+cover margin call, additional collateral, cure, close, a nonzero coupon from a
+historical fixing, maturity fail, CSDR Article 7 accrual, default, and execution
+of 128 LPRC to the lender. Its two scheduler attempts decoded to
+`UNFUNDED (-3)` and both obligations completed through `settle`.
+
+The current credential epoch had already consumed its contract-address grant
+quota when the new vault addresses became known. Each demonstrated vault therefore received
+its ATS allowance through a temporary immutable `ApprovalWindowCompliance`
+seat. That seat admitted only `(borrower, vault, 0)`, refused positive-value
+transfers, and the original SeamJournal was restored immediately after the
+approval. The deployment and restoration receipts are retained in both
+the deployment and financing evidence.
+
+Run `make financing-verify` to replay all 32 successful financing receipts and
+eight contract identities through Mirror Node. It checks the current automatic
+schedule hash, fee, block timing, ATS hold lifecycle, and final state alongside
+the historical boundary and fallback, compressed-demo HSS reasons, coupon
+commitment, and default-time ATS execution. The current record passes 362
+Mirror Node assertions.

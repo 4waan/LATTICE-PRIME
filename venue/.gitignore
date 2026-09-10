@@ -10,6 +10,10 @@ node_modules
 # Raw cast output from script/live/receipt-beat.sh. The assembled evidence is
 # deployments/receipt-beat.json, which is committed; this is the scaffolding.
 deployments/.receipt-beat/
+deployments/.financing-beat/
+deployments/.financing-deploy/
+deployments/.financing-lifecycle/
+deployments/.financing-hss-canary/
 
 # Where the relay stopped, per contract. Runtime state, not evidence: every
 # published record carries tx and log index, so a consumer dedupes without it,
@@ -27,3 +31,8 @@ agent/state/
 
 # The synthetic bot population: runner, job configs, journals. Kept local.
 bots/
+
+# Oracle publisher durability and per-process secret injection.
+oracle/state/
+oracle/secrets/
+oracle/config.json

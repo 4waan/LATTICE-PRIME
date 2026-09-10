@@ -58,9 +58,9 @@ publishes what the collateral is worth and `RepoVault.markToMarket` acts on it.
 
 | leg | what | source | scale |
 |---|---|---|---|
-| clean price | USD per unit of face, LPRC | quorum median over the venue's seated publishers | 8 dp |
-| coupon reference rate | basis points, the rate the variable coupon resets against | the same panel, medianed separately | bps |
-| HBAR/USD | the rate between the instrument's currency and the venue's settlement unit | a **seated upstream feed** in Chainlink's `AggregatorV3Interface` shape, currently Hedera's own network exchange rate at `0x168` | 8 dp |
+| clean price | USD per unit of face, LPRC | publisher median over qualified Hedera auction prints, with a fixed-point model and signed-dealer fallback | 8 dp |
+| coupon reference rate | basis points, the rate the variable coupon resets against | official NY Fed SOFR, submitted independently by the same publisher panel | bps |
+| HBAR/USD | the rate between the instrument's currency and the venue's settlement unit | a **seated upstream feed** in Chainlink's `AggregatorV3Interface` shape, currently Hedera's network fee conversion at `0x168` | 8 dp |
 
 The split is the rule. The venue publishes the price of its own instrument
 because no one else quotes it, and it consumes the rate between two currencies
@@ -69,6 +69,18 @@ be running a worse feed under the same interface.
 
 The composite mark is `cleanPrice / hbarUsd`, in tinybars per unit of face. It is
 computed in memory when a repo is marked and is never stored.
+
+The publisher does not treat every venue trade as price discovery. A qualified
+print must carry exact disclosure, settle successfully, exceed the configured
+volume and freshness floors, avoid synthetic counterparties, and survive the
+outlier filter. Current demonstration bots are explicitly excluded because
+their scaled orders are liquidity tests, not independent valuations.
+
+When no qualified print exists, a publisher needs two independent fallback
+inputs: the bond model and at least one EIP-712 signed dealer quote. The model
+uses the live coupon schedule, official SOFR, the issue spread, and a configured
+required margin. A missing source is `SOURCE_QUORUM`, not permission to reuse a
+stale number.
 
 ### 4.1 Bounds on the venue's own leg
 
@@ -88,6 +100,10 @@ computed in memory when a repo is marked and is never stored.
   the same propose-then-adopt epoch delay the rest of this venue's governance
   uses, so a change to who prices the instrument is visible an epoch before it
   binds. Adoption is permissionless.
+- **Evidence first.** Each publisher records its proposed answer and source
+  digest on its own immutable Hedera Consensus Service topic before broadcasting
+  the matching EVM transaction. The verifier rejects a broken topic chain,
+  mismatched sender, changed calldata, late broadcast, or failed transaction.
 
 ### 4.2 The upstream leg, and what is actually seated
 
@@ -113,8 +129,8 @@ Two consequences are stated rather than left to be discovered.
 
 - **It is not a market price.** Hedera's rate is governed and updated on the
   network's own schedule; a market feed is aggregated from exchanges. They do not
-  agree. On 2026-09-07 the two differed by about 2.3 percent, and the probe
-  prints the gap on every run rather than quoting a number that ages.
+  agree. Publishers therefore compare `0x168` with an external market HBAR/USD
+  feed and withhold when the configured divergence cap is exceeded.
 - **It cannot go stale, so the heartbeat does not bind this seat.** The rate is
   consensus state that every transaction in the block is already priced against;
   there is no last-update to report. The risk that replaces staleness here is

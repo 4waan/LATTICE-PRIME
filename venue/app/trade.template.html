@@ -65,51 +65,58 @@ document.documentElement.setAttribute("data-theme",
         <span class="market-symbol" id="market-symbol">LPRC</span>
         <div>
           <h1 id="in-name">Lattice Prime Repo Collateral 2028</h1>
-          <p>Variable-rate bond <span aria-hidden="true">·</span> $100.00 face value <span aria-hidden="true">·</span> settles in HBAR</p>
         </div>
       </div>
     </div>
   </header>
 
   <section class="market-oracle" id="feed-box" aria-labelledby="oracle-heading">
-    <div class="oracle-summary">
+    <div class="oracle-primary">
       <div class="oracle-label-row">
         <h2 id="oracle-heading">Price reference</h2>
-        <span class="feed-state" id="feed-state">Loading</span>
+        <span class="feed-state" id="feed-state" role="status">Loading</span>
       </div>
-      <p id="feed-says">Reading the latest finalized oracle round.</p>
-      <span class="oracle-age" id="feed-age">Checking last update</span>
-    </div>
-    <div class="oracle-values">
-      <div class="oracle-quote">
-        <span>Clean price</span>
-        <strong class="num" id="feed-price">Loading</strong>
-        <small>USD per bond</small>
-      </div>
-      <div class="oracle-quote">
-        <span>HBAR valuation</span>
+      <div class="oracle-primary-value">
         <strong class="num" id="feed-mark">Loading</strong>
-        <small>HBAR per bond</small>
+        <span>HBAR per bond</span>
       </div>
-      <div class="oracle-quote">
-        <span>Coupon reference</span>
-        <strong class="num" id="feed-rate">Loading</strong>
-        <small>basis points</small>
-      </div>
+      <p class="note" id="feed-failure" role="status"></p>
     </div>
     <details class="oracle-details">
-      <summary>View source details</summary>
+      <summary>Reference details</summary>
       <div class="oracle-details-body">
-        <p>The clean-price panel and HBAR/USD feed produce the valuation used by financing and collateral checks. The coupon reference fixes the variable rate under contract rules. None of these values sets your auction limit or guarantees execution.</p>
+        <div class="oracle-secondary-values">
+          <div>
+            <span>Clean price</span>
+            <strong class="num" id="feed-price">Loading</strong>
+            <small>USD per bond</small>
+          </div>
+          <div>
+            <span>Coupon reference</span>
+            <strong class="num" id="feed-rate">Loading</strong>
+            <small>basis points</small>
+          </div>
+          <div>
+            <span>Freshness</span>
+            <strong id="feed-age">Checking last update</strong>
+          </div>
+        </div>
+        <p>The clean-price panel and Hedera network conversion produce the valuation used by financing and collateral checks. The coupon reference fixes the variable rate under contract rules. The conversion comes from <code>0x168</code> and is checked off-chain against market HBAR/USD. It is not described as market spot. None of these values sets your auction limit or guarantees execution.</p>
         <div class="support-grid oracle-source-grid">
           <div><span>Last oracle round</span><strong id="feed-round">Loading</strong></div>
+          <div><span>Open round answers</span><strong id="feed-open">Loading</strong></div>
+          <div><span>Time until dark</span><strong id="feed-countdown">Loading</strong></div>
           <div><span>Venue price leg</span><strong id="feed-ourleg">Loading</strong></div>
-          <div><span>HBAR/USD leg</span><strong id="feed-cashleg">Loading</strong></div>
-          <div><span>HBAR/USD</span><strong class="num" id="feed-hbar">Loading</strong></div>
+          <div><span>Hedera conversion leg</span><strong id="feed-cashleg">Loading</strong></div>
+          <div><span>Hedera network HBAR/USD</span><strong class="num" id="feed-hbar">Loading</strong></div>
+          <div><span>Market HBAR/USD check</span><strong class="num" id="feed-hbar-market">Loading</strong></div>
+          <div><span>Valuation source</span><strong id="feed-source">Loading</strong></div>
+          <div><span>Publisher evidence</span><strong id="feed-evidence">Loading</strong></div>
+          <div><span>Hedera scheduler</span><strong id="feed-scheduler">Loading</strong></div>
           <div><span>Publisher quorum</span><strong id="feed-quorum">Loading</strong></div>
           <div><span>Heartbeats</span><strong id="feed-heartbeat">Loading</strong></div>
           <div><span>Deviation cap</span><strong id="feed-deviation">Loading</strong></div>
-          <div><span>Upstream feed</span><strong id="feed-cashaddr">Loading</strong></div>
+          <div><span>Cash adapter</span><strong id="feed-cashaddr">Loading</strong></div>
           <div><span>Publishers</span><span class="picks" id="feed-panel"></span></div>
         </div>
         <button type="button" id="feed-refresh">Refresh reference</button>
@@ -133,42 +140,46 @@ document.documentElement.setAttribute("data-theme",
 
   <div class="market-workspace">
     <div class="market-main">
-      <section class="account-context" aria-labelledby="available-heading">
-        <div class="section-heading compact">
-          <h2 id="available-heading">Available to trade</h2>
-          <span class="account-grant" id="bal-kyc">Connect wallet</span>
-        </div>
-        <div class="balance-strip">
-          <div>
-            <span>Free inventory</span>
-            <strong class="num"><span id="bal-units">Unavailable</span> <small>LPRC</small></strong>
-            <small>Available for a sell</small>
-          </div>
-          <div>
-            <span>Reserved</span>
-            <strong class="num"><span id="bal-held">Unavailable</span> <small>LPRC</small></strong>
-            <small>Already backing orders</small>
-          </div>
-          <div>
-            <span>Balance</span>
-            <strong class="num" id="bal-hbar">Unavailable</strong>
-            <small>HBAR, network fees excluded</small>
-          </div>
-          <button type="button" class="credit-balance" id="withdraw" aria-haspopup="dialog" aria-controls="withdraw-modal" disabled>
-            <span>Ready to withdraw</span>
-            <strong class="num"><span id="bal-credit">Unavailable</span> <small>HBAR</small></strong>
-            <small class="withdraw-action">Connect to withdraw</small>
-          </button>
-        </div>
-      </section>
-
       <aside class="order-panel" id="order-panel" data-stage="details" aria-labelledby="order-heading">
         <div class="order-panel-head">
           <div>
             <span class="section-kicker">Private until reveal</span>
             <h2 id="order-heading">Place an order</h2>
           </div>
-          <span class="draft-state" id="draft-state">Order details</span>
+          <div class="order-panel-meta">
+            <span class="draft-state" id="draft-state">Order details</span>
+            <details class="trade-balances">
+              <summary>
+                <span id="order-balance-label">HBAR available</span>
+                <strong class="num" id="order-balance-value">Connect wallet</strong>
+              </summary>
+              <div class="trade-balances-popout">
+                <div class="trade-balance-heading">
+                  <strong>Wallet balances</strong>
+                  <span class="account-grant" id="bal-kyc">Connect wallet</span>
+                </div>
+                <div class="trade-balance-grid">
+                  <div>
+                    <span>Free inventory</span>
+                    <strong class="num"><span id="bal-units">Unavailable</span> <small>LPRC</small></strong>
+                  </div>
+                  <div>
+                    <span>Reserved inventory</span>
+                    <strong class="num"><span id="bal-held">Unavailable</span> <small>LPRC</small></strong>
+                  </div>
+                  <div>
+                    <span>Wallet balance</span>
+                    <strong class="num" id="bal-hbar">Unavailable</strong>
+                  </div>
+                </div>
+                <button type="button" class="credit-balance" id="withdraw" aria-haspopup="dialog" aria-controls="withdraw-modal" disabled>
+                  <span>Trading credit</span>
+                  <strong class="num"><span id="bal-credit">Unavailable</span> <small>HBAR</small></strong>
+                  <small class="withdraw-action">Connect to withdraw</small>
+                </button>
+              </div>
+            </details>
+          </div>
         </div>
 
         <section class="order-stage stage-details" data-order-stage="details" aria-label="Order details">
@@ -178,7 +189,6 @@ document.documentElement.setAttribute("data-theme",
             <button type="button" role="radio" aria-checked="true" data-side="0"><span class="dia" aria-hidden="true"></span>Buy</button>
           </div>
           <input type="hidden" id="side" value="0">
-          <p class="side-explainer" id="sideHint"></p>
 
           <div class="order-fields">
             <div class="order-field">
@@ -222,53 +232,39 @@ document.documentElement.setAttribute("data-theme",
             <small id="details-estimate-note">Deposit and future obligations appear during review.</small>
           </div>
 
-          <label class="restore-ticket">
-            <input id="load-ticket" type="file" accept="application/json,.json">
-            Restore a saved order
-          </label>
         </section>
 
-        <section class="order-stage stage-review" data-order-stage="review" aria-label="Review and prepare" hidden>
+        <section class="order-stage stage-review" data-order-stage="review" aria-label="Review order" hidden>
           <div class="review-heading">
-            <span>Review and prepare</span>
+            <span>Review order</span>
             <strong id="review-order">Order summary</strong>
           </div>
           <div class="order-summary" aria-live="polite">
             <div><span id="summary-limit-label">Order value at limit</span><strong class="num" id="summary-limit">Enter order details</strong></div>
-            <div><span>Commit deposit</span><strong class="num" id="summary-deposit">Loading</strong></div>
-            <div><span id="summary-reveal-label">Bonds to reserve</span><strong class="num" id="summary-reveal">Loading</strong></div>
-            <div><span>Network fees</span><strong id="summary-network">Shown by wallet</strong></div>
-            <div class="summary-total"><span id="summary-total-label">Cash required before fees</span><strong class="num" id="summary-total">Enter order details</strong></div>
-          </div>
-          <p class="summary-note" id="escrowHint">Network fees are separate.</p>
-
-          <div class="future-obligation">
-            <strong>After submission</strong>
-            <p id="future-obligation-copy">You must reveal in a later wallet transaction before the deadline. Matching, settlement, and withdrawal remain separate.</p>
+            <div><span>Deposit when placing</span><strong class="num" id="summary-deposit">Loading</strong></div>
+            <div><span id="summary-reveal-label">At reveal</span><strong class="num" id="summary-reveal">Loading</strong></div>
           </div>
 
-          <div class="recovery-callout">
-            <span class="recovery-mark" aria-hidden="true"></span>
-            <div>
-              <strong>Back up the reveal key before submitting</strong>
-              <p>This local file requires no wallet approval. Losing every copy can forfeit the full deposit.</p>
-            </div>
+          <div class="future-obligation compact">
+            <strong>Reveal window</strong>
+            <p id="future-obligation-copy">Reveal timing will appear here.</p>
           </div>
 
           <div id="hold-field" class="hold-option" hidden>
             <div>
-              <strong id="hold-label">Sell inventory reservation</strong>
-              <p id="hold-status">A separate wallet transaction must reserve enough LPRC before reveal.</p>
+              <strong id="hold-label">Sell inventory</strong>
+              <p id="hold-status">The venue will reserve the required LPRC before placing this order.</p>
             </div>
             <input type="hidden" id="holdId" autocomplete="off">
             <select id="hold-pick" hidden aria-labelledby="hold-label"></select>
-            <button type="button" id="hold">Reserve now</button>
           </div>
 
           <details class="review-detail">
-            <summary>Commitment and recovery details</summary>
+            <summary>Fees, timing, and recovery</summary>
             <div class="review-detail-body">
+              <p class="summary-note" id="escrowHint">Network fees are separate.</p>
               <p>Only the commitment identifier is submitted first. Side, price, and quantity become public when you reveal.</p>
+              <div class="device-vault-state" id="device-vault-state" role="status">Preparing encrypted storage on this device.</div>
               <div class="words-slot" id="words">
                 <div class="empty">Connect the submitting wallet to preview the sealed payload.</div>
               </div>
@@ -288,26 +284,10 @@ document.documentElement.setAttribute("data-theme",
               </div>
               <div class="option-actions">
                 <button type="button" id="reroll">Draw a new key</button>
-                <button type="button" id="save-ticket">Download another copy</button>
+                <button type="button" id="save-ticket">Export this order</button>
               </div>
             </div>
           </details>
-        </section>
-
-        <section class="order-stage stage-submit" data-order-stage="submit" aria-label="Submit order" hidden>
-          <div class="submit-summary">
-            <span>Ready for wallet approval</span>
-            <strong id="submit-order">Order details</strong>
-            <small id="submit-deposit">Deposit loading</small>
-          </div>
-          <div class="wallet-expectation">
-            <strong>What this transaction does</strong>
-            <p>Submits only the sealed commitment and deposit. It does not reveal, match, settle, or withdraw the order.</p>
-          </div>
-          <div class="future-obligation compact">
-            <strong>Still required afterward</strong>
-            <p id="submit-future-copy">Return to reveal before the deadline. A buy funds its limit value at reveal; a sell needs reserved LPRC.</p>
-          </div>
         </section>
 
         <section class="order-stage stage-track" data-order-stage="track" aria-label="Track order" hidden>
@@ -320,6 +300,12 @@ document.documentElement.setAttribute("data-theme",
             <span>Personal deadline</span>
             <strong id="track-deadline">Loading</strong>
           </div>
+          <details class="review-detail">
+            <summary>Changing or recovering this order</summary>
+            <div class="review-detail-body">
+              <p>Placed price and quantity are immutable. Before reveal, cancel and create a new order to change them. A compatible LPRC reservation can be reused.</p>
+            </div>
+          </details>
         </section>
 
         <div class="order-blocker" id="order-blocker" hidden></div>
@@ -364,7 +350,7 @@ document.documentElement.setAttribute("data-theme",
             <h2 id="sealed-heading">Your orders</h2>
           </div>
           <div class="order-vault-actions">
-            <button type="button" id="save-vault">Back up keys</button>
+            <button type="button" id="save-vault">Export backup</button>
             <label class="file-btn">
               <input id="load-vault" type="file" accept="application/json,.json">
               Restore backup
@@ -372,8 +358,8 @@ document.documentElement.setAttribute("data-theme",
           </div>
         </div>
         <div class="vault-warning">
-          <strong>Keep reveal keys outside this browser.</strong>
-          <span>They do not follow you to another device. Portable JSON backups contain unencrypted keys and must be stored securely.</span>
+          <strong>Reveal keys are encrypted on this device.</strong>
+          <span>They do not follow you to another device. Optional JSON exports contain unencrypted keys and must be stored securely.</span>
         </div>
         <div class="list order-list" id="tickets"></div>
       </section>
@@ -464,6 +450,7 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/commitment.mjs*/
 /*INLINE tools/lattice.mjs*/
 /*INLINE tools/client-bundle.mjs*/
+/*INLINE tools/ticket-vault.mjs*/
 /*INLINE tools/venue-app.mjs*/
 /*INLINE tools/venue-obs.mjs*/
 Venue.boot("trade");
