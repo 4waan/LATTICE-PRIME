@@ -84,6 +84,26 @@ unit. `CouponDistributor` publishes the same number through
 `payingAgentFeeBps()`. `make client` checks the contract value against the live
 HTS fee schedule and fails on drift.
 
+## Coupon and bond lifecycle evidence
+
+`bond-coupon-zero.json` closes the first coupon on the canonical LPRC bond. Its
+entitlement tree is rebuilt from archive block `40259002`, the last complete
+Hedera block before coupon due. The record includes free, held, locked, cleared,
+and frozen balances for every holder, the superseded oracle's pre-due
+425-basis-point fixing, the 75-basis-point spread, full funding, both claims, and
+the inclusive LPCASH fees. The canonical bond address and 2028 maturity do not
+change.
+
+`bond-lifecycle.json` is separate nonproduction evidence. ATS bond
+`0.0.10455763` issued 10,000 units to one eligible holder, registered its coupon
+before record date, materialised snapshot 1, paid 190 gross LPCASH units, and
+redeemed the full supply after maturity. Its schedule and distributor are also
+recorded there. None of the three demo addresses appears in `client.json`.
+
+Run `make bond-lifecycle-verify` to rebuild both Merkle trees from independent
+chain reads and replay all 16 transaction receipts plus six contract identities
+through Mirror Node. The committed records pass 273 assertions.
+
 ## RepoVault v5 and its evidence
 
 The client is bound to production
