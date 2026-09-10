@@ -118,11 +118,20 @@ venue/app/vendor/ethers-6.13.5.umd.min.js
     ethers.js v6.13.5, MIT, copyright Richard Moore and contributors, from
     https://github.com/ethers-io/ethers.js
 
-    Vendored deliberately rather than fetched from a CDN: the client is six
-    static files with no bundler and no backend, and a demonstration must not
-    depend on a third-party host answering. Byte for byte the file that was
-    previously loaded from cdn.jsdelivr.net, unmodified, sha256
+    Vendored deliberately rather than fetched from a CDN: the browser bundle
+    has no package-manager runtime dependency, and a demonstration must not
+    depend on a third-party asset host answering. Byte for byte the file that
+    was previously loaded from cdn.jsdelivr.net, unmodified, sha256
     c8550f9644492f2d1278467b301c615c768a0d61d5c22d5bcd107ec7c9cbd329
+
+ethers
+
+    ethers.js v6.17.0, MIT, copyright Richard Moore and contributors, from
+    https://github.com/ethers-io/ethers.js
+
+    Installed from the root package lock for the same-origin sponsored
+    eligibility function. It connects the server-held sponsor account to the
+    configured registration gate and is never inlined into a browser page.
 
 @hiero-ledger/sdk
 

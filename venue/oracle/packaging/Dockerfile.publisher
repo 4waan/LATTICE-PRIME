@@ -1,0 +1,22 @@
+FROM node:22.21.1-bookworm-slim
+
+WORKDIR /opt/toolchain
+COPY toolchain/package.json toolchain/package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+WORKDIR /srv/venue
+COPY venue/oracle ./oracle
+COPY venue/tools/hcs-chain.mjs ./tools/hcs-chain.mjs
+COPY venue/deployments ./deployments
+RUN ln -s /opt/toolchain/node_modules ./node_modules \
+    && mkdir -p /state \
+    && chown -R node:node /state
+
+USER node
+ENV NODE_ENV=production
+ENV ORACLE_STATE_ROOT=/state
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD ["node", "oracle/healthcheck.mjs"]
+
+ENTRYPOINT ["node", "oracle/publisher.mjs"]

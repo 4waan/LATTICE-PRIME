@@ -10,9 +10,12 @@ const obligationId = "0x" + "22".repeat(32);
 function harness() {
     const elements = new Map();
     const copied = [];
+    const financingEvidence = {};
     const element = (id) => {
         if (!elements.has(id)) elements.set(id, {
             textContent: "", innerHTML: "", value: "", querySelectorAll: () => [],
+            className: "", hidden: false,
+            classList: {add: () => {}, remove: () => {}, toggle: () => {}},
             focus: () => {}, select: () => {},
         });
         return elements.get(id);
@@ -21,14 +24,22 @@ function harness() {
     runInNewContext(source, {
         Venue, $: element, esc: String, shortId: String, shortAddr: String,
         asBig: BigInt, fmtRemain: String, addrEq: (a, b) => a === b,
-        CLIENT: {addresses: {RepoVault: "vault"}},
+        decodeRevert: (error) => ({message: error.message}),
+        formatPrice: String, readableHbar: String, explorerAddr: String,
+        WEIBAR_PER_TINYBAR: 10_000_000_000n,
+        CLIENT: {
+            addresses: {RepoVault: "vault", PrimeOracle: "oracle"},
+            network: {chainId: 296, explorer: "https://example.test", mirror: "https://mirror.test"},
+        },
+        FINANCING_EVIDENCE: financingEvidence,
+        ORACLE_TOPICS: [],
         ZERO: "zero", G: {EXACT: 4}, T: {IMM: 0},
         nowSec: () => 1_000n,
         navigator: {clipboard: {writeText: async (value) => copied.push(value)}},
         document: {execCommand: () => false},
         setTimeout: () => {},
     });
-    return {Venue, element, copied};
+    return {Venue, element, copied, financingEvidence};
 }
 
 test("order sides render as Buy or Sell instead of enum values", () => {
@@ -36,6 +47,69 @@ test("order sides render as Buy or Sell instead of enum values", () => {
     assert.equal(Venue.fmtLogArg("side", 0n), "Buy");
     assert.equal(Venue.fmtLogArg("side", 1n), "Sell");
     assert.equal(Venue.fmtLogArg("side", 2n), "Unavailable");
+});
+
+test("dark oracle names the expired heartbeat and missing publisher", async () => {
+    const {Venue, element} = harness();
+    const publisherA = "0x" + "aa".repeat(20);
+    const publisherB = "0x" + "bb".repeat(20);
+    Venue.page = "repo";
+    Venue.c.oracleScheduler = null;
+    Venue.c.watch.feed = async () => ({
+        dark: true,
+        ourLegDark: true,
+        cashLegDark: false,
+        cleanPrice: 10_000_000_000n,
+        refRateBps: 364n,
+        publishedAt: 100n,
+        usdPerHbar: 8_000_000n,
+        markPerUnitTinybar: 0n,
+        cashFeed: "cash",
+    });
+    Venue.c.oracle = {
+        publishers: async () => [publisherA, publisherB],
+        quorum: async () => 2n,
+        heartbeat: async () => 100n,
+        cashHeartbeat: async () => 200n,
+        maxDeviationBps: async () => 500n,
+        lastRound: async () => 2n,
+        openRound: async () => 3n,
+        cashLeg: async () => ({updatedAt: 1_000n}),
+        panelOf: async () => [{by: publisherA}],
+    };
+    await Venue.refreshOracle();
+    assert.equal(element("feed-open").innerHTML, "1 of 2 for round 3");
+    assert.match(element("feed-failure").textContent, /panel heartbeat expired/i);
+    assert.match(element("feed-failure").textContent, /missing 0xbb/);
+    assert.match(element("feed-countdown").textContent, /Expired/);
+    assert.equal(element("feed-scheduler").textContent, "Not deployed");
+
+    Venue.c.watch.feed = async () => ({
+        dark: false,
+        ourLegDark: false,
+        cashLegDark: false,
+        cleanPrice: 10_000_000_000n,
+        refRateBps: 364n,
+        publishedAt: 950n,
+        usdPerHbar: 8_000_000n,
+        markPerUnitTinybar: 125_000_000n,
+        cashFeed: "cash",
+    });
+    Venue.c.oracle.lastRound = async () => 3n;
+    Venue.c.oracle.openRound = async () => 4n;
+    Venue.c.oracle.panelOf = async () => [];
+    await Venue.refreshOracle();
+    assert.equal(element("feed-state").innerHTML, "live");
+    assert.equal(element("feed-price").innerHTML, "10000000000 USD");
+    assert.equal(element("feed-failure").hidden, true);
+
+    Venue.c.watch.feed = async () => {
+        throw new Error("testnet RPC timed out");
+    };
+    assert.equal(await Venue.pollOracle(), false);
+    assert.equal(element("feed-state").textContent, "RPC unavailable");
+    assert.equal(element("feed-price").textContent, "Unavailable");
+    assert.match(element("feed-failure").textContent, /RPC refresh failed.*timed out/);
 });
 
 test("scheduled obligation identifiers never become repo positions", async () => {
@@ -68,6 +142,69 @@ test("the lender can copy the agreement id for the named borrower", async () => 
 
     assert.deepEqual(copied, [repoId]);
     assert.equal(element("fin-id-copy").textContent, "Copied");
+});
+
+test("verified financing receipts render automatic, historical, and lifecycle links", () => {
+    const {Venue, element, financingEvidence} = harness();
+    financingEvidence.automatic = {
+        id: repoId,
+        vault: {contractId: "0.0.3"},
+        cash: {principalTinybar: "100"},
+        receipts: {
+            accept: {tx: "0xaccept", hashscan: "https://hashscan.test/accept"},
+        },
+        automaticSettlement: {
+            result: "SUCCESS",
+            executionDelaySeconds: 2,
+            evmBlockTimestamp: 1_000,
+            hashscan: "https://hashscan.test/automatic",
+        },
+    };
+    financingEvidence.production = {
+        id: repoId,
+        cash: {principalTinybar: "100", closePaidTinybar: "101"},
+        receipts: {
+            fundOffer: {tx: "0xfund", hashscan: "https://hashscan.test/fund"},
+            close: {tx: "0xclose", hashscan: "https://hashscan.test/close"},
+            settleFailFallback: {
+                tx: "0xfallback",
+                hashscan: "https://hashscan.test/fallback",
+            },
+        },
+        hssBoundary: {
+            scheduledExecution: {hashscan: "https://hashscan.test/scheduled"},
+            manualFallback: {result: "SETTLED"},
+        },
+    };
+    financingEvidence.lifecycle = {
+        position1: {id: repoId},
+        position2: {id: obligationId},
+        deployment: {
+            contracts: {
+                RepoVault: {contractId: "0.0.1"},
+                MarginWatch: {contractId: "0.0.2"},
+            },
+        },
+        receipts: {
+            "position1-mark": {tx: "0xmark", hashscan: "https://hashscan.test/mark"},
+            "position2-settle-default": {
+                tx: "0xdefault",
+                hashscan: "https://hashscan.test/default",
+            },
+        },
+    };
+    Venue.paintFinancingEvidence();
+    assert.match(element("fin-evidence").innerHTML, /fundOffer/);
+    assert.match(element("fin-evidence").innerHTML, /automatic HSS success/);
+    assert.match(element("fin-evidence").innerHTML, /0\.0\.3/);
+    assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/automatic/);
+    assert.match(element("fin-evidence").innerHTML, /markToMarket/);
+    assert.match(element("fin-evidence").innerHTML, /settleDefault/);
+    assert.match(element("fin-evidence").innerHTML, /Fallback settled/);
+    assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/scheduled/);
+    assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/fallback/);
+    assert.match(element("fin-evidence").innerHTML, /0\.0\.1/);
+    assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/default/);
 });
 
 test("penalty display preserves hundredths of a basis point per day", async () => {

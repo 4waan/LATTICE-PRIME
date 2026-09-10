@@ -21,7 +21,8 @@
   same `MerkleSet` machinery `ParameterRoot` uses, so the repo has one merkle
   discipline. Funded before declared, claimed once, swept after the window.
   `RepoVault.noteCoupon` derives the commitment instead of taking a caller's
-  word for it, and `payThrough` moves a lender's coupon to the borrower
+  word for it. Under ATS hold custody the borrower keeps title and receives the
+  issuer coupon directly, so `payThrough` explicitly refuses a duplicate payment
 - The paying agent's fee: an HTS fractional custom fee, published as a tariff
   line and reconciled against the token's live fee schedule rather than charged
   here. `docs/RULEBOOK.md` §8

@@ -37,10 +37,10 @@ The market already has scale: Broadridge reported **$7.5 trillion in repo transa
 
 The names below are the names in the app. Go straight from an explanation to the screen that implements it.
 
-- **[Markets](https://lattice-prime.vercel.app/trade.html): place a sealed order.** Inspect LPRC, its price reference and auction clock. Commit a buy or sell, reveal in the permitted window, and inspect publication limits. Both sides clear at a uniform auction price.
+- **[Markets](https://lattice-prime.vercel.app/trade.html): place a sealed order.** Inspect LPRC, its price reference and auction clock. The app encrypts the reveal key on the device, sequences sell reservation when needed, and keeps the next action in the order panel. Both sides clear at a uniform auction price.
 - **[Portfolio](https://lattice-prime.vercel.app/position.html): follow your position.** Read available and held bond balances, settlement credits, and coupon information for the selected account.
-- **[Financing](https://lattice-prime.vercel.app/repo.html): inspect collateral-backed funding.** Explore the repo workflow and deployment readiness. Funded-offer writes require a compatible vault; see [deployment status](#what-is-live-and-what-is-next).
-- **[Eligibility](https://lattice-prime.vercel.app/prove.html): prove you qualify.** Load a proof, inspect public signals, and check the gate's policy preflight before registration. Built-in issuer examples are bound to demo accounts, so reviewers can inspect the flow without creating a credential first.
+- **[Financing](https://lattice-prime.vercel.app/repo.html): fund against tokenised collateral.** RepoVault v5 is bound live. Eligible lenders can fund offers, named borrowers can accept them against ATS holds, and both parties can follow margin, coupon, fail, close, and default evidence.
+- **[Eligibility](https://lattice-prime.vercel.app/prove.html): confirm private access.** Connect a matching wallet and one action restores its account-bound proof, checks the live policy, and asks the venue relay to sponsor registration. Proof import and public signals remain available under recovery details.
 - **[Issuer](https://lattice-prime.vercel.app/venue.html): inspect the venue's rules.** Read governance, policy, published disclosures, and the HCS record. Follow the evidence out to Hedera and verify it independently.
 
 The app's **README** links bring you back here for the mechanism, setup, and evidence behind those screens.
@@ -67,7 +67,8 @@ This visual summarises [recorded testnet evidence](venue/deployments/receipt-bea
 - [First cancellation on HashScan](https://hashscan.io/testnet/transaction/0xa7e2287bec0fadcdeccc3c3484acab1d081eae2a6eca219b20b76b80c41950f3): success, cancellation and disclosure-charge logs, 118,154 gas.
 - [Second cancellation on HashScan](https://hashscan.io/testnet/transaction/0x2885d8da867b1cab43863698895a2bf78fb35114743a33849ba5f771cc707594): success, zero logs, 60,090 gas.
 - [HCS topic 0.0.10397186](https://hashscan.io/testnet/topic/0.0.10397186): the ordered disclosure record, including the silence at sequence 2.
-- [Saved HCS verification](venue/deployments/hcs-verify.json): **1,175 assertions, zero failures**, recorded on 9 September 2026. Re-run the verifier to check the current topic.
+- [Saved HCS verification](venue/deployments/hcs-verify.json): **2,002 assertions, zero failures**, recorded on 10 September 2026 over 220 messages, including two range anchors whose hashes were recomputed from 2,376 `spentBits` cells read off the contracts. Re-run the verifier to check the current topic.
+- [Committed HCS index](venue/deployments/hcs-index.json): the topic replayed into the projection the Issuer screen boots from. The verifier rebuilds it from the mirror node and fails if the two disagree.
 - [Completed auction settlement](https://hashscan.io/testnet/transaction/0x82f439ba50b8d575e5207bb3431852679a7b248568cebdd01104113e6081cb68): [deployment evidence](venue/deployments/296-venue.json) records 1,000 bond units crossing at a uniform price between the two limits.
 - [Source verification records](venue/deployments/296-venue.json): the `sourcify` section identifies verified contract releases. The current source and the deployed release are distinguished below.
 
@@ -77,11 +78,11 @@ The relay's claims are checked against transaction receipts, governed budgets, a
 
 ## How a trade works
 
-**Prove → Commit → Reveal → Settle → Verify**
+**Access → Commit → Reveal → Settle → Verify**
 
 ```mermaid
 flowchart LR
-    A[Eligibility proof] --> B[Registration gate]
+    A[Private access check] --> B[Registration gate]
     B --> C[ATS eligibility registry]
     D[32-byte order commitment] --> E[Reveal window]
     E --> F[Uniform-price auction]
@@ -94,7 +95,7 @@ flowchart LR
     K --> L[Independent verification]
 ```
 
-**Prove the attributes.** A PLONK circuit checks credential membership, expiry, tier, and jurisdiction. The registration gate pins the issuer root, epoch, account, and required policy. ATS reads the resulting eligibility grant at its supported transfer checks.
+**Confirm access.** A PLONK circuit checks credential membership, expiry, tier, and jurisdiction. The registration gate pins the issuer root, epoch, account, and required policy. The user sees one private-access action, while the venue relay can pay for registration. ATS reads the resulting eligibility grant at its supported transfer checks.
 
 **Seal the intent.** Side, price, quantity, and salt are absent from the commit call. Cancellation closes when reveal opens, preventing a trader from observing a reveal and then cancelling within that same order's cancellation window.
 
@@ -115,9 +116,9 @@ Each integration has a job in the product:
 - **Asset Tokenization Studio:** LPRC is issued through Hashgraph's ATS v8.0.0 factory and resolver. The venue attaches eligibility and compliance contracts to the asset and uses ATS partition holds for settlement. [Bond on HashScan](https://hashscan.io/testnet/contract/0.0.10381562) · [ATS integration](venue/script/DeployAtsBond.s.sol).
 - **Smart Contract Service:** Solidity contracts verify eligibility, clear auctions, enforce policy, and implement the repo lifecycle. [Matching engine](venue/src/market/MatchingEngine.sol) · [Registration gate](venue/src/kyc/RegistrationGate.sol) · [Repo vault](venue/src/repo/RepoVault.sol).
 - **Hedera Token Service:** a separate native HTS coupon cash token carries an inclusive 25-basis-point fractional fee. The distributor requires funding before declaration and prevents duplicate claims. [LPCASH on HashScan](https://hashscan.io/testnet/token/0.0.10419905) · [Distributor](venue/src/coupon/CouponDistributor.sol).
-- **Hedera Consensus Service:** the relay publishes charges, refusals, qualifying silences, and checkpoints. The verifier reconciles them against the EVM record. [Relay](venue/tools/hcs-relay.mjs) · [Verifier](venue/tools/hcs-verify.mjs).
-- **Hedera Schedule Service:** lifecycle hooks attempt native scheduling through `0x16b` for maturity and coupon observations. Capacity and funding are checked; permissionless manual calls remain available. [Scheduling implementation](venue/src/schedule/ScheduledSettlement.sol).
-- **Exchange rate and mirror nodes:** `HederaRateFeed` wraps `0x168` for HBAR/USD; `PrimeOracle` combines it with a quorum-median bond price. Mirror nodes supply transaction history and HCS records. The network rate is governed, not exchange-derived. [Oracle](venue/src/oracle/PrimeOracle.sol) · [Rate adapter](venue/src/oracle/HederaRateFeed.sol).
+- **Hedera Consensus Service:** the disclosure relay publishes charges, refusals, qualifying silences, checkpoints, and range anchors. Oracle publishers use separate immutable topics to record canonical source evidence before broadcasting each matching EVM answer. The independent verifier checks both records against Mirror Node. [Disclosure verifier](venue/tools/hcs-verify.mjs) · [Oracle verifier](venue/oracle/verify-evidence.mjs).
+- **Hedera Schedule Service:** lifecycle hooks use `0x16b` for maturity and coupon observations. The economic due time stays strict, while HSS executes two seconds later to tolerate Hedera's measured consensus/EVM clock boundary. Oracle finalization uses one event-driven check after an answer, bounded 5, 15, and 60-minute retries, and a hard per-round cap. It stops after successful quorum instead of running a permanent timer. [Lifecycle scheduling](venue/src/schedule/ScheduledSettlement.sol) · [Oracle scheduling](venue/src/oracle/OracleScheduler.sol).
+- **Exchange rate and mirror nodes:** `HederaRateFeed` wraps `0x168` for Hedera network HBAR/USD conversion. It is governed network state, not market spot, so publishers cross-check it against market HBAR/USD. Qualified, non-synthetic auction prints lead the bond price; fixed-point model plus signed-dealer quorum is the fallback. SOFR comes from the official NY Fed API. [Oracle runbook](venue/docs/ORACLE-RUNBOOK.md) · [Rate adapter](venue/src/oracle/HederaRateFeed.sol).
 
 The bond is an ATS security contract. LPCASH is a native HTS token. Trading settles in HBAR. These are separate assets and settlement roles.
 
@@ -130,13 +131,17 @@ The primary fit is Hedera's **Tokenization of Anything** track: an ATS-issued as
 
 ## What is live, and what is next
 
-**On testnet:** the ATS bond, PLONK registration, secondary-market engine, policy stack, disclosure receipt, HCS topic, price adapters, coupon contracts, and an earlier scheduled repo vault. The [address book](venue/deployments/client.json) binds the app to specific deployments; [deployment records](venue/deployments/296-venue.json) retain transaction evidence and superseded addresses.
+**On testnet:** the ATS bond, PLONK registration, secondary-market engine, policy stack, disclosure receipt, HCS topics, live hybrid oracle, bounded HSS finalizer, coupon contracts, and timestamp-tolerant [RepoVault v5](https://hashscan.io/testnet/contract/0.0.10454144) with its bound [MarginWatch](https://hashscan.io/testnet/contract/0.0.10454146). The [address book](venue/deployments/client.json) enables financing writes only after reading `FINANCING_VERSION = 5`, checking every immutable dependency, and matching the live runtime bytecode hash.
 
-**Implemented beyond the bound deployment:** the current `RepoVault` source exposes `FINANCING_VERSION = 5`, with funded offers, collateral custody, repayment, eligibility checks, and historical coupon fixings. The bound vault predates that interface, so the app disables those financing writes. Contract tests cover the new source; deployment and a fresh financing demonstration remain next steps.
+**Automatic HSS settlement, completed on the bound vault:** the compressed canary records [fundOffer](https://hashscan.io/testnet/transaction/0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91), [accept and create ATS hold 44](https://hashscan.io/testnet/transaction/0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789), and [close and release](https://hashscan.io/testnet/transaction/0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01). The lender advanced 1,273.52970084 HBAR and received 1,273.53024602 HBAR at close. The repo closed before its 300-second maturity, leaving a safe no-op observation for HSS. Its [scheduled transaction](https://hashscan.io/testnet/transaction/0.0.7314364@1789020209.540687199) expired at economic due plus two seconds, returned `SUCCESS`, ran in an EVM block timestamped exactly at economic due, settled the obligation, and released the five-HBAR reservation without a manual `settle` receipt. [Automatic canary record](venue/deployments/financing-hss-canary.json).
+
+**Historical boundary and fallback:** the previous RepoVault `0.0.10452732` completed the longer normal funded repo, but its exact-due HSS call encountered an EVM block timestamp one second before maturity. The strict guard reverted safely, then the [permissionless fallback](https://hashscan.io/testnet/transaction/0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca) settled it. That callable superseded vault retains an unreserved 19.9696972 HBAR because its interface has no operator withdrawal path. Nothing was migrated or deleted. [Historical receipt record](venue/deployments/financing-beat.json).
+
+**Complete lifecycle, demonstrated separately:** a clearly labelled compressed testnet vault proved a live-feed margin call, added collateral, cure, a nonzero historical-fixing coupon, an unmarked maturity fail, a 166,077 tinybar CSDR Article 7 penalty, default after grace, and execution of 128 ATS bond units to the lender. Both unfunded HSS attempts emitted decoded `UNFUNDED (-3)` receipts and completed through the permissionless fallback. [Complete lifecycle record](venue/deployments/financing-lifecycle.json).
 
 **Lattice Claw:** the [companion agent preview](https://lattice-prime.vercel.app/claw/) is labelled coming soon. Its local runtime has [testnet execution evidence](venue/deployments/agent-phase2.json) and an [optional EZKL verifier deployment](venue/deployments/agent-ezkl-verifier.json). That verifier is an evidence sidecar; the matching engine does not use it to authorise or settle orders.
 
-**Next milestones:** bind the current financing contracts, demonstrate the complete coupon and maturity lifecycle, and test the workflow with an ATS issuer and a collateral operations team. Mid-term collateral substitution, liquidation auctions, cross-platform collateral mobility, and confidential settlement remain outside this release.
+**Next milestones:** test the workflow with an ATS issuer and a collateral operations team. Mid-term collateral substitution, liquidation auctions, cross-platform collateral mobility, and confidential settlement remain outside this release.
 
 ### Beyond the hackathon
 
@@ -160,6 +165,10 @@ python3 -m http.server 8080 --bind 127.0.0.1 --directory venue
 
 Open **[localhost:8080/app/](http://localhost:8080/app/)**. Live data needs network access. Browsing needs no key. Transactions need an ECDSA secp256k1 wallet, test HBAR, and any required eligibility grant. Proof examples are account-bound and expire with their KYC epoch.
 
+The plain static server does not provide sponsored registration. Run or deploy
+the same-origin API with the required secret configuration before using the
+one-button access action. See the [eligibility relay runbook](venue/docs/ELIGIBILITY-RELAY.md).
+
 ### Check the contracts and rebuild the client
 
 Use Foundry and Node.js 22. The Makefile defaults to the author's local NVM setup; `NODE=` below uses the Node 22 already on your PATH.
@@ -168,10 +177,20 @@ Use Foundry and Node.js 22. The Makefile defaults to the author's local NVM setu
 git submodule update --init --recursive
 cd venue
 forge test
+make financing-verify NODE=
 make app NODE=
 ```
 
-`make app` runs the client vectors and existing UI checks before rebuilding the pages from templates. The README preparation run passed **716 contract tests across 49 suites**, plus the app build checks. Solidity tests cover fuzzing, disclosure limits, refusal paths, settlement, and coupon accounting. [Contract tests and reference fixtures](venue/test/).
+`make financing-verify` checks the saved repo receipts, block times, ATS hold
+events, the current automatic HSS success, the historical boundary and manual
+fallback, coupon commitment, unfunded HSS reasons, and default execution
+against Mirror Node. `make app`
+runs the client vectors, UI checks, and sponsored-relay
+unit tests before rebuilding the pages from templates. Solidity tests cover
+fuzzing, disclosure limits, refusal paths, settlement, scheduling, and coupon
+accounting. The current runs passed **362 Mirror Node assertions across 32
+receipts**, plus **732 Solidity tests across 51 suites**.
+[Contract tests and reference fixtures](venue/test/).
 
 <details>
 <summary><strong>Re-check the HCS evidence or work on the proof toolchain</strong></summary>
@@ -182,9 +201,10 @@ From the repository root, with Node 22 active:
 npm ci --prefix toolchain
 cd venue
 node tools/hcs-verify.mjs
+node tools/hcs-index.mjs --check
 ```
 
-The verifier reads the existing topic and chain state. It does not submit transactions.
+The verifier reads the existing topic and chain state, recomputes every anchor's hash from the contracts, and rebuilds the committed index from the mirror node. `hcs-index.mjs --check` is the same rebuild without the chain reads. Neither submits transactions.
 
 Proof regeneration additionally needs Circom 2.2.3, the pinned snarkjs dependencies, and the public Powers of Tau transcript. The full proof and ATS census scripts still contain machine-specific paths, so `make all` is not a portable first-run command. See [build targets](venue/Makefile), [the circuit](venue/circuits/kyc.circom), and [toolchain dependencies](toolchain/package.json) before regenerating them. Existing fixtures suffice for the contract suite.
 
@@ -196,6 +216,7 @@ Proof regeneration additionally needs Circom 2.2.3, the pinned snarkjs dependenc
 - [venue/src/](venue/src/): eligibility, markets, repo, coupons, disclosure, policy, and scheduling contracts.
 - [venue/circuits/](venue/circuits/): eligibility circuit and proof builders.
 - [venue/tools/](venue/tools/): app generation, client calculations, HCS relay and verification.
+- [api/eligibility/](api/eligibility/): same-origin sponsored registration endpoint and tests.
 - [venue/test/](venue/test/): contract tests, invariants, and reference fixtures.
 - [venue/deployments/](venue/deployments/): public addresses, ABIs, proofs, and recorded runs.
 - [venue/docs/RULEBOOK.md](venue/docs/RULEBOOK.md): operating rules, publication policy, and tariff.

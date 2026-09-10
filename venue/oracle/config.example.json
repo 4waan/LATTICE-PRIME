@@ -1,0 +1,54 @@
+{
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "pollSeconds": 15,
+  "publishMoveBps": 25,
+  "keepaliveSeconds": 14400,
+  "scheduler": {
+    "address": null,
+    "retrySeconds": 300
+  },
+  "auction": {
+    "maximumAgeSeconds": 1800,
+    "minimumVolume": "10",
+    "minimumAggregateVolume": "25",
+    "maximumOutlierBps": "500",
+    "excludedAddresses": [
+      "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+      "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+      "0x6101ddC7f01b102759055905fa6F9834B94f4078",
+      "0x2a154462c1D75739B80B5451B55d06BB02266d8f",
+      "0xf28364FFe05A97986821285C769F82F5417F65a8",
+      "0x5Bc82B99A1F6daa847c1aa7AB397043DfB810A4c",
+      "0x71A15b55313737472e455F17eF79e117038ECa9E"
+    ]
+  },
+  "sofr": {
+    "maximumCalendarDays": 5,
+    "maximumBusinessDays": 2
+  },
+  "dealers": {
+    "endpoints": [],
+    "allowedAddresses": [],
+    "maximumAgeSeconds": 3600,
+    "maximumFutureSeconds": 30
+  },
+  "model": {
+    "requiredMarginBps": "75",
+    "minimumFallbackSources": 2,
+    "maximumCrossCheckBps": "300",
+    "requireCrossCheck": true
+  },
+  "hbarMarket": {
+    "address": "0xd4DC5F0a891381D09d6437482a0E4E2dca4ACCAa",
+    "required": true,
+    "maximumAgeSeconds": 93600,
+    "maximumDivergenceBps": "400"
+  },
+  "evidence": {
+    "topicMemo": "lattice-prime oracle evidence chain 296",
+    "maximumBroadcastDelaySeconds": 600,
+    "maximumVerificationDelaySeconds": 900,
+    "statusHeartbeatSeconds": 900
+  }
+}

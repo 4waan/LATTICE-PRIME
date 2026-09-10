@@ -1,0 +1,19 @@
+{
+  "schema": "lattice.oracle.topic.v1",
+  "createdAt": "2026-09-10T00:34:14.268Z",
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "topicId": "0.0.10450876",
+  "memo": "lattice-prime oracle evidence chain 296 buyer",
+  "publisher": {
+    "profile": "buyer",
+    "accountId": "0.0.10381640",
+    "evmAddress": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+    "publicKey": "302d300706052b8104000a03220002ad985133696b2b2443e06b6e3822f910c81affa5133a7a986196d66dd7dfbe52"
+  },
+  "keys": {
+    "adminKey": null,
+    "submitKey": "302d300706052b8104000a03220002ad985133696b2b2443e06b6e3822f910c81affa5133a7a986196d66dd7dfbe52"
+  },
+  "transactionId": "0.0.10381640@1789000447.050910121"
+}
