@@ -10,6 +10,21 @@ export class OracleConfigError extends Error {
     }
 }
 
+const ALLOWED_PUBLISHER_SECRET = "ORACLE_PUBLISHER_PRIVATE_KEY";
+const SECRET_ENV_NAME =
+    /(?:^|_)(?:KEY|PRIVATEKEY|SECRETKEY|MNEMONIC|SECRET|SEED|SEED_PHRASE)(?:_|$)/i;
+
+function inheritedSecretNames(env) {
+    return Object.keys(env)
+        .filter((name) =>
+            name !== ALLOWED_PUBLISHER_SECRET
+            && env[name] !== undefined
+            && env[name] !== ""
+            && SECRET_ENV_NAME.test(name),
+        )
+        .sort();
+}
+
 function rejectEmbeddedSecrets(value, path = "config") {
     if (!value || typeof value !== "object") return;
     for (const [key, child] of Object.entries(value)) {
@@ -41,23 +56,24 @@ export function loadOracleConfig(path = process.env.ORACLE_CONFIG ?? "oracle/con
     config.path = resolved;
     config.rpcUrl = process.env.HEDERA_TESTNET_RPC || process.env.HEDERA_RPC_URL || config.rpcUrl;
     config.mirrorUrl = process.env.HEDERA_MIRROR_URL || config.mirrorUrl;
+    config.sourceProfile = process.env.ORACLE_SOURCE_PROFILE ||
+        config.sourceProfile ||
+        "default";
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(config.sourceProfile)) {
+        throw new OracleConfigError(
+            "BAD_SOURCE_PROFILE",
+            "sourceProfile must be a safe nonempty identifier",
+        );
+    }
     return config;
 }
 
 export function loadPublisherIdentity(config, env = process.env, {requireTopic = true} = {}) {
-    const forbidden = Object.keys(env).filter((name) =>
-        /^ORACLE_PUBLISHER_\d+_PRIVATE_KEY$/.test(name) && env[name],
-    );
+    const forbidden = inheritedSecretNames(env);
     if (forbidden.length > 0) {
         throw new OracleConfigError(
             "MULTI_KEY_ENV",
-            `publisher process refuses shared key variables: ${forbidden.join(", ")}`,
-        );
-    }
-    if (env.HEDERA_PRIVATE_KEY) {
-        throw new OracleConfigError(
-            "MULTI_KEY_ENV",
-            "publisher process refuses HEDERA_PRIVATE_KEY; inject only ORACLE_PUBLISHER_PRIVATE_KEY",
+            `publisher process refuses inherited secret variables: ${forbidden.join(", ")}`,
         );
     }
     const privateKey = env.ORACLE_PUBLISHER_PRIVATE_KEY;
@@ -70,8 +86,8 @@ export function loadPublisherIdentity(config, env = process.env, {requireTopic =
     let wallet;
     try {
         wallet = new Wallet(privateKey);
-    } catch (error) {
-        throw new OracleConfigError("BAD_PRIVATE_KEY", `publisher key is invalid: ${error.message}`);
+    } catch {
+        throw new OracleConfigError("BAD_PRIVATE_KEY", "publisher key is invalid");
     }
     const expected = env.ORACLE_PUBLISHER_ADDRESS;
     if (expected && expected.toLowerCase() !== wallet.address.toLowerCase()) {

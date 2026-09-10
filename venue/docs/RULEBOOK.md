@@ -82,6 +82,12 @@ uses the live coupon schedule, official SOFR, the issue spread, and a configured
 required margin. A missing source is `SOURCE_QUORUM`, not permission to reuse a
 stale number.
 
+That is the production policy, not a claim about the current testnet
+counterparty. The testnet deployment uses a dedicated simulated dealer signer
+to exercise expiry, allowlisting, signature, digest, and HCS provenance. It is
+labelled `productionEligible: false`, is not counted as an institutional dealer,
+and must be replaced by an externally operated source before production.
+
 ### 4.1 Bounds on the venue's own leg
 
 - **Quorum.** A round is decided by a median over at least a strict majority of
