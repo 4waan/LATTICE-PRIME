@@ -1,0 +1,191 @@
+{
+  "schema": "lattice.bond.coupon-zero.v1",
+  "checkedAt": "2026-09-10T08:25:57+00:00",
+  "status": "complete",
+  "network": "hedera-testnet",
+  "canonical": true,
+  "bond": {
+    "address": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+    "contractId": "0.0.10381562",
+    "maturity": "1851703584"
+  },
+  "coupon": {
+    "schedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
+    "scheduleContractId": "0.0.10419923",
+    "distributor": "0x2DC04508Fa7FEde1BaAEBe4a525D63bef509C341",
+    "distributorContractId": "0.0.10419985",
+    "index": 0,
+    "dueAt": "1788866081",
+    "recordDate": "1788866081",
+    "declaredAt": "1789028257",
+    "lateBySeconds": "162176",
+    "claimsCloseAt": "1791620257"
+  },
+  "entitlement": {
+    "schema": "lattice.bond.coupon-entitlements.v1",
+    "generatedAt": "2026-09-10T08:25:11.329Z",
+    "network": "hedera-testnet",
+    "chainId": 296,
+    "kind": "canonical-lprc-coupon-zero",
+    "index": 0,
+    "bond": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+    "schedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
+    "distributor": "0x2DC04508Fa7FEde1BaAEBe4a525D63bef509C341",
+    "cashToken": "0x00000000000000000000000000000000009EFeC1",
+    "oracleAtRecordDate": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
+    "partition": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "recordDate": "1788866081",
+    "dueAt": "1788866081",
+    "accrualStart": "1788862481",
+    "cutoffBlock": {
+      "number": 40259002,
+      "mirrorHash": "0x5cff2a3b8545904e95675ae6db583ab71a66d927954854fc6e979ec0f4b771f3a612d60e011567484d34382d2427c225",
+      "evmHash": "0x5cff2a3b8545904e95675ae6db583ab71a66d927954854fc6e979ec0f4b771f3",
+      "evmTimestamp": 1788866078,
+      "consensusFrom": "1788866078.090381053",
+      "consensusTo": "1788866080.289848104",
+      "nextConsensusFrom": "1788866080.374524860",
+      "nextConsensusTo": "1788866082.397954583"
+    },
+    "fixing": {
+      "cleanPrice8": "10000000000",
+      "referenceRateBps": "425",
+      "spreadBps": "75",
+      "couponRateBps": "500",
+      "publishedAt": "1788863105"
+    },
+    "faceValueSmallestCashUnits": "10000",
+    "supplyAtRecordDate": "4000",
+    "totalLot": "4000",
+    "root": "0x2049da4b77b7591ca5b5eaa9630336861ed67d559a289a33e67a7b74ed63c8fd",
+    "width": 2,
+    "total": "228",
+    "holders": [
+      {
+        "holder": "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+        "free": "2000",
+        "held": "1000",
+        "locked": "0",
+        "cleared": "0",
+        "frozen": "0",
+        "lot": "3000",
+        "amount": "171",
+        "position": 0,
+        "proof": [
+          "0x794c0ca87b8537b4c3924450840d740e8e51da696a8dbe8eaf91377c0b0a16e2"
+        ]
+      },
+      {
+        "holder": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+        "free": "1000",
+        "held": "0",
+        "locked": "0",
+        "cleared": "0",
+        "frozen": "0",
+        "lot": "1000",
+        "amount": "57",
+        "position": 1,
+        "proof": [
+          "0x3da3e9e95dbaf08d7798f8888d14cbdc85800b1263c3cd05959bad01af385571"
+        ]
+      }
+    ],
+    "excludedZeroAmountHolders": []
+  },
+  "cash": {
+    "address": "0x00000000000000000000000000000000009efec1",
+    "tokenId": "0.0.10419905",
+    "decimals": 2,
+    "fractionalFee": {
+      "numerator": 25,
+      "denominator": 10000,
+      "basisPoints": 25,
+      "minimum": 1,
+      "maximum": null,
+      "netOfTransfers": false,
+      "collector": "0.0.10301312"
+    },
+    "gross": "228",
+    "feeSmallestUnits": "2",
+    "netToHolders": "226",
+    "before": {
+      "issuer": "100000000",
+      "seller": "0",
+      "buyer": "0",
+      "distributor": "0"
+    },
+    "after": {
+      "issuer": "99999774",
+      "seller": "170",
+      "buyer": "56",
+      "distributor": "0"
+    }
+  },
+  "receipts": {
+    "associate-buyer": {
+      "tx": "0x6cf4a266dbf843c0a885879819fbc14ef9ef2a029d08f9923002af28b467dd3f",
+      "status": "0x1",
+      "gasUsed": "729234",
+      "block": 40335134,
+      "blockTimestamp": 1789028240,
+      "blockTime": "2026-09-10T08:17:20+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x6cf4a266dbf843c0a885879819fbc14ef9ef2a029d08f9923002af28b467dd3f"
+    },
+    "associate-seller": {
+      "tx": "0xad6f90222181153c3f71ff5f47680305c16c3589799535361a55f9a8aaf28d2f",
+      "status": "0x1",
+      "gasUsed": "729234",
+      "block": 40335130,
+      "blockTimestamp": 1789028232,
+      "blockTime": "2026-09-10T08:17:12+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xad6f90222181153c3f71ff5f47680305c16c3589799535361a55f9a8aaf28d2f"
+    },
+    "claim-buyer": {
+      "tx": "0x6ea44f04aee5fadd470c6035c3f2a7008932d3c67155683ea5c09a56b534ed6f",
+      "status": "0x1",
+      "gasUsed": "95655",
+      "block": 40335153,
+      "blockTimestamp": 1789028282,
+      "blockTime": "2026-09-10T08:18:02+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x6ea44f04aee5fadd470c6035c3f2a7008932d3c67155683ea5c09a56b534ed6f"
+    },
+    "claim-seller": {
+      "tx": "0xeb8787e04645c181e2f18ae2aa67ab185bab729c80c4c3b5a5a9cd2c027bb7b5",
+      "status": "0x1",
+      "gasUsed": "105233",
+      "block": 40335150,
+      "blockTimestamp": 1789028275,
+      "blockTime": "2026-09-10T08:17:55+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xeb8787e04645c181e2f18ae2aa67ab185bab729c80c4c3b5a5a9cd2c027bb7b5"
+    },
+    "declare": {
+      "tx": "0xc10e07430521358fa1088d875682ac56502769deca59889598e9dcc4e1f6bad8",
+      "status": "0x1",
+      "gasUsed": "171228",
+      "block": 40335142,
+      "blockTimestamp": 1789028257,
+      "blockTime": "2026-09-10T08:17:37+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xc10e07430521358fa1088d875682ac56502769deca59889598e9dcc4e1f6bad8"
+    },
+    "fund": {
+      "tx": "0x55dd95cb5c09e996457e9713cfb132f2dc14fd249409675312ae9677ebd8c8b3",
+      "status": "0x1",
+      "gasUsed": "53695",
+      "block": 40335139,
+      "blockTimestamp": 1789028251,
+      "blockTime": "2026-09-10T08:17:31+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x55dd95cb5c09e996457e9713cfb132f2dc14fd249409675312ae9677ebd8c8b3"
+    }
+  },
+  "assertions": {
+    "canonicalBondUnchanged": true,
+    "recordDateSupplyReconciled": true,
+    "historicalFixingPrecedesDue": true,
+    "heldUnitsIncluded": true,
+    "declarationFullyFunded": true,
+    "bothProofsAccepted": true,
+    "bothHoldersClaimed": true,
+    "inclusiveHtsFeesReconciled": true,
+    "remainingAndCommittedZero": true
+  }
+}
