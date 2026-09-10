@@ -1,0 +1,266 @@
+{
+  "schema": "lattice.bond.lifecycle.v1",
+  "checkedAt": "2026-09-10T08:48:55+00:00",
+  "status": "complete",
+  "network": "hedera-testnet",
+  "productionBinding": false,
+  "canonicalBondUnchanged": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+  "deployment": {
+    "schema": "lattice.bond.lifecycle-deployment.v1",
+    "checkedAt": "2026-09-10T08:25:57+00:00",
+    "productionBinding": false,
+    "contracts": {
+      "Bond": {
+        "address": "0x5c766afd94bbd339c4e0ed66dd373b8eb76f4d6b",
+        "contractId": "0.0.10455763"
+      },
+      "CouponSchedule": {
+        "address": "0xa9d612563848b5d22599d0145679b502983636ab",
+        "contractId": "0.0.10455765"
+      },
+      "CouponDistributor": {
+        "address": "0xbe123277997cdf685130dff9da7d328162281718",
+        "contractId": "0.0.10455766"
+      }
+    },
+    "receipts": {
+      "deployBond": {
+        "tx": "0xd11aa1d976ebad89aa354ff3d805fe50b3eef83e74960f4be76c2440fe10f68b",
+        "status": "0x1",
+        "gasUsed": "8000324",
+        "block": 40335303,
+        "blockTimestamp": 1789028609,
+        "blockTime": "2026-09-10T08:23:29+00:00",
+        "hashscan": "https://hashscan.io/testnet/transaction/0xd11aa1d976ebad89aa354ff3d805fe50b3eef83e74960f4be76c2440fe10f68b"
+      },
+      "deployCouponSchedule": {
+        "tx": "0xed50b0952f269f546b103742913c059accacf9c9ae709b53207a7db2e2ffacf9",
+        "status": "0x1",
+        "gasUsed": "839329",
+        "block": 40335305,
+        "blockTimestamp": 1789028614,
+        "blockTime": "2026-09-10T08:23:34+00:00",
+        "hashscan": "https://hashscan.io/testnet/transaction/0xed50b0952f269f546b103742913c059accacf9c9ae709b53207a7db2e2ffacf9"
+      },
+      "deployCouponDistributor": {
+        "tx": "0xd03404f2f4424f8247ea3853199fe7cde31434c5258046bc01bddbc26408089c",
+        "status": "0x1",
+        "gasUsed": "1927528",
+        "block": 40335308,
+        "blockTimestamp": 1789028619,
+        "blockTime": "2026-09-10T08:23:39+00:00",
+        "hashscan": "https://hashscan.io/testnet/transaction/0xd03404f2f4424f8247ea3853199fe7cde31434c5258046bc01bddbc26408089c"
+      }
+    },
+    "terms": {
+      "issuedAt": "1789028303",
+      "recordDate": "1789029203",
+      "dueAt": "1789029503",
+      "maturity": "1789030103",
+      "couponRateBps": "500",
+      "referenceRateBps": "425",
+      "spreadBps": "75",
+      "faceValueSmallestCashUnits": "10000",
+      "claimWindowSeconds": "2592000"
+    }
+  },
+  "actors": {
+    "issuer": "0xcfc5923def1f25db05fe50754ef0822175afd449",
+    "holder": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d"
+  },
+  "issuance": {
+    "amount": "10000",
+    "supplyBefore": "0",
+    "holderBefore": "0",
+    "supplyAfterIssue": "10000"
+  },
+  "coupon": {
+    "atsCouponId": 1,
+    "distributorIndex": 0,
+    "snapshotId": "1",
+    "terms": {
+      "recordDate": "1789029203",
+      "executionDate": "1789029503",
+      "startDate": "1789028303",
+      "endDate": "1789029503",
+      "fixingDate": "1789029203",
+      "rate": "500",
+      "rateDecimals": "4",
+      "rateStatus": "1"
+    },
+    "referenceRateBps": "425",
+    "spreadBps": "75",
+    "root": "0x7cc37e99b71b058c167739973affc8a3589f2e8bfd1125feffa1fb754cca3def",
+    "grossSmallestCashUnits": "190",
+    "feeSmallestCashUnits": "1",
+    "netSmallestCashUnits": "189",
+    "declaredAt": "1789029525",
+    "entitlement": {
+      "schema": "lattice.bond.coupon-entitlements.v1",
+      "generatedAt": "2026-09-10T08:33:41.975Z",
+      "network": "hedera-testnet",
+      "chainId": 296,
+      "kind": "compressed-ats-bond",
+      "index": 0,
+      "atsCouponId": 1,
+      "bond": "0x5C766aFD94bbD339c4e0ED66DD373B8Eb76F4d6b",
+      "schedule": "0xa9d612563848B5d22599D0145679b502983636AB",
+      "distributor": "0xbE123277997CdF685130dFF9dA7d328162281718",
+      "snapshotId": "1",
+      "coupon": {
+        "recordDate": "1789029203",
+        "executionDate": "1789029503",
+        "startDate": "1789028303",
+        "endDate": "1789029503",
+        "fixingDate": "1789029203",
+        "rate": "500",
+        "rateDecimals": "4",
+        "rateStatus": "1"
+      },
+      "referenceRateBps": "425",
+      "cashDecimals": 2,
+      "supplyAtSnapshotRead": "10000",
+      "root": "0x7cc37e99b71b058c167739973affc8a3589f2e8bfd1125feffa1fb754cca3def",
+      "width": 1,
+      "total": "190",
+      "holders": [
+        {
+          "holder": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+          "tokenBalance": "10000",
+          "numerator": "600000000000",
+          "denominator": "315360000000",
+          "amount": "190",
+          "position": 0,
+          "proof": []
+        }
+      ]
+    }
+  },
+  "cash": {
+    "address": "0x00000000000000000000000000000000009efec1",
+    "tokenId": "0.0.10419905",
+    "before": {
+      "issuer": "99999774",
+      "seller": "170",
+      "buyer": "56",
+      "distributor": "0"
+    },
+    "after": {
+      "issuer": "99999585",
+      "buyer": "245",
+      "distributor": "0"
+    }
+  },
+  "redemption": {
+    "maturity": "1789030103",
+    "redeemed": "10000",
+    "supplyAfter": "0",
+    "holderAfter": "0"
+  },
+  "receipts": {
+    "deployBond": {
+      "tx": "0xd11aa1d976ebad89aa354ff3d805fe50b3eef83e74960f4be76c2440fe10f68b",
+      "status": "0x1",
+      "gasUsed": "8000324",
+      "block": 40335303,
+      "blockTimestamp": 1789028609,
+      "blockTime": "2026-09-10T08:23:29+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xd11aa1d976ebad89aa354ff3d805fe50b3eef83e74960f4be76c2440fe10f68b"
+    },
+    "deployCouponSchedule": {
+      "tx": "0xed50b0952f269f546b103742913c059accacf9c9ae709b53207a7db2e2ffacf9",
+      "status": "0x1",
+      "gasUsed": "839329",
+      "block": 40335305,
+      "blockTimestamp": 1789028614,
+      "blockTime": "2026-09-10T08:23:34+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xed50b0952f269f546b103742913c059accacf9c9ae709b53207a7db2e2ffacf9"
+    },
+    "deployCouponDistributor": {
+      "tx": "0xd03404f2f4424f8247ea3853199fe7cde31434c5258046bc01bddbc26408089c",
+      "status": "0x1",
+      "gasUsed": "1927528",
+      "block": 40335308,
+      "blockTimestamp": 1789028619,
+      "blockTime": "2026-09-10T08:23:39+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xd03404f2f4424f8247ea3853199fe7cde31434c5258046bc01bddbc26408089c"
+    },
+    "claim": {
+      "tx": "0x83e1082f71d8c882750d2b2ef23277f8babbbbfa56e35184ff26dfbcdecb0a9d",
+      "status": "0x1",
+      "gasUsed": "94545",
+      "block": 40335730,
+      "blockTimestamp": 1789029538,
+      "blockTime": "2026-09-10T08:38:58+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x83e1082f71d8c882750d2b2ef23277f8babbbbfa56e35184ff26dfbcdecb0a9d"
+    },
+    "declare": {
+      "tx": "0xb39ddbdd5d45a429dc6e6fdd90c07a0b66334d39312228eb54ee6a44072a4739",
+      "status": "0x1",
+      "gasUsed": "171228",
+      "block": 40335724,
+      "blockTimestamp": 1789029525,
+      "blockTime": "2026-09-10T08:38:45+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xb39ddbdd5d45a429dc6e6fdd90c07a0b66334d39312228eb54ee6a44072a4739"
+    },
+    "fund": {
+      "tx": "0x51b168eeadb1d83e19c00400525942815a38f989815ef14a8be5709445511932",
+      "status": "0x1",
+      "gasUsed": "53695",
+      "block": 40335721,
+      "blockTimestamp": 1789029518,
+      "blockTime": "2026-09-10T08:38:38+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x51b168eeadb1d83e19c00400525942815a38f989815ef14a8be5709445511932"
+    },
+    "issue": {
+      "tx": "0x55486b83ae478fdefeb58f8761f8723e323611d4d3ec9aaf33c8577d1f9e88e1",
+      "status": "0x1",
+      "gasUsed": "461510",
+      "block": 40335387,
+      "blockTimestamp": 1789028792,
+      "blockTime": "2026-09-10T08:26:32+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x55486b83ae478fdefeb58f8761f8723e323611d4d3ec9aaf33c8577d1f9e88e1"
+    },
+    "redeem-at-maturity": {
+      "tx": "0x78d43e038203bf6ba305eab2d06b4c6963d23ce9c3390b0370485184636dee84",
+      "status": "0x1",
+      "gasUsed": "885450",
+      "block": 40336000,
+      "blockTimestamp": 1789030116,
+      "blockTime": "2026-09-10T08:48:36+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x78d43e038203bf6ba305eab2d06b4c6963d23ce9c3390b0370485184636dee84"
+    },
+    "set-coupon": {
+      "tx": "0x5fd9f026e21966b3c9cdbc85f95003f41dfa224541881a6137a8ae8fb03f808b",
+      "status": "0x1",
+      "gasUsed": "628769",
+      "block": 40335393,
+      "blockTimestamp": 1789028805,
+      "blockTime": "2026-09-10T08:26:45+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x5fd9f026e21966b3c9cdbc85f95003f41dfa224541881a6137a8ae8fb03f808b"
+    },
+    "trigger-snapshot": {
+      "tx": "0x2aaf446da7731e555cd053a1fbe6ae0a23baae5fe167c03da1d3ff7924a0e896",
+      "status": "0x1",
+      "gasUsed": "161250",
+      "block": 40335581,
+      "blockTimestamp": 1789029213,
+      "blockTime": "2026-09-10T08:33:33+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x2aaf446da7731e555cd053a1fbe6ae0a23baae5fe167c03da1d3ff7924a0e896"
+    }
+  },
+  "assertions": {
+    "publishedAtsFactoryUsed": true,
+    "productionBindingUnchanged": true,
+    "lifecycleRolesAssigned": true,
+    "eligibleHolderIssued": true,
+    "atsCouponRegisteredBeforeRecordDate": true,
+    "recordDateSnapshotMaterialized": true,
+    "atsAndScheduleAmountsAgree": true,
+    "couponFullyFunded": true,
+    "couponClaimedInLpcash": true,
+    "maturityReachedBeforeRedemption": true,
+    "fullSupplyRedeemed": true,
+    "holderAndSupplyZero": true
+  }
+}

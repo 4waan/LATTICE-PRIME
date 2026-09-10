@@ -435,7 +435,7 @@
   }
  },
  "coupon": {
-  "note": "Deployed 2026-09-08. CouponSchedule fixes the eight-date ACT/365 calendar. CouponDistributor accepts only fully funded declarations and pays claims in native HTS cash. RepoVault derives manufactured coupon obligations from this calendar and attempts HIP-1215 native scheduling when Hedera reports capacity.",
+  "note": "Deployed 2026-09-08. CouponSchedule fixes the eight-date ACT/365 calendar. CouponDistributor accepts only fully funded declarations and pays claims in native HTS cash. Coupon zero was reconstructed from the last complete pre-due Hedera block and fully claimed on 2026-09-10. RepoVault derives manufactured coupon obligations from this calendar and attempts HIP-1215 native scheduling when Hedera reports capacity.",
   "CouponSchedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
   "CouponDistributor": "0x2DC04508Fa7FEde1BaAEBe4a525D63bef509C341",
   "contractIds": {
@@ -470,6 +470,54 @@
     "netOfTransfers": false,
     "collector": "0.0.10301312"
    }
+  },
+  "couponZero": {
+   "status": "fully claimed by both record-date holders",
+   "record": "deployments/bond-coupon-zero.json",
+   "recordDate": 1788866081,
+   "cutoffBlock": 40259002,
+   "historicalReferenceRateBps": 425,
+   "couponRateBps": 500,
+   "recordDateLots": {
+    "seller": 3000,
+    "buyer": 1000,
+    "total": 4000
+   },
+   "grossSmallestCashUnits": 228,
+   "feeSmallestCashUnits": 2,
+   "netSmallestCashUnits": 226,
+   "fundTx": "0x55dd95cb5c09e996457e9713cfb132f2dc14fd249409675312ae9677ebd8c8b3",
+   "declareTx": "0xc10e07430521358fa1088d875682ac56502769deca59889598e9dcc4e1f6bad8",
+   "sellerClaimTx": "0xeb8787e04645c181e2f18ae2aa67ab185bab729c80c4c3b5a5a9cd2c027bb7b5",
+   "buyerClaimTx": "0x6ea44f04aee5fadd470c6035c3f2a7008932d3c67155683ea5c09a56b534ed6f"
+  },
+  "compressedLifecycleDemo": {
+   "productionBinding": false,
+   "canonicalBondUnchanged": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+   "record": "deployments/bond-lifecycle.json",
+   "Bond": {
+    "address": "0x5c766afd94bbd339c4e0ed66dd373b8eb76f4d6b",
+    "contractId": "0.0.10455763"
+   },
+   "CouponSchedule": {
+    "address": "0xa9d612563848b5d22599d0145679b502983636ab",
+    "contractId": "0.0.10455765"
+   },
+   "CouponDistributor": {
+    "address": "0xbe123277997cdf685130dff9da7d328162281718",
+    "contractId": "0.0.10455766"
+   },
+   "issued": 10000,
+   "recordDate": 1789029203,
+   "couponDue": 1789029503,
+   "maturity": 1789030103,
+   "grossCouponSmallestCashUnits": 190,
+   "netCouponSmallestCashUnits": 189,
+   "finalSupply": 0,
+   "issueTx": "0x55486b83ae478fdefeb58f8761f8723e323611d4d3ec9aaf33c8577d1f9e88e1",
+   "snapshotTx": "0x2aaf446da7731e555cd053a1fbe6ae0a23baae5fe167c03da1d3ff7924a0e896",
+   "claimTx": "0x83e1082f71d8c882750d2b2ef23277f8babbbbfa56e35184ff26dfbcdecb0a9d",
+   "redemptionTx": "0x78d43e038203bf6ba305eab2d06b4c6963d23ce9c3390b0370485184636dee84"
   },
   "scheduledSettlement": {
    "hss": "0x000000000000000000000000000000000000016b",
