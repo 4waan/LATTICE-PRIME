@@ -17,7 +17,7 @@ import {fileURLToPath} from "node:url";
 import {Interface, id as keccakId, keccak256, solidityPacked} from "ethers";
 import {
     MAX_CHUNK, MAX_ANCHOR_SPAN, SCHEMA_VERSION, SITES, SOURCES, SOURCE_ADDRESS_KEY,
-    SITE_ADDRESSES, SITE_CODE_HASHES, LIVENESS_KINDS,
+    SITE_ADDRESSES, SITE_ADDRESS_HISTORY, SITE_CODE_HASHES, LIVENESS_KINDS,
     TOPIC_CHARGED, TOPIC_REFUSED, ERROR_CEILING, FIELDS, LEGACY_FIELDS,
     encode, decode, validate, keyOf, describe, auditRecord, auditAnchor, anchorPreimage,
     assertSiteAddresses, assertSiteDeployments,
@@ -185,7 +185,7 @@ const REFUSAL = {
 const CEILING = {
     v: SCHEMA_VERSION, k: "ceiling", c: "vault", a: VAULT,
     tx: "0x" + "11".repeat(32),
-    sel: "0x778ae762", fn: "open", r: 7, x: 2,
+    sel: "0xe4725ba1", fn: "accept", r: 7, x: 2,
 };
 const CHECKPOINT = {
     v: 1, k: "checkpoint", c: "engine", e: 39, blk: 40154879,
@@ -290,7 +290,18 @@ refuses("an unknown version is refused", () => decode('{"v":3,"k":"charge"}'), "
 refuses("a current record without its source address is refused",
     () => validate({...CHARGE, v: SCHEMA_VERSION}), "missing field a");
 refuses("a current record from another deployment is refused",
-    () => validate({...CHARGE_V2, a: "0x" + "ab".repeat(20)}), "not the bound deployment");
+    () => validate({...CHARGE_V2, a: "0x" + "ab".repeat(20)}), "not a known deployment");
+eq("a recorded historical vault remains decodable",
+    validate({
+        v: SCHEMA_VERSION,
+        k: "checkpoint",
+        c: "vault",
+        a: SITE_ADDRESS_HISTORY.vault.at(-1),
+        e: 321,
+        blk: 40194589,
+        rows: {14: 0},
+    }).a,
+    SITE_ADDRESS_HISTORY.vault.at(-1));
 refuses("an unknown kind is refused", () => validate({...CHARGE, k: "shout"}), "unknown kind");
 refuses("a legacy ceiling kind is refused",
     () => validate({...CEILING, v: 1, a: undefined}), "unknown kind");
@@ -400,7 +411,7 @@ refuses("an anchor with a short digest is refused",
 refuses("an anchor with an upper case digest is refused",
     () => validate({...ANCHOR, h: "0xAB" + "00".repeat(31)}), "lowercase");
 refuses("an anchor from another deployment is refused",
-    () => validate({...ANCHOR, a: "0x" + "ab".repeat(20)}), "not the bound deployment");
+    () => validate({...ANCHOR, a: "0x" + "ab".repeat(20)}), "not a known deployment");
 refuses("an anchor with an extra field is refused",
     () => validate({...ANCHOR, e: 943}), "unexpected field");
 refuses("a reordered anchor is refused",

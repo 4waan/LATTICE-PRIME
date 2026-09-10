@@ -31,12 +31,14 @@ staged, nothing is a mock, and every hash resolves on HashScan.
 
 `DEMO-SCRIPT.md` has five beats. The repo beat goes.
 
-It is the least differentiated of the five: collateral moves and both legs
-settle, which a judge will file under "atomic settlement" and stop listening.
-It also has no write surface in the client, so it can only be narrated, and a
-narrated beat inside a four minute budget is 45 seconds bought with nothing on
-screen. The substitution refusal that made it worth 13 seconds in the room is a
-repo desk's question, and the video is not being watched by a repo desk.
+The client now has a guarded RepoVault v5 write surface and a verified-run panel,
+but the full recorded financing lifecycle took nearly nineteen minutes. Cutting
+margin, coupon, maturity, grace, and default into a four-minute video would turn
+the strongest evidence into a rushed list. Keep one short Financing panel read
+inside the Hedera lifecycle beat, and leave the full route to its timestamped
+HashScan links. The substitution refusal that made it worth 13 seconds in the
+room is a repo desk's question, and the video is not being watched by a repo
+desk.
 
 It stays in the README and in the slide deck.
 

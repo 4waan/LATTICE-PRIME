@@ -23,6 +23,11 @@
     "internalType": "contract ICouponSchedule"
    },
    {
+    "name": "registry_",
+    "type": "address",
+    "internalType": "contract IExternalKycList"
+   },
+   {
     "name": "policy_",
     "type": "address",
     "internalType": "contract IDisclosurePolicy"
@@ -64,6 +69,19 @@
  },
  {
   "type": "function",
+  "name": "DOMAIN_COUPON_OBSERVATION",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "DOMAIN_FAIL",
   "inputs": [],
   "outputs": [
@@ -77,13 +95,13 @@
  },
  {
   "type": "function",
-  "name": "DOMAIN_MANUFACTURED",
+  "name": "FINANCING_VERSION",
   "inputs": [],
   "outputs": [
    {
     "name": "",
-    "type": "bytes32",
-    "internalType": "bytes32"
+    "type": "uint8",
+    "internalType": "uint8"
    }
   ],
   "stateMutability": "view"
@@ -110,6 +128,19 @@
     "name": "",
     "type": "int64",
     "internalType": "int64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "HOLD_EXPIRY",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
    }
   ],
   "stateMutability": "view"
@@ -194,6 +225,43 @@
  },
  {
   "type": "function",
+  "name": "accept",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "principal",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "addCollateral",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
   "name": "breakingSize",
   "inputs": [
    {
@@ -207,6 +275,32 @@
     "internalType": "uint8"
    }
   ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "cancelOffer",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
+  "name": "cashReserved",
+  "inputs": [],
   "outputs": [
    {
     "name": "",
@@ -252,7 +346,7 @@
     "internalType": "uint256"
    }
   ],
-  "stateMutability": "nonpayable"
+  "stateMutability": "payable"
  },
  {
   "type": "function",
@@ -343,6 +437,25 @@
  },
  {
   "type": "function",
+  "name": "credit",
+  "inputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "cure",
   "inputs": [
    {
@@ -382,6 +495,68 @@
  },
  {
   "type": "function",
+  "name": "exposureNow",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "extraHoldAt",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "i",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "extraHoldCount",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "failGrace",
   "inputs": [],
   "outputs": [
@@ -411,6 +586,72 @@
    }
   ],
   "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "fundOffer",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "borrower",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "t",
+    "type": "tuple",
+    "internalType": "struct RepoVault.Terms",
+    "components": [
+     {
+      "name": "partition",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "collateralAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "haircutBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "maintenanceBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "repoRateBps",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "term",
+      "type": "uint64",
+      "internalType": "uint64"
+     }
+    ]
+   },
+   {
+    "name": "expiresAt",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "principal",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
  },
  {
   "type": "function",
@@ -590,20 +831,27 @@
  },
  {
   "type": "function",
-  "name": "open",
+  "name": "offers",
   "inputs": [
    {
-    "name": "id",
+    "name": "",
     "type": "bytes32",
     "internalType": "bytes32"
-   },
+   }
+  ],
+  "outputs": [
    {
     "name": "lender",
     "type": "address",
     "internalType": "address"
    },
    {
-    "name": "t",
+    "name": "borrower",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "terms",
     "type": "tuple",
     "internalType": "struct RepoVault.Terms",
     "components": [
@@ -618,7 +866,66 @@
       "internalType": "uint256"
      },
      {
-      "name": "markValue",
+      "name": "haircutBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "maintenanceBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "repoRateBps",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "term",
+      "type": "uint64",
+      "internalType": "uint64"
+     }
+    ]
+   },
+   {
+    "name": "principal",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "expiresAt",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "open",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "",
+    "type": "tuple",
+    "internalType": "struct RepoVault.Terms",
+    "components": [
+     {
+      "name": "partition",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "collateralAmount",
       "type": "uint256",
       "internalType": "uint256"
      },
@@ -647,12 +954,12 @@
   ],
   "outputs": [
    {
-    "name": "principal",
+    "name": "",
     "type": "uint256",
     "internalType": "uint256"
    }
   ],
-  "stateMutability": "nonpayable"
+  "stateMutability": "pure"
  },
  {
   "type": "function",
@@ -672,13 +979,13 @@
   "name": "payThrough",
   "inputs": [
    {
-    "name": "id",
+    "name": "",
     "type": "bytes32",
     "internalType": "bytes32"
    }
   ],
   "outputs": [],
-  "stateMutability": "nonpayable"
+  "stateMutability": "pure"
  },
  {
   "type": "function",
@@ -765,6 +1072,70 @@
  },
  {
   "type": "function",
+  "name": "quotePrincipal",
+  "inputs": [
+   {
+    "name": "t",
+    "type": "tuple",
+    "internalType": "struct RepoVault.Terms",
+    "components": [
+     {
+      "name": "partition",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "collateralAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "haircutBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "maintenanceBps",
+      "type": "uint16",
+      "internalType": "uint16"
+     },
+     {
+      "name": "repoRateBps",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "term",
+      "type": "uint64",
+      "internalType": "uint64"
+     }
+    ]
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "registry",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IExternalKycList"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "repo",
   "inputs": [
    {
@@ -845,7 +1216,7 @@
       "internalType": "bytes32"
      },
      {
-      "name": "manufacturedCommitment",
+      "name": "lastCouponCommitment",
       "type": "bytes32",
       "internalType": "bytes32"
      }
@@ -936,19 +1307,32 @@
   "name": "settleAuction",
   "inputs": [
    {
-    "name": "id",
+    "name": "",
     "type": "bytes32",
     "internalType": "bytes32"
    },
    {
-    "name": "winner",
+    "name": "",
     "type": "address",
     "internalType": "address"
    },
    {
-    "name": "proceeds",
+    "name": "",
     "type": "uint256",
     "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "pure"
+ },
+ {
+  "type": "function",
+  "name": "settleDefault",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
    }
   ],
   "outputs": [],
@@ -1031,6 +1415,13 @@
  },
  {
   "type": "function",
+  "name": "withdraw",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "function",
   "name": "wouldAfford",
   "inputs": [
    {
@@ -1085,6 +1476,19 @@
  {
   "type": "event",
   "name": "Closed",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "CollateralAdded",
   "inputs": [
    {
     "name": "id",
@@ -1179,31 +1583,6 @@
  },
  {
   "type": "event",
-  "name": "DisclosureRefused",
-  "inputs": [
-   {
-    "name": "id",
-    "type": "bytes32",
-    "indexed": true,
-    "internalType": "bytes32"
-   },
-   {
-    "name": "row",
-    "type": "uint16",
-    "indexed": false,
-    "internalType": "uint16"
-   },
-   {
-    "name": "excess",
-    "type": "uint32",
-    "indexed": false,
-    "internalType": "uint32"
-   }
-  ],
-  "anonymous": false
- },
- {
-  "type": "event",
   "name": "Failing",
   "inputs": [
    {
@@ -1217,19 +1596,6 @@
     "type": "uint64",
     "indexed": false,
     "internalType": "uint64"
-   }
-  ],
-  "anonymous": false
- },
- {
-  "type": "event",
-  "name": "ManufacturedPaid",
-  "inputs": [
-   {
-    "name": "id",
-    "type": "bytes32",
-    "indexed": true,
-    "internalType": "bytes32"
    }
   ],
   "anonymous": false
@@ -1267,6 +1633,32 @@
     "name": "commitment",
     "type": "bytes32",
     "indexed": false,
+    "internalType": "bytes32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "OfferCancelled",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "event",
+  "name": "OfferFunded",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "indexed": true,
     "internalType": "bytes32"
    }
   ],
@@ -1336,6 +1728,19 @@
   "anonymous": false
  },
  {
+  "type": "event",
+  "name": "Withdrawn",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
   "type": "error",
   "name": "AlreadyExists",
   "inputs": [
@@ -1345,6 +1750,11 @@
     "internalType": "bytes32"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "AuctionNotSupported",
+  "inputs": []
  },
  {
   "type": "error",
@@ -1412,6 +1822,17 @@
  },
  {
   "type": "error",
+  "name": "CureWindowClosed",
+  "inputs": [
+   {
+    "name": "deadline",
+    "type": "uint64",
+    "internalType": "uint64"
+   }
+  ]
+ },
+ {
+  "type": "error",
   "name": "CureWindowOpen",
   "inputs": [
    {
@@ -1420,6 +1841,11 @@
     "internalType": "uint64"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "DeadlineOverflow",
+  "inputs": []
  },
  {
   "type": "error",
@@ -1436,6 +1862,11 @@
     "internalType": "uint32"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "EmptyCure",
+  "inputs": []
  },
  {
   "type": "error",
@@ -1471,12 +1902,75 @@
  },
  {
   "type": "error",
+  "name": "InsufficientRepayment",
+  "inputs": [
+   {
+    "name": "got",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "want",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "MarkMoved",
+  "inputs": [
+   {
+    "name": "quoted",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "live",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "MaturityOverflow",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "MulDivOverflow",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "NoFeed",
   "inputs": []
  },
  {
   "type": "error",
+  "name": "NoManufacturedPayment",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "NoSchedule",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "NotEligible",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "NotLiquidationEngine",
   "inputs": []
  },
  {
@@ -1507,12 +2001,28 @@
  },
  {
   "type": "error",
+  "name": "NothingToWithdraw",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "ObligationAlreadyExists",
   "inputs": [
    {
     "name": "id",
     "type": "bytes32",
     "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "OfferExpired",
+  "inputs": [
+   {
+    "name": "expiresAt",
+    "type": "uint64",
+    "internalType": "uint64"
    }
   ]
  },
@@ -1526,6 +2036,22 @@
     "internalType": "uint256"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "RepoRateTooLarge",
+  "inputs": [
+   {
+    "name": "repoRateBps",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "SelfDeal",
+  "inputs": []
  },
  {
   "type": "error",
@@ -1577,6 +2103,22 @@
  },
  {
   "type": "error",
+  "name": "UnknownOffer",
+  "inputs": [
+   {
+    "name": "id",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "UseFundedOffer",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "WrongState",
   "inputs": [
    {
@@ -1590,5 +2132,15 @@
     "internalType": "enum RepoVault.State"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "ZeroAddress",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "ZeroAmount",
+  "inputs": []
  }
 ]

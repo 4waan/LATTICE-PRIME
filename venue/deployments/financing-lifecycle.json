@@ -1,0 +1,672 @@
+{
+  "schema": "lattice.financing.lifecycle.v1",
+  "checkedAt": "2026-09-10T04:25:24+00:00",
+  "status": "complete",
+  "network": "hedera-testnet",
+  "deployment": {
+    "schema": "lattice.financing.deployment.v1",
+    "kind": "compressed-demo",
+    "checkedAt": "2026-09-10T04:01:57+00:00",
+    "contracts": {
+      "CouponSchedule": {
+        "address": "0xa9c0c7e3232fd54760530113d65369de7a5d5805",
+        "tx": "0x28cf144234d0dfb1a2dd5ad2b28b19726ef00b7ace33603372ef28714008e067",
+        "gasUsed": "811612",
+        "contractId": "0.0.10453016"
+      },
+      "RepoVault": {
+        "address": "0x97eb738d03797528f20de807254d4141d9bfd2fe",
+        "tx": "0x96db6aa41b863104477e076a45c1033770f05f5ac751a769548c45caf1c7521e",
+        "gasUsed": "5359410",
+        "contractId": "0.0.10453018"
+      },
+      "MarginWatch": {
+        "address": "0xaa1e985dc159ff6fec633c6c73c8ae0cc8a9d356",
+        "tx": "0x2d9a69e8cc1037bf964eee03494f65380bbd1354a5afbf8011df2d7a90759377",
+        "gasUsed": "1284567",
+        "contractId": "0.0.10453020"
+      },
+      "ApprovalWindowCompliance": {
+        "address": "0x622e7d49310569510d09f29a673373bc60a0eb8e",
+        "tx": "0x843384a1a5468a5dc2cb729025f1d913b168025c447d93aecbe44a5acb5c6d13",
+        "gasUsed": "219124",
+        "contractId": "0.0.10453027",
+        "seatTx": "0xe7c154ed0d72b61a22920a77c8246a5ac7aa5718f3850cd2ba7b17800aa715d3",
+        "approveTx": "0xb82a4077c0d52e50d3f0688fe87cd7a585f60229a97c1e0d3152b9b431733b66",
+        "restoreTx": "0x9a293029e6033ee34e93a07182e892c5de309690907e9a712bbf0461f735d034"
+      }
+    }
+  },
+  "vault": "0x97eb738d03797528f20de807254d4141d9bfd2fe",
+  "marginWatch": "0xaa1e985dc159ff6fec633c6c73c8ae0cc8a9d356",
+  "couponSchedule": "0xa9c0c7e3232fd54760530113d65369de7a5d5805",
+  "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+  "actors": {
+    "borrower": "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+    "lender": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d"
+  },
+  "position1": {
+    "id": "0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be",
+    "purpose": "live-feed margin call, added collateral, cure, and close",
+    "terms": {
+      "collateralAmount": "1",
+      "haircutBps": "200",
+      "maintenanceBps": "205",
+      "repoRateBps": "450",
+      "termSeconds": "600"
+    },
+    "principalTinybar": "127152487372",
+    "openedAt": "1789013160",
+    "maturity": "1789013760",
+    "collateralHoldId": "36",
+    "extraHoldIds": [
+      "38"
+    ],
+    "finalState": "CLOSED"
+  },
+  "position2": {
+    "id": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+    "purpose": "coupon observation, settlement fail, penalty, default, and collateral execution",
+    "terms": {
+      "collateralAmount": "128",
+      "haircutBps": "9990",
+      "maintenanceBps": "0",
+      "repoRateBps": "450",
+      "termSeconds": "825"
+    },
+    "principalTinybar": "16607671820",
+    "openedAt": "1789013323",
+    "collateralHoldId": "39",
+    "preFundingCouponSmallestCashUnits": "1",
+    "preFundingReferenceRateBps": "364",
+    "couponDue": "1789013779",
+    "couponOwedSmallestCashUnits": "1",
+    "couponCommitment": "0xa46b3e19a83379a6f154814ba7832ee7845e7dc11e84fb68c2aed2824da8a8c8",
+    "maturity": "1789014148",
+    "penaltyTinybar": "166077",
+    "finalState": "CLOSED"
+  },
+  "hssFallback": {
+    "vaultWasUnfunded": true,
+    "failObligation": "0xb30c1c6f4c58db7ab2cddb1c95f633fbb6f3344691bba0576792b4889cf44e80",
+    "couponObligation": "0x128a70aa0e322b77aaa88adb98f9740d11daa3656603fbd14a4f71c6e5a76ca6",
+    "scheduleAddress": "0x0000000000000000000000000000000000000000",
+    "finalStatus": "SETTLED",
+    "unscheduled": {
+      "fail": {
+        "obligation": "0xb30c1c6f4c58db7ab2cddb1c95f633fbb6f3344691bba0576792b4889cf44e80",
+        "reason": -3,
+        "meaning": "UNFUNDED"
+      },
+      "coupon": {
+        "obligation": "0x128a70aa0e322b77aaa88adb98f9740d11daa3656603fbd14a4f71c6e5a76ca6",
+        "reason": -3,
+        "meaning": "UNFUNDED"
+      }
+    }
+  },
+  "collateral": {
+    "borrowerFreeBefore": "1926",
+    "borrowerHeldBefore": "1000",
+    "lenderFreeBefore": "1074",
+    "borrowerFreeAfter": "1798",
+    "borrowerHeldAfter": "1000",
+    "lenderFreeAfter": "1202",
+    "executedToLender": "128"
+  },
+  "marginWatchCheckpoints": [
+    {
+      "tag": "position1-before",
+      "repoId": "0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be",
+      "chainTimestamp": "1789013141",
+      "alert": {
+        "state": "0",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "0",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1270",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "0",
+        "permitted": "true",
+        "audible": "true",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position1-called",
+      "repoId": "0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be",
+      "chainTimestamp": "1789013252",
+      "alert": {
+        "state": "3",
+        "called": "true",
+        "cureDeadline": "1789013543",
+        "maturity": "1789013760",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1270",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "2",
+        "permitted": "true",
+        "audible": "false",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position1-closed",
+      "repoId": "0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be",
+      "chainTimestamp": "1789013304",
+      "alert": {
+        "state": "7",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789013760",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1270",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "2",
+        "permitted": "true",
+        "audible": "false",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position1-cured",
+      "repoId": "0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be",
+      "chainTimestamp": "1789013276",
+      "alert": {
+        "state": "2",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789013760",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1270",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "2",
+        "permitted": "true",
+        "audible": "false",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position2-closed",
+      "repoId": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+      "chainTimestamp": "1789014298",
+      "alert": {
+        "state": "7",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789014148",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1274",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "1",
+        "permitted": "true",
+        "audible": "true",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position2-coupon",
+      "repoId": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+      "chainTimestamp": "1789013800",
+      "alert": {
+        "state": "2",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789014148",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1272",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "1",
+        "permitted": "true",
+        "audible": "true",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position2-defaultable",
+      "repoId": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+      "chainTimestamp": "1789014273",
+      "alert": {
+        "state": "5",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789014148",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "true"
+      },
+      "stream": {
+        "epoch": "1273",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "1",
+        "permitted": "true",
+        "audible": "true",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position2-failing",
+      "repoId": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+      "chainTimestamp": "1789014176",
+      "alert": {
+        "state": "5",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789014148",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1273",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "1",
+        "permitted": "true",
+        "audible": "true",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position2-open",
+      "repoId": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+      "chainTimestamp": "1789013339",
+      "alert": {
+        "state": "2",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789014148",
+        "cureExpired": "false",
+        "unmarkedFail": "false",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1270",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "2",
+        "permitted": "true",
+        "audible": "false",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    },
+    {
+      "tag": "position2-unmarked-fail",
+      "repoId": "0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d",
+      "chainTimestamp": "1789014155",
+      "alert": {
+        "state": "2",
+        "called": "false",
+        "cureDeadline": "0",
+        "maturity": "1789014148",
+        "cureExpired": "false",
+        "unmarkedFail": "true",
+        "defaultable": "false"
+      },
+      "stream": {
+        "epoch": "1273",
+        "metered": "true",
+        "budgetBits": "2",
+        "spentBits": "0",
+        "permitted": "true",
+        "audible": "true",
+        "breakingSize": "3"
+      },
+      "feed": {
+        "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+        "dark": "false",
+        "ourLegDark": "false",
+        "cashLegDark": "false",
+        "cleanPrice8": "9999980028",
+        "refRateBps": "364",
+        "publishedAt": "1789010673",
+        "round": "1",
+        "usdPerHbar8": "7707266",
+        "markPerUnitTinybar": "129747436094",
+        "cashFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+      }
+    }
+  ],
+  "receipts": {
+    "approveCollateral": {
+      "tx": "0xb82a4077c0d52e50d3f0688fe87cd7a585f60229a97c1e0d3152b9b431733b66",
+      "status": "0x1",
+      "gasUsed": "186519",
+      "block": 40328014,
+      "blockTimestamp": 1789013006,
+      "blockTime": "2026-09-10T04:03:26+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xb82a4077c0d52e50d3f0688fe87cd7a585f60229a97c1e0d3152b9b431733b66"
+    },
+    "complianceRestore": {
+      "tx": "0x9a293029e6033ee34e93a07182e892c5de309690907e9a712bbf0461f735d034",
+      "status": "0x1",
+      "gasUsed": "64635",
+      "block": 40328017,
+      "blockTimestamp": 1789013012,
+      "blockTime": "2026-09-10T04:03:32+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x9a293029e6033ee34e93a07182e892c5de309690907e9a712bbf0461f735d034"
+    },
+    "complianceSeat": {
+      "tx": "0xe7c154ed0d72b61a22920a77c8246a5ac7aa5718f3850cd2ba7b17800aa715d3",
+      "status": "0x1",
+      "gasUsed": "64635",
+      "block": 40328012,
+      "blockTimestamp": 1789013001,
+      "blockTime": "2026-09-10T04:03:21+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xe7c154ed0d72b61a22920a77c8246a5ac7aa5718f3850cd2ba7b17800aa715d3"
+    },
+    "position1-accept": {
+      "tx": "0x303afdf7fd1115e0b30b8505c21ef450f107c63f1b070c337b2d784df571961a",
+      "status": "0x1",
+      "gasUsed": "738627",
+      "block": 40328087,
+      "blockTimestamp": 1789013160,
+      "blockTime": "2026-09-10T04:06:00+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x303afdf7fd1115e0b30b8505c21ef450f107c63f1b070c337b2d784df571961a"
+    },
+    "position1-add-collateral": {
+      "tx": "0xed408d2f88217920580dfa1c0212c95ffa7a5b1a2784b7f3d409464e5fd42a74",
+      "status": "0x1",
+      "gasUsed": "485450",
+      "block": 40328134,
+      "blockTimestamp": 1789013261,
+      "blockTime": "2026-09-10T04:07:41+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xed408d2f88217920580dfa1c0212c95ffa7a5b1a2784b7f3d409464e5fd42a74"
+    },
+    "position1-close": {
+      "tx": "0x8da75c601e6f099cf8f0349313e98f8d444c13e04ca0251b0453dbaf7c3c91dd",
+      "status": "0x1",
+      "gasUsed": "392794",
+      "block": 40328146,
+      "blockTimestamp": 1789013286,
+      "blockTime": "2026-09-10T04:08:06+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x8da75c601e6f099cf8f0349313e98f8d444c13e04ca0251b0453dbaf7c3c91dd"
+    },
+    "position1-cure": {
+      "tx": "0x13bc9d75f7faa426e8221f57c4d000ebd5d1367061d46fe652ff33183bba43eb",
+      "status": "0x1",
+      "gasUsed": "93787",
+      "block": 40328138,
+      "blockTimestamp": 1789013269,
+      "blockTime": "2026-09-10T04:07:49+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x13bc9d75f7faa426e8221f57c4d000ebd5d1367061d46fe652ff33183bba43eb"
+    },
+    "position1-fund": {
+      "tx": "0x74ba189162f617c5be7c1fa1c06fd0fe82026889c46b451d972808e96d4c7148",
+      "status": "0x1",
+      "gasUsed": "337933",
+      "block": 40328082,
+      "blockTimestamp": 1789013149,
+      "blockTime": "2026-09-10T04:05:49+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x74ba189162f617c5be7c1fa1c06fd0fe82026889c46b451d972808e96d4c7148"
+    },
+    "position1-mark": {
+      "tx": "0xd8f65b72e045078f7505bd689708d8c8f6812a65fa6155ffe486603333beafc8",
+      "status": "0x1",
+      "gasUsed": "97120",
+      "block": 40328126,
+      "blockTimestamp": 1789013243,
+      "blockTime": "2026-09-10T04:07:23+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xd8f65b72e045078f7505bd689708d8c8f6812a65fa6155ffe486603333beafc8"
+    },
+    "position1-withdraw-borrower": {
+      "tx": "0x25d1e33e099719dd3e48bbb0cbf63a922757e2ed1e05aec390d5aa9de67d6b69",
+      "status": "0x1",
+      "gasUsed": "35939",
+      "block": 40328122,
+      "blockTimestamp": 1789013235,
+      "blockTime": "2026-09-10T04:07:15+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x25d1e33e099719dd3e48bbb0cbf63a922757e2ed1e05aec390d5aa9de67d6b69"
+    },
+    "position1-withdraw-lender": {
+      "tx": "0x05257af979acb40b9f453f06cdd06bc19b62258ceddf9e103954e5e46e991600",
+      "status": "0x1",
+      "gasUsed": "35939",
+      "block": 40328150,
+      "blockTimestamp": 1789013295,
+      "blockTime": "2026-09-10T04:08:15+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x05257af979acb40b9f453f06cdd06bc19b62258ceddf9e103954e5e46e991600"
+    },
+    "position2-accept": {
+      "tx": "0xbb8dbcc20060ba77501d46d5b25a4e114e30aa0fafc0ee08f4304dcea1d0ed74",
+      "status": "0x1",
+      "gasUsed": "816022",
+      "block": 40328163,
+      "blockTimestamp": 1789013323,
+      "blockTime": "2026-09-10T04:08:43+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xbb8dbcc20060ba77501d46d5b25a4e114e30aa0fafc0ee08f4304dcea1d0ed74"
+    },
+    "position2-declare-default": {
+      "tx": "0x3472ab60511da72afa01043ac9ccb61428c05d3a62000f306fed8377769338a1",
+      "status": "0x1",
+      "gasUsed": "67097",
+      "block": 40328612,
+      "blockTimestamp": 1789014281,
+      "blockTime": "2026-09-10T04:24:41+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x3472ab60511da72afa01043ac9ccb61428c05d3a62000f306fed8377769338a1"
+    },
+    "position2-fund": {
+      "tx": "0x17c36bcfc336e49f83b9779ab455f9bf98ea21bf4c07f8383b2e550197c28de6",
+      "status": "0x1",
+      "gasUsed": "314072",
+      "block": 40328158,
+      "blockTimestamp": 1789013312,
+      "blockTime": "2026-09-10T04:08:32+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x17c36bcfc336e49f83b9779ab455f9bf98ea21bf4c07f8383b2e550197c28de6"
+    },
+    "position2-mark-failing": {
+      "tx": "0xc4b89067daa3afbc9c9a01fef1525b4b262701ea18b2c7b47834e223d4c72fe7",
+      "status": "0x1",
+      "gasUsed": "84665",
+      "block": 40328557,
+      "blockTimestamp": 1789014163,
+      "blockTime": "2026-09-10T04:22:43+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xc4b89067daa3afbc9c9a01fef1525b4b262701ea18b2c7b47834e223d4c72fe7"
+    },
+    "position2-note-coupon": {
+      "tx": "0x37dbaeba80ed6fb410d7c69339988fbfee1cf4d038a1cabd592928e45167ff8e",
+      "status": "0x1",
+      "gasUsed": "147329",
+      "block": 40328381,
+      "blockTimestamp": 1789013789,
+      "blockTime": "2026-09-10T04:16:29+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x37dbaeba80ed6fb410d7c69339988fbfee1cf4d038a1cabd592928e45167ff8e"
+    },
+    "position2-settle-coupon-fallback": {
+      "tx": "0xf15e9f49bf7802c2f4b7f831292441ce83df4230413d6429881593caed37fbef",
+      "status": "0x1",
+      "gasUsed": "39458",
+      "block": 40328383,
+      "blockTimestamp": 1789013793,
+      "blockTime": "2026-09-10T04:16:33+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xf15e9f49bf7802c2f4b7f831292441ce83df4230413d6429881593caed37fbef"
+    },
+    "position2-settle-default": {
+      "tx": "0x7156173b9e0fd00e25eddcae1cf214918d2851b60d919f25b317b743c277e18c",
+      "status": "0x1",
+      "gasUsed": "411206",
+      "block": 40328615,
+      "blockTimestamp": 1789014288,
+      "blockTime": "2026-09-10T04:24:48+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x7156173b9e0fd00e25eddcae1cf214918d2851b60d919f25b317b743c277e18c"
+    },
+    "position2-settle-fail-fallback": {
+      "tx": "0x11e371a561c70ebfd5caebc2d3ab9c8fbde6d9d629f8a0e9e4e2d6a3ff442600",
+      "status": "0x1",
+      "gasUsed": "39498",
+      "block": 40328559,
+      "blockTimestamp": 1789014168,
+      "blockTime": "2026-09-10T04:22:48+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x11e371a561c70ebfd5caebc2d3ab9c8fbde6d9d629f8a0e9e4e2d6a3ff442600"
+    },
+    "position2-withdraw-borrower": {
+      "tx": "0x176f82926f816d2aca86aaba144228a625a501a1e21c5322465223558cf1f891",
+      "status": "0x1",
+      "gasUsed": "35939",
+      "block": 40328167,
+      "blockTimestamp": 1789013331,
+      "blockTime": "2026-09-10T04:08:51+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x176f82926f816d2aca86aaba144228a625a501a1e21c5322465223558cf1f891"
+    }
+  },
+  "assertions": {
+    "marginCallFromLiveFeed": true,
+    "collateralAdded": true,
+    "curedBeforeDeadline": true,
+    "couponDerivedFromHistoricalFixing": true,
+    "unmarkedFailObserved": true,
+    "article7PenaltyNonzero": true,
+    "defaultAfterGrace": true,
+    "collateralExecutedToLender": true,
+    "manualFallbackSettledBothObligations": true
+  }
+}

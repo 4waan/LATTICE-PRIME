@@ -14,6 +14,10 @@ function guidedHarness() {
         busy: false,
         snap: {commitBond: 1_000_000n, cancelFee: 100_000n},
         draftRecord: () => null,
+        ticketVaultReady: () => Venue.vaultReady,
+        vaultReady: false,
+        _exportedTickets: new Set(),
+        _liveHolds: [],
     };
     const start = runtime.indexOf("Venue.orderFunds = function");
     const end = runtime.indexOf("\nVenue.paintGuidedOrder", start);
@@ -34,31 +38,34 @@ test("Markets hierarchy follows the trading journey", () => {
     for (const copy of [
         "Lattice Prime Repo Collateral 2028",
         "Price reference",
-        "Available to trade",
+        "HBAR per bond",
         "Place an order",
-        "Review and prepare",
-        "Cash required before fees",
+        "Review order",
+        "Reveal window",
         "Your orders",
         "Global market records",
     ]) {
         assert.match(template, new RegExp(copy));
     }
-    assert.match(template, /Losing every copy can forfeit the full deposit/);
     assert.match(template, /coupon reference fixes the variable rate under contract rules/);
     assert.match(template, /data-order-stage="review"[^>]*hidden/);
-    assert.match(template, /data-order-stage="submit"[^>]*hidden/);
     assert.match(template, /data-order-stage="track"[^>]*hidden/);
+    assert.doesNotMatch(template, /data-order-stage="submit"/);
+    assert.doesNotMatch(template, /Available to trade|Variable-rate bond|Finalized valuation context/);
+    assert.doesNotMatch(template, /Set the lowest price you will accept/);
+    assert.match(template, /class="trade-balances"/);
+    assert.match(template, /id="order-balance-label">HBAR available/);
+    assert.match(template, /id="order-balance-value">Connect wallet/);
     assert.match(template, /id="side" value="0"/);
     assert.match(template, /id="price"[^>]*value=""/);
     assert.match(template, /id="qty"[^>]*value=""/);
     assert.equal((template.match(/class="dia"/g) || []).length, 2);
-    const accountIndex = template.indexOf('class="account-context"');
     const orderIndex = template.indexOf('id="order-panel"');
     const marketIndex = template.indexOf('class="auction-panel"');
     const ordersIndex = template.indexOf('id="active-orders"');
     assert.ok(
-        accountIndex < orderIndex && orderIndex < marketIndex && marketIndex < ordersIndex,
-        "account and order entry should precede the full-width market and orders",
+        orderIndex < marketIndex && marketIndex < ordersIndex,
+        "full-width order entry should precede the market and orders",
     );
     const primary = template.slice(
         template.indexOf('<main class="wrap page markets-page">'),
@@ -68,7 +75,7 @@ test("Markets hierarchy follows the trading journey", () => {
 });
 
 test("the order stages control which content is visible", () => {
-    const sections = ["details", "review", "submit", "track"].map((stage) => ({
+    const sections = ["details", "review", "track"].map((stage) => ({
         dataset: {orderStage: stage},
         hidden: false,
     }));
@@ -87,7 +94,7 @@ test("the order stages control which content is visible", () => {
         document: {querySelectorAll: () => sections},
     });
 
-    for (const stage of ["details", "review", "submit", "track"]) {
+    for (const stage of ["details", "review", "track"]) {
         Venue.showOrderStage(stage);
         assert.equal(
             sections.filter((section) => !section.hidden).map((section) => section.dataset.orderStage).join(),
@@ -97,6 +104,23 @@ test("the order stages control which content is visible", () => {
     }
     assert.equal(elements["draft-state"].textContent, "Track order");
     assert.equal(elements["order-back"].hidden, true);
+    Venue.showOrderStage("submit");
+    assert.equal(elements["order-panel"].dataset.stage, "details");
+});
+
+test("order recovery is automatic and encrypted with export as an option", () => {
+    const vaultMarker = template.indexOf("/*INLINE tools/ticket-vault.mjs*/");
+    const appMarker = template.indexOf("/*INLINE tools/venue-app.mjs*/");
+    assert.ok(vaultMarker >= 0 && vaultMarker < appMarker);
+    assert.match(runtime, /Venue\.hydrateTicketVault = async function/);
+    assert.match(runtime, /await Venue\.secureDraft\(\)/);
+    assert.match(runtime, /await Venue\.persistTickets\(Venue\.account, next\)/);
+    assert.doesNotMatch(runtime, /(?:upsert|writeList)\("tickets"/);
+    const commitStart = runtime.indexOf("Venue.doCommit = async function");
+    const commitEnd = runtime.indexOf("\nVenue.ticketPhase = function", commitStart);
+    assert.doesNotMatch(runtime.slice(commitStart, commitEnd), /writeVault|downloadJson|showSaveFilePicker/);
+    assert.match(template, /id="save-ticket">Export this order/);
+    assert.match(template, /id="save-vault">Export backup/);
 });
 
 test("completed orders offer another order and return to a clean form", () => {
@@ -237,8 +261,10 @@ test("guided order action exposes every real prerequisite", () => {
     Venue.snap.walletTinybar = 999_999n;
     assert.equal(Venue.guidedOrderState({...buy, side: 1}).mode, "balance");
     Venue.snap.walletTinybar = 2_000_000n;
-    assert.equal(Venue.guidedOrderState(buy).mode, "backup");
+    assert.equal(Venue.guidedOrderState(buy).mode, "secure");
     Venue.draftRecord = () => ({id: buy.id});
+    assert.equal(Venue.guidedOrderState(buy).mode, "backup");
+    Venue.vaultReady = true;
     assert.equal(Venue.guidedOrderState(buy).mode, "commit");
     Venue.busy = true;
     assert.equal(Venue.guidedOrderState(buy).mode, "busy");
@@ -408,6 +434,10 @@ test("reveal locks synchronously and sends one wallet request", async () => {
             await pending;
             return null;
         },
+        ticketList: () => [ticket],
+        ticketVaultReady: () => true,
+        upsertTicket: async () => {},
+        cacheTicket: () => {},
     };
     const start = runtime.indexOf("Venue.paintRevealPending = function");
     const end = runtime.indexOf("\nVenue.doCross = async function", start);
@@ -415,12 +445,10 @@ test("reveal locks synchronously and sends one wallet request", async () => {
     runInNewContext(runtime.slice(start, end), {
         Venue,
         $: (name) => name === "tickets" ? box : null,
-        readList: () => [ticket],
         buyEscrow: (price, qty) => price * qty,
         toWeibar: BigInt,
         asBig: BigInt,
         addrEq: (a, b) => a === b,
-        upsert: () => {},
         nowSec: () => 1_000n,
         ZERO: "0x0000000000000000000000000000000000000000",
         CLIENT: {
@@ -544,6 +572,264 @@ test("order deadlines preserve cancel, reveal, and forfeiture boundaries", () =>
     assert.equal(Venue.ticketPhase({}, {...chain, revealed: true}).phase, "done");
 });
 
+test("sell placement reuses reservations and stops cleanly after a rejected first approval", async () => {
+    const account = "0x00000000000000000000000000000000000000aa";
+    const id = "0x" + "22".repeat(32);
+    const fields = {holdId: {value: "7"}};
+    const order = {
+        side: 1,
+        qty: 25n,
+        id,
+        ok: true,
+        bad: {},
+    };
+    let commits = 0;
+    let holds = 0;
+    let holdResult = "8";
+    const Venue = {
+        account,
+        snap: {},
+        _liveHolds: [{holdId: "7", amount: "25", expiry: "2000"}],
+        requireAccount: async () => {},
+        readOrder: () => order,
+        guidedOrderState: () => ({mode: "commit"}),
+        draftTicket: () => ({
+            id,
+            committer: account,
+            side: 1,
+            price: "100",
+            qty: "25",
+            salt: "0x" + "11".repeat(32),
+            holdId: fields.holdId.value || null,
+        }),
+        draftRecord: () => ({id, holdId: fields.holdId.value || null}),
+        ticketVaultReady: () => true,
+        upsertTicket: async () => {},
+        cacheTicket: () => {},
+        tradeTxStage: () => {},
+        send: async (factory) => {
+            await factory();
+            return {hash: "0x" + "33".repeat(32)};
+        },
+        w: {
+            engine: {
+                commit: async () => {
+                    commits++;
+                },
+            },
+        },
+        c: {
+            engine: {
+                commitBond: async () => 1_000_000n,
+                commitments: async () => ({committedAt: 1_000n}),
+            },
+        },
+        doHold: async () => {
+            holds++;
+            if (holdResult) fields.holdId.value = holdResult;
+            return holdResult;
+        },
+        showOrderStage: () => {},
+        status: () => {},
+        refreshTrade: async () => {},
+        noteReceipt: async () => {},
+    };
+    const start = runtime.indexOf("Venue.doCommit = async function");
+    const end = runtime.indexOf("\nVenue.ticketPhase = function", start);
+    assert.ok(start >= 0 && end > start, "sell placement should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        $: (name) => fields[name] || null,
+        asBig: BigInt,
+        nowSec: () => 1_000n,
+        toWeibar: BigInt,
+        CLIENT: {immutables: {revealDelay: "30"}},
+        G: {EXACT: 4},
+        T: {IMM: 0},
+    });
+
+    await Venue.doCommit();
+    assert.equal(holds, 0);
+    assert.equal(commits, 1);
+
+    commits = 0;
+    fields.holdId.value = "";
+    Venue._liveHolds = [];
+    await Venue.doCommit();
+    assert.equal(holds, 1);
+    assert.equal(commits, 1);
+
+    commits = 0;
+    fields.holdId.value = "";
+    holdResult = null;
+    await Venue.doCommit();
+    assert.equal(holds, 2);
+    assert.equal(commits, 0);
+});
+
+test("track panel exposes cancel, reserve, reveal, and release without scrolling away", () => {
+    const id = "0x" + "22".repeat(32);
+    const account = "0x00000000000000000000000000000000000000aa";
+    const ticket = {
+        id,
+        committer: account,
+        committedAt: "1000",
+        side: 1,
+        qty: "25",
+        holdId: null,
+    };
+    const elements = Object.fromEntries([
+        "track-status-label",
+        "track-status-title",
+        "track-status-copy",
+        "track-deadline",
+    ].map((name) => [name, {textContent: ""}]));
+    let phase = {phase: "cancel", until: 1_030n};
+    const Venue = {
+        account,
+        trackTicketId: id,
+        snap: {kyc: 1, round: 5n},
+        _liveHolds: [],
+        _ticketChains: new Map([[id, {}]]),
+        _ticketOrderStates: new Map(),
+        viewer: () => account,
+        ticketList: () => [ticket],
+        ticketPhase: () => phase,
+    };
+    const start = runtime.indexOf("Venue.paintOrderTrack = function");
+    const end = runtime.indexOf("\nVenue.paintGuidedOrder", start);
+    assert.ok(start >= 0 && end > start, "track panel should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        $: (name) => elements[name] || null,
+        fmtRemain: String,
+        nowSec: () => 1_000n,
+        ticketDate: String,
+        asBig: BigInt,
+    });
+
+    assert.equal(Venue.paintOrderTrack().mode, "cancel-track");
+    phase = {phase: "reveal", until: 1_300n};
+    assert.equal(Venue.paintOrderTrack().mode, "reserve-reveal");
+    ticket.holdId = "7";
+    Venue._liveHolds = [{holdId: "7", amount: "25", expiry: "2000"}];
+    assert.equal(Venue.paintOrderTrack().mode, "reveal-track");
+    phase = {phase: "done", until: 0n};
+    Venue._ticketOrderStates.set(id, {
+        order: {retired: false, lastRound: 4n},
+    });
+    assert.equal(Venue.paintOrderTrack().mode, "release-track");
+
+    const actionStart = runtime.indexOf("Venue.doGuidedOrderAction = async function");
+    const actionEnd = runtime.indexOf("\nVenue.paintTicket = function", actionStart);
+    assert.doesNotMatch(runtime.slice(actionStart, actionEnd), /scrollIntoView|active-orders/);
+});
+
+test("reserved drafts reopen for editing while placed orders remain immutable", () => {
+    const draft = {id: "draft", holdId: "7"};
+    const committed = {id: "committed", holdId: "7", committedAt: "1000"};
+    let tickets = [draft, committed];
+    let stage = "";
+    let message = "";
+    const Venue = {
+        editingDraftId: null,
+        trackTicketId: null,
+        viewer: () => "0x01",
+        ticketList: () => tickets,
+        applyTicketToForm: () => {},
+        showOrderStage: (value) => {
+            stage = value;
+        },
+        status: (_id, value) => {
+            message = value;
+        },
+        paintTicket: () => {},
+    };
+    const start = runtime.indexOf("Venue.continueTicket = function");
+    const end = runtime.indexOf("\nVenue.discardDraft", start);
+    assert.ok(start >= 0 && end > start, "draft editing should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        document: {querySelector: () => ({scrollIntoView: () => {}})},
+    });
+
+    Venue.continueTicket("draft");
+    assert.equal(stage, "details");
+    assert.equal(Venue.editingDraftId, "draft");
+    assert.match(message, /reservation will be reused/);
+
+    Venue.continueTicket("committed");
+    assert.equal(stage, "track");
+    assert.equal(Venue.editingDraftId, null);
+    assert.match(template, /Placed price and quantity are immutable/);
+});
+
+test("saving an edited reserved draft replaces its old commitment id", async () => {
+    const account = "0x00000000000000000000000000000000000000aa";
+    const old = {id: "old", holdId: "7"};
+    const placed = {id: "placed", committedAt: "1000"};
+    let persisted = null;
+    const Venue = {
+        account,
+        editingDraftId: "old",
+        requireAccount: async () => {},
+        readOrder: () => ({ok: true}),
+        draftTicket: () => ({id: "new", holdId: "7"}),
+        ticketList: () => [old, placed],
+        persistTickets: async (_account, tickets) => {
+            persisted = tickets;
+        },
+        status: () => {},
+    };
+    const start = runtime.indexOf("Venue.secureDraft = async function");
+    const end = runtime.indexOf("\nVenue.saveTicketNow", start);
+    assert.ok(start >= 0 && end > start, "secure draft update should be extractable");
+    runInNewContext(runtime.slice(start, end), {Venue});
+
+    await Venue.secureDraft();
+    assert.deepEqual(
+        persisted.map((ticket) => ticket.id),
+        ["new", "placed"],
+    );
+    assert.equal(persisted[0].holdId, "7");
+    assert.equal(Venue.editingDraftId, "new");
+});
+
+test("a restored precommit export recovers its placed chain state", async () => {
+    const account = "0x00000000000000000000000000000000000000aa";
+    const record = {id: "0x" + "22".repeat(32), committer: account};
+    const Venue = {
+        c: {
+            engine: {
+                commitments: async () => ({
+                    committer: account,
+                    committedAt: 1_000n,
+                    cancelled: false,
+                    revealed: true,
+                }),
+            },
+        },
+    };
+    const start = runtime.indexOf("Venue.reconcileTicketRecord = async function");
+    const end = runtime.indexOf("\nVenue.ingestTickets", start);
+    assert.ok(start >= 0 && end > start, "ticket reconciliation should be extractable");
+    runInNewContext(runtime.slice(start, end), {
+        Venue,
+        ZERO: "0x0000000000000000000000000000000000000000",
+        addrEq: (left, right) => left.toLowerCase() === right.toLowerCase(),
+        asBig: BigInt,
+    });
+
+    assert.deepEqual(
+        {...await Venue.reconcileTicketRecord(record)},
+        {...record, committedAt: "1000", cancelled: false, revealed: true},
+    );
+    Venue.c.engine.commitments = async () => {
+        throw new Error("RPC offline");
+    };
+    assert.equal(await Venue.reconcileTicketRecord(record), record);
+});
+
 test("recovery import validates the commitment and keeps order receipts", () => {
     const committer = "0x00000000000000000000000000000000000000aa";
     const id = "0x" + "22".repeat(32);
@@ -598,13 +884,17 @@ test("recovery import validates the commitment and keeps order receipts", () => 
 });
 
 test("Markets styles and oracle states stay responsive and honest", () => {
-    assert.match(css, /\.market-main\{\s*display:grid;grid-template-columns:minmax\(18rem,2fr\) minmax\(0,3fr\)/);
+    assert.match(css, /\.market-main\{\s*display:grid;grid-template-columns:minmax\(0,1fr\)/);
+    assert.match(css, /\.order-panel\{grid-column:1;grid-row:1\}/);
     assert.match(css, /\.auction-panel\{grid-column:1\/-1;grid-row:2\}/);
     assert.match(css, /\.orders-section\{grid-column:1\/-1;grid-row:3\}/);
-    assert.match(css, /\.balance-strip\{[\s\S]*?grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+    assert.match(css, /\.trade-balances-popout\{[\s\S]*?position:absolute/);
+    assert.match(css, /\.trade-balance-grid\{[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+    assert.match(css, /\.oracle-primary-value strong\{[\s\S]*?font-size:clamp/);
     assert.match(css, /\.side-toggle button \.dia\{[\s\S]*?clip-path:polygon/);
     assert.match(css, /\.order-primary\{flex:1;width:auto;min-height:46px/);
     assert.match(css, /withdraw-ready-pulse/);
+    assert.match(css, /oracle-live-pulse/);
     assert.match(css, /live-market-pulse/);
     assert.match(css, /\.order-attention\[data-tone="info"\][\s\S]*?--attention-color:var\(--market-blue\)/);
     assert.match(css, /\.order-attention\[data-tone="danger"\][\s\S]*?--attention-color:var\(--market-red\)/);
@@ -621,6 +911,7 @@ test("Markets styles and oracle states stay responsive and honest", () => {
     assert.match(runtime, /Auction · Round/);
     assert.match(runtime, /liveKicker\.classList\.toggle\("is-live"/);
     assert.match(oracleRuntime, /Venue\.page === "trade" \? \(dark \? "Unavailable" : "Live"\)/);
-    assert.match(oracleRuntime, /Auction trading remains available with user-supplied limits/);
+    assert.doesNotMatch(oracleRuntime, /Finalized valuation context|Auction trading remains available with user-supplied limits/);
+    assert.match(oracleRuntime, /Venue\.page === "trade" \? "" : " HBAR"/);
     assert.match(oracleRuntime, /box\.classList\.toggle\("is-unavailable"/);
 });

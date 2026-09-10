@@ -9,7 +9,7 @@ SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat oracle-test oracle-dry-run oracle-publisher oracle-topic oracle-evidence-verify oracle-scheduler oracle-image agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -18,6 +18,7 @@ build:
 
 test:
 	forge test
+	$(NODE) node --test oracle/tests/*.test.mjs
 
 sizes:
 	forge build --sizes
@@ -109,15 +110,16 @@ pages: vectors
 
 # The live client: the Prime front door and screens plus the separate Claw
 # coming-soon route, written to app/. Templates in, one self-contained HTML file
-# per screen out. No bundler and no backend, and nothing fetched at run time but
-# ethers and the chain on Prime pages.
+# per screen out. No bundler. Prime reads ethers and the chain at run time; the
+# Eligibility write alone uses the same-origin sponsored-registration endpoint.
 #
 # Reads deployments/client.json and deployments/abi/*, both committed, so this
 # builds offline. `make client` is what regenerates those off chain 296, and it
 # is deliberately not a prerequisite: rebuilding the UI must never be able to
 # move the address book underneath it.
 app: vectors
-	$(NODE) node --test tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
+	$(NODE) node --test tools/ticket-vault.test.mjs tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
+	$(NODE) node --test ../api/eligibility/register.test.mjs
 	$(NODE) node tools/gen-app.mjs
 
 # The receipt beat, on chain: two sealed orders committed and both withdrawn
@@ -143,6 +145,41 @@ beat:
 #   make financing-beat MODE=run
 financing-beat:
 	bash script/live/financing-beat.sh $(or $(MODE),plan)
+
+.PHONY: financing-deploy financing-lifecycle financing-hss-canary financing-promote financing-verify
+
+# Guarded deployment sequence. `oracle` is required only when the bound feed
+# does not expose RepoVault v5's historical fixing selector.
+#
+#   make financing-deploy
+#   make financing-deploy MODE=oracle
+#   make financing-deploy MODE=production
+#   CANDIDATE_DEPLOY_ACK=1 make financing-deploy MODE=candidate
+#   make financing-deploy MODE=demo
+financing-deploy:
+	bash script/live/deploy-financing.sh $(or $(MODE),plan)
+
+# Separate compressed-clock lifecycle. It never changes client.json.
+#
+#   make financing-lifecycle
+#   make financing-lifecycle MODE=run
+financing-lifecycle:
+	bash script/live/financing-lifecycle.sh $(or $(MODE),plan)
+
+# Off-binding canary. It closes before maturity, then waits without calling
+# settle so only HSS can produce the automatic-success receipt.
+financing-hss-canary:
+	bash script/live/financing-hss-canary.sh $(or $(MODE),plan)
+
+# Evidence-gated production binding update.
+financing-promote:
+	set -a; . ../.env; set +a; $(NODE) node tools/promote-financing-candidate.mjs
+
+# Replay both financing artifacts against Mirror Node, including receipt
+# status, blocks, gas, ATS hold release and execution, the funded HSS boundary,
+# coupon commitment, and decoded fallback reasons.
+financing-verify:
+	$(NODE) node tools/verify-financing-evidence.mjs
 
 # Refresh the chain-bound client only after a coordinated deployment. The
 # acknowledgement prevents an ordinary local build from pairing source ABIs
@@ -208,6 +245,33 @@ hcs-verify: vectors
 hcs-index: vectors
 	$(NODE) node --test tools/hcs-project.test.mjs
 	$(NODE) node tools/hcs-index.mjs $(if $(filter check,$(MODE)),--check,)
+
+# Hedera-native oracle liveness. Each publisher command receives exactly one
+# private key through ORACLE_PUBLISHER_PRIVATE_KEY. Topic creation and EVM
+# submission use that same key, so no publisher container needs another seat's
+# key or a shared HCS submit key.
+oracle-test:
+	$(NODE) node --test oracle/tests/*.test.mjs
+	forge test --match-path test/OracleScheduler.t.sol
+
+oracle-dry-run:
+	$(NODE) node oracle/publisher.mjs --dry-run
+
+oracle-publisher:
+	$(NODE) node oracle/publisher.mjs $(if $(filter once,$(MODE)),--once,)
+
+oracle-topic:
+	$(NODE) node oracle/create-topic.mjs
+
+oracle-evidence-verify:
+	$(NODE) node oracle/verify-evidence.mjs
+
+oracle-scheduler:
+	bash script/live/oracle-scheduler.sh $(or $(MODE),status) $(or $(FUND_HBAR),50)
+
+oracle-image:
+	docker build -f oracle/packaging/Dockerfile.publisher \
+		-t lattice-oracle-publisher:1 ..
 
 # The private-agent layer stays an explicit build until its release gate passes.
 # Generated keys, witnesses, proofs, and local state remain under ignored paths.

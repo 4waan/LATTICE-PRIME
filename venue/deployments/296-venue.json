@@ -142,10 +142,10 @@
   "MatchingEngine": "0x543E3C66d040e6F4FD7D066C6FD1E557D4B11DAe",
   "VolumeCap": "0x875b9B9F76678DD38D90AB5a400cA17d6E50aBB3",
   "TradingHalt": "0x79ed68512Cd554f3Ef33A3ECd57aEE643f916177",
-  "PrimeOracle": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
+  "PrimeOracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
   "CouponSchedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
-  "RepoVault": "0xEC8A6F6De7c1882EF2661F4dEdB9bD30E0b94964",
-  "MarginWatch": "0x2c2bF19AD702C92C0b947fd11D8c71625318Ef9b",
+  "RepoVault": "0x8C789A6A395c5B912e0A77D64a8E91C6E7CdB5b8",
+  "MarginWatch": "0xdE540b2C42D82eC644699Ca5d758Ea7D0C6635AD",
   "CouponDistributor": "0x2DC04508Fa7FEde1BaAEBe4a525D63bef509C341",
   "Rulebook": "0x28Bacf68849dcAdFedf8826D20892a0FA1CC555f",
   "wiring": {
@@ -157,6 +157,9 @@
    "cap.venue": "MatchingEngine, checked by attachVolumeCap",
    "vault.oracle": "PrimeOracle, so postMark is only reachable while the feed is dark",
    "vault.schedule": "CouponSchedule, so every coupon obligation comes from the fixed calendar",
+   "vault.registry": "ZkKycRegistry, checked for both lender and borrower before cash is accepted",
+   "vault.policy": "ParameterRoot, including the row 14 publication budget",
+   "vault.version": "FINANCING_VERSION 5, funded offers and fixed-term repayment",
    "watch.vault": "the current RepoVault",
    "distributor.schedule": "CouponSchedule",
    "distributor.policy": "ParameterRoot",
@@ -178,11 +181,11 @@
    "VolumeCap": "0.0.10381842",
    "TradingHalt": "0.0.10381850",
    "CouponSchedule": "0.0.10419923",
-   "RepoVault": "0.0.10419927",
-   "MarginWatch": "0.0.10419958",
+   "RepoVault": "0.0.10454144",
+   "MarginWatch": "0.0.10454146",
    "CouponDistributor": "0.0.10419985",
    "Rulebook": "0.0.10381856",
-   "PrimeOracle": "0.0.10407426",
+   "PrimeOracle": "0.0.10452654",
    "HederaRateFeed": "0.0.10407248",
    "FeedAccessProbe": "0.0.10407267"
   },
@@ -219,9 +222,10 @@
     "swappable": "CASH_FEED in the deploy scripts, or proposeCashFeed on a live oracle, seats a readable Chainlink aggregator on any chain that permits one. No code changes."
    },
    "deployTx": {
-    "PrimeOracle": "0x424daa095d2c4cae340cc36e91384ad27522edc805bef4e84c29f758a45f1913",
-    "RepoVault": "0x583c5d4968f90d6893c45f6f33f1efb0a4284cdd98f2cc7b130719e31e4b1be1",
-    "MarginWatch": "0x3e8150b3bd6e4bbc60ebb133d9497140964c43bc927b4c7edd3c79b9a4012947",
+    "PrimeOracle": "0xa7e10c9a9e33eb936d69f92841367f93134a4c0a7ab1d50e44c586f89c888462",
+    "RepoVault": "0xac5b72d42aa1e1611a87dda182a429f1bdd242fa7c143713de80733f0e13e0c2",
+    "MarginWatch": "0x27f743d9e76cbdfc05c975b7600d5735566140d7ace7203033a8d53ca160eedc",
+    "fundRepoVault": "0xd412431c442bd7e44bc7f877036596982d177e318c1d16fb9c71784584f4998c",
     "HederaRateFeed": "0x5f8f40a820d9999ee039e3d8ad6157c2e3b335182f4cdba1fe1729f4cf3151cf",
     "proposeCashFeed": "0xaf67b8668530562a3feb04f290dd2d3ee167bc9a711d118c37d0437609db203c",
     "FeedAccessProbe": "0xb9631dbda30cd3b239b3d928af414650e813d0423ab382d9c559e6bc17673f7c"
@@ -252,9 +256,183 @@
      "0x4fd0d270bd4bbe6eb7beafede1d0f64c4b71ac27332a12e7c77229706cbf2c99"
     ],
     "finalizeTx": "0x86ab616963bf9010c2edc0614f84262c5726aa5d942077bfdc0c87e35f1bd3f3"
+   },
+   "financingV5Round": {
+    "note": "The replacement oracle adds the historical fixing selector required by RepoVault v5. Its first round copied the previous live finalized clean price and reference rate; no lower price was invented to force a margin call.",
+    "round": 1,
+    "price": "99.99980028 USD per unit of face, 9999980028 at eight decimals",
+    "refRateBps": 364,
+    "publishedAt": 1789010673,
+    "markPerUnitTinybar": "130942356414",
+    "submitTx": [
+     "0x3837f210ac2433427698f2a35221dbf93a2b854d2c4485f9bc78685ffacc826f",
+     "0x311eb82e31a42e4c802cc19c4ce123ea3c6695db92b8a6d6c29d0d1bc07ad871",
+     "0x864e5719c111536f716378511fc630d331b35a6ebb005d325533ee0afb789cbc"
+    ],
+    "finalizeTx": "0xc5f794a7323f26d914aeba6e1e4423f6d7d10f08dcd38ed6244b3b533d139827"
    }
   },
   "HederaRateFeed": "0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"
+ },
+ "financing": {
+  "version": 5,
+  "deployedAt": "2026-09-10T05:56:45+00:00",
+  "promotedAt": "2026-09-10T06:20:17Z",
+  "note": "The production binding reuses the ATS bond, policy root, KYC registry, fixed coupon schedule, PrimeOracle, and HBAR/USD adapter. It schedules HSS two seconds after each unchanged economic due time.",
+  "compiler": {
+   "solc": "0.8.24",
+   "optimizer": true,
+   "optimizerRuns": 1,
+   "repoVaultRuntimeBytes": 24420,
+   "eip170MarginBytes": 156,
+   "repoVaultRuntimeKeccak256": "0xec4ff4f7e69ff5e576bf0e41a502f0f3fe077b6ac7a7a6580bfac5782d51185b"
+  },
+  "scheduling": {
+   "revision": "hss-execution-delay",
+   "executionDelaySeconds": 2,
+   "economicDueTimeUnchanged": true,
+   "strictManualFallbackUnchanged": true
+  },
+  "RepoVault": {
+   "address": "0x8C789A6A395c5B912e0A77D64a8E91C6E7CdB5b8",
+   "contractId": "0.0.10454144",
+   "deployTx": "0xac5b72d42aa1e1611a87dda182a429f1bdd242fa7c143713de80733f0e13e0c2",
+   "gasUsed": "5358366"
+  },
+  "MarginWatch": {
+   "address": "0xdE540b2C42D82eC644699Ca5d758Ea7D0C6635AD",
+   "contractId": "0.0.10454146",
+   "deployTx": "0x27f743d9e76cbdfc05c975b7600d5735566140d7ace7203033a8d53ca160eedc",
+   "gasUsed": "1284567"
+  },
+  "PrimeOracle": {
+   "address": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+   "contractId": "0.0.10452654",
+   "deployTx": "0xa7e10c9a9e33eb936d69f92841367f93134a4c0a7ab1d50e44c586f89c888462"
+  },
+  "constructor": {
+   "security": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+   "marginEngine": "0xCFc5923dEf1F25db05FE50754Ef0822175AFD449",
+   "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+   "schedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
+   "registry": "0xAa25f5CdCC905a6386a623ee37D3C57D29fA976a",
+   "policy": "0xD2ca252Da75D7dfA4784F05e040cc6089e4747E6",
+   "penaltyRateHundredthsBpsPerDay": 10,
+   "failGraceSeconds": 432000,
+   "cureWindowSeconds": 86400
+  },
+  "operatingReserve": {
+   "initialHbar": 20,
+   "tx": "0xd412431c442bd7e44bc7f877036596982d177e318c1d16fb9c71784584f4998c",
+   "postCanaryBalanceWeibar": "19955908700000000000",
+   "additionalCallsFunded": "3"
+  },
+  "approvalWindow": {
+   "why": "The candidate address was not known when the current KYC epoch quota was consumed. This immutable temporary seat granted exactly one ATS allowance for the canary and restored SeamJournal immediately.",
+   "address": "0xE3B0c71a23a3300A9C08f340D2cd9dd8ECc4Be97",
+   "contractId": "0.0.10454160",
+   "deployTx": "0x651eb6595c010fe3cf3dce2e0b70b4142795469d0b8de8d777e021effd844493",
+   "gasUsed": "219124",
+   "seatTx": "0x28a7582e75e67b8a9a0efff737627df570770b201ac70bfae9d2e1056fc8bdf1",
+   "approveTx": "0x4b46b2be40251c42c6247e64adc53f21c8e7b9a6147264a86ff039ee576c1f53",
+   "restoreTx": "0xb512f624d610edd77dc00d13cc22f2be99de45079f0ab038f4eea136f095be4e",
+   "restoredCompliance": "0x0d5BadF7a535C2Cdd2d21068E9273903583D3Ec9"
+  },
+  "demonstration": {
+   "label": "compressed automatic-settlement canary",
+   "record": "deployments/financing-hss-canary.json",
+   "repoId": "0x570e0d0c94b90c37d27985c27e64485491c888ad1a72de8b1e6dace9e5943fa2",
+   "fundOfferTx": "0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91",
+   "acceptTx": "0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789",
+   "closeTx": "0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01",
+   "holdId": 44,
+   "finalState": "CLOSED",
+   "automaticSettlement": {
+    "failObligation": "0x5f0a2d2ccd502ef9032c2465855628a33cff850dad8368bc315217f608fcd241",
+    "economicDueAt": 1789020517,
+    "executionDelaySeconds": 2,
+    "scheduleAddress": "0x00000000000000000000000000000000009f84E5",
+    "scheduleId": "0.0.10454245",
+    "expirationTime": "1789020519.000000000",
+    "executedTimestamp": "1789020519.039793350",
+    "transactionId": "0.0.7314364-1789020209-540687199",
+    "transactionHashSha384": "0x8e58a1eca49e71ec23c0d4a4fe0394f8f5578ecb76e4c0e06b9e23666f12bfbc55a409573f4ece976714366b66ac5971",
+    "result": "SUCCESS",
+    "chargedFeeTinybar": "4409130",
+    "evmTransactionHash": "0x8e58a1eca49e71ec23c0d4a4fe0394f8f5578ecb76e4c0e06b9e23666f12bfbc",
+    "evmBlock": 40331524,
+    "evmBlockTimestamp": 1789020517,
+    "gasUsed": "40083",
+    "callResult": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "hashscan": "https://hashscan.io/testnet/transaction/0.0.7314364@1789020209.540687199",
+    "manualFallbackSent": false
+   }
+  },
+  "historicalBoundary": {
+   "record": "deployments/financing-beat.json",
+   "repoId": "0x81a7b6c343c87350fedabf95bb0ea7db94b8ac8fda7130163ec797989d099866",
+   "observation": {
+    "scheduleId": "0.0.10452921",
+    "dueAt": 1789015904,
+    "scheduledResult": "CONTRACT_REVERT_EXECUTED",
+    "scheduledFeeTinybar": 3030280,
+    "evmBlockTimestamp": 1789015903,
+    "fallbackTx": "0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca",
+    "obligationState": "SETTLED",
+    "reservedFundingTinybar": 0,
+    "vaultBalanceWeibar": "19969697200000000000"
+   },
+   "note": "Historical evidence for exact-due HSS reversion and successful permissionless settlement. It belongs to the superseded vault."
+  },
+  "lenderTopUp": {
+   "hbar": 1200,
+   "tx": [
+    "0x98a003cff4654c320ea455d9340c604ad9d8f1767c51803e23a1238c79074a67",
+    "0x57b93774251f2b6f352858a67fcdeade89003a2eb361ebca45d35b5737eadfd7"
+   ],
+   "note": "Transferred from two locally controlled testnet accounts previously funded by the Hedera faucet. No production asset or mainnet value was involved."
+  },
+  "compressedDemo": {
+   "productionBinding": false,
+   "record": "deployments/financing-lifecycle.json",
+   "CouponSchedule": {
+    "address": "0xa9c0c7e3232fd54760530113d65369de7a5d5805",
+    "contractId": "0.0.10453016",
+    "deployTx": "0x28cf144234d0dfb1a2dd5ad2b28b19726ef00b7ace33603372ef28714008e067"
+   },
+   "RepoVault": {
+    "address": "0x97eb738d03797528f20de807254d4141d9bfd2fe",
+    "contractId": "0.0.10453018",
+    "deployTx": "0x96db6aa41b863104477e076a45c1033770f05f5ac751a769548c45caf1c7521e"
+   },
+   "MarginWatch": {
+    "address": "0xaa1e985dc159ff6fec633c6c73c8ae0cc8a9d356",
+    "contractId": "0.0.10453020",
+    "deployTx": "0x2d9a69e8cc1037bf964eee03494f65380bbd1354a5afbf8011df2d7a90759377"
+   },
+   "configuration": {
+    "couponDelaySeconds": 900,
+    "cureWindowSeconds": 300,
+    "failGraceSeconds": 120,
+    "penaltyRateHundredthsBpsPerDay": 10,
+    "hssFundingHbar": 0
+   },
+   "evidence": {
+    "marginCallTx": "0xd8f65b72e045078f7505bd689708d8c8f6812a65fa6155ffe486603333beafc8",
+    "cureTx": "0x13bc9d75f7faa426e8221f57c4d000ebd5d1367061d46fe652ff33183bba43eb",
+    "couponTx": "0x37dbaeba80ed6fb410d7c69339988fbfee1cf4d038a1cabd592928e45167ff8e",
+    "markFailingTx": "0xc4b89067daa3afbc9c9a01fef1525b4b262701ea18b2c7b47834e223d4c72fe7",
+    "declareDefaultTx": "0x3472ab60511da72afa01043ac9ccb61428c05d3a62000f306fed8377769338a1",
+    "settleDefaultTx": "0x7156173b9e0fd00e25eddcae1cf214918d2851b60d919f25b317b743c277e18c",
+    "couponSmallestCashUnits": 1,
+    "article7PenaltyTinybar": 166077,
+    "collateralExecutedToLender": 128,
+    "unscheduledReasons": {
+     "fail": -3,
+     "coupon": -3
+    }
+   }
+  }
  },
  "coupon": {
   "note": "Deployed 2026-09-08. CouponSchedule fixes the eight-date ACT/365 calendar. CouponDistributor accepts only fully funded declarations and pays claims in native HTS cash. RepoVault derives manufactured coupon obligations from this calendar and attempts HIP-1215 native scheduling when Hedera reports capacity.",
@@ -297,9 +475,12 @@
    "hss": "0x000000000000000000000000000000000000016b",
    "gasLimit": 750000,
    "fundingPerCallTinybar": 500000000,
-   "vaultFundingHbar": 100,
-   "fundedCallsAtDeployment": 20,
-   "firstCouponCapacity": "available when checked before deployment; later quarterly dates use the permissionless manual fallback if Hedera reports no native capacity"
+   "vaultFundingHbar": 20,
+   "fundedCallsAtDeployment": 4,
+   "fundedCallsAfterProductionFallback": 3,
+   "fundingTx": "0xcfea8b5a24c40bf2211b5a9b887cfba2416946001ddf28d24d1cf7fb39255225",
+   "firstCouponCapacity": "capacity remains optional; every stored obligation keeps the permissionless manual fallback",
+   "productionBoundaryRecord": "deployments/financing-beat.json"
   },
   "deployTx": {
    "cashToken": "0x3b681ebca0410ededbb1b6e285312939b277dfbbe02d23bd7ae05fa898056000fe2ac3d56ed3c3db103a464ac3c34f16",
@@ -321,6 +502,16 @@
   "MarginWatch": "0x44A576680e6f19E307A7c88F49460d5375f15ef2",
   "Rulebook": "0xdd0D15FaF78AB99959aF5F361610416B18306970",
   "strandedHold": "Hold id 1 on the bond names the superseded engine as escrow and still encumbers 1,000 of the seller's units. Left in place: releasing it needs the escrow, and the seller holds enough besides.",
+  "repoVaultBeforeFinancingV5": {
+   "why": "The vault predates funded offers and does not answer FINANCING_VERSION. Its oracle also predates referenceRateBefore(uint64), so a v5 noteCoupon call could never derive a historical fixing against that feed.",
+   "stranded": "Nothing. The outgoing vault's Mirror Node log index returned zero rows immediately before deployment, so it had no offer, repo, cash credit, or collateral hold to migrate.",
+   "RepoVault": "0xEC8A6F6De7c1882EF2661F4dEdB9bD30E0b94964",
+   "RepoVaultContractId": "0.0.10419927",
+   "MarginWatch": "0x2c2bF19AD702C92C0b947fd11D8c71625318Ef9b",
+   "MarginWatchContractId": "0.0.10419958",
+   "PrimeOracle": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
+   "PrimeOracleContractId": "0.0.10407426"
+  },
   "repoVaultBeforeScheduledSettlement": {
    "why": "RepoVault holds its coupon schedule as an immutable, and MarginWatch holds its vault as one, so adding the fixed coupon calendar and HIP-1215 settlement rail moved both. The oracle, policy, market, journal, bond, and governance stack retain their addresses and state.",
    "stranded": "Nothing. The outgoing vault's mirror-node log index was empty before the move, so no repo position or collateral hold required migration.",
@@ -339,6 +530,61 @@
    "PrimeOracle": "0x883Ce39740Ff9088DB7446Bb45bfd8f3AFbaA354",
    "RepoVault": "0xC62320a84643436FbB9911d9021bCD29A2342c49",
    "MarginWatch": "0xc4E41414B68952f0337d9dadD93F45d808C7d804"
+  },
+  "repoVaultBeforeHssTolerance": {
+   "why": "This RepoVault v5 scheduled at the exact economic due second. Hedera consensus reached that second while the EVM block timestamp was one second earlier, so HSS reverted and the permissionless fallback settled it.",
+   "supersededAt": "2026-09-10T06:20:17Z",
+   "stillCallable": true,
+   "migrated": false,
+   "RepoVault": {
+    "address": "0xC45182A32Cf3Cce5845Cb734f3A36b50259146d9",
+    "contractId": "0.0.10452732",
+    "deployTx": "0x46f49f28c548af2640d4186c0d1d85aafcab52aba68a2c0730ce310d3e3b6e6b"
+   },
+   "MarginWatch": {
+    "address": "0xB0c3cbb5d1bcd3eFBd6a921e0b60FFE222BC7e8D",
+    "contractId": "0.0.10452733",
+    "deployTx": "0x3dfb0df784e90aa56b6b0ea821a45b8510ea684e1856faca696465955608eee5"
+   },
+   "knownRepoIds": [
+    "0x81a7b6c343c87350fedabf95bb0ea7db94b8ac8fda7130163ec797989d099866"
+   ],
+   "knownState": {
+    "repos": "CLOSED",
+    "obligations": "SETTLED",
+    "cashReservedTinybar": "0",
+    "reservedFundingTinybar": "0",
+    "borrowerCreditTinybar": "0",
+    "lenderCreditTinybar": "0"
+   },
+   "unreservedBalance": {
+    "weibar": "19969697200000000000",
+    "hbar": "19.9696972",
+    "withdrawable": false,
+    "note": "The old contract has no owner reserve withdrawal path. The balance was not migrated or deleted."
+   },
+   "successfulManualFallback": {
+    "scheduleId": "0.0.10452921",
+    "dueAt": 1789015904,
+    "scheduledResult": "CONTRACT_REVERT_EXECUTED",
+    "scheduledFeeTinybar": 3030280,
+    "evmBlockTimestamp": 1789015903,
+    "fallbackTx": "0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca",
+    "obligationState": "SETTLED",
+    "reservedFundingTinybar": 0,
+    "vaultBalanceWeibar": "19969697200000000000"
+   },
+   "approvalWindow": {
+    "why": "The new vault address was not known when the current KYC epoch's credential quota was consumed. ATS asks SeamJournal about the spender before approve. This immutable temporary seat returned true only for (borrower, RepoVault, 0), denied positive-value transfers, and the original journal was restored immediately after the one allowance write.",
+    "address": "0x70C67ba8D07E7142baaBc8791810797a595b3397",
+    "contractId": "0.0.10452884",
+    "deployTx": "0x0bedc42d9323d5a54f1d0cdda4f2ddfc653987e43c5460f38df71f7cd3cfa376",
+    "seatTx": "0x8dd07c8d595c12bfb49465a4d4d4077f18bae2608df956aa808354a31fb577a3",
+    "approveTx": "0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a",
+    "restoreTx": "0x96dc8a1c48defc3cc0fd9f034978a75ed84b437e8707b5af2e84cdbcf6509ad1",
+    "restoredCompliance": "0x0d5BadF7a535C2Cdd2d21068E9273903583D3Ec9"
+   },
+   "evidence": "deployments/financing-beat.json"
   }
  },
  "evidence": {
@@ -431,13 +677,26 @@
    "MatchingEngine",
    "VolumeCap",
    "TradingHalt",
+   "PrimeOracle",
+   "HederaRateFeed",
    "CouponSchedule",
    "RepoVault",
    "MarginWatch",
+   "ApprovalWindowCompliance",
    "CouponDistributor",
    "Rulebook"
   ],
-  "note": "Every contract listed above, including the four deployed for coupon and scheduled settlement, matched on Sourcify. LPCASH is a native HTS token rather than Solidity bytecode. The verifier URL needs its trailing slash. Forge appends v2 to whatever it is given, so https://sourcify.dev/server becomes https://sourcify.dev/serverv2 and fails with a DNS error that says nothing about the cause."
+  "financingVerified": [
+   "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+   "0xC45182A32Cf3Cce5845Cb734f3A36b50259146d9",
+   "0xB0c3cbb5d1bcd3eFBd6a921e0b60FFE222BC7e8D",
+   "0x70C67ba8D07E7142baaBc8791810797a595b3397",
+   "0xa9c0c7e3232fd54760530113d65369de7a5d5805",
+   "0x97eb738d03797528f20de807254d4141d9bfd2fe",
+   "0xaa1e985dc159ff6fec633c6c73c8ae0cc8a9d356",
+   "0x622e7d49310569510d09f29a673373bc60a0eb8e"
+  ],
+  "note": "Every listed production and compressed-demo contract reports a Sourcify runtime match. The v2 verifier uses the deployment script's complete standard JSON input so unused input files cannot cause a metadata mismatch. LPCASH is a native HTS token rather than Solidity bytecode."
  },
  "spend": {
   "startHbar": 996.2589,

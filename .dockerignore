@@ -1,0 +1,17 @@
+**
+!toolchain/
+toolchain/*
+!toolchain/package.json
+!toolchain/package-lock.json
+!venue/
+venue/**
+!venue/oracle/
+!venue/oracle/**
+venue/oracle/state/
+venue/oracle/secrets/
+venue/oracle/config.json
+!venue/tools/
+venue/tools/*
+!venue/tools/hcs-chain.mjs
+!venue/deployments/
+!venue/deployments/**

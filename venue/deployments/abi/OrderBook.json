@@ -783,31 +783,6 @@
  },
  {
   "type": "event",
-  "name": "DisclosureRefused",
-  "inputs": [
-   {
-    "name": "id",
-    "type": "bytes32",
-    "indexed": true,
-    "internalType": "bytes32"
-   },
-   {
-    "name": "row",
-    "type": "uint16",
-    "indexed": false,
-    "internalType": "uint16"
-   },
-   {
-    "name": "excess",
-    "type": "uint32",
-    "indexed": false,
-    "internalType": "uint32"
-   }
-  ],
-  "anonymous": false
- },
- {
-  "type": "event",
   "name": "Retired",
   "inputs": [
    {

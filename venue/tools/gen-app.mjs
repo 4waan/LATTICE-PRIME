@@ -37,6 +37,37 @@ const hcsPath = join(root, "deployments/hcs.json");
 const hcs = existsSync(hcsPath)
     ? (({topicId, memo, createdAt}) => ({topicId, memo, createdAt}))(JSON.parse(readFileSync(hcsPath, "utf8")))
     : null;
+
+// Per-publisher oracle evidence topics. Public metadata only. The page reads
+// each live tail from Mirror Node, so failure reasons and source provenance do
+// not depend on a private publisher journal or application server.
+const oracleTopicDir = join(root, "oracle/deployments/topics");
+const oracleTopics = existsSync(oracleTopicDir)
+    ? readdirSync(oracleTopicDir)
+        .filter((name) => name.endsWith(".json"))
+        .sort()
+        .map((name) => JSON.parse(readFileSync(join(oracleTopicDir, name), "utf8")))
+        .filter((record) => record.schema === "lattice.oracle.topic.v1")
+        .map((record) => ({
+            topicId: record.topicId,
+            profile: record.publisher.profile,
+            publisher: record.publisher.evmAddress,
+        }))
+    : [];
+const oracleSchedulerPath = join(root, "deployments/oracle-scheduler.json");
+const oracleScheduler = existsSync(oracleSchedulerPath)
+    ? JSON.parse(readFileSync(oracleSchedulerPath, "utf8"))
+    : null;
+const financingEvidence = Object.fromEntries(
+    [
+        ["automatic", "deployments/financing-hss-canary.json"],
+        ["production", "deployments/financing-beat.json"],
+        ["lifecycle", "deployments/financing-lifecycle.json"],
+    ].map(([name, rel]) => {
+        const full = join(root, rel);
+        return [name, existsSync(full) ? JSON.parse(readFileSync(full, "utf8")) : null];
+    }),
+);
 // Names a decoded tuple cannot carry, because `ethers` would hand back the
 // method instead of the value.
 //
@@ -94,9 +125,8 @@ if (nameClashes.length) {
 // These are the proofs `make prove-live` already produced for the three live
 // addresses; they are real, they verify on chain, and shipping them costs a few
 // kilobytes in a document that is already a quarter of a megabyte. Fetching them
-// at run time was the alternative and it is worse: the client is six static
-// files with no backend, and a demonstration must not depend on a second request
-// resolving.
+// at run time was the alternative and it is worse: proof lookup and policy
+// inspection must keep working if the sponsored-registration endpoint is down.
 //
 // Keyed by the epoch the proof pins in public signal 3. `register` refuses a
 // proof for the wrong epoch, so the page has to pick by the registry's own
@@ -114,6 +144,9 @@ const bundle =
     "const CLIENT = " + JSON.stringify(client) + ";\n" +
     "const ABI = " + JSON.stringify(abis) + ";\n" +
     "const HCS = " + JSON.stringify(hcs) + ";\n" +
+    "const ORACLE_TOPICS = " + JSON.stringify(oracleTopics) + ";\n" +
+    "const ORACLE_SCHEDULER = " + JSON.stringify(oracleScheduler) + ";\n" +
+    "const FINANCING_EVIDENCE = " + JSON.stringify(financingEvidence) + ";\n" +
     "const DEMO_PROOFS = " + JSON.stringify(demoProofs) + ";\n";
 
 writeFileSync(join(root, "tools/client-bundle.mjs"), bundle);

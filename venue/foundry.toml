@@ -23,6 +23,11 @@ hedera_testnet = "${HEDERA_TESTNET_RPC}"
 [profile.default.fuzz]
 runs = 512
 
+[profile.financing]
+# RepoVault v5 carries the complete lifecycle and sits just over EIP-170 with
+# the throughput-oriented default. This deployment profile optimizes for size.
+optimizer_runs = 1
+
 [fmt]
 line_length = 96
 tab_width = 4

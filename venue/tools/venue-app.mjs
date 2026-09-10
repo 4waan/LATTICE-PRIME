@@ -8,10 +8,9 @@ const TICKET_VER = 1;
 const VAULT_VER = 1;
 const HOLD_VER = 1;
 const ORDER_SCALE_LIMIT = 1n << 96n;
-const VAULT_IDB = "seamme.vault";
-const VAULT_STORE = "handles";
 const RECEIPT_SESSION = "seamme.disclosure-receipt.v1";
 const TRADE_SIDE_KEY = "seamme.trade.side";
+const ELIGIBILITY_RELAY_PATH = "/api/eligibility/register";
 const ROW_NAMES = {
     3: "Order size",
     4: "Order price",
@@ -34,8 +33,7 @@ const SIGS = [
     {i: 6, label: "Region policy", help: "Meets the venue's current region rules"},
 ];
 const EMPTY_SIGNALS =
-    '<div class="empty">Load a proof to compare its seven public checks with the ' +
-    "venue's current requirements.</div>";
+    '<div class="empty">Connect the matching wallet to inspect its access checks.</div>';
 const REPO_STATE = ["NONE", "PROPOSED", "OPEN", "MARGIN_CALL", "MANUFACTURED", "FAILING", "DEFAULTED", "CLOSED"];
 const G_NAME = ["none", "predicate", "aggregate", "bucket", "exact"];
 const T_NAME = ["before the fact", "immediately", "after 15 minutes", "at end of day", "at end of epoch", "never"];
@@ -147,7 +145,7 @@ function decodeRevert(err) {
         message += ". The preimage does not match; check the reveal key on the ticket.";
     }
     if (name === "RegistrantMismatch") {
-        message = "This proof belongs to another account. Watch that grant, or connect the matching wallet to request access.";
+        message = "This private access check belongs to another account. Connect its matching wallet.";
     }
     if (name === "NotEscrow") {
         const escrow = parsed ? String(parsed.args[0]) : "";
@@ -280,7 +278,7 @@ function vaultName(account) {
     return "seamme-orders-" + CLIENT.network.chainId + "-" + short + ".json";
 }
 
-function vaultFile(account) {
+function vaultFile(account, tickets) {
     return {
         v: VAULT_VER,
         kind: "vault",
@@ -289,7 +287,7 @@ function vaultFile(account) {
         engine: CLIENT.addresses.MatchingEngine,
         account,
         savedAt: new Date().toISOString(),
-        tickets: readList("tickets", account).map(ticketFile),
+        tickets: (tickets || []).map(ticketFile),
     };
 }
 
@@ -386,23 +384,15 @@ function vaultHandleKey(account) {
 }
 
 function openVaultIdb() {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(VAULT_IDB, 1);
-        req.onupgradeneeded = () => {
-            if (!req.result.objectStoreNames.contains(VAULT_STORE)) {
-                req.result.createObjectStore(VAULT_STORE);
-            }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+    return openTicketVaultDb();
 }
 
 async function getVaultHandle(account) {
     const db = await openVaultIdb();
     try {
         return await new Promise((resolve, reject) => {
-            const r = db.transaction(VAULT_STORE, "readonly").objectStore(VAULT_STORE).get(vaultHandleKey(account));
+            const r = db.transaction(TICKET_VAULT_HANDLE_STORE, "readonly")
+                .objectStore(TICKET_VAULT_HANDLE_STORE).get(vaultHandleKey(account));
             r.onsuccess = () => resolve(r.result || null);
             r.onerror = () => reject(r.error);
         });
@@ -415,8 +405,8 @@ async function setVaultHandle(account, handle) {
     const db = await openVaultIdb();
     try {
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(VAULT_STORE, "readwrite");
-            tx.objectStore(VAULT_STORE).put(handle, vaultHandleKey(account));
+            const tx = db.transaction(TICKET_VAULT_HANDLE_STORE, "readwrite");
+            tx.objectStore(TICKET_VAULT_HANDLE_STORE).put(handle, vaultHandleKey(account));
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
@@ -429,8 +419,8 @@ async function clearVaultHandle(account) {
     const db = await openVaultIdb();
     try {
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(VAULT_STORE, "readwrite");
-            tx.objectStore(VAULT_STORE).delete(vaultHandleKey(account));
+            const tx = db.transaction(TICKET_VAULT_HANDLE_STORE, "readwrite");
+            tx.objectStore(TICKET_VAULT_HANDLE_STORE).delete(vaultHandleKey(account));
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
@@ -469,12 +459,193 @@ const Venue = {
     lastView: null,
     eth: null,
     _vaultHandles: {},
+    _ticketVaults: {},
+    _ticketVaultStatus: {},
+    _ticketHydrating: {},
+    _ticketChains: new Map(),
+    _ticketOrderStates: new Map(),
+    _exportedTickets: new Set(),
+    editingDraftId: null,
+    _eligibilityBusy: false,
+    _eligibilityStage: null,
     orderStage: "details",
     trackTicketId: null,
     withdrawKind: "trading",
     positionState: null,
     couponState: null,
     portfolioFinancing: null,
+};
+
+function ticketVaultCacheKey(account) {
+    return account ? account.toLowerCase() : "";
+}
+
+function mergeTicketRecords(first, second) {
+    const merged = [];
+    const positions = new Map();
+    for (const ticket of [...first, ...second]) {
+        const id = String(ticket?.id || "").toLowerCase();
+        if (!id) continue;
+        const at = positions.get(id);
+        if (at === undefined) {
+            positions.set(id, merged.length);
+            merged.push(ticket);
+        } else {
+            merged[at] = {...merged[at], ...ticket};
+        }
+    }
+    return merged;
+}
+
+Venue.ticketList = function (account) {
+    const key = ticketVaultCacheKey(account);
+    return key && Venue._ticketVaults[key]?.tickets
+        ? Venue._ticketVaults[key].tickets
+        : [];
+};
+
+Venue.ticketVaultReady = function (account) {
+    const key = ticketVaultCacheKey(account);
+    return !!(key && Venue._ticketVaultStatus[key]?.ready);
+};
+
+Venue.paintDeviceVaultState = function () {
+    const out = $("device-vault-state");
+    if (!out) return;
+    const who = Venue.viewer();
+    if (!who) {
+        out.textContent = "Connect a wallet to prepare encrypted device storage.";
+        out.className = "device-vault-state";
+        return;
+    }
+    const state = Venue._ticketVaultStatus[ticketVaultCacheKey(who)];
+    if (state?.ready) {
+        out.textContent = state.persistent
+            ? "Reveal keys are encrypted in persistent storage on this device."
+            : "Reveal keys are encrypted on this device. An optional export protects against cleared site data.";
+        out.className = "device-vault-state ok";
+        return;
+    }
+    if (state?.error) {
+        out.textContent = "Encrypted storage is unavailable. Export a recovery copy before submitting.";
+        out.className = "device-vault-state bad";
+        return;
+    }
+    out.textContent = "Preparing encrypted storage on this device.";
+    out.className = "device-vault-state";
+};
+
+Venue.hydrateTicketVault = async function (account) {
+    if (!account) return [];
+    const owner = ethers.getAddress(account);
+    const key = ticketVaultCacheKey(owner);
+    if (Venue._ticketVaultStatus[key]?.ready && Venue._ticketVaults[key]) {
+        return Venue._ticketVaults[key].tickets;
+    }
+    if (Venue._ticketHydrating[key]) return Venue._ticketHydrating[key];
+    Venue._ticketVaultStatus[key] = {ready: false, pending: true};
+    Venue.paintDeviceVaultState();
+    Venue._ticketHydrating[key] = (async () => {
+        const legacy = readList("tickets", owner);
+        let fallback = [];
+        try {
+            const scope = ticketVaultScope(
+                CLIENT.network.chainId,
+                CLIENT.addresses.MatchingEngine,
+                owner,
+            );
+            const loaded = await loadDeviceTicketVault(scope);
+            const encrypted = loaded.tickets.map((ticket) => ticketRecord(ticket, owner));
+            const old = legacy.map((ticket) => ticketRecord(ticket, owner));
+            const tickets = legacy.length
+                ? await migrateLegacyTicketVault(scope, loaded.key, encrypted, old, {
+                    removeLegacy: async () =>
+                        localStorage.removeItem(storeKey("tickets", owner)),
+                })
+                : encrypted;
+            fallback = tickets.map((ticket) => ticketRecord(ticket, owner));
+            Venue._ticketVaults[key] = {scope, key: loaded.key, tickets};
+            Venue._ticketVaultStatus[key] = {ready: true, persistent: false};
+            requestPersistentTicketStorage().then((persistent) => {
+                const current = Venue._ticketVaultStatus[key];
+                if (!current?.ready) return;
+                Venue._ticketVaultStatus[key] = {...current, persistent};
+                Venue.paintDeviceVaultState();
+            });
+            Venue.paintDeviceVaultState();
+            return tickets;
+        } catch (error) {
+            if (!fallback.length && legacy.length) {
+                try {
+                    fallback = legacy.map((ticket) => ticketRecord(ticket, owner));
+                } catch {
+                    fallback = [];
+                }
+            }
+            Venue._ticketVaults[key] = {scope: null, key: null, tickets: fallback};
+            Venue._ticketVaultStatus[key] = {
+                ready: false,
+                error: error?.message || "Encrypted device storage failed.",
+            };
+            Venue.paintDeviceVaultState();
+            return fallback;
+        } finally {
+            delete Venue._ticketHydrating[key];
+        }
+    })();
+    return Venue._ticketHydrating[key];
+};
+
+Venue.persistTickets = async function (account, tickets) {
+    if (!account) throw new Error("Connect a wallet first.");
+    const owner = ethers.getAddress(account);
+    const key = ticketVaultCacheKey(owner);
+    await Venue.hydrateTicketVault(owner);
+    const vault = Venue._ticketVaults[key];
+    if (!vault?.key || !vault.scope || !Venue.ticketVaultReady(owner)) {
+        throw new Error(
+            Venue._ticketVaultStatus[key]?.error
+            || "Encrypted device storage is unavailable.",
+        );
+    }
+    const normalized = tickets.map((ticket) => ticketRecord(ticket, owner));
+    await saveDeviceTicketVault(vault.scope, vault.key, normalized);
+    vault.tickets = normalized;
+    Venue._ticketSig = "";
+    Venue.paintDeviceVaultState();
+    return normalized;
+};
+
+Venue.upsertTicket = async function (account, item) {
+    await Venue.hydrateTicketVault(account);
+    const current = Venue.ticketList(account);
+    const at = current.findIndex((ticket) =>
+        String(ticket.id).toLowerCase() === String(item.id).toLowerCase());
+    const next = current.slice();
+    if (at === -1) next.unshift(item);
+    else next[at] = {...next[at], ...item};
+    await Venue.persistTickets(account, next);
+    return Venue.ticketList(account);
+};
+
+Venue.removeTicket = async function (account, id) {
+    const next = Venue.ticketList(account).filter((ticket) =>
+        String(ticket.id).toLowerCase() !== String(id).toLowerCase());
+    await Venue.persistTickets(account, next);
+    return next;
+};
+
+Venue.cacheTicket = function (account, item) {
+    const key = ticketVaultCacheKey(account);
+    if (!key) return [];
+    const vault = Venue._ticketVaults[key] || {scope: null, key: null, tickets: []};
+    const at = vault.tickets.findIndex((ticket) =>
+        String(ticket.id).toLowerCase() === String(item.id).toLowerCase());
+    if (at === -1) vault.tickets.unshift(item);
+    else vault.tickets[at] = {...vault.tickets[at], ...item};
+    Venue._ticketVaults[key] = vault;
+    Venue._ticketSig = "";
+    return vault.tickets;
 };
 
 Venue.restoreReceipt = function () {
@@ -543,6 +714,18 @@ Venue.contracts = function (runner) {
         // pointed at some other feed.
         oracle: A.PrimeOracle
             ? new ethers.Contract(A.PrimeOracle, ABI.PrimeOracle, runner)
+            : null,
+        oracleScheduler: typeof ORACLE_SCHEDULER !== "undefined" && ORACLE_SCHEDULER?.address
+            ? new ethers.Contract(ORACLE_SCHEDULER.address, [
+                "function activeSchedule() view returns (address)",
+                "function nextCheckAt() view returns (uint64)",
+                "function trackedRound() view returns (uint64)",
+                "function retryStreak() view returns (uint8)",
+                "function checksThisRound() view returns (uint8)",
+                "function MAX_RETRY_STREAK() view returns (uint8)",
+                "function MAX_CHECKS_PER_ROUND() view returns (uint8)",
+                "function MIN_BALANCE_TINYBAR() view returns (uint256)",
+            ], runner)
             : null,
         couponSchedule: A.CouponSchedule
             ? new ethers.Contract(A.CouponSchedule, ABI.CouponSchedule, runner)
@@ -636,6 +819,7 @@ Venue.boot = async function (page) {
             Venue.renderWallet();
         }
     }
+    if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
     const mount = {
         index: Venue.mountIndex,
         prove: Venue.mountProve,
@@ -1218,6 +1402,7 @@ Venue.startWatching = async function (input) {
     Venue.renderWallet();
     Venue.closeSheet();
     Venue.toast("Watching " + shortAddr(addr) + ". Read only.");
+    await Venue.hydrateTicketVault(addr);
     await Venue.refreshForViewer();
     if (Venue.page === "prove") await Venue.hydrateProof();
 };
@@ -1228,6 +1413,7 @@ Venue.stopWatching = function () {
         sessionStorage.removeItem("seamme.watch");
     } catch (e) { /* nothing to clean up */ }
     Venue.renderWallet();
+    Venue.paintDeviceVaultState();
 };
 
 Venue.refreshForViewer = async function () {
@@ -1334,6 +1520,7 @@ Venue.onAccounts = async function (accs) {
         // The masthead follows accountsChanged. Eligibility used not to: the
         // last grant and the use count sat there until a reload.
         Venue.clearProveGrant();
+        Venue.paintDeviceVaultState();
         await Venue.refreshForViewer().catch(() => {});
         return;
     }
@@ -1355,7 +1542,10 @@ Venue.attachAccount = async function (account) {
     Venue.watching = null;
     Venue.renderWallet();
     Venue.clearProveGrant();
-    await Venue.hydrateVaultHandle(Venue.account);
+    await Promise.all([
+        Venue.hydrateVaultHandle(Venue.account),
+        Venue.hydrateTicketVault(Venue.account),
+    ]);
     await Venue.refreshForViewer();
     if (Venue.page === "prove") await Venue.hydrateProof();
 };
@@ -1383,7 +1573,10 @@ Venue.startPolling = function () {
     clearInterval(Venue.timer);
     clearInterval(Venue.localTimer);
     Venue.timer = setInterval(() => Venue.tick().catch(() => {}), Venue.pollMs);
-    Venue.localTimer = setInterval(Venue.paintClocks, 1000);
+    Venue.localTimer = setInterval(() => {
+        Venue.paintClocks();
+        Venue.paintOracleCountdown?.();
+    }, 1000);
 };
 
 Venue.tick = async function () {
@@ -1407,9 +1600,16 @@ Venue.tick = async function () {
             if (viewer) work.push(Venue.refreshTrade({quiet: true}));
             work.push(Venue.refreshBook());
             const now = Date.now();
-            if (Venue.refreshOracle && now - (Venue._tradeOracleAt || 0) > 30000) {
+            if (Venue.pollOracle && now - (Venue._tradeOracleAt || 0) > 15000) {
                 Venue._tradeOracleAt = now;
-                work.push(Venue.refreshOracle().catch(() => {}));
+                work.push(Venue.pollOracle());
+            }
+        }
+        if (Venue.page === "repo") {
+            const now = Date.now();
+            if (Venue.pollOracle && now - (Venue._repoOracleAt || 0) > 15000) {
+                Venue._repoOracleAt = now;
+                work.push(Venue.pollOracle());
             }
         }
         if (Venue.page === "position") {
@@ -1577,17 +1777,72 @@ Venue.pulseProveStatus = function () {
     const el = $("prove-status");
     if (!el) return;
     if (!el.textContent) {
-        Venue.status("prove-status", "You already hold a grant this period. Markets is next.", "ok");
+        Venue.status("prove-status", "Private access is active for this period.", "ok");
         return;
     }
     if (!el.classList.contains("ok")) el.classList.add("ok");
     Venue.flashStatus(el);
 };
 
-Venue.paintProveActions = function () {
-    const granted = Venue.snap.kyc === 1;
-    $("demo-proof")?.classList.toggle("stale", granted);
-    $("open-lab")?.classList.toggle("stale", granted);
+Venue.setEligibilityStage = function (stage, message, kind) {
+    Venue._eligibilityStage = stage || null;
+    if (message !== undefined) Venue.status("prove-status", message, kind || "");
+    Venue.paintEligibilityAction();
+};
+
+Venue.paintEligibilityAction = function () {
+    const action = $("eligibility-action");
+    const card = $("kyc-banner");
+    if (!action || !card) return;
+
+    action.disabled = false;
+    action.setAttribute("aria-busy", "false");
+    action.classList.add("primary");
+
+    if (Venue._eligibilityBusy) {
+        const labels = {
+            checking: "Checking access",
+            submitting: "Securing access",
+            confirming: "Confirming access",
+        };
+        action.textContent = labels[Venue._eligibilityStage] || "Checking access";
+        action.dataset.action = "busy";
+        action.disabled = true;
+        action.setAttribute("aria-busy", "true");
+        card.dataset.state = "busy";
+        return;
+    }
+
+    if (Venue.account && Venue.snap.kyc === 1) {
+        action.textContent = "Open Markets";
+        action.dataset.action = "trade";
+        action.setAttribute("aria-label", "Private access confirmed. Open Markets.");
+        card.dataset.state = "granted";
+        return;
+    }
+
+    if (!Venue.account) {
+        action.textContent = "Connect wallet";
+        action.dataset.action = "connect";
+        action.setAttribute("aria-label", "Connect a wallet");
+        card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "disconnected";
+        return;
+    }
+
+    if (!Venue.proof) {
+        action.textContent = "Restore access file";
+        action.dataset.action = "recover";
+        action.setAttribute("aria-label", "Choose an account-bound access file");
+        card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "ready";
+        return;
+    }
+
+    action.textContent = Venue._eligibilityStage === "error"
+        ? "Try private access again"
+        : "Confirm private access";
+    action.dataset.action = "confirm";
+    action.setAttribute("aria-label", action.textContent);
+    card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "ready";
 };
 
 Venue.toast = function (msg) {
@@ -1731,17 +1986,12 @@ Venue.mountIndex = async function () {
 };
 
 Venue.mountProve = async function () {
-    $("proof-file")?.addEventListener("change", (e) => Venue.onProofFile(e.target.files[0]));
-    $("demo-proof")?.addEventListener("click", () => {
-        if (Venue.snap.kyc === 1) { Venue.pulseProveStatus(); return; }
-        Venue.loadDemoProof().catch((e) => Venue.fail(e));
-    });
-    $("open-lab")?.addEventListener("click", () => {
-        if (Venue.snap.kyc === 1) { Venue.pulseProveStatus(); return; }
-        const lab = $("prove-lab");
-        if (!lab) return;
-        lab.open = true;
-        lab.scrollIntoView({block: "nearest", behavior: "smooth"});
+    $("proof-file")?.addEventListener("change", (e) => {
+        Venue.onProofFile(e.target.files[0]).catch((err) => {
+            const d = Venue.fail(err);
+            Venue.setEligibilityStage("error", d.message, "bad");
+        });
+        e.target.value = "";
     });
     const drop = $("drop");
     drop?.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
@@ -1749,43 +1999,66 @@ Venue.mountProve = async function () {
     drop?.addEventListener("drop", (e) => {
         e.preventDefault();
         drop.classList.remove("over");
-        Venue.onProofFile(e.dataTransfer.files[0]);
+        Venue.onProofFile(e.dataTransfer.files[0]).catch((err) => Venue.fail(err));
     });
-    $("kyc-act")?.addEventListener("click", () => {
-        if ($("kyc-act")?.dataset.act === "trade") {
+    $("eligibility-action")?.addEventListener("click", () => {
+        const mode = $("eligibility-action")?.dataset.action;
+        if (mode === "trade") {
             location.href = "trade.html";
             return;
         }
-        Venue.openSheet();
+        if (mode === "connect") {
+            Venue.openSheet();
+            return;
+        }
+        if (mode === "recover") {
+            const lab = $("prove-lab");
+            if (lab) lab.open = true;
+            $("proof-file")?.click();
+            return;
+        }
+        if (mode === "confirm") {
+            Venue.ensureEligibility().catch((e) => {
+                const d = Venue.fail(e);
+                Venue.setEligibilityStage("error", d.message, "bad");
+            });
+        }
     });
-    $("check")?.addEventListener("click", () => Venue.previewRegister().catch((e) => {
-        const d = Venue.fail(e);
-        Venue.status("prove-status", d.message, "bad");
-    }));
-    $("register")?.addEventListener("click", () => Venue.doRegister().catch((e) => Venue.fail(e)));
     await Promise.all([
         Venue.refreshProve(),
         Venue.refreshGateGov().catch(() => {}),
     ]);
     await Venue.hydrateProof();
+    Venue.paintEligibilityAction();
 };
 
 Venue.clearProveGrant = function () {
     if (Venue.page !== "prove") return;
     Venue.snap.kyc = 0;
+    Venue._eligibilityBusy = false;
+    Venue._eligibilityStage = null;
     Venue.status("prove-status", "", "");
     const uses = $("uses");
     if (uses) uses.textContent = "";
-    const reg = $("register");
-    if (reg) reg.disabled = true;
-    if (Venue.viewer()) {
-        Venue.paintKycAct();
-        return;
+    const who = Venue.viewer();
+    if (
+        Venue.proof?.address
+        && (!who || String(Venue.proof.address).toLowerCase() !== who.toLowerCase())
+    ) {
+        Venue.proof = null;
+        const pins = $("pins");
+        if (pins) {
+            pins.className = "pins-slot";
+            pins.innerHTML = EMPTY_SIGNALS;
+        }
     }
-    $("kyc-banner")?.classList.remove("warn");
     const copy = $("kyc-copy");
-    if (copy) copy.textContent = "Connect a wallet, or load a proof to watch a live grant.";
-    Venue.paintKycAct();
+    if (copy) {
+        copy.textContent = who
+            ? "This wallet does not have private access for the current period yet."
+            : "Confirm eligibility for this KYC period";
+    }
+    Venue.paintEligibilityAction();
 };
 
 Venue.refreshProve = async function () {
@@ -1813,57 +2086,22 @@ Venue.refreshProve = async function () {
         ? "next epoch root is unpublished; grants die at the boundary"
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
-    let status = "Connect a wallet, or load a proof to watch a live grant.";
+    let status = "Confirm eligibility for this KYC period";
     if (who) {
         const kyc = Number(granted);
         Venue.snap.kyc = kyc;
         status = kyc === 1
-            ? "Allowed for this KYC period. That ends when the period does."
-            : "Not yet allowed this period.";
-        $("kyc-banner")?.classList.toggle("warn", kyc !== 1);
+            ? "Private access is confirmed for this period."
+            : Venue.account
+                ? "Confirm once. The venue checks and activates access automatically."
+                : "This account does not have private access for the current period.";
     } else {
         Venue.snap.kyc = 0;
-        $("kyc-banner")?.classList.remove("warn");
         Venue.clearProveGrant();
     }
-    Venue.paintKycAct();
-    Venue.paintProveActions();
-    $("kyc-copy").textContent = status;
+    if (!Venue._eligibilityBusy) $("kyc-copy").textContent = status;
     if (Venue.proof) Venue.paintPins();
-    Venue.paintCheckButton();
-};
-
-Venue.paintKycAct = function () {
-    const act = $("kyc-act");
-    if (!act) return;
-    act.hidden = false;
-    act.classList.remove("connected", "primary");
-    if (Venue.account && Venue.snap.kyc === 1) {
-        act.textContent = "Markets";
-        act.classList.add("primary");
-        act.setAttribute("aria-label", "Go to Markets");
-        act.dataset.act = "trade";
-    } else if (Venue.account) {
-        act.innerHTML = '<span class="dot"></span>Connected';
-        act.classList.add("connected");
-        act.setAttribute("aria-label", "Connected as " + Venue.account + ". Open wallet options.");
-        act.dataset.act = "sheet";
-    } else {
-        act.textContent = "Connect";
-        act.classList.add("primary");
-        act.setAttribute("aria-label", "Connect a wallet");
-        act.dataset.act = "sheet";
-    }
-};
-
-Venue.paintCheckButton = function () {
-    const btn = $("check");
-    if (!btn || Venue._checking) return;
-    btn.disabled = false;
-    btn.removeAttribute("disabled");
-    btn.classList.remove("busy");
-    btn.setAttribute("aria-busy", "false");
-    btn.textContent = btn.dataset.label || "Check the gate";
+    Venue.paintEligibilityAction();
 };
 
 Venue.onProofFile = async function (file) {
@@ -1871,138 +2109,108 @@ Venue.onProofFile = async function (file) {
     const text = await file.text();
     let data;
     try { data = JSON.parse(text); }
-    catch { Venue.status("prove-status", "That file is not JSON.", "bad"); return; }
+    catch {
+        Venue.setEligibilityStage("error", "That access file is not valid JSON.", "bad");
+        return;
+    }
     const picked = Venue.pickProof(data);
     if (!picked) {
-        Venue.status("prove-status", "That file is not a proof the gate recognises.", "bad");
+        Venue.setEligibilityStage("error", "That file is not an access file the venue recognises.", "bad");
         return;
     }
     Venue.proof = picked;
     const epoch = Venue.snap.kycEpoch;
     const who = picked.address || Venue.viewer();
     if (who && epoch != null) writePocketProof(who, picked, epoch);
-    Venue.paintCheckButton();
     Venue.paintPins();
-    if (Venue.viewer()) {
-        await Venue.previewRegister().catch((e) => {
-            Venue.status("prove-status", Venue.fail(e).message, "bad");
-        });
+    Venue.paintEligibilityAction();
+    if (Venue.account) {
+        await Venue.ensureEligibility();
         return;
     }
-    Venue.status("prove-status", "Loaded your proof file. Check the gate next.", "ok");
+    Venue.setEligibilityStage(null, "Access file restored. Connect its wallet to continue.", "ok");
 };
 
-/// The issuer's own proofs, for whoever arrives without one.
-///
-/// Step one of a three-step product cannot be completed by anybody who is not
-/// us: proving needs circom, node 22 and about twenty-three seconds per address,
-/// so a visitor with no proof file is stopped at the first screen and the second
-/// and third are behind it. These are real proofs for real addresses and they
-/// verify against the root already on chain; nothing here is a mock, and the
-/// button says so.
-///
-/// It picks by the registry's current KYC epoch rather than by whichever set was
-/// generated last, because `RegistrationGate.register` pins public signal 3 to
-/// that epoch and a proof for the wrong one is refused. If the viewer is one of
-/// the issuer's three addresses they get their own. Otherwise this is the same
-/// door as Connect: a proof that does not name the viewer would fail
-/// `RegistrantMismatch`, and silently watching the issuer instead looked like
-/// the page had connected a wallet when it had not.
-Venue.loadDemoProof = async function () {
-    const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
-        ? String(Venue.snap.kycEpoch)
-        : String(await Venue.c.registry.currentEpoch());
-    const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[epoch] : null;
-    if (!set) {
-        Venue.status("prove-status",
-            "This page has no live proof for the current KYC period.", "bad");
-        return;
-    }
-    const keys = Object.keys(set);
-    const who = Venue.viewer();
-    const mine = who ? set[who.toLowerCase()] : null;
-    if (!mine) {
-        const opts = {
-            msg: who
-                ? "This proof belongs to another account. Connect the matching wallet, or watch that live grant read-only."
-                : "Connect a wallet this page already holds a proof for, or watch that live grant read-only.",
-        };
-        if (keys[0]) opts.watchAddr = keys[0];
-        Venue.openSheet(opts);
-        return;
-    }
-    const picked = Venue.pickProof(mine);
-    if (!picked) {
-        Venue.status("prove-status", "The bundled proof is not the shape the gate wants.", "bad");
-        return;
-    }
-    Venue.proof = picked;
-    if (picked.address && who.toLowerCase() === String(picked.address).toLowerCase()) {
-        writePocketProof(who, picked, epoch);
-    }
-    Venue.paintPins();
-    Venue.paintCheckButton();
-    await Venue.refreshProve();
-    await Venue.previewRegister().catch((e) => {
-        Venue.status("prove-status", Venue.fail(e).message, "bad");
-    });
-};
+// A proof source returns one normalized, account-bound package or null. The
+// local worker prover can join this list later without changing the screen or
+// the registration controller.
+Venue.proofProviders = [
+    {
+        name: "bundled",
+        read(who, epoch) {
+            const set = typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS
+                ? DEMO_PROOFS[String(epoch)]
+                : null;
+            return set ? Venue.pickProof(set[who.toLowerCase()]) : null;
+        },
+    },
+    {
+        name: "device",
+        read(who, epoch) {
+            const stored = readPocketProof(who);
+            if (!stored || String(stored.epoch) !== String(epoch)) return null;
+            return Venue.pickProof(stored);
+        },
+    },
+];
 
 Venue.proofFor = function (who, epoch) {
     if (!who) return null;
-    const key = who.toLowerCase();
-    const e = String(epoch);
-    const set = (typeof DEMO_PROOFS !== "undefined" && DEMO_PROOFS) ? DEMO_PROOFS[e] : null;
-    if (set && set[key]) {
-        const bundled = Venue.pickProof(set[key]);
-        if (bundled) return bundled;
+    for (const provider of Venue.proofProviders) {
+        const proof = provider.read(who, epoch);
+        if (proof) return {...proof, source: provider.name};
     }
-    const stored = readPocketProof(who);
-    if (!stored || String(stored.epoch) !== e) return null;
-    return Venue.pickProof(stored);
+    return null;
 };
 
 Venue.hydrateProof = async function () {
     if (Venue.page !== "prove") return;
     const who = Venue.viewer();
     if (!who) {
-        Venue.paintCheckButton();
+        Venue.paintEligibilityAction();
         return;
     }
     const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
         ? Venue.snap.kycEpoch
         : asBig(await Venue.c.registry.currentEpoch());
     const bound = Venue.proof?.address
-        && String(Venue.proof.address).toLowerCase() === who.toLowerCase();
+        && String(Venue.proof.address).toLowerCase() === who.toLowerCase()
+        && String(Venue.proof.pub?.[3]) === String(epoch);
     if (bound) {
-        Venue.paintCheckButton();
+        Venue.paintEligibilityAction();
         return;
     }
     const picked = Venue.proofFor(who, epoch);
     if (picked) {
         Venue.proof = picked;
         Venue.paintPins();
-        Venue.paintCheckButton();
-        await Venue.previewRegister().catch((e) => {
-            Venue.status("prove-status", Venue.fail(e).message, "bad");
-        });
+        if (Venue.account && Venue.snap.kyc !== 1 && !Venue._eligibilityBusy) {
+            Venue.setEligibilityStage(
+                null,
+                "Your private access check is ready. Confirm once to activate it.",
+                "",
+            );
+        } else {
+            Venue.paintEligibilityAction();
+        }
         return;
     }
-    if (Venue.account && Venue.proof && !bound) {
-        Venue.proof = null;
-        const pins = $("pins");
-        if (pins) {
-            pins.className = "pins-slot";
-            pins.innerHTML = EMPTY_SIGNALS;
-        }
-        const uses = $("uses");
-        if (uses) uses.textContent = "";
+    Venue.proof = null;
+    const pins = $("pins");
+    if (pins) {
+        pins.className = "pins-slot";
+        pins.innerHTML = EMPTY_SIGNALS;
     }
-    Venue.paintCheckButton();
+    const uses = $("uses");
+    if (uses) uses.textContent = "";
     if (Venue.account && !Venue.proof && Venue.snap.kyc !== 1) {
-        Venue.status("prove-status",
-            "No proof on this device for this wallet this period. Add a file once and it stays here.",
-            "");
+        Venue.setEligibilityStage(
+            null,
+            "This wallet has no account-bound access file on this device.",
+            "",
+        );
+    } else {
+        Venue.paintEligibilityAction();
     }
 };
 
@@ -2130,128 +2338,145 @@ Venue.paintPins = function () {
 Venue.explainGate = function (reason) {
     const r = String(reason || "");
     if (r.includes("different address")) {
-        return "This proof belongs to another account. You can watch that grant, or connect the matching wallet to request access.";
+        return "This private access check belongs to another account.";
     }
-    if (r.includes("wrong epoch")) return "This proof is for a different KYC period.";
+    if (r.includes("wrong epoch")) return "This access file is for a different eligibility period.";
     if (r.includes("nullifier exhausted")) {
         return "This credential has already been used as many times as this period allows.";
     }
     if (r.includes("root not published")) return "The issuer has not published a root for this period yet.";
-    if (r.includes("wrong credential root")) return "This proof is not for the root the gate holds today.";
-    if (r.includes("policy mismatch")) return "The proof was built against a different policy than the gate has now.";
-    if (r.includes("policy not satisfied")) return "This proof does not pass the gate's policy.";
-    return r || "The gate will not accept this proof.";
+    if (r.includes("wrong credential root")) return "This access file does not match the issuer's current list.";
+    if (r.includes("policy mismatch")) return "This access file was prepared for a different policy.";
+    if (r.includes("policy not satisfied")) return "The issuer's current access requirements are not met.";
+    return r || "The venue cannot confirm private access.";
 };
 
-Venue.previewRegister = async function () {
-    const who = Venue.viewer();
-    const btn = $("check");
-    if (!who) {
-        Venue.openSheet();
-        Venue.status("prove-status", "Connect a wallet, or load a proof to watch.", "bad");
-        return;
-    }
-    if (!Venue.proof) {
-        Venue.status("prove-status",
-            "Use a real eligibility proof first, or connect a wallet this page already holds a proof for.",
-            "bad");
-        return;
-    }
-    // A native `disabled` button never fires click, so a hung check used to
-    // look like a dead control. Keep the handler alive; if a check is already
-    // in flight, just make that visible.
-    if (Venue._checking) {
-        if (btn) {
-            btn.textContent = "Checking…";
-            btn.classList.add("busy");
-            btn.setAttribute("aria-busy", "true");
-        }
-        return;
-    }
-    const label = "Check the gate";
-    Venue._checking = true;
-    if (btn) {
-        btn.dataset.label = label;
-        btn.disabled = false;
-        btn.removeAttribute("disabled");
-        btn.textContent = "Checking…";
-        btn.classList.add("busy");
-        btn.setAttribute("aria-busy", "true");
-    }
-    const started = Date.now();
-    let timeoutId = 0;
+Venue.preflightEligibility = async function (who, proof) {
+    const pub = proof.pub.map((x) => asBig(x));
+    let timeoutId;
     try {
-        const pub = Venue.proof.pub.map((x) => asBig(x));
-        const [ok, reason] = await Promise.race([
+        return await Promise.race([
             Venue.c.gate.wouldAccept(who, pub),
-            new Promise((_, rej) => {
-                timeoutId = setTimeout(() => {
-                    rej(new Error("The gate did not answer. Try Check the gate again."));
-                }, 20000);
+            new Promise((_, reject) => {
+                timeoutId = setTimeout(
+                    () => reject(new Error("The eligibility gate did not answer. Try again.")),
+                    20000,
+                );
             }),
         ]);
-        clearTimeout(timeoutId);
-        if (!Venue.stillViewer(who)) return;
-        const granted = Venue.snap.kyc === 1;
-        const reg = $("register");
-        if (reg) reg.disabled = granted || !ok || !Venue.account;
-        const exhausted = String(reason || "").includes("nullifier exhausted");
-        let msg;
-        let kind = ok ? "ok" : "bad";
-        if (granted) {
-            msg = "You already hold a grant this period. Markets is next.";
-            if (exhausted) {
-                msg += " This credential cannot be used again until the next KYC epoch.";
-            }
-            kind = "ok";
-        } else if (ok && Venue.account) {
-            msg = "The gate will accept this. Request access to activate it for this period.";
-        } else if (ok && !Venue.account) {
-            msg = "Watching a live grant for " + shortAddr(who) +
-                ". Connect that wallet if you want to request access.";
-        } else if (exhausted) {
-            msg = Venue.explainGate(reason)
-                + " A new grant needs the next KYC epoch, or a different credential.";
-        } else {
-            msg = Venue.explainGate(reason);
-        }
-        Venue.status("prove-status", msg, kind);
-        try { Venue.paintPins(); } catch { /* pin paint must not wipe the gate result */ }
     } finally {
         clearTimeout(timeoutId);
-        const wait = 400 - (Date.now() - started);
-        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-        Venue._checking = false;
-        if (btn) {
-            btn.textContent = label;
-            btn.classList.remove("busy");
-            btn.setAttribute("aria-busy", "false");
-        }
     }
 };
 
-Venue.doRegister = async function () {
+Venue.submitSponsoredEligibility = async function (who, proof) {
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 45000) : null;
+    let response;
+    try {
+        response = await fetch(ELIGIBILITY_RELAY_PATH, {
+            method: "POST",
+            headers: {"content-type": "application/json"},
+            body: JSON.stringify({
+                chainId: CLIENT.network.chainId,
+                gate: CLIENT.addresses.RegistrationGate,
+                registry: CLIENT.addresses.ZkKycRegistry,
+                account: who,
+                proof: proof.proof.map(String),
+                pub: proof.pub.map(String),
+            }),
+            signal: controller?.signal,
+        });
+    } catch (error) {
+        if (error?.name === "AbortError") {
+            throw new Error("The sponsored access service took too long. No wallet transaction was sent.");
+        }
+        throw new Error("The sponsored access service is unavailable. No wallet transaction was sent.");
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+    }
+
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(body.error || "The sponsored access service refused this request.");
+    }
+    if (!["submitted", "already_granted"].includes(body.status)) {
+        throw new Error("The sponsored access service returned an unknown result.");
+    }
+    return body;
+};
+
+Venue.waitForEligibility = async function (who, txHash) {
+    for (let attempt = 0; attempt < 40; attempt++) {
+        if (!Venue.stillViewer(who) || !Venue.account) {
+            throw new Error("The connected wallet changed while access was being confirmed.");
+        }
+        const status = Number(await Venue.c.registry.getKycStatus(who));
+        if (status === 1) return true;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    const suffix = txHash ? " Transaction " + shortId(txHash) + " is still pending." : "";
+    throw new Error("Access confirmation is taking longer than expected." + suffix);
+};
+
+Venue.ensureEligibility = async function () {
+    if (Venue._eligibilityBusy) return;
     await Venue.requireAccount();
-    if (!Venue.proof) throw new Error("Use a real eligibility proof first.");
-    const pub = Venue.proof.pub.map((x) => asBig(x));
-    const [ok, reason] = await Venue.w.gate.wouldAccept(Venue.account, pub);
-    if (!ok) {
-        Venue.status("prove-status", Venue.explainGate(reason), "bad");
-        $("register").disabled = true;
+    const who = Venue.account;
+
+    if (Number(await Venue.c.registry.getKycStatus(who)) === 1) {
+        Venue.snap.kyc = 1;
+        $("kyc-copy").textContent = "Private access is confirmed for this period.";
+        Venue.setEligibilityStage(null, "No further eligibility action is needed.", "ok");
         return;
     }
-    const rec = await Venue.send(
-        () => Venue.w.gate.register(
-            Venue.account,
-            Venue.proof.proof.map((x) => asBig(x)),
-            pub,
-            {gasLimit: 1_500_000},
-        ),
-        "Request access"
-    );
-    if (rec) {
-        Venue.status("prove-status", "Access granted. It lasts only for this KYC period.", "ok");
-        await Venue.refreshProve();
+
+    Venue._eligibilityBusy = true;
+    try {
+        Venue.setEligibilityStage("checking", "Checking your account-bound access privately.", "");
+        await Venue.hydrateProof();
+        const proof = Venue.proof;
+        if (!proof) {
+            const details = $("prove-lab");
+            if (details) details.open = true;
+            throw new Error("This wallet needs an account-bound access file from the issuer.");
+        }
+        if (!proof.address || proof.address.toLowerCase() !== who.toLowerCase()) {
+            throw new Error("This access file belongs to another wallet.");
+        }
+
+        const [ok, reason] = await Venue.preflightEligibility(who, proof);
+        if (!Venue.stillViewer(who)) {
+            throw new Error("The connected wallet changed while access was being checked.");
+        }
+        try { Venue.paintPins(); } catch { /* details cannot interrupt registration */ }
+        if (!ok) throw new Error(Venue.explainGate(reason));
+
+        Venue.setEligibilityStage(
+            "submitting",
+            "The venue is sponsoring your access confirmation. Your wallet will not be charged.",
+            "",
+        );
+        const submitted = await Venue.submitSponsoredEligibility(who, proof);
+        Venue.setEligibilityStage("confirming", "Confirming private access on Hedera.", "");
+        await Venue.waitForEligibility(who, submitted.txHash);
+
+        Venue.snap.kyc = 1;
+        $("kyc-copy").textContent = "Private access is confirmed for this period.";
+        Venue.status(
+            "prove-status",
+            submitted.status === "already_granted"
+                ? "Your access was already active. No transaction was needed."
+                : "Access confirmed. The venue paid the registration cost.",
+            "ok",
+        );
+        Venue._eligibilityStage = null;
+    } catch (error) {
+        Venue._eligibilityStage = "error";
+        throw error;
+    } finally {
+        Venue._eligibilityBusy = false;
+        Venue.paintEligibilityAction();
     }
 };
 
@@ -2290,7 +2515,7 @@ Venue.mountTrade = async function () {
     $("salt-show")?.addEventListener("click", Venue.toggleSalt);
     $("hold-pick")?.addEventListener("change", () => {
         if ($("holdId")) $("holdId").value = $("hold-pick").value;
-        Venue.paintHoldStatus();
+        Venue.paintTicket();
     });
     $("save-ticket")?.addEventListener("click", () => Venue.saveTicketNow().catch((e) => Venue.fail(e)));
     $("save-vault")?.addEventListener("click", () => Venue.saveVaultNow().catch((e) => Venue.fail(e)));
@@ -2299,7 +2524,7 @@ Venue.mountTrade = async function () {
         Venue.paintTicket();
     }));
     $("order-back")?.addEventListener("click", () => {
-        Venue.showOrderStage(Venue.orderStage === "submit" ? "review" : "details");
+        Venue.showOrderStage("details");
         Venue.paintTicket();
     });
     $("edit-order")?.addEventListener("click", () => {
@@ -2349,28 +2574,18 @@ Venue.mountTrade = async function () {
         }
     });
     $("market-reload")?.addEventListener("click", () => Venue.refreshMarketTape().catch((e) => Venue.fail(e)));
-    $("feed-refresh")?.addEventListener("click", () => Venue.refreshOracle().catch((e) => Venue.fail(e)));
+    $("feed-refresh")?.addEventListener("click", () => Venue.pollOracle());
     $("order-attention-go")?.addEventListener("click", () => {
         $("active-orders")?.scrollIntoView({behavior: "smooth", block: "start"});
     });
     if (!$("salt").value) Venue.reroll();
     else Venue.paintTicket();
+    Venue.paintDeviceVaultState();
     if (Venue.account) await Venue.hydrateVaultHandle(Venue.account);
     await Promise.all([
         Venue.refreshTrade(),
         Venue.refreshInstrument?.().catch(() => {}),
-        Venue.refreshOracle?.().catch((e) => {
-            const says = $("feed-says");
-            if (says) says.textContent =
-                "Auction trading remains available with user-supplied limits. Reference data could not be read.";
-            const state = $("feed-state");
-            if (state) {
-                state.textContent = "Unavailable";
-                state.className = "feed-state bad";
-            }
-            if ($("feed-age")) $("feed-age").textContent = "Last update unavailable";
-            $("feed-box")?.classList.add("is-unavailable");
-        }),
+        Venue.pollOracle?.(),
     ]);
     // The book does not need a connected wallet. Someone deciding whether to
     // commit is exactly the person who has not connected one yet.
@@ -2520,18 +2735,18 @@ Venue.paintHoldStatus = function () {
         }
     }
     if (!Venue.account) {
-        status.textContent = "Connect to lock inventory for this sell.";
+        status.textContent = "Connect to reserve inventory for this sell.";
         return;
     }
     if (chosen) {
-        status.textContent = Venue.lockLabel(chosen) + ". Attached to this ticket.";
+        status.textContent = Venue.lockLabel(chosen) + ". Ready to use.";
         return;
     }
     if (live.length) {
-        status.textContent = "No lock matches this quantity. Lock inventory or pick a larger reservation.";
+        status.textContent = "The existing reservation does not cover this quantity.";
         return;
     }
-    status.textContent = "Lock inventory to back this sell. This page keeps the reservation.";
+    status.textContent = "Reserve and place will request two wallet approvals.";
 };
 
 Venue.syncHoldField = function () {
@@ -2607,7 +2822,7 @@ Venue.readOrder = function () {
 
 Venue.draftRecord = function (o) {
     if (!Venue.account || !o?.id) return null;
-    return readList("tickets", Venue.account).find((t) => t.id === o.id) || null;
+    return Venue.ticketList(Venue.account).find((t) => t.id === o.id) || null;
 };
 
 Venue.orderFunds = function (o) {
@@ -2662,16 +2877,34 @@ Venue.guidedOrderState = function (o) {
             saved, submitted,
         };
     }
-    if (!saved) return {mode: "backup", label: "Back up order key", disabled: false, saved, submitted};
+    const recoverable = saved && (
+        Venue.ticketVaultReady(Venue.account)
+        || Venue._exportedTickets.has(String(o.id).toLowerCase())
+    );
+    if (!saved) return {mode: "secure", label: "Save order changes", disabled: false, saved, submitted};
+    if (!recoverable) {
+        return {
+            mode: "backup",
+            label: "Export recovery copy",
+            disabled: false,
+            blocker: "Encrypted device storage is unavailable. Export this order before submitting.",
+            saved,
+            submitted,
+        };
+    }
+    const attached = Venue._liveHolds?.find((hold) =>
+        String(hold.holdId) === String(record.holdId || "")
+        && asBig(hold.amount) >= o.qty
+        && asBig(hold.expiry) > nowSec());
     return {
         mode: "commit",
-        label: "Submit sealed " + (o.side === 1 ? "sell" : "buy") + " · " + readableHbar(funds.bond) + " HBAR",
+        label: o.side === 1 && !attached ? "Reserve & place sell" : "Place sealed " + (o.side === 1 ? "sell" : "buy"),
         disabled: false, saved, submitted,
     };
 };
 
 Venue.showOrderStage = function (stage) {
-    const allowed = ["details", "review", "submit", "track"];
+    const allowed = ["details", "review", "track"];
     const next = allowed.includes(stage) ? stage : "details";
     Venue.orderStage = next;
     const panel = $("order-panel");
@@ -2681,8 +2914,7 @@ Venue.showOrderStage = function (stage) {
     });
     const labels = {
         details: "Order details",
-        review: "Review and prepare",
-        submit: "Submit",
+        review: "Review order",
         track: "Track order",
     };
     const badge = $("draft-state");
@@ -2693,13 +2925,13 @@ Venue.showOrderStage = function (stage) {
     const back = $("order-back");
     if (back) {
         back.hidden = next === "details" || next === "track";
-        back.textContent = next === "submit" ? "Back to review" : "Edit details";
+        back.textContent = "Edit details";
     }
 };
 
 Venue.paintOrderTrack = function () {
     const who = Venue.viewer();
-    const tickets = who ? readList("tickets", who) : [];
+    const tickets = who ? Venue.ticketList(who) : [];
     const ticket = tickets.find((item) => item.id === Venue.trackTicketId)
         || tickets.find((item) => item.committedAt && !item.cancelled);
     const status = $("track-status-label");
@@ -2709,12 +2941,12 @@ Venue.paintOrderTrack = function () {
     if (!ticket) {
         if (status) status.textContent = "No submitted order";
         if (title) title.textContent = "Start with new order details";
-        if (copy) copy.textContent = "Submitted orders and their next actions appear in Your orders.";
+        if (copy) copy.textContent = "Your next order action will appear here.";
         if (deadline) deadline.textContent = "None";
         return {mode: "new", label: "Start another order", disabled: false};
     }
     Venue.trackTicketId = ticket.id;
-    const chain = {
+    const chain = Venue._ticketChains.get(String(ticket.id).toLowerCase()) || {
         committer: ticket.committer,
         committedAt: ticket.committedAt || 0,
         cancelled: !!ticket.cancelled,
@@ -2726,6 +2958,9 @@ Venue.paintOrderTrack = function () {
         if (title) title.textContent = "Reveal opens in " + fmtRemain(phase.until - nowSec());
         if (copy) copy.textContent = "No action is required yet. Cancellation remains available until reveal opens.";
         if (deadline) deadline.textContent = "Reveal opens " + ticketDate(phase.until);
+        return Venue.account
+            ? {mode: "cancel-track", label: "Cancel sealed order", disabled: false, danger: true}
+            : {mode: "connect", label: "Connect to manage order", disabled: false};
     } else if (phase.phase === "reveal") {
         if (status) status.textContent = "Reveal required";
         if (title) title.textContent = "Reveal within " + fmtRemain(phase.until - nowSec());
@@ -2735,23 +2970,60 @@ Venue.paintOrderTrack = function () {
                 : "Fund the full limit value, then reveal in a wallet transaction.";
         }
         if (deadline) deadline.textContent = ticketDate(phase.until);
+        if (!Venue.account) return {mode: "connect", label: "Connect to reveal", disabled: false};
+        if (Venue.snap.kyc !== 1) {
+            return {mode: "eligibility", label: "Renew eligibility", disabled: false};
+        }
+        const backing = Venue._liveHolds?.find((hold) =>
+            String(hold.holdId) === String(ticket.holdId || "")
+            && asBig(hold.amount) >= asBig(ticket.qty)
+            && asBig(hold.expiry) > nowSec());
+        return Number(ticket.side) === 1 && !backing
+            ? {mode: "reserve-reveal", label: "Reserve & reveal sell", disabled: false}
+            : {mode: "reveal-track", label: "Reveal order", disabled: false};
     } else if (phase.phase === "lost") {
         if (status) status.textContent = "Reveal missed";
         if (title) title.textContent = "The reveal window has closed";
         if (copy) copy.textContent = "The deposit can now be claimed by a permissionless sweeper.";
         if (deadline) deadline.textContent = "Closed";
+        return {mode: "lost", label: "Reveal window closed", disabled: true};
     } else if (phase.phase === "cancelled") {
         if (status) status.textContent = "Cancelled";
         if (title) title.textContent = "Refund moved to trading credit";
         if (copy) copy.textContent = "The cancellation fee was retained. Withdraw the remaining credit separately.";
         if (deadline) deadline.textContent = "Complete";
+        return {mode: "new", label: "Place another order", disabled: false};
     } else if (phase.phase === "done") {
+        const orderState = Venue._ticketOrderStates.get(String(ticket.id).toLowerCase());
+        const order = orderState?.order;
+        const retired = !!order?.retired;
+        const readyToRelease = !!order
+            && !retired
+            && Venue.snap.round !== undefined
+            && asBig(Venue.snap.round) > asBig(order.lastRound);
+        if (readyToRelease) {
+            if (status) status.textContent = "Ready to release";
+            if (title) title.textContent = "Unlock the remaining order funds";
+            if (copy) copy.textContent = "The final auction round has passed. Release has no deadline.";
+            if (deadline) deadline.textContent = "Available now";
+            return Venue.account
+                ? {mode: "release-track", label: "Release order", disabled: false}
+                : {mode: "connect", label: "Connect to release", disabled: false};
+        }
+        if (retired) {
+            if (status) status.textContent = "Complete";
+            if (title) title.textContent = "Order funds released";
+            if (copy) copy.textContent = "Inventory and trading credit reflect the final outcome.";
+            if (deadline) deadline.textContent = "Complete";
+            return {mode: "new", label: "Place another order", disabled: false};
+        }
         if (status) status.textContent = "Revealed";
         if (title) title.textContent = "Awaiting auction outcome";
         if (copy) copy.textContent = "Matching, settlement, and credit withdrawal remain separate.";
-        if (deadline) deadline.textContent = "See Your orders";
+        if (deadline) deadline.textContent = "Auction result appears below";
+        return {mode: "waiting", label: "Awaiting auction", disabled: true};
     }
-    return {mode: "view-orders", label: "Open order actions", disabled: false};
+    return {mode: "waiting", label: "Order tracked", disabled: true};
 };
 
 Venue.paintGuidedOrder = function (o) {
@@ -2764,38 +3036,25 @@ Venue.paintGuidedOrder = function (o) {
     if (stage === "details") {
         const incomplete = o.bad.price || o.bad.qty;
         view = {
-            mode: "review",
-            label: incomplete ? "Enter order details" : "Review order",
+            mode: incomplete ? "review" : Venue.account ? "review" : "connect",
+            label: incomplete
+                ? "Enter order details"
+                : Venue.account
+                    ? "Review order"
+                    : "Connect wallet to review",
             disabled: incomplete,
         };
     } else if (stage === "review") {
-        if (state.mode === "commit") {
-            view = {mode: "continue-submit", label: "Continue to wallet", disabled: false};
-        } else if (state.mode === "new") {
-            Venue.trackTicketId = Venue.draftRecord(o)?.id || o.id;
-            stage = "track";
-            Venue.showOrderStage(stage);
-            view = Venue.paintOrderTrack();
-        } else {
-            view = state.mode === "backup"
-                ? {...state, label: "Save recovery file"}
-                : state;
-        }
-    } else if (stage === "submit") {
         if (state.mode === "new") {
             Venue.trackTicketId = Venue.draftRecord(o)?.id || o.id;
             stage = "track";
             Venue.showOrderStage(stage);
             view = Venue.paintOrderTrack();
-        } else if (state.mode === "commit" || state.mode === "busy") {
-            view = state;
         } else {
-            Venue.showOrderStage("review");
-            stage = "review";
-            view = state.mode === "backup" ? {...state, label: "Save recovery file"} : state;
+            view = state;
         }
     } else {
-        view = Venue.paintOrderTrack();
+        view = state.mode === "busy" ? state : Venue.paintOrderTrack();
     }
 
     Venue.showOrderStage(stage);
@@ -2803,6 +3062,7 @@ Venue.paintGuidedOrder = function (o) {
         action.dataset.action = view.mode;
         action.textContent = view.label;
         action.disabled = !!view.disabled;
+        action.classList.toggle("is-danger", !!view.danger);
     }
     if (blocker) {
         blocker.hidden = !view.blocker;
@@ -2814,6 +3074,7 @@ Venue.paintGuidedOrder = function (o) {
 
 Venue.startNewOrder = function () {
     Venue.trackTicketId = null;
+    Venue.editingDraftId = null;
     Venue.showOrderStage("details");
     for (const id of ["price", "qty"]) {
         const input = $(id);
@@ -2832,12 +3093,30 @@ Venue.doGuidedOrderAction = async function () {
     const mode = $("commit")?.dataset.action;
     if (mode === "review") {
         Venue.showOrderStage("review");
+        try {
+            await Venue.secureDraft();
+        } catch {
+            if (!Venue.account) {
+                Venue.showOrderStage("details");
+                Venue.paintTicket();
+                return;
+            }
+            const o = Venue.readOrder();
+            if (o.ok) Venue.cacheTicket(Venue.account, Venue.draftTicket(o));
+            Venue.status(
+                "trade-status",
+                "Encrypted storage is unavailable. Export a recovery copy before submitting.",
+                "bad",
+            );
+        }
         Venue.paintTicket();
+        Venue.paintTickets();
         return;
     }
-    if (mode === "continue-submit") {
-        Venue.showOrderStage("submit");
+    if (mode === "secure") {
+        await Venue.secureDraft();
         Venue.paintTicket();
+        Venue.paintTickets();
         return;
     }
     if (mode === "connect") {
@@ -2856,8 +3135,21 @@ Venue.doGuidedOrderAction = async function () {
         await Venue.doCommit();
         return;
     }
-    if (mode === "view-orders") {
-        $("active-orders")?.scrollIntoView({behavior: "smooth", block: "start"});
+    if (mode === "cancel-track") {
+        await Venue.doCancel(Venue.trackTicketId);
+        return;
+    }
+    if (mode === "reveal-track") {
+        await Venue.doReveal(Venue.trackTicketId);
+        return;
+    }
+    if (mode === "reserve-reveal") {
+        const holdId = await Venue.reserveForTicket(Venue.trackTicketId);
+        if (holdId) await Venue.doReveal(Venue.trackTicketId, {afterReservation: true});
+        return;
+    }
+    if (mode === "release-track") {
+        await Venue.doExpire(Venue.trackTicketId);
         return;
     }
     if (mode === "new") Venue.startNewOrder();
@@ -2885,17 +3177,26 @@ Venue.paintTicket = function () {
     $("qtyHint").classList.toggle("bad", !!o.bad.qty && !o.empty.qty && qtyTouched);
     $("saltHint").textContent = o.bad.salt
         ? "Not a valid reveal key. Load a ticket or draw a new one."
-        : "Stored locally. The portable ticket is the recovery copy.";
+        : "Encrypted on this device after review. Export is optional.";
     $("saltHint").classList.toggle("bad", !!o.bad.salt);
-    $("sideHint").textContent = o.side === 1
-        ? "Set the lowest price you will accept. LPRC must be reserved before reveal."
-        : "Set the highest price you will pay. HBAR is funded only when you reveal.";
     if ($("qty-availability")) {
         $("qty-availability").textContent = o.side === 1
-            ? "Available: " + (Venue.snap.free === undefined
+            ? (Venue.snap.free === undefined
+                ? "Unavailable"
+                : formatQuantity(Venue.snap.free) + " LPRC available")
+            : "Whole bonds";
+    }
+    if ($("order-balance-label")) {
+        $("order-balance-label").textContent = o.side === 1
+            ? "LPRC available"
+            : "HBAR available";
+    }
+    if ($("order-balance-value")) {
+        $("order-balance-value").textContent = o.side === 1
+            ? (Venue.snap.free === undefined
                 ? "Unavailable"
                 : formatQuantity(Venue.snap.free) + " LPRC")
-            : "Wallet: " + (Venue.snap.walletTinybar === undefined
+            : (Venue.snap.walletTinybar === undefined
                 ? "Unavailable"
                 : readableHbar(Venue.snap.walletTinybar) + " HBAR");
     }
@@ -2953,14 +3254,16 @@ Venue.paintTicket = function () {
     }
     if ($("summary-deposit")) $("summary-deposit").textContent = readableHbar(funds.bond) + " HBAR";
     if ($("summary-reveal-label")) {
-        $("summary-reveal-label").textContent = "Bonds to reserve";
+        $("summary-reveal-label").textContent = o.side === 1
+            ? "Sell inventory"
+            : "HBAR funded at reveal";
     }
     if ($("summary-reveal")) {
         $("summary-reveal").textContent = funds.limit === null
             ? "Enter order details"
             : o.side === 1
                 ? formatQuantity(o.qty) + " LPRC"
-                : "None";
+                : readableHbar(funds.limit) + " HBAR";
     }
     if ($("summary-total-label")) {
         $("summary-total-label").textContent = "Cash required before fees";
@@ -2980,12 +3283,8 @@ Venue.paintTicket = function () {
     }
     if ($("future-obligation-copy")) {
         $("future-obligation-copy").textContent =
-            "Reveal opens " + CLIENT.immutables.revealDelay + " seconds after submission and stays open for " +
-            CLIENT.immutables.revealWindow + " seconds. " +
-            (o.side === 1
-                ? "Reserve enough LPRC before revealing. "
-                : "Fund the full limit value when revealing. ") +
-            "Missing the deadline can forfeit the deposit. Matching, settlement, and withdrawal remain separate.";
+            "Opens " + CLIENT.immutables.revealDelay + " seconds after placement and remains open for " +
+            CLIENT.immutables.revealWindow + " seconds. Missing it can forfeit the deposit.";
     }
     if ($("submit-order")) {
         $("submit-order").textContent = funds.limit === null
@@ -3016,10 +3315,14 @@ Venue.paintTicket = function () {
             " the sealed ticket, and the id they produce, appear here as you type.</div>";
         $("idOut").textContent = Venue.viewer() ? "waiting on a complete ticket" : "connect to bind the committer";
     }
-    $("save-ticket").disabled = !o.ok;
-    $("hold").disabled = !Venue.account || o.bad.qty || o.side !== 1 || Venue.busy
-        || (Venue.snap.free !== undefined && Venue.snap.free < o.qty);
+    if ($("save-ticket")) $("save-ticket").disabled = !o.ok;
     Venue.syncHoldField();
+    const attached = Venue._liveHolds?.find((hold) =>
+        String(hold.holdId) === String($("holdId")?.value || "")
+        && !o.bad.qty
+        && asBig(hold.amount) >= o.qty
+        && asBig(hold.expiry) > nowSec());
+    $("hold-field")?.classList.toggle("is-complete", !!attached);
     Venue.paintGuidedOrder(o);
 };
 
@@ -3037,21 +3340,43 @@ Venue.draftTicket = function (o) {
     };
 };
 
+Venue.secureDraft = async function () {
+    await Venue.requireAccount();
+    const o = Venue.readOrder();
+    if (!o.ok) throw new Error("Fix the order fields first.");
+    const ticket = Venue.draftTicket(o);
+    const previousId = Venue.editingDraftId;
+    const current = Venue.ticketList(Venue.account);
+    const next = current.filter((item) =>
+        !(
+            previousId
+            && previousId !== ticket.id
+            && item.id === previousId
+            && !item.committedAt
+        ));
+    const at = next.findIndex((item) => item.id === ticket.id);
+    if (at === -1) next.unshift(ticket);
+    else next[at] = {...next[at], ...ticket};
+    await Venue.persistTickets(Venue.account, next);
+    Venue.editingDraftId = ticket.id;
+    Venue.status("trade-status", "Reveal key encrypted on this device.", "ok");
+    return ticket;
+};
+
 Venue.saveTicketNow = async function () {
     await Venue.requireAccount();
     const o = Venue.readOrder();
     if (!o.ok) throw new Error("Fix the order fields first.");
-    const t = Venue.draftTicket(o);
-    const before = readList("tickets", Venue.account);
-    upsert("tickets", Venue.account, t, "id");
-    Venue.status("trade-status", "Saving a portable recovery file. No wallet approval is needed.", "");
-    try {
-        await Venue.writeVault(Venue.account);
-    } catch (e) {
-        writeList("tickets", Venue.account, before);
-        throw e;
+    const t = {...Venue.draftRecord(o), ...Venue.draftTicket(o)};
+    if (Venue.ticketVaultReady(Venue.account)) {
+        await Venue.upsertTicket(Venue.account, t);
+    } else {
+        Venue.cacheTicket(Venue.account, t);
     }
-    Venue.status("trade-status", "Recovery file saved. No wallet transaction was sent.", "ok");
+    downloadJson(ticketName(t), ticketFile(t));
+    Venue._exportedTickets.add(String(t.id).toLowerCase());
+    Venue.editingDraftId = t.id;
+    Venue.status("trade-status", "Recovery copy exported. No wallet transaction was sent.", "ok");
     Venue.paintTicket();
     Venue.paintTickets();
 };
@@ -3076,13 +3401,44 @@ Venue.applyTicketToForm = function (t) {
     }
 };
 
-Venue.ingestTickets = function (list) {
-    if (!Venue.account) return 0;
+Venue.reconcileTicketRecord = async function (record) {
+    try {
+        const chain = await Venue.c.engine.commitments(record.id);
+        if (!chain?.committer || addrEq(chain.committer, ZERO)) return record;
+        if (!addrEq(chain.committer, record.committer)) {
+            throw new Error("The restored order belongs to another submitting wallet.");
+        }
+        return {
+            ...record,
+            committedAt: asBig(chain.committedAt).toString(),
+            cancelled: !!chain.cancelled,
+            revealed: !!chain.revealed,
+        };
+    } catch (error) {
+        if (/another submitting wallet/.test(error?.message || "")) throw error;
+        return record;
+    }
+};
+
+Venue.ingestTickets = async function (list) {
+    if (!Venue.account) return [];
     if (!Array.isArray(list)) throw new Error("The recovery file does not contain an order list.");
     if (list.length > 500) throw new Error("The recovery file contains too many orders.");
-    const records = list.map((ticket) => ticketRecord(ticket, Venue.account));
-    for (const record of records) upsert("tickets", Venue.account, record, "id");
-    return records.length;
+    const records = await Promise.all(list
+        .map((ticket) => ticketRecord(ticket, Venue.account))
+        .map((ticket) => Venue.reconcileTicketRecord(ticket)));
+    try {
+        await Venue.persistTickets(
+            Venue.account,
+            mergeTicketRecords(Venue.ticketList(Venue.account), records),
+        );
+    } catch {
+        for (const record of records) {
+            Venue.cacheTicket(Venue.account, record);
+            Venue._exportedTickets.add(String(record.id).toLowerCase());
+        }
+    }
+    return records;
 };
 
 Venue.parseTicketFile = async function (file) {
@@ -3113,9 +3469,9 @@ Venue.importTicket = async function (file) {
         return;
     }
     if (!obj.id || !obj.salt) throw new Error("Not a ticket or a vault.");
-    const record = ticketRecord(obj, Venue.account);
+    await Venue.requireAccount();
+    const [record] = await Venue.ingestTickets([obj]);
     Venue.applyTicketToForm(record);
-    if (Venue.account) upsert("tickets", Venue.account, record, "id");
     Venue.trackTicketId = record.committedAt ? record.id : null;
     Venue.showOrderStage(record.committedAt ? "track" : "review");
     Venue.paintTicket();
@@ -3132,7 +3488,7 @@ Venue.importVault = async function (file) {
     }
     if (!obj.id || !obj.salt) throw new Error("Not a ticket or a vault.");
     await Venue.requireAccount();
-    Venue.ingestTickets([obj]);
+    await Venue.ingestTickets([obj]);
     Venue.status("trade-status", "One sealed order restored from the file.", "ok");
     await Venue.paintTickets();
 };
@@ -3143,7 +3499,7 @@ Venue.importVaultBlob = async function (obj) {
         throw new Error("That vault belongs to another account.");
     }
     const list = ticketsFromBlob(obj) || [];
-    const n = Venue.ingestTickets(list);
+    const n = (await Venue.ingestTickets(list)).length;
     Venue._ticketSig = "";
     Venue.status("trade-status", n
         ? n + " sealed order" + (n === 1 ? "" : "s") + " restored from the vault."
@@ -3165,7 +3521,7 @@ Venue.writeVault = async function (account, opts) {
     const who = account || Venue.account;
     if (!who) throw new Error("Connect a wallet first.");
     const quiet = !!(opts && opts.quiet);
-    const obj = vaultFile(who);
+    const obj = vaultFile(who, Venue.ticketList(who));
     const name = vaultName(who);
     const key = who.toLowerCase();
     let handle = Venue._vaultHandles[key];
@@ -3220,6 +3576,32 @@ Venue.doHold = async function () {
     if (Venue.snap.free !== undefined && Venue.snap.free < o.qty) {
         throw new Error("Not enough free LPRC for this reservation.");
     }
+    let ticket = Venue.draftRecord(o);
+    if (!ticket) ticket = await Venue.secureDraft();
+    const recoverable = Venue.ticketVaultReady(Venue.account)
+        || Venue._exportedTickets.has(String(o.id).toLowerCase());
+    if (!recoverable) {
+        throw new Error("Export a recovery copy before reserving inventory.");
+    }
+    const existing = Venue._liveHolds?.find((candidate) =>
+        String(candidate.holdId) === String($("holdId")?.value || "")
+        && asBig(candidate.amount) >= o.qty
+        && asBig(candidate.expiry) > nowSec());
+    if (existing) {
+        if (String(ticket.holdId || "") !== String(existing.holdId)) {
+            const updated = {...ticket, holdId: String(existing.holdId)};
+            if (Venue.ticketVaultReady(Venue.account)) {
+                try {
+                    await Venue.upsertTicket(Venue.account, updated);
+                } catch {
+                    Venue.cacheTicket(Venue.account, updated);
+                }
+            } else {
+                Venue.cacheTicket(Venue.account, updated);
+            }
+        }
+        return String(existing.holdId);
+    }
     const rest = asBig(CLIENT.immutables.restRounds);
     const r = Venue.snap.round;
     const needed = await Venue.c.engine.roundEnd(r + rest + 2n);
@@ -3235,14 +3617,15 @@ Venue.doHold = async function () {
     const [, predicted] = await Venue.w.holds.createHoldByPartition.staticCall(
         CLIENT.immutables.partition, hold
     );
-    Venue.tradeTxStage("approval", "Reserve sell inventory");
+    const reserveLabel = "Reserve LPRC (1 of 2)";
+    Venue.tradeTxStage("approval", reserveLabel);
     const rec = await Venue.send(
         () => Venue.w.holds.createHoldByPartition(
             CLIENT.immutables.partition,
             hold,
             {gasLimit: 1_000_000},
         ),
-        "Reserve sell inventory"
+        reserveLabel
     );
     if (!rec) return;
     const holdId = asBig(predicted).toString();
@@ -3251,16 +3634,23 @@ Venue.doHold = async function () {
         v: HOLD_VER, holdId, amount: o.qty.toString(), expiry: needed.toString(),
         tx: rec.hash, at: new Date().toISOString(),
     }, "holdId");
-    const ticket = Venue.draftRecord(o);
     if (ticket) {
-        upsert("tickets", Venue.account, {...ticket, holdId}, "id");
-        await Venue.writeVault(Venue.account);
+        const updated = {...ticket, holdId};
+        if (Venue.ticketVaultReady(Venue.account)) {
+            try {
+                await Venue.upsertTicket(Venue.account, updated);
+            } catch {
+                Venue.cacheTicket(Venue.account, updated);
+            }
+        } else {
+            Venue.cacheTicket(Venue.account, updated);
+        }
     }
     Venue.status("trade-status",
-        formatQuantity(o.qty) + " LPRC reserved for this sell" +
-        (ticket ? " and added to its recovery file." : ". Save the order next."),
+        formatQuantity(o.qty) + " LPRC reserved for this sell.",
         "ok");
     await Venue.refreshTrade();
+    return holdId;
 };
 
 Venue.doCommit = async function () {
@@ -3271,31 +3661,59 @@ Venue.doCommit = async function () {
     if (state.mode !== "commit") {
         throw new Error(state.blocker || "Back up this order before submitting it.");
     }
+    if (o.side === 1) {
+        const attached = Venue._liveHolds?.find((hold) =>
+            String(hold.holdId) === String($("holdId")?.value || "")
+            && asBig(hold.amount) >= o.qty
+            && asBig(hold.expiry) > nowSec());
+        if (!attached) {
+            Venue.status("trade-status", "Approval 1 of 2: reserve LPRC.", "");
+            const holdId = await Venue.doHold();
+            if (!holdId) return;
+        }
+    }
     const t = Venue.draftTicket(o);
     const saved = Venue.draftRecord(o);
-    upsert("tickets", Venue.account, {...saved, ...t}, "id");
-    await Venue.writeVault(Venue.account, {quiet: true});
+    const prepared = {...saved, ...t, holdId: $("holdId")?.value || t.holdId || null};
+    if (Venue.ticketVaultReady(Venue.account)) {
+        try {
+            await Venue.upsertTicket(Venue.account, prepared);
+        } catch {
+            Venue.cacheTicket(Venue.account, prepared);
+        }
+    } else {
+        Venue.cacheTicket(Venue.account, prepared);
+    }
     const bond = asBig(await Venue.c.engine.commitBond());
     const value = toWeibar(bond);
-    Venue.tradeTxStage("approval", "Submit sealed order");
+    const commitLabel = o.side === 1 ? "Place sell (2 of 2)" : "Place sealed buy";
+    Venue.tradeTxStage("approval", commitLabel);
     const rec = await Venue.send(
         () => Venue.w.engine.commit(o.id, {value, gasLimit: 400_000}),
-        "Submit sealed order"
+        commitLabel
     );
     if (!rec) return;
     const cmt = await Venue.c.engine.commitments(o.id);
-    upsert("tickets", Venue.account, {
+    const committed = {
         ...t,
         committedAt: cmt.committedAt.toString(),
         commitTx: rec.hash,
         holdId: t.holdId || $("holdId")?.value || null,
-    }, "id");
-    await Venue.writeVault(Venue.account, {quiet: true});
+    };
+    try {
+        if (Venue.ticketVaultReady(Venue.account)) {
+            await Venue.upsertTicket(Venue.account, committed);
+        } else {
+            Venue.cacheTicket(Venue.account, committed);
+        }
+    } catch {
+        Venue.cacheTicket(Venue.account, committed);
+    }
+    Venue.editingDraftId = null;
     Venue.trackTicketId = o.id;
     Venue.showOrderStage("track");
     Venue.status("trade-status",
-        "Order submitted. Reveal is not open yet. You may cancel for " +
-        CLIENT.immutables.revealDelay + " seconds.",
+        "Order placed. Reveal opens in " + CLIENT.immutables.revealDelay + " seconds.",
         "ok");
     await Venue.refreshTrade();
     await Venue.noteReceipt(
@@ -3380,6 +3798,7 @@ Venue.syncTicketActions = function (card, ph) {
     if (!status || !title || !copy || !row) return;
     const id = card.dataset.id;
     const revealing = Venue.revealPending.has(id);
+    const processing = revealing || Venue.busy;
     if (ph.phase === "cancel") {
         status.className = "order-status waiting";
         status.textContent = "Submitted";
@@ -3412,11 +3831,14 @@ Venue.syncTicketActions = function (card, ph) {
             ? '<button type="button" class="primary" data-act="eligibility" data-id="' +
                 esc(id) + '">Review eligibility</button>'
             : needsHold
-            ? '<button type="button" class="primary" data-act="reserve" data-id="' +
-                esc(id) + '">Reserve inventory</button>'
-            : '<button type="button" class="primary' + (revealing ? ' stale' : '') +
+            ? '<button type="button" class="primary' + (processing ? ' stale' : '') +
+                '" data-act="reserve-reveal" data-id="' + esc(id) + '"' +
+                (processing
+                    ? ' disabled aria-busy="true">Reservation processing</button>'
+                    : ' aria-busy="false">Reserve &amp; reveal</button>')
+            : '<button type="button" class="primary' + (processing ? ' stale' : '') +
                 '" data-act="reveal" data-id="' + esc(id) + '"' +
-                (revealing
+                (processing
                     ? ' disabled aria-busy="true">Reveal processing</button>'
                     : ' aria-busy="false">Reveal order</button>');
         card.className = "order-card urgent";
@@ -3460,6 +3882,9 @@ Venue.paintTicketClocks = function () {
     }
     heading?.classList.toggle("live", live);
     Venue.paintOrderAttention({urgent, release, missed});
+    if (Venue.orderStage === "track" && $("commit")) {
+        Venue.paintGuidedOrder(Venue.readOrder());
+    }
 };
 
 Venue.bindTicketList = function () {
@@ -3474,8 +3899,13 @@ Venue.bindTicketList = function () {
         if (act === "cancel") Venue.doCancel(id).catch((err) => Venue.fail(err));
         if (act === "reveal") Venue.doReveal(id).catch((err) => Venue.fail(err));
         if (act === "reserve") Venue.reserveForTicket(id).catch((err) => Venue.fail(err));
+        if (act === "reserve-reveal") {
+            Venue.reserveForTicket(id)
+                .then((holdId) => holdId ? Venue.doReveal(id, {afterReservation: true}) : null)
+                .catch((err) => Venue.fail(err));
+        }
         if (act === "load") Venue.continueTicket(id);
-        if (act === "discard") Venue.discardDraft(id);
+        if (act === "discard") Venue.discardDraft(id).catch((err) => Venue.fail(err));
         if (act === "new") {
             Venue.startNewOrder();
             document.querySelector(".order-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
@@ -3499,21 +3929,32 @@ function ticketReceipt(label, hash) {
 }
 
 Venue.continueTicket = function (id) {
-    const t = readList("tickets", Venue.viewer()).find((item) => item.id === id);
+    const t = Venue.ticketList(Venue.viewer()).find((item) => item.id === id);
     if (!t) return;
     Venue.applyTicketToForm(t);
     Venue.trackTicketId = t.committedAt ? t.id : null;
-    Venue.showOrderStage(t.committedAt ? "track" : "review");
+    Venue.editingDraftId = t.committedAt ? null : t.id;
+    Venue.showOrderStage(t.committedAt ? "track" : "details");
+    if (!t.committedAt) {
+        Venue.status(
+            "trade-status",
+            t.holdId
+                ? "Edit the order. Its reservation will be reused when it still covers the quantity."
+                : "Edit the order, then review it again.",
+            "ok",
+        );
+    }
     Venue.paintTicket();
     document.querySelector(".order-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
 };
 
-Venue.discardDraft = function (id) {
+Venue.discardDraft = async function (id) {
     if (!Venue.account) return;
-    const tickets = readList("tickets", Venue.account);
+    const tickets = Venue.ticketList(Venue.account);
     const target = tickets.find((t) => t.id === id);
     if (!target || target.committedAt) return;
-    writeList("tickets", Venue.account, tickets.filter((t) => t.id !== id));
+    await Venue.removeTicket(Venue.account, id);
+    if (Venue.editingDraftId === id) Venue.editingDraftId = null;
     Venue._ticketSig = "";
     Venue.status("trade-status", "Local draft removed. No on-chain order was changed.", "ok");
     Venue.paintTicket();
@@ -3521,10 +3962,11 @@ Venue.discardDraft = function (id) {
 };
 
 Venue.reserveForTicket = async function (id) {
+    await Venue.requireAccount();
     if (Venue.snap.kyc !== 1) {
         throw new Error("Renew eligibility before reserving inventory for this order.");
     }
-    const t = readList("tickets", Venue.account).find((item) => item.id === id);
+    const t = Venue.ticketList(Venue.account).find((item) => item.id === id);
     if (!t) throw new Error("Restore this order's recovery file before reserving inventory.");
     Venue.applyTicketToForm(t);
     Venue.trackTicketId = t.id;
@@ -3533,14 +3975,17 @@ Venue.reserveForTicket = async function (id) {
     await Venue.attachHold();
     const attached = ($("holdId")?.value || "").trim();
     if (attached) {
-        upsert("tickets", Venue.account, {...t, holdId: attached}, "id");
-        await Venue.writeVault(Venue.account);
-        Venue.status("trade-status", "An existing reservation was attached and the recovery file was updated.", "ok");
+        if (Venue.ticketVaultReady(Venue.account)) {
+            await Venue.upsertTicket(Venue.account, {...t, holdId: attached});
+        } else {
+            Venue.cacheTicket(Venue.account, {...t, holdId: attached});
+        }
+        Venue.status("trade-status", "Existing LPRC reservation attached.", "ok");
         Venue._ticketSig = "";
         await Venue.paintTickets();
-        return;
+        return attached;
     }
-    await Venue.doHold();
+    return Venue.doHold();
 };
 
 Venue.paintOrderAttention = function ({urgent = 0, release = 0, missed = 0} = {}) {
@@ -3587,12 +4032,13 @@ Venue.paintTickets = async function () {
         Venue.paintOrderAttention();
         return;
     }
-    const tickets = readList("tickets", who);
+    await Venue.hydrateTicketVault(who);
+    const tickets = Venue.ticketList(who);
     if (!tickets.length) {
         Venue._ticketSig = "empty:" + who.toLowerCase();
         box.classList.remove("boxed");
         heading?.classList.remove("live");
-        box.innerHTML = '<div class="empty">No orders are saved in this browser. Place an order or restore a portable backup.</div>';
+        box.innerHTML = '<div class="empty">No orders are encrypted on this device. Place an order or restore a backup.</div>';
         Venue.paintOrderAttention();
         return;
     }
@@ -3600,6 +4046,10 @@ Venue.paintTickets = async function () {
         Venue.c.engine.commitments(t.id).catch(() => null)
     ));
     if (!Venue.stillViewer(who)) return;
+    Venue._ticketChains = new Map(tickets.map((ticket, index) => [
+        String(ticket.id).toLowerCase(),
+        chains[index],
+    ]));
     const kinds = chains.map((c, i) => ticketChainKind(c, tickets[i]));
     const round = Venue.snap.round ?? asBig(await Venue.c.engine.currentRound());
     const states = await Promise.all(tickets.map(async (t, i) => {
@@ -3616,6 +4066,10 @@ Venue.paintTickets = async function () {
         }
     }));
     if (!Venue.stillViewer(who)) return;
+    Venue._ticketOrderStates = new Map(tickets.map((ticket, index) => [
+        String(ticket.id).toLowerCase(),
+        states[index],
+    ]));
     const validHolds = new Map((Venue._liveHolds || []).map((h) => [String(h.holdId), h]));
     const sig = who.toLowerCase() + "|" + round + "|" + tickets.map((t, i) => {
         const o = states[i]?.order;
@@ -3647,10 +4101,12 @@ Venue.paintTickets = async function () {
         let tone = "closed";
         let badge = "Local draft";
         let badgeTone = "";
-        let nextTitle = "Ready to submit";
-        let nextCopy = "Continue this saved draft when you are ready.";
+        let nextTitle = t.holdId ? "Reservation attached" : "Draft saved";
+        let nextCopy = t.holdId
+            ? "Edit the order or place it using the attached inventory."
+            : "Edit the order or place it when ready.";
         let actions = '<button type="button" class="primary" data-act="load" data-id="' +
-            esc(t.id) + '">Continue</button><button type="button" data-act="discard" data-id="' +
+            esc(t.id) + '">Edit details</button><button type="button" data-act="discard" data-id="' +
             esc(t.id) + '">Remove draft</button>';
         let needs = "";
         let deadline = "Not submitted";
@@ -3702,17 +4158,17 @@ Venue.paintTickets = async function () {
             badge = "Status unavailable";
             badgeTone = "urgent";
             nextTitle = "Chain status could not be read";
-            nextCopy = "Keep the recovery file and refresh before taking another action.";
+            nextCopy = "Keep this device data or an export, then refresh before acting.";
             actions = '<button type="button" data-act="load" data-id="' + esc(t.id) + '">Open saved ticket</button>';
         }
         const progress = kind === "committed" && t0
             ? '<div class="order-progress" style="--progress:0%"><i></i></div>'
             : "";
         const details =
-            '<details class="order-details"><summary>Details, receipts, and recovery</summary>' +
+            '<details class="order-details"><summary>Details &amp; receipts</summary>' +
             '<div class="order-detail-grid">' +
             '<div><span>Commitment</span><strong>' + esc(t.id) + "</strong></div>" +
-            '<div><span>Reveal key</span><strong>Available in this browser and portable backup</strong></div>' +
+            '<div><span>Reveal key</span><strong>Encrypted on this device; export optional</strong></div>' +
             '<div><span>Limit value</span><strong>' + esc(readableHbar(limit)) + " HBAR</strong></div>" +
             '<div><span>Inventory reservation</span><strong>' +
                 esc(t.holdId ? "Hold " + t.holdId : side === 1 ? "Not attached" : "Not required") +
@@ -3733,7 +4189,7 @@ Venue.paintTickets = async function () {
             '</strong></div><span class="order-status ' + badgeTone + '">' + esc(badge) + "</span></div>" +
             '<div class="order-facts">' +
             '<div><span>Limit price</span><strong class="num">' + esc(readableHbar(price)) +
-                " HBAR<small>" + esc(String(price)) + " tinybar exact</small></strong></div>" +
+                " HBAR</strong></div>" +
             '<div><span>Quantity</span><strong class="num">' + esc(formatQuantity(quantity)) + " LPRC</strong></div>" +
             '<div><span>Filled</span><strong class="num">' + esc(formatQuantity(filled)) + " LPRC</strong></div>" +
             '<div><span>Deadline</span><strong data-order-deadline>' + esc(deadline) + "</strong></div>" +
@@ -3788,8 +4244,15 @@ Venue.doCancel = async function (id) {
         "Cancel order",
     );
     if (rec) {
-        const t = readList("tickets", Venue.account).find((x) => x.id === id);
-        if (t) upsert("tickets", Venue.account, {...t, cancelled: true, cancelTx: rec.hash}, "id");
+        const t = Venue.ticketList(Venue.account).find((x) => x.id === id);
+        if (t) {
+            const updated = {...t, cancelled: true, cancelTx: rec.hash};
+            try {
+                await Venue.upsertTicket(Venue.account, updated);
+            } catch {
+                Venue.cacheTicket(Venue.account, updated);
+            }
+        }
         Venue.status("trade-status",
             "Order cancelled. The deposit less the cancellation fee is ready to withdraw.",
             "ok");
@@ -3800,15 +4263,15 @@ Venue.doCancel = async function (id) {
     }
 };
 
-Venue.doReveal = async function (id) {
+Venue.doReveal = async function (id, opts = {}) {
     if (!Venue.beginReveal(id)) return null;
     try {
         await Venue.requireAccount();
         if (Venue.snap.kyc !== 1) {
             throw new Error("Renew eligibility before revealing. Settlement requires a current grant.");
         }
-        const t = readList("tickets", Venue.account).find((x) => x.id === id);
-        if (!t) throw new Error("No local ticket for that id. Load the file.");
+        const t = Venue.ticketList(Venue.account).find((x) => x.id === id);
+        if (!t) throw new Error("No device-local ticket for that id. Restore a backup.");
         const side = Number(t.side);
         const price = BigInt(t.price);
         const qty = BigInt(t.qty);
@@ -3835,7 +4298,8 @@ Venue.doReveal = async function (id) {
             && Venue.snap.walletTinybar < buyEscrow(price, qty)) {
             throw new Error("This wallet does not have enough HBAR to fund the buy reveal and network fee.");
         }
-        Venue.tradeTxStage("approval", "Reveal order");
+        const revealLabel = opts.afterReservation ? "Reveal sell (2 of 2)" : "Reveal order";
+        Venue.tradeTxStage("approval", revealLabel);
         const rec = await Venue.send(
             () => Venue.w.engine.reveal(
                 side,
@@ -3845,17 +4309,21 @@ Venue.doReveal = async function (id) {
                 backing,
                 {value, gasLimit: 800_000},
             ),
-            "Reveal order"
+            revealLabel
         );
         if (rec) {
-            upsert("tickets", Venue.account, {
+            const updated = {
                 ...t,
                 holdId: backing === 0n ? t.holdId : backing.toString(),
                 revealed: true,
                 revealTx: rec.hash,
                 revealedAt: new Date().toISOString(),
-            }, "id");
-            await Venue.writeVault(Venue.account, {quiet: true});
+            };
+            try {
+                await Venue.upsertTicket(Venue.account, updated);
+            } catch {
+                Venue.cacheTicket(Venue.account, updated);
+            }
             Venue.status("trade-status",
                 "Order revealed and now eligible for the call auction. Submission is not a fill.",
                 "ok");
@@ -3896,7 +4364,7 @@ Venue.doCross = async function () {
                 String(event.args.sellId).toLowerCase(),
                 String(event.args.buyId).toLowerCase(),
             ]));
-            const tickets = readList("tickets", Venue.account);
+            const tickets = Venue.ticketList(Venue.account);
             let changed = false;
             const updated = tickets.map((ticket) => {
                 if (!settledIds.has(String(ticket.id).toLowerCase())) return ticket;
@@ -3904,8 +4372,11 @@ Venue.doCross = async function () {
                 return {...ticket, crossTx: rec.hash};
             });
             if (changed) {
-                writeList("tickets", Venue.account, updated);
-                await Venue.writeVault(Venue.account, {quiet: true});
+                try {
+                    await Venue.persistTickets(Venue.account, updated);
+                } catch {
+                    for (const ticket of updated) Venue.cacheTicket(Venue.account, ticket);
+                }
             }
         }
         let result;
@@ -4185,8 +4656,8 @@ Venue.refreshTrade = async function () {
         if ($("kyc-gate")) $("kyc-gate").hidden = true;
     }
     Venue.paintPublication(publication, discEpoch);
-    Venue.paintTicket();
     await Venue.attachHold();
+    Venue.paintTicket();
     await Venue.paintTickets();
     if (Venue.lastView) Venue.paintLastView();
 };
@@ -4374,7 +4845,7 @@ Venue.readKnownPortfolioHolds = async function (who) {
     for (const record of readList("holds", who)) {
         if (/^\d+$/.test(String(record?.holdId ?? ""))) ids.add(String(record.holdId));
     }
-    for (const ticket of readList("tickets", who)) {
+    for (const ticket of Venue.ticketList(who)) {
         if (/^\d+$/.test(String(ticket?.holdId ?? ""))) ids.add(String(ticket.holdId));
     }
     const limited = [...ids].slice(0, 48);
@@ -4405,7 +4876,7 @@ Venue.readKnownPortfolioHolds = async function (who) {
 
 Venue.readPortfolioOrders = async function (who) {
     if (!who) return [];
-    const raw = readList("tickets", who)
+    const raw = Venue.ticketList(who)
         .filter((ticket) =>
             /^0x[0-9a-fA-F]{64}$/.test(String(ticket?.id || "")) &&
             (Number(ticket?.side) === 0 || Number(ticket?.side) === 1) &&
@@ -4483,7 +4954,7 @@ Venue.portfolioRecordTime = function (record) {
 
 Venue.paintPortfolioOrders = function (who, records) {
     const out = $("portfolio-orders");
-    const count = who ? readList("tickets", who).length : 0;
+    const count = who ? Venue.ticketList(who).length : 0;
     if ($("pos-tickets")) {
         $("pos-tickets").textContent = !who
             ? "Unavailable"

@@ -48,6 +48,10 @@ abstract contract ScheduledSettlement {
     ///      amount as the reserve is conservative and makes funding observable.
     uint256 public constant FUNDING_PER_CALL = 5 * 1e8;
 
+    /// @dev Hedera consensus can lead the EVM block clock at a second boundary.
+    ///      Schedule after the economic due time so the strict guard still holds.
+    uint256 private constant HSS_EXECUTION_DELAY = 2;
+
     /// @dev Negative local reasons cannot collide with non-negative HAPI codes.
     int64 public constant REASON_UNAVAILABLE = -1;
     int64 public constant REASON_NO_CAPACITY = -2;
@@ -85,8 +89,8 @@ abstract contract ScheduledSettlement {
     /// @notice Whether a scheduled obligation remains covered by the reserve.
     function fundedFor(bytes32 id) public view returns (bool) {
         Obligation storage o = _obligations[id];
-        return o.status == Status.PENDING && o.scheduleAddress != address(0)
-            && _reservesCovered();
+        return
+            o.status == Status.PENDING && o.scheduleAddress != address(0) && _reservesCovered();
     }
 
     function obligation(bytes32 id) external view returns (Obligation memory) {
@@ -143,9 +147,10 @@ abstract contract ScheduledSettlement {
     /// @dev Total over all HSS behavior. Empty and malformed returndata become
     ///      an `Unscheduled` receipt instead of reverting the repo opening.
     function _trySchedule(bytes32 id, uint64 dueAt) private {
+        uint256 executeAt = uint256(dueAt) + HSS_EXECUTION_DELAY;
         (bool probeOk, bytes memory probe) = HSS.staticcall(
             abi.encodeCall(
-                IHederaScheduleService.hasScheduleCapacity, (uint256(dueAt), SCHEDULE_GAS_LIMIT)
+                IHederaScheduleService.hasScheduleCapacity, (executeAt, SCHEDULE_GAS_LIMIT)
             )
         );
         if (!probeOk || probe.length != 32) {
@@ -175,7 +180,7 @@ abstract contract ScheduledSettlement {
                 IHederaScheduleService.scheduleCall,
                 (
                     address(this),
-                    uint256(dueAt),
+                    executeAt,
                     SCHEDULE_GAS_LIMIT,
                     uint64(0),
                     abi.encodeCall(this.settle, (id))

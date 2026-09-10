@@ -174,6 +174,13 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture, RepoFund
         uint64 maturity = uint64(block.timestamp) + TERM;
         bytes32 failId = vault.failObligation(ID);
         _fund();
+        vm.expectCall(
+            vault.HSS(),
+            abi.encodeCall(
+                IHederaScheduleService.hasScheduleCapacity,
+                (uint256(maturity) + 2, vault.SCHEDULE_GAS_LIMIT())
+            )
+        );
         vm.expectEmit(true, true, false, true, address(vault));
         emit Scheduled(failId, CREATED_SCHEDULE, maturity);
         _accept();
@@ -187,7 +194,7 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture, RepoFund
 
         HssSuccessMock recorded = HssSuccessMock(vault.HSS());
         assertEq(recorded.firstTarget(), address(vault));
-        assertEq(recorded.firstExpiry(), maturity);
+        assertEq(recorded.firstExpiry(), uint256(maturity) + 2);
         assertEq(recorded.firstGasLimit(), vault.SCHEDULE_GAS_LIMIT());
         assertEq(recorded.firstValue(), 0);
         assertEq(recorded.firstCallData(), abi.encodeCall(vault.settle, (failId)));
@@ -360,8 +367,7 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture, RepoFund
 
         assertEq(uint8(vault.stateOf(ID)), uint8(RepoVault.State.MARGIN_CALL));
         assertEq(
-            uint8(vault.obligation(failId).status),
-            uint8(ScheduledSettlement.Status.SETTLED)
+            uint8(vault.obligation(failId).status), uint8(ScheduledSettlement.Status.SETTLED)
         );
     }
 
@@ -385,11 +391,24 @@ contract ScheduledSettlementTest is Test, PolicyFixture, CouponFixture, RepoFund
         bytes32 failId = vault.failObligation(ID);
         uint64 maturity = vault.repo(ID).maturity;
 
+        vm.warp(maturity - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 ScheduledSettlement.SettlementNotDue.selector, failId, maturity
             )
         );
         vault.settle(failId);
+    }
+
+    function test_settlementRemainsCallableAtTheEconomicDueTime() public {
+        _open();
+        bytes32 failId = vault.failObligation(ID);
+        uint64 maturity = vault.repo(ID).maturity;
+
+        vm.warp(maturity);
+        assertTrue(vault.settle(failId));
+        assertEq(
+            uint8(vault.obligation(failId).status), uint8(ScheduledSettlement.Status.SETTLED)
+        );
     }
 }
