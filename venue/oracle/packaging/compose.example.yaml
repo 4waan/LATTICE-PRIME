@@ -1,0 +1,47 @@
+x-publisher: &publisher
+  build:
+    context: ../../..
+    dockerfile: venue/oracle/packaging/Dockerfile.publisher
+  image: lattice-oracle-publisher:1
+  restart: unless-stopped
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp
+  volumes:
+    - ../config.json:/config/oracle.json:ro
+  environment:
+    ORACLE_CONFIG: /config/oracle.json
+
+services:
+  publisher-a:
+    <<: *publisher
+    env_file:
+      - ../secrets/publisher-a.env
+    volumes:
+      - ../config.json:/config/oracle.json:ro
+      - publisher-a-state:/state
+
+  publisher-b:
+    <<: *publisher
+    env_file:
+      - ../secrets/publisher-b.env
+    volumes:
+      - ../config.json:/config/oracle.json:ro
+      - publisher-b-state:/state
+
+  publisher-c:
+    <<: *publisher
+    env_file:
+      - ../secrets/publisher-c.env
+    volumes:
+      - ../config.json:/config/oracle.json:ro
+      - publisher-c-state:/state
+
+volumes:
+  publisher-a-state:
+  publisher-b-state:
+  publisher-c-state:

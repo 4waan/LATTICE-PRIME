@@ -1,0 +1,216 @@
+{
+  "schema": "lattice.financing.beat.v1",
+  "status": "verified",
+  "checkedAt": "2026-09-10T05:01:15Z",
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "vault": {
+    "address": "0xC45182A32Cf3Cce5845Cb734f3A36b50259146d9",
+    "contractId": "0.0.10452732",
+    "financingVersion": 5
+  },
+  "token": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+  "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+  "id": "0x81a7b6c343c87350fedabf95bb0ea7db94b8ac8fda7130163ec797989d099866",
+  "borrower": "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+  "lender": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+  "terms": {
+    "partition": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "collateralAmount": "1",
+    "haircutBps": "200",
+    "maintenanceBps": "200",
+    "repoRateBps": "450",
+    "termSeconds": "3600",
+    "openedAt": 1789012304,
+    "maturity": 1789015904
+  },
+  "cash": {
+    "markPerUnitTinybar": "130942356414",
+    "principalTinybar": "128323509285",
+    "repurchaseTinybar": "128324168482",
+    "penaltyTinybar": "0",
+    "closePaidTinybar": "128324168482"
+  },
+  "collateral": {
+    "holdId": "35",
+    "amount": "1",
+    "escrow": "0xC45182A32Cf3Cce5845Cb734f3A36b50259146d9",
+    "expirationTimestamp": "18446744073709551615",
+    "allowanceBefore": "10",
+    "allowanceWhileHeld": "9",
+    "allowanceAfterRelease": "10"
+  },
+  "snapshots": {
+    "before": {
+      "state": "NONE",
+      "borrowerFreeCollateral": "1924",
+      "borrowerHeldCollateral": "1002",
+      "vaultBalanceWeibar": "20000000000000000000",
+      "cashReservedTinybar": "0",
+      "borrowerBalanceWeibar": "193127232960000000000",
+      "lenderBalanceWeibar": "1611640879630000000000"
+    },
+    "funded": {
+      "state": "NONE, funded offer exists",
+      "vaultBalanceWeibar": "1303235092850000000000",
+      "cashReservedTinybar": "128323509285"
+    },
+    "open": {
+      "state": "OPEN",
+      "borrowerFreeCollateral": "1923",
+      "borrowerHeldCollateral": "1003",
+      "borrowerCreditTinybar": "128323509285"
+    },
+    "borrowerWithdrew": {
+      "borrowerCreditTinybar": "0",
+      "vaultBalanceWeibar": "20000000000000000000",
+      "cashReservedTinybar": "0"
+    },
+    "closed": {
+      "state": "CLOSED",
+      "borrowerFreeCollateral": "1924",
+      "borrowerHeldCollateral": "1002",
+      "lenderCreditTinybar": "128324168482",
+      "vaultBalanceWeibar": "1303241684820000000000",
+      "cashReservedTinybar": "128324168482"
+    },
+    "final": {
+      "borrowerFreeCollateral": "1924",
+      "borrowerHeldCollateral": "1002",
+      "lenderCreditTinybar": "0",
+      "vaultBalanceWeibar": "20000000000000000000",
+      "cashReservedTinybar": "0",
+      "borrowerBalanceWeibar": "190247077430000000000",
+      "lenderBalanceWeibar": "1611251454680000000000"
+    },
+    "postMaturityFallback": {
+      "state": "CLOSED",
+      "failObligationStatus": "SETTLED",
+      "reservedFundingTinybar": "0",
+      "fundedCallsAvailable": "3",
+      "vaultBalanceWeibar": "19969697200000000000"
+    }
+  },
+  "receipts": {
+    "approveCollateral": {
+      "tx": "0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a",
+      "status": 1,
+      "gasUsed": "186519",
+      "block": 40327626,
+      "blockTimestamp": 1789012183,
+      "blockTime": "2026-09-10T03:49:43+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a"
+    },
+    "fundOffer": {
+      "tx": "0xab057ccd5fffdb1442784406e2738f86604d3f4b60218b04afd3474171778816",
+      "status": 1,
+      "gasUsed": "320833",
+      "block": 40327677,
+      "blockTimestamp": 1789012291,
+      "blockTime": "2026-09-10T03:51:31+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xab057ccd5fffdb1442784406e2738f86604d3f4b60218b04afd3474171778816"
+    },
+    "accept": {
+      "tx": "0x0336a64ebb9a50874aa6524aa06aef2d551f1ffba273875933f4a363b388f430",
+      "status": 1,
+      "gasUsed": "2207456",
+      "block": 40327683,
+      "blockTimestamp": 1789012304,
+      "blockTime": "2026-09-10T03:51:44+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x0336a64ebb9a50874aa6524aa06aef2d551f1ffba273875933f4a363b388f430"
+    },
+    "withdrawBorrower": {
+      "tx": "0xa279314ca97424f0beab30b1801844ff67843a23ac5783a4686ee98517be8c9a",
+      "status": 1,
+      "gasUsed": "35939",
+      "block": 40327710,
+      "blockTimestamp": 1789012361,
+      "blockTime": "2026-09-10T03:52:41+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xa279314ca97424f0beab30b1801844ff67843a23ac5783a4686ee98517be8c9a"
+    },
+    "close": {
+      "tx": "0xd82bbbf40efd153e0e336912c55ed02f6fcd6a6618c63a7e3c095aacefae717d",
+      "status": 1,
+      "gasUsed": "302274",
+      "block": 40327732,
+      "blockTimestamp": 1789012407,
+      "blockTime": "2026-09-10T03:53:27+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xd82bbbf40efd153e0e336912c55ed02f6fcd6a6618c63a7e3c095aacefae717d"
+    },
+    "withdrawLender": {
+      "tx": "0x7ece1d88a6c94d97e2a56c2a0f414caf29889c61187c9903db01fb5f6a57584e",
+      "status": 1,
+      "gasUsed": "35939",
+      "block": 40327745,
+      "blockTimestamp": 1789012435,
+      "blockTime": "2026-09-10T03:53:55+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x7ece1d88a6c94d97e2a56c2a0f414caf29889c61187c9903db01fb5f6a57584e"
+    },
+    "settleFailFallback": {
+      "tx": "0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca",
+      "status": 1,
+      "gasUsed": "40083",
+      "block": 40329635,
+      "blockTimestamp": 1789016474,
+      "blockTime": "2026-09-10T05:01:14+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca"
+    }
+  },
+  "approvalWindow": {
+    "address": "0x70C67ba8D07E7142baaBc8791810797a595b3397",
+    "contractId": "0.0.10452884",
+    "deployTx": "0x0bedc42d9323d5a54f1d0cdda4f2ddfc653987e43c5460f38df71f7cd3cfa376",
+    "restriction": "Only (borrower, RepoVault, 0) returns true. Positive-value transfers remain refused.",
+    "originalCompliance": "0x0d5BadF7a535C2Cdd2d21068E9273903583D3Ec9",
+    "seatTx": "0x8dd07c8d595c12bfb49465a4d4d4077f18bae2608df956aa808354a31fb577a3",
+    "approveTx": "0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a",
+    "restoreTx": "0x96dc8a1c48defc3cc0fd9f034978a75ed84b437e8707b5af2e84cdbcf6509ad1",
+    "restored": true
+  },
+  "recovery": {
+    "note": "A preparatory funded offer was canceled and withdrawn after the first approval attempt exposed the vault-address compliance requirement. Its principal was fully recovered before the canonical beat.",
+    "offerId": "0xa2ba57ab3312d6923e35b9ce93241810ee8456a25d48589479f25ef8986a168f",
+    "fundTx": "0x7088f1c081f16a32b9338f9d220b8116dc2c37fe03f5dfb85937c637bd0dcb05",
+    "cancelTx": "0x316965822ff11ec459855d0c516b960bcd58ce5f4ce55085882951fc4846c005",
+    "withdrawTx": "0x789c17bf60c960977d07cee00059d2374b014e5aec4ddfc6c4ac262402bcb416",
+    "failedGasEstimateTx": "0x39c597eeb6b9bafc2084b606b46cdb2dc0d268cf4330cabdf42df9c78f73a0ca"
+  },
+  "hssBoundary": {
+    "failObligation": "0x1b24ec0ef511613b637fd20eae500308bb82f1368aa3704224cd61098a8f8f1f",
+    "scheduleAddress": "0x00000000000000000000000000000000009F7Fb9",
+    "scheduleId": "0.0.10452921",
+    "dueAt": 1789015904,
+    "scheduledExecution": {
+      "transactionId": "0.0.7314364-1789012301-474528722",
+      "transactionHashSha384": "0xb32f57c80a69cbafc1bc8ff2e600bdaa25cf87a05b92991c2c10fa55a1855d3877b67fa94beeb4992d227ee88924d5dc",
+      "consensusTimestamp": "1789015904.009771916",
+      "evmBlock": 40329366,
+      "evmBlockTimestamp": 1789015903,
+      "result": "CONTRACT_REVERT_EXECUTED",
+      "chargedFeeTinybar": "3030280",
+      "reason": "HSS reached consensus after dueAt, but this Hedera block exposed an EVM block.timestamp one second before dueAt. The strict due-time check reverted without changing repo state.",
+      "hashscan": "https://hashscan.io/testnet/transaction/0.0.7314364@1789012301.474528722"
+    },
+    "manualFallback": {
+      "receipt": "settleFailFallback",
+      "result": "SETTLED",
+      "reservedFundingTinybar": "0",
+      "note": "The permissionless settle entry point completed the already-closed repo obligation after dueAt. No collateral or repo cash moved."
+    }
+  },
+  "assertions": {
+    "fundedOfferStoredCash": true,
+    "acceptCreatedAtsHold": true,
+    "holdEscrowIsVault": true,
+    "principalWithdrawn": true,
+    "closePaidExactly": true,
+    "holdReleasedAtClose": true,
+    "cashRoundTrip": true,
+    "finalStateClosed": true,
+    "operatingReservePreserved": true,
+    "complianceJournalRestored": true,
+    "hssBoundaryFailureRecorded": true,
+    "permissionlessFallbackSettled": true,
+    "hssReservationReleased": true
+  }
+}

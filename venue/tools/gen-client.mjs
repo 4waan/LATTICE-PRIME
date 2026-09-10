@@ -97,6 +97,42 @@ async function call(to, sig, args = []) {
     throw new Error(`${sig} on ${to}: gave up after ${RETRIES} attempts. ${last?.message ?? ""}`);
 }
 
+async function getCode(address) {
+    const body = JSON.stringify({
+        jsonrpc: "2.0", id: ++id, method: "eth_getCode",
+        params: [address, "latest"],
+    });
+    let last;
+    for (let attempt = 0; attempt < RETRIES; attempt++) {
+        if (attempt > 0) await sleep(500 * 2 ** (attempt - 1));
+        let res;
+        try {
+            res = await fetch(RPC, {
+                method: "POST",
+                headers: {"content-type": "application/json"},
+                body,
+            });
+        } catch (e) {
+            last = e;
+            if (!RETRYABLE.test(`${e.message} ${e.cause?.code ?? ""}`)) throw e;
+            continue;
+        }
+        if (res.status === 429 || res.status >= 500) {
+            last = new Error(`eth_getCode on ${address}: HTTP ${res.status}`);
+            continue;
+        }
+        const value = await res.json();
+        if (value.error) {
+            throw new Error(`eth_getCode on ${address}: ${value.error.message}`);
+        }
+        return value.result;
+    }
+    throw new Error(
+        `eth_getCode on ${address}: gave up after ${RETRIES} attempts. ` +
+        `${last?.message ?? ""}`,
+    );
+}
+
 async function mirror(path) {
     let last;
     for (let attempt = 0; attempt < RETRIES; attempt++) {
@@ -127,6 +163,10 @@ function word(v) {
 const asUint = (r) => BigInt(r).toString();
 const asAddr = (r) => "0x" + r.slice(-40);
 const asBool = (r) => BigInt(r) === 1n;
+const uintWord = (r, index) => {
+    const start = 2 + index * 64;
+    return BigInt("0x" + r.slice(start, start + 64)).toString();
+};
 
 /// A dynamic `string` return: an offset word, a length word, then the bytes.
 /// @dev Written out rather than pulled from a library because this file has no
@@ -175,6 +215,37 @@ const addresses = {
 };
 
 const E = addresses.MatchingEngine;
+const V = addresses.RepoVault;
+
+// Financing writes are an all-or-nothing interface. A bundle naming an older
+// vault is worse than no bundle because the screens would render controls for
+// selectors the address cannot execute.
+let financingVersion;
+try {
+    financingVersion = asUint(await call(V, "FINANCING_VERSION()"));
+} catch (error) {
+    throw new Error(
+        `RepoVault ${V} is not financing v5. Refusing to generate a stale client: ` +
+        error.message,
+    );
+}
+if (financingVersion !== "5") {
+    throw new Error(`RepoVault ${V} reports financing version ${financingVersion}, want 5`);
+}
+const expectedVaultRuntimeHash =
+    venue.financing?.compiler?.repoVaultRuntimeKeccak256;
+if (!expectedVaultRuntimeHash) {
+    throw new Error("deployment record has no RepoVault runtime hash");
+}
+const vaultRuntime = await getCode(V);
+if (vaultRuntime === "0x") throw new Error(`RepoVault ${V} has no runtime code`);
+const vaultRuntimeHash = hex(keccak_256(Buffer.from(vaultRuntime.slice(2), "hex")));
+if (vaultRuntimeHash !== expectedVaultRuntimeHash) {
+    throw new Error(
+        `RepoVault ${V} runtime hash ${vaultRuntimeHash}, ` +
+        `want ${expectedVaultRuntimeHash}`,
+    );
+}
 
 // --------------------------------------------------------- the error table
 
@@ -268,6 +339,11 @@ out.immutables = {
 if (addresses.PrimeOracle) {
     const O = addresses.PrimeOracle;
     const cashFeed = asAddr(await call(O, "cashFeed()"));
+    const latest = await call(O, "latest()");
+    const publishedAt = uintWord(latest, 2);
+    const fixing = await call(O, "referenceRateBefore(uint64)", [
+        BigInt(publishedAt) + 1n,
+    ]);
     out.feed = {
         note:
             "PrimeOracle. Two legs: the venue's own panel publishes the clean price " +
@@ -284,6 +360,12 @@ if (addresses.PrimeOracle) {
         maxDeviationBps: asUint(await call(O, "maxDeviationBps()")),
         generation: asUint(await call(O, "generation()")),
         lastRound: asUint(await call(O, "lastRound()")),
+        historicalFixing: {
+            refRateBps: uintWord(fixing, 0),
+            publishedAt: uintWord(fixing, 1),
+            round: uintWord(fixing, 2),
+            checkedWithCutoff: (BigInt(publishedAt) + 1n).toString(),
+        },
         cashFeed: {
             note:
                 "Not the venue's panel. Read back off the chain, whatever is seated. " +
@@ -296,6 +378,26 @@ if (addresses.PrimeOracle) {
         },
     };
 }
+
+out.financing = {
+    version: financingVersion,
+    note:
+        "RepoVault v5 funded offers. Values are chain reads from the bound vault, " +
+        "not source defaults.",
+    runtimeBytecodeHash: vaultRuntimeHash,
+    runtimeBytes: (vaultRuntime.length - 2) / 2,
+    schedulingRevision: venue.financing.scheduling.revision,
+    hssExecutionDelaySeconds: venue.financing.scheduling.executionDelaySeconds,
+    security: asAddr(await call(V, "security()")),
+    oracle: asAddr(await call(V, "oracle()")),
+    schedule: asAddr(await call(V, "schedule()")),
+    registry: asAddr(await call(V, "registry()")),
+    policy: asAddr(await call(V, "policy()")),
+    marginEngine: asAddr(await call(V, "marginEngine()")),
+    penaltyRate: asUint(await call(V, "penaltyRate()")),
+    failGrace: asUint(await call(V, "failGrace()")),
+    cureWindow: asUint(await call(V, "cureWindow()")),
+};
 
 // ------------------------------------------------------------- the coupon
 //
@@ -440,19 +542,32 @@ const wiring = {
     "token.isExternalKycList(registry)":
         asBool(await call(addresses.token, "isExternalKycList(address)",
             [addresses.ZkKycRegistry])),
-    // The eighth. A vault pointed at some other feed is a vault whose margin
-    // calls came from a price this address book cannot show you.
+    "vault.FINANCING_VERSION() == 5": financingVersion === "5",
+    "vault.runtimeBytecodeHash == deployment":
+        vaultRuntimeHash === expectedVaultRuntimeHash,
+    "vault.security() == token":
+        out.financing.security.toLowerCase() === addresses.token.toLowerCase(),
+    "vault.registry() == ZkKycRegistry":
+        out.financing.registry.toLowerCase() === addresses.ZkKycRegistry.toLowerCase(),
+    "vault.policy() == ParameterRoot":
+        out.financing.policy.toLowerCase() === addresses.ParameterRoot.toLowerCase(),
+    "vault.penaltyRate() == 10": out.financing.penaltyRate === "10",
+    "vault.failGrace() == 5 days": out.financing.failGrace === "432000",
+    "vault.cureWindow() == 1 day": out.financing.cureWindow === "86400",
+    // A vault pointed at some other feed is a vault whose margin calls came
+    // from a price this address book cannot show.
     ...(addresses.PrimeOracle
         ? {
             "vault.oracle() == PrimeOracle":
-                asAddr(await call(addresses.RepoVault, "oracle()")).toLowerCase()
-                    === addresses.PrimeOracle.toLowerCase(),
+                out.financing.oracle.toLowerCase() === addresses.PrimeOracle.toLowerCase(),
+            "oracle.referenceRateBefore() is callable":
+                BigInt(out.feed.historicalFixing.publishedAt) > 0n,
         }
         : {}),
     ...(addresses.CouponSchedule
         ? {
             "vault.schedule() == CouponSchedule":
-                asAddr(await call(addresses.RepoVault, "schedule()")).toLowerCase()
+                out.financing.schedule.toLowerCase()
                     === addresses.CouponSchedule.toLowerCase(),
             "watch.vault() == RepoVault":
                 asAddr(await call(addresses.MarginWatch, "vault()")).toLowerCase()

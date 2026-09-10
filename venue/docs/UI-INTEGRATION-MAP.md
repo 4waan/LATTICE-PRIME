@@ -81,7 +81,7 @@ id = engine.commitmentOf(committer, side, price, qty, salt)
 engine.commit(id)  value = toWeibar(commitBond)
 ```
 
-Write the ticket (incl. salt) **before** send. No salt ⇒ no reveal ⇒ bond is forfeit.
+Encrypt and verify the ticket (including its salt) **before** a hold or commit is sent. No salt ⇒ no reveal ⇒ bond is forfeit.
 
 Windows from `committedAt` (delay D, window W):
 
@@ -92,6 +92,16 @@ forfeit (committedAt + D + W, ∞)
 ```
 
 `cancellableUntil(id)` is exclusive; zero means terminal, a past timestamp means the window already shut.
+
+### Reveal-key custody
+
+The client stores tickets in IndexedDB with AES-256-GCM. Each write uses a unique 12-byte IV and authenticated metadata for the schema, chain, matching engine, and submitting account. The device key is a non-extractable `CryptoKey`. A write is not considered complete until the encrypted record is read back and authenticated.
+
+Legacy plaintext `localStorage` tickets are removed only after that encrypted readback succeeds. If secure storage is unavailable, hold and commit transactions remain blocked until the user downloads a manual recovery copy. Export and restore stay optional under Your orders during normal operation. Exports contain plaintext reveal keys.
+
+This protects site data at rest, not a compromised origin. Script execution on the same origin can use the device key while the page is open. Clearing site data or losing the device also loses the key, so an optional export is still the only off-device recovery path.
+
+Sell reservation and commit are separate contract calls, so Reserve & place sell still requires two wallet approvals. A compatible hold can be reused because `holdId` is not part of the commitment preimage. Before commit, a reserved draft can change price or quantity and reuse a large enough hold. After commit, those fields are immutable; changing them requires cancellation and a new order.
 
 Reveal: sell `backing = holdId`, `value = 0`; buy `backing = 0`, `value = toWeibar(price * qty)`.
 
@@ -177,7 +187,15 @@ than a caller's argument, and a mark that decides nothing emits nothing.
 
 ## Screens 4 and 5 · Repo and Venue
 
-Read-only. `RepoVault.repo/stateOf/repurchasePriceNow/settlementPenaltyNow/previewMark` plus `MarginWatch.alertOf/calledAmong/feed`; repo ids come from the vault's own log history, since they are not enumerable on chain. `Regime`, `VolumeCap`, `TradingHalt`, `ParameterRoot`, `Rulebook`, `SeamJournal` and `EpochClock`, including every proposal window and `reconcile`.
+Repo reads `RepoVault.repo/stateOf/repurchasePriceNow/settlementPenaltyNow/previewMark`
+plus `MarginWatch.alertOf/calledAmong/feed`; repo ids come from the vault's own
+log history, since they are not enumerable on chain. A version-5 capability
+check enables funded offers, acceptance, withdrawal, repayment, additional
+collateral, cure, permissionless marking and due-obligation settlement. Each
+write checks the connected party and live state, simulates, locks against a
+duplicate request, and waits for confirmation. The Venue view of `Regime`,
+`VolumeCap`, `TradingHalt`, `ParameterRoot`, `Rulebook`, `SeamJournal` and
+`EpochClock` remains read-only, including every proposal window and `reconcile`.
 
 Read budgets and ceilings from `ParameterRoot`, never from `client.json`. The Venue screen compares the two and says so when they differ.
 
@@ -185,7 +203,10 @@ Two permissionless writes are offered: `engine.expire(id)` (retires an order pas
 
 ## Out of scope
 
-`AxeBoard` is not deployed. Repo writes are not a v1 client path (`substitute` reverts `SubstitutionRefused`). Governance writes are operator/supervisor surfaces. `forfeit` is never offered.
+`AxeBoard` is not deployed. Collateral substitution remains refused by
+`SubstitutionRefused`, and liquidation auctions remain refused by
+`AuctionNotSupported`. Governance writes are operator or supervisor surfaces.
+`forfeit` is never offered.
 
 ## Reads
 

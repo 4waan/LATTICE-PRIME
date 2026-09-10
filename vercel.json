@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd venue && make app NODE=",
+  "outputDirectory": "venue/app",
+  "functions": {
+    "api/eligibility/register.mjs": {
+      "maxDuration": 60
+    }
+  }
+}

@@ -123,7 +123,7 @@ contract RulebookTest is Test, PolicyFixture, CouponFixture {
     ///      republishing fails the build instead of passing silently. The failure
     ///      prints the hash to paste back.
     bytes32 internal constant DOCUMENT =
-        0xa2dc83512ddbce999fedf30d93bba2216b8b2e95e770c7f1a70fb3f121cc9f87;
+        0x6938057af566c63064fc3662fa31048a01939bf1fa30146c62f10035df39f85f;
 
     /// @dev The getters section 8 names. A wrong one cannot survive `setUp`:
     ///      `adopt` reads every sourced line back and refuses a mismatch.

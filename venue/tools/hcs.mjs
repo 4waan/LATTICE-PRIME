@@ -61,11 +61,22 @@ export const SOURCE_ADDRESS_KEY = {engine: "MatchingEngine", vault: "RepoVault"}
 /// site table move together.
 export const SITE_ADDRESSES = {
     engine: "0x543e3c66d040e6f4fd7d066c6fd1e557d4b11dae",
-    vault: "0xec8a6f6de7c1882ef2661f4dedb9bd30e0b94964",
+    vault: "0x8c789a6a395c5b912e0a77d64a8e91c6e7cdb5b8",
 };
 export const SITE_CODE_HASHES = {
     engine: "0x0bbb8a0b0d640f6ff4a9a0d2b23c277fea44d864d8b54451ae778d6e955262ff",
-    vault: "0x4b32808eade1478ba5b43c983a31fa4ed7113a93d4beab34e0913c440530453f",
+    vault: "0xec4ff4f7e69ff5e576bf0e41a502f0f3fe077b6ac7a7a6580bfac5782d51185b",
+};
+/// Immutable topic records retain the address that emitted them. The current
+/// address remains the only one a relay may use, while this explicit history
+/// keeps already-published checkpoints and anchors independently decodable.
+export const SITE_ADDRESS_HISTORY = {
+    engine: [SITE_ADDRESSES.engine],
+    vault: [
+        SITE_ADDRESSES.vault,
+        "0xc45182a32cf3cce5845cb734f3a36b50259146d9",
+        "0xec8a6f6de7c1882ef2661f4dedb9bd30e0b94964",
+    ],
 };
 
 /// The disclosing entry points, and the rows each one charges.
@@ -116,35 +127,59 @@ export const SITES = {
     // These selectors describe the bound deployment in `deployments/client.json`.
     // Local source changes do not move this table until a new deployment and
     // matching client record are committed together.
-    "0x778ae762": {
+    "0x0244b7ed": {
         src: "vault",
-        fn: "open",
-        sig: "open(bytes32,address,(bytes32,uint256,uint256,uint16,uint16,uint256,uint64))",
+        fn: "fundOffer",
+        sig: "fundOffer(bytes32,address,(bytes32,uint256,uint16,uint16,uint256,uint64),uint64)",
+        rows: [{row: 14, g: 1, sure: true}],
+    },
+    "0xf952279e": {
+        src: "vault",
+        fn: "cancelOffer",
+        sig: "cancelOffer(bytes32)",
+        rows: [{row: 14, g: 1, sure: false}],
+    },
+    "0xe4725ba1": {
+        src: "vault",
+        fn: "accept",
+        sig: "accept(bytes32)",
         rows: [{row: 7, g: 4, sure: true}],
     },
     "0x39c79e0c": {
         src: "vault",
         fn: "close",
         sig: "close(bytes32)",
-        rows: [{row: 14, g: 1, sure: true}],
+        rows: [{row: 14, g: 1, sure: false}],
+    },
+    "0x9ad9a691": {
+        src: "vault",
+        fn: "markToMarket",
+        sig: "markToMarket(bytes32)",
+        rows: [{row: 14, g: 1, sure: false}],
     },
     "0x9fcdeba6": {
         src: "vault",
         fn: "cure",
         sig: "cure(bytes32)",
+        rows: [{row: 14, g: 1, sure: false}],
+    },
+    "0xdb2f90ae": {
+        src: "vault",
+        fn: "addCollateral",
+        sig: "addCollateral(bytes32,uint256)",
         rows: [{row: 14, g: 1, sure: true}],
     },
     "0xb3dc49a0": {
         src: "vault",
         fn: "markFailing",
         sig: "markFailing(bytes32)",
-        rows: [{row: 14, g: 1, sure: true}],
+        rows: [{row: 14, g: 1, sure: false}],
     },
     "0xdaf79598": {
         src: "vault",
         fn: "declareDefault",
         sig: "declareDefault(bytes32)",
-        rows: [{row: 14, g: 1, sure: true}],
+        rows: [{row: 14, g: 1, sure: false}],
     },
     // **`sure` flipped to false here, and the selector moved, in the same
     // change.** `noteCoupon` used to take the commitment as an argument and
@@ -176,17 +211,11 @@ export const SITES = {
         sig: "settle(bytes32)",
         rows: [{row: 14, g: 1, sure: false}],
     },
-    "0x1c6a825c": {
+    "0x72009ce7": {
         src: "vault",
-        fn: "payThrough",
-        sig: "payThrough(bytes32)",
-        rows: [{row: 14, g: 1, sure: true}],
-    },
-    "0xe68a8171": {
-        src: "vault",
-        fn: "settleAuction",
-        sig: "settleAuction(bytes32,address,uint256)",
-        rows: [{row: 14, g: 1, sure: true}],
+        fn: "settleDefault",
+        sig: "settleDefault(bytes32)",
+        rows: [{row: 14, g: 1, sure: false}],
     },
     // Row 16 always; row 14 only when `breach` and the repo was OPEN.
     "0x8dcf2bd0": {
@@ -396,9 +425,9 @@ export function validate(raw) {
     r.c = sourceField(raw.c);
     if (r.v === SCHEMA_VERSION) {
         r.a = hexField("a", raw.a, 20);
-        if (r.a !== SITE_ADDRESSES[r.c]) {
+        if (!SITE_ADDRESS_HISTORY[r.c].includes(r.a)) {
             throw new RecordError(
-                `${r.c} record address ${r.a} is not the bound deployment`
+                `${r.c} record address ${r.a} is not a known deployment`
             );
         }
     }

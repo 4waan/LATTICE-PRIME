@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
+  <title id="title">The action completed. The venue stopped talking.</title>
+  <desc id="desc">Recorded Hedera testnet evidence, disclosure epoch 39. Cancel A succeeds and publishes, spending one of one available bits. Cancel B succeeds with zero logs and the budget stays at one of one. HCS sequence 2 records the silence.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#10142a"/><stop offset="1" stop-color="#181d38"/></linearGradient>
+    <linearGradient id="bar"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#2dd4bf"/></linearGradient>
+  </defs>
+  <rect width="1200" height="440" rx="22" fill="url(#bg)"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="48" y="49" fill="#a5b4fc" font-size="13" letter-spacing="2">THE DISCLOSURE RECEIPT</text>
+    <text x="1152" y="49" text-anchor="end" fill="#aab4d0" font-size="13">RECORDED TESTNET RUN · EPOCH 39</text>
+    <text x="48" y="98" fill="#f4f6ff" font-size="31" font-weight="700">Two cancellations. One publication budget.</text>
+    <rect x="48" y="133" width="526" height="205" rx="14" fill="#202742" stroke="#3b4568"/>
+    <rect x="598" y="133" width="554" height="205" rx="14" fill="#192d39" stroke="#32746e"/>
+    <text x="74" y="171" fill="#c7d2fe" font-size="13" letter-spacing="1.5">CANCEL A</text>
+    <text x="624" y="171" fill="#5eead4" font-size="13" letter-spacing="1.5">CANCEL B</text>
+    <text x="74" y="211" fill="#fff" font-size="28" font-weight="700">Success. Published.</text>
+    <text x="624" y="211" fill="#fff" font-size="28" font-weight="700">Success. Withheld.</text>
+    <text x="74" y="248" fill="#c3cbe0" font-size="16">Cancellation event + disclosure charge</text>
+    <text x="624" y="248" fill="#c3d9db" font-size="16">Zero logs. The refund is still credited.</text>
+    <text x="74" y="295" fill="#c3cbe0" font-size="14">ROW 15 BUDGET</text>
+    <text x="548" y="295" text-anchor="end" fill="#fff" font-size="17" font-weight="700">1 / 1 bit spent</text>
+    <text x="624" y="295" fill="#c3d9db" font-size="14">ROW 15 BUDGET</text>
+    <text x="1126" y="295" text-anchor="end" fill="#fff" font-size="17" font-weight="700">1 / 1 bit spent</text>
+    <rect x="74" y="310" width="474" height="5" rx="2.5" fill="#818cf8"/>
+    <rect x="624" y="310" width="502" height="5" rx="2.5" fill="url(#bar)"/>
+    <circle cx="57" cy="389" r="5" fill="#5eead4"/>
+    <text x="75" y="395" fill="#e1e8f7" font-size="17">HCS sequence 2 records the silence. The verifier checks it against the chain.</text>
+  </g>
+</svg>

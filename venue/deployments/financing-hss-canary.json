@@ -1,0 +1,135 @@
+{
+  "schema": "lattice.financing.hss-canary.v1",
+  "status": "verified",
+  "checkedAt": "2026-09-10T06:13:28+00:00",
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "runKind": "compressed automatic-settlement canary",
+  "deploymentRecord": "deployments/.financing-deploy/candidate.json",
+  "vault": {
+    "address": "0x8c789a6a395c5b912e0a77d64a8e91c6e7cdb5b8",
+    "contractId": "0.0.10454144",
+    "financingVersion": 5,
+    "runtimeBytecodeHash": "0xec4ff4f7e69ff5e576bf0e41a502f0f3fe077b6ac7a7a6580bfac5782d51185b"
+  },
+  "marginWatch": "0xde540b2c42d82ec644699ca5d758ea7d0c6635ad",
+  "token": "0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2",
+  "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+  "couponSchedule": "0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF",
+  "id": "0x570e0d0c94b90c37d27985c27e64485491c888ad1a72de8b1e6dace9e5943fa2",
+  "borrower": "0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397",
+  "lender": "0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d",
+  "terms": {
+    "partition": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "collateralAmount": "1",
+    "haircutBps": "200",
+    "maintenanceBps": "200",
+    "repoRateBps": "450",
+    "termSeconds": "300",
+    "openedAt": 1789020217,
+    "maturity": 1789020517
+  },
+  "cash": {
+    "principalTinybar": "127352970084",
+    "repurchaseTinybar": "127353024602",
+    "penaltyTinybar": "0",
+    "closePaidTinybar": "127353024602"
+  },
+  "collateral": {
+    "holdId": "44",
+    "amount": "1",
+    "freeBefore": "1788",
+    "heldBefore": "1000",
+    "freeFinal": "1788",
+    "heldFinal": "1000"
+  },
+  "receipts": {
+    "fundOffer": {
+      "tx": "0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91",
+      "status": 1,
+      "gasUsed": "337933",
+      "block": 40331377,
+      "blockTimestamp": 1789020202,
+      "blockTime": "2026-09-10T06:03:22+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91"
+    },
+    "accept": {
+      "tx": "0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789",
+      "status": 1,
+      "gasUsed": "2202722",
+      "block": 40331384,
+      "blockTimestamp": 1789020217,
+      "blockTime": "2026-09-10T06:03:37+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789"
+    },
+    "withdrawBorrower": {
+      "tx": "0x1dc23eb120178dab84b4b958ca313021e35bdb32c7ffc43e571ea4f11bbb26e2",
+      "status": 1,
+      "gasUsed": "35939",
+      "block": 40331400,
+      "blockTimestamp": 1789020251,
+      "blockTime": "2026-09-10T06:04:11+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x1dc23eb120178dab84b4b958ca313021e35bdb32c7ffc43e571ea4f11bbb26e2"
+    },
+    "close": {
+      "tx": "0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01",
+      "status": 1,
+      "gasUsed": "326168",
+      "block": 40331408,
+      "blockTimestamp": 1789020268,
+      "blockTime": "2026-09-10T06:04:28+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01"
+    },
+    "withdrawLender": {
+      "tx": "0x691c0b151df0b481346c30f6c8430d48222435b0b6dc1dc3878a78d9c7c1fcdf",
+      "status": 1,
+      "gasUsed": "35939",
+      "block": 40331425,
+      "blockTimestamp": 1789020305,
+      "blockTime": "2026-09-10T06:05:05+00:00",
+      "hashscan": "https://hashscan.io/testnet/transaction/0x691c0b151df0b481346c30f6c8430d48222435b0b6dc1dc3878a78d9c7c1fcdf"
+    }
+  },
+  "automaticSettlement": {
+    "failObligation": "0x5f0a2d2ccd502ef9032c2465855628a33cff850dad8368bc315217f608fcd241",
+    "economicDueAt": 1789020517,
+    "executionDelaySeconds": 2,
+    "scheduleAddress": "0x00000000000000000000000000000000009f84E5",
+    "scheduleId": "0.0.10454245",
+    "expirationTime": "1789020519.000000000",
+    "executedTimestamp": "1789020519.039793350",
+    "transactionId": "0.0.7314364-1789020209-540687199",
+    "transactionHashSha384": "0x8e58a1eca49e71ec23c0d4a4fe0394f8f5578ecb76e4c0e06b9e23666f12bfbc55a409573f4ece976714366b66ac5971",
+    "result": "SUCCESS",
+    "chargedFeeTinybar": "4409130",
+    "evmTransactionHash": "0x8e58a1eca49e71ec23c0d4a4fe0394f8f5578ecb76e4c0e06b9e23666f12bfbc",
+    "evmBlock": 40331524,
+    "evmBlockTimestamp": 1789020517,
+    "gasUsed": "40083",
+    "callResult": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "hashscan": "https://hashscan.io/testnet/transaction/0.0.7314364@1789020209.540687199",
+    "manualFallbackSent": false
+  },
+  "snapshots": {
+    "initialVaultBalanceWeibar": "20000000000000000000",
+    "reservedBeforeExecutionTinybar": "500000000",
+    "finalVaultBalanceWeibar": "19955908700000000000",
+    "reservedFundingTinybar": "0",
+    "cashReservedTinybar": "0",
+    "additionalCallsFunded": "3",
+    "repoState": "CLOSED",
+    "obligationStatus": "SETTLED"
+  },
+  "assertions": {
+    "fundedOfferAccepted": true,
+    "atsHoldCreatedAndReleased": true,
+    "cashRoundTrip": true,
+    "strictEconomicDuePreserved": true,
+    "hssExpiredTwoSecondsAfterDue": true,
+    "scheduledTransactionSucceeded": true,
+    "manualFallbackNotSent": true,
+    "obligationSettledAutomatically": true,
+    "scheduleReservationReleased": true,
+    "finalLiabilitiesZero": true
+  }
+}
