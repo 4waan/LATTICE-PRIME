@@ -1,6 +1,7 @@
 {
   "network": "hedera-testnet",
   "chainId": 296,
+  "sourceProfile": "publisher-a-primary",
   "pollSeconds": 15,
   "publishMoveBps": 25,
   "keepaliveSeconds": 14400,
@@ -28,7 +29,9 @@
     "maximumBusinessDays": 2
   },
   "dealers": {
-    "endpoints": [],
+    "endpoints": [
+      "file:///dealer/quote.json"
+    ],
     "allowedAddresses": [],
     "maximumAgeSeconds": 3600,
     "maximumFutureSeconds": 30
@@ -47,6 +50,7 @@
   },
   "evidence": {
     "topicMemo": "lattice-prime oracle evidence chain 296",
+    "currentFromRound": 2,
     "maximumBroadcastDelaySeconds": 600,
     "maximumVerificationDelaySeconds": 900,
     "statusHeartbeatSeconds": 900

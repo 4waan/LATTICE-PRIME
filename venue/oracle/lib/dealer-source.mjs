@@ -1,7 +1,10 @@
 import {
+    Signature,
     getAddress,
     isAddress,
     isHexString,
+    keccak256,
+    toUtf8Bytes,
     verifyTypedData,
 } from "ethers";
 import {readFile} from "node:fs/promises";
@@ -70,6 +73,31 @@ function normalizedMessage(raw, instrument) {
     return message;
 }
 
+function dealerQuoteDigest(domain, message, signer, signature) {
+    const canonical = JSON.stringify({
+        schema: "lattice-prime-dealer-quote-v1",
+        domain: {
+            name: domain.name,
+            version: domain.version,
+            chainId: String(domain.chainId),
+            verifyingContract: domain.verifyingContract.toLowerCase(),
+        },
+        primaryType: "DealerQuote",
+        fields: DEALER_QUOTE_TYPES.DealerQuote,
+        message: {
+            instrument: message.instrument.toLowerCase(),
+            cleanPriceUsd8: message.cleanPriceUsd8.toString(),
+            effectiveAt: message.effectiveAt.toString(),
+            expiresAt: message.expiresAt.toString(),
+            nonce: message.nonce,
+            sourceHash: message.sourceHash,
+        },
+        signer: signer.toLowerCase(),
+        signature,
+    });
+    return keccak256(toUtf8Bytes(canonical));
+}
+
 export function verifyDealerQuote(raw, {
     chainId,
     oracle,
@@ -94,13 +122,16 @@ export function verifyDealerQuote(raw, {
         throw new DealerQuoteError("NO_SIGNATURE", "dealer quote has no signature");
     }
 
+    const domain = dealerDomain({chainId, oracle});
     let signer;
+    let signature;
     try {
+        signature = Signature.from(raw.signature).serialized.toLowerCase();
         signer = getAddress(verifyTypedData(
-            dealerDomain({chainId, oracle}),
+            domain,
             DEALER_QUOTE_TYPES,
             message,
-            raw.signature,
+            signature,
         ));
     } catch (error) {
         throw new DealerQuoteError("BAD_SIGNATURE", `dealer signature is invalid: ${error.message}`);
@@ -113,12 +144,14 @@ export function verifyDealerQuote(raw, {
     return {
         source: raw.source ?? "signed-dealer",
         signer,
+        instrument: message.instrument,
         cleanPriceUsd8: message.cleanPriceUsd8,
         effectiveAt: Number(message.effectiveAt),
         expiresAt: Number(message.expiresAt),
         nonce: message.nonce,
-        sourceDigest: message.sourceHash,
-        signature: raw.signature,
+        sourceHash: message.sourceHash,
+        sourceDigest: dealerQuoteDigest(domain, message, signer, signature),
+        signature,
     };
 }
 

@@ -6,8 +6,9 @@ import {
     median,
     mulDiv,
     uint,
-    weightedMedian,
 } from "./fixed.mjs";
+
+export const MARKET_VWAP_ROUNDING = "nearest-ties-up";
 
 export class ValuationError extends Error {
     constructor(code, message, details = {}) {
@@ -149,6 +150,27 @@ function fallbackMark(rows, minimumSources) {
     };
 }
 
+export function volumeWeightedMarketMark(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        throw new ValuationError("NO_MARKET_ROWS", "market VWAP needs at least one row");
+    }
+    let weightedTotal = 0n;
+    let totalVolume = 0n;
+    for (let index = 0; index < rows.length; index++) {
+        const value = uint(rows[index].value, `rows[${index}].value`);
+        const volume = uint(rows[index].weight, `rows[${index}].weight`);
+        if (volume === 0n) continue;
+        weightedTotal += value * volume;
+        totalVolume += volume;
+    }
+    if (totalVolume === 0n) {
+        throw new ValuationError("NO_MARKET_VOLUME", "market VWAP needs positive volume");
+    }
+    // Products and accumulation are exact. This division is the only rounding
+    // operation: nearest integer at the USD8 scale, with exact half ties rounded up.
+    return mulDiv(weightedTotal, 1n, totalVolume, {round: "nearest"});
+}
+
 export function aggregateHybrid({
     prints = [],
     model = null,
@@ -171,7 +193,7 @@ export function aggregateHybrid({
         marketVolume += volume;
     }
     const market = marketVolume >= minVolume && marketRows.length > 0
-        ? weightedMedian(marketRows)
+        ? volumeWeightedMarketMark(marketRows)
         : null;
     const support = fallbackRows(model, dealers);
     const crossCheck = fallbackMark(support, 1);
@@ -187,6 +209,7 @@ export function aggregateHybrid({
                 market,
                 fallback: crossCheck.value,
                 deviationBps: moved,
+                marketRounding: MARKET_VWAP_ROUNDING,
             };
         }
         return {
@@ -198,6 +221,7 @@ export function aggregateHybrid({
             crossCheckUsd8: crossCheck.value,
             crossCheckSources: crossCheck.sources,
             deviationBps: moved,
+            marketRounding: MARKET_VWAP_ROUNDING,
             priceScale: PRICE_SCALE,
         };
     }
@@ -210,6 +234,7 @@ export function aggregateHybrid({
             mode: "market-only",
             marketVolume,
             crossCheckSources: [],
+            marketRounding: MARKET_VWAP_ROUNDING,
             priceScale: PRICE_SCALE,
         };
     }
