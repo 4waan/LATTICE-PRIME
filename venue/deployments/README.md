@@ -111,11 +111,12 @@ separate Python implementation with zero numeric defects. The ignored harness
 is intentionally not release evidence; the tracked report names its source
 hashes, method, coverage, circularity risks, and uncovered cases.
 
-The current dealer signer is a disclosed testnet simulation and is not
-production-eligible. The real external inputs are official NY Fed SOFR and the
-market HBAR/USD cross-check. The Hedera-native inputs are qualified venue
-settlements, HCS evidence, HSS finalization, Mirror Node receipts, and the
-network fee conversion rate at `0x168`.
+The live fallback expects an institutional HTTPS signed dealer quote. Historical
+scheduler and canary records that name the earlier testnet simulation remain
+accurate for those rounds. The real external inputs are official NY Fed SOFR,
+the signed dealer quote, and the market HBAR/USD cross-check. The Hedera-native
+inputs are qualified venue settlements, HCS evidence, HSS finalization, Mirror
+Node receipts, and the network fee conversion rate at `0x168`.
 
 ## Coupon and bond lifecycle evidence
 

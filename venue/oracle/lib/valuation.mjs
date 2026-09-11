@@ -133,8 +133,9 @@ function fallbackRows(model, dealers) {
         rows.push({source: "model", value: uint(model.cleanPriceUsd8, "model.cleanPriceUsd8")});
     }
     for (const dealer of dealers ?? []) {
+        if (!dealer?.signer) continue;
         rows.push({
-            source: `dealer:${dealer.signer ?? dealer.source ?? rows.length}`,
+            source: `dealer:${dealer.signer}`,
             value: uint(dealer.cleanPriceUsd8, "dealer.cleanPriceUsd8"),
         });
     }

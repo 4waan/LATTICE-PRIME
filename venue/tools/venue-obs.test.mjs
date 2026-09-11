@@ -38,6 +38,9 @@ function harness() {
         navigator: {clipboard: {writeText: async (value) => copied.push(value)}},
         document: {execCommand: () => false},
         setTimeout: () => {},
+        Date,
+        AbortController,
+        fetch: async () => ({ok: true, json: async () => ({})}),
     });
     return {Venue, element, copied, financingEvidence};
 }

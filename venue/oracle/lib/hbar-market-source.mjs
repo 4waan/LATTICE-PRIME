@@ -20,6 +20,7 @@ export async function readHbarMarketRate({
     rpcUrl,
     chainId = 296,
     provider = null,
+    feedContract = null,
     now = Math.floor(Date.now() / 1000),
     maximumAgeSeconds = 93_600,
 } = {}) {
@@ -28,7 +29,7 @@ export async function readHbarMarketRate({
         staticNetwork: true,
         batchMaxCount: 10,
     });
-    const feed = new Contract(address, AGGREGATOR_ABI, reader);
+    const feed = feedContract ?? new Contract(address, AGGREGATOR_ABI, reader);
     let decimals;
     let description;
     let latest;
