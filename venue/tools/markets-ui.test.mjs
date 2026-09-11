@@ -90,8 +90,8 @@ test("Markets hierarchy follows the trading journey", () => {
     assert.match(template, /id="side" value="0"/);
     assert.match(template, /id="price"[^>]*value=""/);
     assert.match(template, /id="qty"[^>]*value=""/);
-    assert.match(template, /class="wallet-btn" id="commit-auto">⚡️ Shielded Order/);
-    assert.match(template, /id="commit-manual">🔒 Sealed Order/);
+    assert.match(template, /class="wallet-btn" id="commit-auto">⚡️ Shield Fast/);
+    assert.match(template, /id="commit-manual">🔒 Seal Order/);
     assert.match(template, /id="private-setup-modal"/);
     assert.match(template, /id="private-recovery-action"/);
     assert.match(template, /\/\*INLINE tools\/private-session-vault.mjs\*\//);
