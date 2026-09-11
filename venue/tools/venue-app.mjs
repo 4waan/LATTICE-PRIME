@@ -5407,14 +5407,12 @@ Venue.privatePathReadiness = function (side) {
         }
     } else if (!config.enabled) {
         const status = Venue._privateStatus;
-        if (config.reason) {
-            reason = config.reason;
-        } else if (status && (status.activationEpoch || status.candidateOnly)) {
+        const epoch = (status && status.activationEpoch) || config.activationEpoch;
+        if (status && (status.activationEpoch || status.candidateOnly)) {
             const parts = ["Private trading is not bound on this deployment yet."];
-            if (status.activationEpoch) {
+            if (epoch) {
                 parts.push(
-                    "DualRegistrationGate is pending for epoch "
-                        + status.activationEpoch + ".",
+                    "DualRegistrationGate is pending for epoch " + epoch + ".",
                 );
             }
             const hbarNotes = Number(status.routingNotes?.HBAR || 0);
@@ -5433,6 +5431,11 @@ Venue.privatePathReadiness = function (side) {
                 parts.push("The private relayer is up.");
             }
             reason = parts.join(" ");
+        } else if (config.reason) {
+            reason = config.reason;
+        } else if (epoch) {
+            reason = "Private trading is not bound on this deployment yet. DualRegistrationGate is pending for epoch "
+                + epoch + ".";
         } else {
             reason = "Private trading is not bound on this deployment yet.";
         }

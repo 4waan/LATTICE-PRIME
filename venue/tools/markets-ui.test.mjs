@@ -7,6 +7,7 @@ const template = readFileSync(new URL("../app/trade.template.html", import.meta.
 const runtime = readFileSync(new URL("./venue-app.mjs", import.meta.url), "utf8");
 const oracleRuntime = readFileSync(new URL("./venue-obs.mjs", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/app.css", import.meta.url), "utf8");
+const clientBundle = readFileSync(new URL("./client-bundle.mjs", import.meta.url), "utf8");
 
 function flattenInline(rel) {
     return readFileSync(new URL("../" + rel, import.meta.url), "utf8")
@@ -15,6 +16,13 @@ function flattenInline(rel) {
         .map((line) => line.replace(/^export\s+/, ""))
         .join("\n");
 }
+
+test("shipped client names DualRegistrationGate epoch 8 while unbound", () => {
+    assert.match(clientBundle, /"privateTrading":\{/);
+    assert.match(clientBundle, /"activationEpoch":8/);
+    assert.match(clientBundle, /DualRegistrationGate is pending for epoch 8/);
+    assert.match(clientBundle, /"enabled":false/);
+});
 
 test("Markets inlined runtime parses as one browser script", () => {
     const files = [...template.matchAll(/\/\*INLINE ([^*]+)\*\//g)]
@@ -373,6 +381,19 @@ test("private route fails closed on gas, liquidity, timing, and privacy gates", 
     assert.equal(Venue.privatePathReadiness(1).ready, false);
     assert.match(Venue.privatePathReadiness(0).reason, /not bound on this deployment/);
     assert.match(Venue.privatePathReadiness(1).reason, /not bound on this deployment/);
+    assert.doesNotMatch(Venue.privatePathReadiness(0).reason, /pending for epoch/);
+
+    CLIENT.privateTrading = {
+        enabled: false,
+        activationEpoch: 8,
+        reason: "Private trading is not bound on this deployment yet. DualRegistrationGate is pending for epoch 8.",
+    };
+    Venue._privateStatus = {worker: {ok: false}};
+    assert.equal(Venue.privatePathReadiness(0).ready, false);
+    assert.match(Venue.privatePathReadiness(0).reason, /pending for epoch 8/);
+    assert.doesNotMatch(Venue.privatePathReadiness(0).reason, /relayer is not reachable/);
+    CLIENT.privateTrading = {};
+    Venue._privateStatus = null;
 
     Venue._privateStatus = {
         candidateOnly: true,
