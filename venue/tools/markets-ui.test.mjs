@@ -1,12 +1,30 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {runInNewContext} from "node:vm";
+import {runInNewContext, Script} from "node:vm";
 
 const template = readFileSync(new URL("../app/trade.template.html", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("./venue-app.mjs", import.meta.url), "utf8");
 const oracleRuntime = readFileSync(new URL("./venue-obs.mjs", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app/app.css", import.meta.url), "utf8");
+
+function flattenInline(rel) {
+    return readFileSync(new URL("../" + rel, import.meta.url), "utf8")
+        .split("\n")
+        .filter((line) => !/^import\s/.test(line))
+        .map((line) => line.replace(/^export\s+/, ""))
+        .join("\n");
+}
+
+test("Markets inlined runtime parses as one browser script", () => {
+    const files = [...template.matchAll(/\/\*INLINE ([^*]+)\*\//g)]
+        .map((match) => match[1].trim())
+        .filter((rel) => rel.endsWith(".mjs"));
+    assert.ok(files.includes("tools/private-session-vault.mjs"));
+    assert.ok(files.includes("tools/private-secret-vault.mjs"));
+    const source = files.map(flattenInline).join("\n") + '\nVenue.boot("trade");\n';
+    new Script(source, {filename: "trade-inline.js"});
+});
 
 function guidedHarness() {
     const Venue = {
@@ -24,9 +42,22 @@ function guidedHarness() {
     assert.ok(start >= 0 && end > start, "guided order state should be extractable");
     runInNewContext(runtime.slice(start, end), {
         Venue,
-        CLIENT: {immutables: {commitBond: "1000000", cancelFee: "100000"}},
+        CLIENT: {
+            immutables: {commitBond: "1000000", cancelFee: "100000"},
+            privateTrading: {
+                enabled: true,
+                buyEnabled: true,
+                sellEnabled: true,
+                gasObserved: {buy: "367941", sell: "792044"},
+                routingNotes: {HBAR: 8, LPRC: 8},
+                timedReleaseVerified: true,
+                privacyCanaryPassed: true,
+                rollbackCanaryPassed: true,
+            },
+        },
         asBig: BigInt,
         buyEscrow: (price, quantity) => price * quantity,
+        nowSec: () => 1_000n,
         formatHbar: String,
         readableHbar: String,
         formatQuantity: String,
@@ -59,6 +90,22 @@ test("Markets hierarchy follows the trading journey", () => {
     assert.match(template, /id="side" value="0"/);
     assert.match(template, /id="price"[^>]*value=""/);
     assert.match(template, /id="qty"[^>]*value=""/);
+    assert.match(template, /class="wallet-btn" id="commit-auto">⚡️ Shielded Order/);
+    assert.match(template, /id="commit-manual">🔒 Sealed Order/);
+    assert.match(template, /id="private-setup-modal"/);
+    assert.match(template, /id="private-recovery-action"/);
+    assert.match(template, /\/\*INLINE tools\/private-session-vault.mjs\*\//);
+    assert.match(template, /id="private-session-management"/);
+    assert.match(template, /id="private-session-rotate"/);
+    assert.match(template, /id="private-session-history"/);
+    assert.doesNotMatch(template, /ZK-routed session · automatic reveal/);
+    assert.doesNotMatch(template, /id="auto-path-balance"|id="auto-path-fee"/);
+    assert.match(template, /A buy needs two wallet approvals; a sell needs three/);
+    assert.match(template, /routed pseudonymous execution/);
+    assert.match(template, /authorized compliance viewer can map that session/);
+    assert.match(template, /timing, uncommon denominations, low traffic, IP metadata/);
+    assert.match(template, /Emergency wallet reveal/);
+    assert.match(template, /publicly links this wallet to the private session/);
     assert.equal((template.match(/class="dia"/g) || []).length, 2);
     const orderIndex = template.indexOf('id="order-panel"');
     const marketIndex = template.indexOf('class="auction-panel"');
@@ -72,6 +119,25 @@ test("Markets hierarchy follows the trading journey", () => {
         template.indexOf('<section class="market-support">'),
     );
     assert.doesNotMatch(primary, /\b(?:bytes32|uint128|abi\.encode|commit\(|reveal\()\b/i);
+});
+
+test("oracle diagnostics stay in reference details, not the price bar", () => {
+    const summary = template.slice(
+        template.indexOf('class="oracle-summary"'),
+        template.indexOf('class="oracle-values"'),
+    );
+    const details = template.slice(
+        template.indexOf('class="oracle-details"'),
+        template.indexOf('class="order-attention"'),
+    );
+    assert.match(summary, /Price reference/);
+    assert.match(summary, /id="feed-state"/);
+    assert.match(summary, /id="feed-failure"/);
+    assert.doesNotMatch(summary, /Publisher quorum|HCS evidence|Reported divergence/);
+    assert.match(details, /HCS evidence sequence/);
+    assert.match(details, /Publisher quorum/);
+    assert.match(css, /\.markets-page \.oracle-quote strong\{font-size:\.84rem\}/);
+    assert.match(css, /\.oracle-summary \.note:empty\{display:none\}/);
 });
 
 test("the order stages control which content is visible", () => {
@@ -266,6 +332,19 @@ test("guided order action exposes every real prerequisite", () => {
     assert.equal(Venue.guidedOrderState(buy).mode, "backup");
     Venue.vaultReady = true;
     assert.equal(Venue.guidedOrderState(buy).mode, "commit");
+    Venue.snap.free = 0n;
+    Venue.draftRecord = () => ({id: buy.id, holdId: "7"});
+    Venue._liveHolds = [{holdId: "7", amount: "25", expiry: "2000"}];
+    const reservedSell = Venue.guidedOrderState({...buy, side: 1});
+    assert.equal(reservedSell.mode, "commit");
+    assert.doesNotMatch(reservedSell.label, /Reserve/);
+    Venue.session = {account: "0x00000000000000000000000000000000000000bb"};
+    Venue.snap.sessionKyc = 1;
+    Venue.snap.sessionFree = 0n;
+    Venue.snap.sessionTinybar = 2_000_000n;
+    const privateTopUp = Venue.guidedOrderState({...buy, side: 1}, "private");
+    assert.equal(privateTopUp.mode, "session-fund");
+    assert.equal(privateTopUp.disabled, false);
     Venue.busy = true;
     assert.equal(Venue.guidedOrderState(buy).mode, "busy");
 
@@ -275,6 +354,90 @@ test("guided order action exposes every real prerequisite", () => {
     assert.equal(funds.limit, 2_625n);
     assert.equal(funds.reveal, 2_625n);
     assert.equal(funds.totalCash, 1_002_625n);
+    assert.equal(funds.gasUnits.manual, 334_492n);
+    const quoted = Venue.orderFunds(buy);
+    assert.equal(quoted.network.manual, null);
+    assert.equal(quoted.privateRequired, 1_002_625n);
+    assert.equal(quoted.walletDepositGas, null);
+});
+
+test("private route fails closed on gas, liquidity, timing, and privacy gates", () => {
+    const Venue = {snap: {}};
+    const CLIENT = {privateTrading: {}};
+    const start = runtime.indexOf("Venue.orderFunds = function");
+    const end = runtime.indexOf("\nVenue.guidedOrderState", start);
+    assert.ok(start >= 0 && end > start, "private gas gate should be extractable");
+    runInNewContext(runtime.slice(start, end), {Venue, CLIENT, asBig: BigInt});
+
+    assert.equal(Venue.privatePathReadiness(0).ready, false);
+    assert.equal(Venue.privatePathReadiness(1).ready, false);
+    assert.match(Venue.privatePathReadiness(0).reason, /not bound on this deployment/);
+    assert.match(Venue.privatePathReadiness(1).reason, /not bound on this deployment/);
+
+    Venue._privateStatus = {
+        candidateOnly: true,
+        activationEpoch: 8,
+        routingNotes: {HBAR: 8, LPRC: 0},
+        lprcCanaryActivated: false,
+        worker: {ok: true},
+    };
+    assert.match(Venue.privatePathReadiness(0).reason, /pending for epoch 8/);
+    assert.match(Venue.privatePathReadiness(0).reason, /HBAR notes 8/);
+    assert.match(Venue.privatePathReadiness(0).reason, /relayer is up/);
+    Venue._privateStatus = null;
+
+    CLIENT.privateTrading = {
+        enabled: true,
+        buyEnabled: true,
+        sellEnabled: true,
+        gasObserved: {buy: "384666", sell: "828046"},
+        routingNotes: {HBAR: 8, LPRC: 8},
+        timedReleaseVerified: true,
+        privacyCanaryPassed: true,
+        rollbackCanaryPassed: true,
+    };
+
+    assert.equal(Venue.privatePathReadiness(0).ready, true);
+    assert.equal(Venue.privatePathReadiness(0).withinTarget, false);
+    assert.equal(Venue.privatePathReadiness(1).ready, true);
+
+    CLIENT.privateTrading.gasObserved.buy = "384667";
+    assert.equal(Venue.privatePathReadiness(0).ready, false);
+    assert.match(Venue.privatePathReadiness(0).reason, /15% hard release cap/);
+    CLIENT.privateTrading.gasObserved.buy = "367941";
+    CLIENT.privateTrading.routingNotes.HBAR = 7;
+    assert.equal(Venue.privatePathReadiness(0).ready, false);
+    assert.match(Venue.privatePathReadiness(0).reason, /fewer than 8/);
+    CLIENT.privateTrading.routingNotes.HBAR = 8;
+    CLIENT.privateTrading.timedReleaseVerified = false;
+    assert.equal(Venue.privatePathReadiness(0).ready, false);
+    assert.match(Venue.privatePathReadiness(0).reason, /canaries/);
+
+    CLIENT.privateTrading = {
+        overlay: true,
+        enabled: true,
+        buyEnabled: true,
+        sellEnabled: false,
+        provingReady: true,
+        artifacts: {sessionEligibility: {}},
+        routingNotes: {HBAR: 8, LPRC: 0},
+        activationEpoch: 8,
+    };
+    Venue._privateStatus = {
+        worker: {ok: true},
+        routingNotes: {HBAR: 8, LPRC: 0},
+        activationEpoch: 8,
+        currentEpoch: 7,
+        gateAdopted: false,
+    };
+    assert.equal(Venue.privatePathReadiness(0).ready, false);
+    assert.match(Venue.privatePathReadiness(0).reason, /pending for epoch 8/);
+    assert.equal(Venue.privatePathReadiness(1).ready, false);
+    assert.match(Venue.privatePathReadiness(1).reason, /LPRC/);
+    Venue._privateStatus.gateAdopted = true;
+    Venue._privateStatus.currentEpoch = 8;
+    assert.equal(Venue.privatePathReadiness(0).ready, true);
+    assert.equal(Venue.privatePathReadiness(1).ready, false);
 });
 
 test("wallet stages prevent duplicate action and preserve recovery messaging", () => {
@@ -762,6 +925,83 @@ test("reserved drafts reopen for editing while placed orders remain immutable", 
     assert.equal(stage, "track");
     assert.equal(Venue.editingDraftId, null);
     assert.match(template, /Placed price and quantity are immutable/);
+});
+
+test("sealed replacement cancels first and offsetting creates opposite fresh terms", async () => {
+    const ticket = {
+        id: "old",
+        path: "manual",
+        side: 1,
+        price: "10500000000",
+        qty: "25",
+        salt: "0x" + "11".repeat(32),
+    };
+    let cancelled = 0;
+    let secured = 0;
+    let rerolled = 0;
+    let stage = "";
+    const fields = {
+        price: {value: "", dataset: {}, focus: () => {}},
+        qty: {value: "", dataset: {}},
+        holdId: {value: "7", dataset: {}},
+    };
+    const Venue = {
+        account: "0x01",
+        trackTicketId: ticket.id,
+        editingDraftId: ticket.id,
+        viewer: () => "0x01",
+        ticketList: () => [ticket],
+        doCancel: async () => {
+            cancelled++;
+            return {hash: "0x01"};
+        },
+        applyTicketToForm: () => {},
+        reroll: () => { rerolled++; },
+        secureDraft: async () => { secured++; },
+        showOrderStage: (value) => { stage = value; },
+        status: () => {},
+        paintTicket: () => {},
+        paintTickets: async () => {},
+        setSide: (side) => { Venue.side = side; },
+    };
+    const replaceStart = runtime.indexOf("Venue.replaceTicket = async function");
+    const replaceEnd = runtime.indexOf("\nVenue.doCancel", replaceStart);
+    runInNewContext(runtime.slice(replaceStart, replaceEnd), {
+        Venue,
+        $: (id) => fields[id] || null,
+        document: {querySelector: () => ({scrollIntoView: () => {}})},
+    });
+    await Venue.replaceTicket(ticket.id);
+    assert.equal(cancelled, 1);
+    assert.equal(secured, 1);
+    assert.equal(rerolled, 1);
+    assert.equal(stage, "details");
+
+    ticket.path = "private";
+    let privateCancelled = 0;
+    Venue.cancelPrivateOrder = async () => {
+        privateCancelled++;
+        return {hash: "0x02"};
+    };
+    await Venue.replaceTicket(ticket.id);
+    assert.equal(privateCancelled, 1);
+    assert.equal(secured, 1);
+
+    const offsetStart = runtime.indexOf("Venue.startOffsettingOrder = function");
+    const offsetEnd = runtime.indexOf("\nVenue.doGuidedOrderAction", offsetStart);
+    runInNewContext(runtime.slice(offsetStart, offsetEnd), {
+        Venue,
+        $: (id) => fields[id] || null,
+        formatHbar: String,
+        asBig: BigInt,
+        document: {querySelector: () => ({scrollIntoView: () => {}})},
+    });
+    Venue.startOffsettingOrder(ticket.id);
+    assert.equal(Venue.side, 0);
+    assert.equal(fields.qty.value, "25");
+    assert.equal(fields.holdId.value, "");
+    assert.equal(Venue.trackTicketId, null);
+    assert.match(runtime, /Placed terms are immutable[\s\S]*?Place opposite order/);
 });
 
 test("saving an edited reserved draft replaces its old commitment id", async () => {

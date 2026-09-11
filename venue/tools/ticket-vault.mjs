@@ -2,10 +2,12 @@
 // The browser build inlines this file before venue-app.mjs.
 
 export const TICKET_VAULT_DB = "seamme.vault";
-export const TICKET_VAULT_DB_VERSION = 2;
+export const TICKET_VAULT_DB_VERSION = 4;
 export const TICKET_VAULT_HANDLE_STORE = "handles";
 export const TICKET_VAULT_KEY_STORE = "keys";
 export const TICKET_VAULT_DATA_STORE = "tickets";
+export const PRIVATE_SESSION_STORE = "private-sessions";
+export const PRIVATE_SECRET_STORE = "private-secrets";
 export const TICKET_VAULT_SCHEMA = 2;
 const TICKET_VAULT_PAYLOAD_SCHEMA = 1;
 const TICKET_VAULT_MAX_RECORDS = 500;
@@ -186,6 +188,8 @@ export function openTicketVaultDb(factory = globalThis.indexedDB) {
                 TICKET_VAULT_HANDLE_STORE,
                 TICKET_VAULT_KEY_STORE,
                 TICKET_VAULT_DATA_STORE,
+                PRIVATE_SESSION_STORE,
+                PRIVATE_SECRET_STORE,
             ]) {
                 if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
             }

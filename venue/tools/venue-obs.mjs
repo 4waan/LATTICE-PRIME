@@ -146,30 +146,35 @@ Venue.paintTape = function (id, entries, note) {
                 esc(Venue.fmtLogArg(inp.name, e.args[i])) + "</span>").join("")
             : '<span class="targ"><i>topic0</i>' + esc(shortId(e.topic0 || "")) + "</span>";
         const when = e.at ? new Date(e.at * 1000).toISOString().replace("T", " ").slice(0, 19) + "Z" : "Unavailable";
-        return '<div class="tline' + (e.fragment ? "" : " unknown") + '">' +
-            '<span class="tsrc">' + esc(e.source) + "</span>" +
-            '<span class="tname">' + esc(e.name) + "</span>" +
-            '<span class="targs">' + args + "</span>" +
-            "<span class='tat'>" + esc(when) + " · <a href='" + esc(explorerTx(e.tx)) +
-            "' target='_blank' rel='noopener noreferrer'>" + esc(shortId(e.tx)) + "</a></span></div>";
+        return '<details class="iss-tape-row' + (e.fragment ? "" : " unknown") + '">' +
+            "<summary><div class='iss-tape-main'>" +
+            '<span class="iss-tape-name">' + esc(e.name) + "</span>" +
+            '<span class="iss-tape-src">' + esc(e.source) + "</span></div>" +
+            "<div class='iss-tape-meta'>" + esc(when) + " · <a href='" + esc(explorerTx(e.tx)) +
+            "' target='_blank' rel='noopener noreferrer'>" + esc(shortId(e.tx)) + "</a></div></summary>" +
+            '<div class="iss-tape-args">' + args + "</div></details>";
     }).join("") + (note ? '<p class="note">' + esc(note) + "</p>" : "");
 };
 
 // ---------- the venue screen ----------
 
 Venue.mountVenue = async function () {
-    $("tape-reload")?.addEventListener("click", () => Venue.refreshTape().catch((e) => Venue.fail(e)));
-    $("param-row")?.addEventListener("change", () => Venue.refreshParamRow().catch((e) => Venue.fail(e)));
-    $("journal-go")?.addEventListener("click", () => Venue.doExplain().catch((e) => Venue.fail(e)));
-    $("disclose-go")?.addEventListener("click", () => Venue.doDisclose().catch((e) => Venue.fail(e)));
+    Venue.bindIssuerChrome?.();
+    // Legacy listeners remain available when issuer chrome is absent.
+    if (!Venue._issuerChromeBound) {
+        $("tape-reload")?.addEventListener("click", () => Venue.refreshTape().catch((e) => Venue.fail(e)));
+        $("param-row")?.addEventListener("change", () => Venue.refreshParamRow().catch((e) => Venue.fail(e)));
+        $("journal-go")?.addEventListener("click", () => Venue.doExplain().catch((e) => Venue.fail(e)));
+        $("disclose-go")?.addEventListener("click", () => Venue.doDisclose().catch((e) => Venue.fail(e)));
+    }
     await Promise.all([
         Venue.refreshVenue(),
         Venue.refreshInstrument(),
     ]);
-    await Venue.refreshTape();
+    // Mirror Node tape and HCS evidence load lazily from the Activity drawer.
     // `tools/hcs-view.mjs` is inlined only into this screen, so a build without
     // it still mounts the rest of the Rulebook rather than throwing at boot.
-    if (Venue.mountTopic) await Venue.mountTopic().catch((e) => Venue.fail(e));
+    if (Venue.mountTopic) await Venue.mountTopic({lazy: true}).catch((e) => Venue.fail(e));
 };
 
 Venue.refreshVenue = async function () {
@@ -189,6 +194,46 @@ Venue.refreshVenue = async function () {
     // speculatively and checked below. `permits` wants the regime's current
     // point, which this client has no way to know before it asks, so it is the
     // one thing left in a second wave.
+    let readError = null;
+    let batch;
+    try {
+        batch = await Promise.all([
+            regime.current(), regime.floor(), regime.ceiling(), regime.ideal(),
+            regime.mandate(), regime.narrowed(), regime.liquidityClass(),
+            regime.pending(), regime.pendingEpoch(), regime.pendingLiquidityClass(),
+            regime.relaxTo(), regime.relaxEpoch(), regime.lowerTo(), regime.lowerEpoch(),
+            regime.supervisor(), regime.operator(),
+
+            cap.capBps(), cap.shareBps(), cap.suspendedNow(), cap.suspendedFloor(), cap.venue(),
+
+            halt.haltedNow(), halt.haltedUntil(), halt.bandBps(), halt.breakerSeconds(),
+            halt.budgetSeconds(), halt.remainingBudget(), halt.grantedIn(epoch),
+            halt.lastPriceTwice(), halt.maxHaltSeconds(),
+
+            policy.root(), policy.pendingRoot(), policy.pendingEpoch(),
+            policy.previousRoot(), policy.windowClosesAt(), policy.GRACE(), policy.keyCount(),
+
+            rulebook.edition(), rulebook.document(), rulebook.pendingEdition(),
+            rulebook.pendingEpoch(), rulebook.windowClosesAt(), rulebook.chargeCount(),
+            rulebook.netOperatorTake(), rulebook.reconcile(),
+
+            journal.registry(), journal.token(), journal.admin(), journal.row(),
+            journal.spentBits(epoch), journal.epochRecord(epoch), journal.ceiling(),
+
+            clock.epochLength(), clock.epochZero(), clock.currentEpoch(),
+            clock.startOf(epoch),
+        ]);
+    } catch (e) {
+        readError = e?.message || String(e);
+        Venue.setIssuerUi?.({errors: {...(Venue.issuerUiState?.().errors || {}), core: readError}});
+        Venue.issuerCore = {
+            ...(Venue.issuerCore || {}),
+            readError,
+        };
+        Venue.renderIssuerOverview?.();
+        throw e;
+    }
+
     const [
         rCur, rFloor, rCeil, rIdeal, rMandate, rNarrowed, rClass,
         rPending, rPendingEpoch, rPendingClass, rRelaxTo, rRelaxEpoch, rLowerTo, rLowerEpoch,
@@ -199,43 +244,22 @@ Venue.refreshVenue = async function () {
         edition, document_, pendEd, pendEdEpoch, rbWindow, chargeCount, take, rec,
         jRegistry, jToken, jAdmin, jRow, jSpent, jRecord, jCeiling,
         cLen, cZero, cNow, cStartGuess,
-    ] = await Promise.all([
-        regime.current(), regime.floor(), regime.ceiling(), regime.ideal(),
-        regime.mandate(), regime.narrowed(), regime.liquidityClass(),
-        regime.pending(), regime.pendingEpoch(), regime.pendingLiquidityClass(),
-        regime.relaxTo(), regime.relaxEpoch(), regime.lowerTo(), regime.lowerEpoch(),
-        regime.supervisor(), regime.operator(),
+    ] = batch;
 
-        cap.capBps(), cap.shareBps(), cap.suspendedNow(), cap.suspendedFloor(), cap.venue(),
-
-        halt.haltedNow(), halt.haltedUntil(), halt.bandBps(), halt.breakerSeconds(),
-        halt.budgetSeconds(), halt.remainingBudget(), halt.grantedIn(epoch),
-        halt.lastPriceTwice(), halt.maxHaltSeconds(),
-
-        policy.root(), policy.pendingRoot(), policy.pendingEpoch(),
-        policy.previousRoot(), policy.windowClosesAt(), policy.GRACE(), policy.keyCount(),
-
-        rulebook.edition(), rulebook.document(), rulebook.pendingEdition(),
-        rulebook.pendingEpoch(), rulebook.windowClosesAt(), rulebook.chargeCount(),
-        rulebook.netOperatorTake(), rulebook.reconcile(),
-
-        journal.registry(), journal.token(), journal.admin(), journal.row(),
-        journal.spentBits(epoch), journal.epochRecord(epoch), journal.ceiling(),
-
-        clock.epochLength(), clock.epochZero(), clock.currentEpoch(),
-        clock.startOf(epoch),
-    ]);
-
-    // The four panels below the fold need nothing from the two reads left in
-    // this wave, so they are started here rather than after the rendering: their
-    // first reads join the same request `permits` is in.
+    // Core status needs immutables and coupon readiness. Full parameter tables,
+    // fee charge lists, and calendars stay lazy until a detail panel opens.
+    const loaded = Venue.issuerUiState?.().loaded || {};
     const panels = Promise.all([
-        Venue.refreshCharges(Number(chargeCount)),
-        Venue.refreshParamRow(),
-        Venue.refreshParamSet(),
-        Venue.refreshImmutables(),
-        Venue.refreshCoupon(),
+        Venue.refreshImmutables().catch((e) => {
+            readError = readError || (e?.message || String(e));
+        }),
+        Venue.refreshCoupon().catch((e) => {
+            readError = readError || (e?.message || String(e));
+        }),
         Venue.refreshInstrument().catch(() => {}),
+        loaded.fees ? Venue.refreshCharges(Number(chargeCount)) : Promise.resolve(),
+        loaded["param-keys"] ? Venue.refreshParamSet() : Promise.resolve(),
+        loaded["param-row"] ? Venue.refreshParamRow() : Promise.resolve(),
     ]);
     const [rPermits, cStart] = await Promise.all([
         regime.permits(rCur),
@@ -366,6 +390,69 @@ Venue.refreshVenue = async function () {
     if (de && !de.value) de.value = String(asBig(cNow) > 0n ? asBig(cNow) - 1n : 0n);
 
     await panels;
+
+    const imm = Venue.issuerImmutables || {};
+    const coupon = Venue.issuerCoupon || null;
+    const latestClosed = asBig(cNow) > 0n ? asBig(cNow) - 1n : 0n;
+    Venue.issuerCore = {
+        readError,
+        halted: !!hNow,
+        haltUntilText: hNow ? at(hUntil) : "Unavailable",
+        haltBudgetText: remaining + " / " + budgetS + " s",
+        capSuspended: !!suspended,
+        capText: bps(capBps),
+        shareText: bps(shareBps),
+        permits: !!rPermits,
+        currentHex: "0x" + Number(rCur).toString(16),
+        floorHex: "0x" + Number(rFloor).toString(16),
+        ceilingHex: "0x" + Number(rCeil).toString(16),
+        regimePending: asBig(rPendingEpoch) !== 0n || asBig(rRelaxEpoch) !== 0n || asBig(rLowerEpoch) !== 0n,
+        paramPending: asBig(pendingEpoch) !== 0n,
+        rulebookPending: asBig(pendEdEpoch) !== 0n,
+        rootShort: shortId(root),
+        prevRootShort: asBig(prevRoot) === 0n ? "none" : shortId(prevRoot),
+        keyCount: Number(keyCount),
+        paramPendingText: asBig(pendingEpoch) === 0n
+            ? "no proposal"
+            : shortId(pendingRoot) + " · adoptable in epoch " + pendingEpoch,
+        windowText: asBig(windowAt) === 0n ? "Unavailable" : at(windowAt),
+        grace: String(grace),
+        feeChecked: true,
+        noEdition,
+        feeMismatch: !rec[0],
+        reconcileText: !rec[0]
+            ? "Mismatch"
+            : noEdition ? "Not applicable" : "Reconciled",
+        editionText: noEdition ? "none adopted" : shortId(edition),
+        chargeCount: Number(chargeCount),
+        chargeCountText: noEdition && asBig(chargeCount) === 0n
+            ? "no schedule published" : String(chargeCount),
+        immChecked: !!imm.checked,
+        immDrift: Number(imm.drifted || 0),
+        immTotal: Number(imm.total || 12),
+        minFeeText: imm.minFeeText || "",
+        coupon,
+        epochNow: String(cNow),
+        latestClosed: String(latestClosed),
+        spentText: jSpent + (Number(jRow[3]) ? " / " + jRow[3] + " bits" : " bits"),
+        epochActivity: jRecord.transfers + " transfers · " + jRecord.issues + " issues · " +
+            jRecord.redemptions + " redemptions",
+        registryText: addrEq(jRegistry, CLIENT.addresses.ZkKycRegistry)
+            ? "ZkKycRegistry" : shortAddr(jRegistry),
+        journalDisagree: !!(Venue.issuerCore && Venue.issuerCore.journalDisagree),
+        tokenName: Venue.instrument?.name || null,
+        tokenSymbol: Venue.instrument?.symbol || null,
+    };
+    Venue.setIssuerUi?.({
+        lastRefreshAt: Date.now(),
+        coreStale: false,
+        loaded: {
+            ...(Venue.issuerUiState?.().loaded || {}),
+            immutables: true,
+            coupon: true,
+        },
+    });
+    Venue.renderIssuerOverview?.();
 };
 
 // The fee schedule, itemised. The trade screen charges a commit bond and a
@@ -399,13 +486,14 @@ Venue.refreshCharges = async function (n) {
 // schedule. The generated bundle carries the same values only as a consistency
 // check performed at build time.
 Venue.refreshCoupon = async function () {
-    const el = $("coupon-out");
-    if (!el) return;
     const {couponSchedule: schedule, couponDistributor: distributor, vault} = Venue.c;
     const bundled = CLIENT.coupon;
     if (!schedule || !distributor || !bundled) {
-        el.innerHTML = '<div class="empty">No coupon payment rail is named in this address book.</div>';
-        return;
+        Venue.issuerCoupon = {missing: true};
+        const el = $("coupon-out");
+        if (el) el.innerHTML = '<div class="empty">No coupon payment rail is named in this address book.</div>';
+        Venue.paintIssuerPaymentsSummary?.(Venue.issuerCoupon);
+        return Venue.issuerCoupon;
     }
 
     const tokenId = bundled.cashToken.tokenId;
@@ -426,9 +514,69 @@ Venue.refreshCoupon = async function () {
     const denominator = BigInt(fee?.amount?.denominator ?? 1);
     const liveFeeBps = denominator ? numerator * 10_000n / denominator : 0n;
     const feeMatches = liveFeeBps === asBig(feeBps) && !fee?.net_of_transfers;
-    const calendar = [...dates].map((dueAt, index) =>
+    const now = Number(nowSec());
+    const upcoming = [];
+    const calendarRows = [];
+    [...dates].forEach((dueAt, index) => {
+        const due = Number(dueAt);
+        const label = (index === 0 ? at(issuedAt) : at(dates[index - 1])) + " to " + at(dueAt);
+        calendarRows.push({index, label, dueAt: String(dueAt)});
+        if (due >= now) upcoming.push({index, label, dueAt: String(dueAt), due});
+    });
+    const next = upcoming[0] || null;
+    const remainText = next
+        ? fmtRemain(BigInt(Math.max(0, next.due - now)))
+        : "No future coupon";
+    const underfunded = asBig(funded) <= 0n || asBig(reserved) < asBig(fundingPerCall);
+    const calendarHtml = calendarRows.map((row) =>
+        '<div class="rowline pset"><span>Coupon ' + row.index + "</span><span>" +
+        esc(row.label) + '</span><span class="mono">' + esc(row.dueAt) +
+        "</span></div>").join("");
+
+    Venue.issuerCoupon = {
+        missing: false,
+        issuedAt: at(issuedAt),
+        count: Number(count),
+        spread: String(spread),
+        face: String(face),
+        basisText: Number(basis) === 1 ? "ACT/365" : String(basis),
+        root: shortId(root),
+        nextDate: next ? at(next.dueAt) : (calendarRows.length ? at(dates[dates.length - 1]) : "Unavailable"),
+        remainText,
+        upcoming,
+        calendarHtml,
+        cashText: token.name + " (" + token.symbol + ") · " + token.token_id,
+        liveFeeBps: String(liveFeeBps),
+        feeMismatch: !feeMatches,
+        reservedText: formatHbar(asBig(reserved)) + " HBAR",
+        fundingText: formatHbar(asBig(fundingPerCall)) + " HBAR",
+        funded: String(funded),
+        underfunded,
+        detail: {
+            issuedAt, count, spread, face, basis, root, dates, issuer, claimWindow,
+            feeBps, committed, hss, scheduleGas, fundingPerCall, reserved, funded, token,
+            liveFeeBps, feeMatches,
+        },
+    };
+    Venue.paintIssuerPaymentsSummary?.(Venue.issuerCoupon);
+    Venue.paintCouponDetail(Venue.issuerCoupon);
+    const cal = $("coupon-calendar");
+    if (cal) cal.innerHTML = calendarHtml || '<div class="empty">No coupon periods.</div>';
+    return Venue.issuerCoupon;
+};
+
+Venue.paintCouponDetail = function (coupon) {
+    const el = $("coupon-out");
+    if (!el) return;
+    if (!coupon || coupon.missing) {
+        el.innerHTML = '<div class="empty">No coupon payment rail is named in this address book.</div>';
+        return;
+    }
+    const d = coupon.detail;
+    const at = (ts) => new Date(Number(ts) * 1000).toISOString().slice(0, 10);
+    const calendar = [...d.dates].map((dueAt, index) =>
         '<div class="rowline pset"><span>Coupon ' + index + "</span><span>" +
-        esc(index === 0 ? at(issuedAt) : at(dates[index - 1])) + " to " +
+        esc(index === 0 ? at(d.issuedAt) : at(d.dates[index - 1])) + " to " +
         esc(at(dueAt)) + '</span><span class="mono">' + esc(String(dueAt)) +
         "</span></div>").join("");
 
@@ -436,42 +584,42 @@ Venue.refreshCoupon = async function () {
         '<h2>Fixed calendar</h2><span class="src">CouponSchedule</span></div><div class="body">' +
         '<ul class="readout">' +
         '<li><span class="k">address</span><span class="v"><a href="' +
-        explorerAddr(CLIENT.addresses.CouponSchedule) + '" target="_blank" rel="noopener">' +
+        explorerAddr(CLIENT.addresses.CouponSchedule) + '" target="_blank" rel="noopener noreferrer">' +
         esc(shortAddr(CLIENT.addresses.CouponSchedule)) + "</a></span></li>" +
-        '<li><span class="k">root</span><span class="v">' + esc(shortId(root)) + "</span></li>" +
-        '<li><span class="k">issuedAt</span><span class="v">' + esc(at(issuedAt)) + "</span></li>" +
-        '<li><span class="k">coupons</span><span class="v">' + esc(String(count)) + "</span></li>" +
-        '<li><span class="k">spread</span><span class="v">' + esc(String(spread)) + " bps</span></li>" +
-        '<li><span class="k">faceValue</span><span class="v">' + esc(String(face)) +
+        '<li><span class="k">root</span><span class="v">' + esc(shortId(d.root)) + "</span></li>" +
+        '<li><span class="k">issuedAt</span><span class="v">' + esc(at(d.issuedAt)) + "</span></li>" +
+        '<li><span class="k">coupons</span><span class="v">' + esc(String(d.count)) + "</span></li>" +
+        '<li><span class="k">spread</span><span class="v">' + esc(String(d.spread)) + " bps</span></li>" +
+        '<li><span class="k">faceValue</span><span class="v">' + esc(String(d.face)) +
         " cash units</span></li>" +
         '<li><span class="k">basis</span><span class="v">' +
-        (Number(basis) === 1 ? "ACT/365" : esc(String(basis))) + "</span></li></ul>" +
+        (Number(d.basis) === 1 ? "ACT/365" : esc(String(d.basis))) + "</span></li></ul>" +
         '<div class="rows">' + calendar + "</div></div></section>" +
         '<section class="panel"><div class="top"><h2>Payment rail</h2>' +
         '<span class="src">CouponDistributor and HTS</span></div><div class="body">' +
         '<ul class="readout">' +
         '<li><span class="k">distributor</span><span class="v"><a href="' +
-        explorerAddr(CLIENT.addresses.CouponDistributor) + '" target="_blank" rel="noopener">' +
+        explorerAddr(CLIENT.addresses.CouponDistributor) + '" target="_blank" rel="noopener noreferrer">' +
         esc(shortAddr(CLIENT.addresses.CouponDistributor)) + "</a></span></li>" +
-        '<li><span class="k">issuer</span><span class="v">' + esc(shortAddr(issuer)) + "</span></li>" +
+        '<li><span class="k">issuer</span><span class="v">' + esc(shortAddr(d.issuer)) + "</span></li>" +
         '<li><span class="k">claimWindow</span><span class="v">' +
-        esc(String(claimWindow)) + " s</span></li>" +
+        esc(String(d.claimWindow)) + " s</span></li>" +
         '<li><span class="k">committed</span><span class="v">' +
-        esc(String(committed)) + " smallest cash units</span></li>" +
-        '<li><span class="k">cash</span><span class="v">' + esc(token.name) + " (" +
-        esc(token.symbol) + ") · " + esc(token.token_id) + "</span></li>" +
-        '<li><span class="k">decimals</span><span class="v">' + esc(String(token.decimals)) + "</span></li>" +
+        esc(String(d.committed)) + " smallest cash units</span></li>" +
+        '<li><span class="k">cash</span><span class="v">' + esc(d.token.name) + " (" +
+        esc(d.token.symbol) + ") · " + esc(d.token.token_id) + "</span></li>" +
+        '<li><span class="k">decimals</span><span class="v">' + esc(String(d.token.decimals)) + "</span></li>" +
         '<li><span class="k">paying agent fee</span><span class="v ' +
-        (feeMatches ? "ok" : "bad") + '">' + esc(String(liveFeeBps)) +
-        " bps · inclusive · " + (feeMatches ? "matches tariff" : "MISMATCH") + "</span></li>" +
-        '<li><span class="k">HSS</span><span class="v">' + esc(shortAddr(hss)) + "</span></li>" +
-        '<li><span class="k">schedule gas</span><span class="v">' + esc(String(scheduleGas)) + "</span></li>" +
+        (d.feeMatches ? "ok" : "bad") + '">' + esc(String(d.liveFeeBps)) +
+        " bps · inclusive · " + (d.feeMatches ? "matches tariff" : "MISMATCH") + "</span></li>" +
+        '<li><span class="k">HSS</span><span class="v">' + esc(shortAddr(d.hss)) + "</span></li>" +
+        '<li><span class="k">schedule gas</span><span class="v">' + esc(String(d.scheduleGas)) + "</span></li>" +
         '<li><span class="k">funding per call</span><span class="v">' +
-        esc(formatHbar(asBig(fundingPerCall))) + " HBAR</span></li>" +
+        esc(formatHbar(asBig(d.fundingPerCall))) + " HBAR</span></li>" +
         '<li><span class="k">reserved</span><span class="v">' +
-        esc(formatHbar(asBig(reserved))) + " HBAR</span></li>" +
+        esc(formatHbar(asBig(d.reserved))) + " HBAR</span></li>" +
         '<li><span class="k">additional calls funded</span><span class="v">' +
-        esc(String(funded)) + "</span></li></ul></div></section></div>";
+        esc(String(d.funded)) + "</span></li></ul></div></section></div>";
 };
 
 // One row of the parameter set, read off ParameterRoot rather than off the
@@ -490,6 +638,7 @@ Venue.refreshParamRow = async function () {
     ]);
     const local = CLIENT.disclosure["row" + row];
     const drift = local && String(local.ceiling) !== String(ceiling);
+    Venue.setIssuerUi?.({rowDrift: drift ? 1 : 0});
     out.innerHTML =
         '<ul class="readout">' +
         '<li><span class="k">ceilingFor</span><span class="v">0x' + Number(ceiling).toString(16) +
@@ -503,6 +652,7 @@ Venue.refreshParamRow = async function () {
         '<li><span class="k">keyOfRowBudget</span><span class="v">' + esc(shortId(keyB)) + "</span></li>" +
         '<li><span class="k">keyOfRowFloor</span><span class="v">' + esc(shortId(keyF)) + "</span></li>" +
         "</ul>";
+    Venue.renderIssuerOverview?.();
 };
 
 // SeamJournal.explain, which is the only pre-flight in the system that says
@@ -522,12 +672,20 @@ Venue.doExplain = async function () {
     const [ok, reason] = await Venue.c.journal.explain(from, to, qty);
     const can = await Venue.c.journal.canTransfer(from, to, qty);
     const why = JOURNAL_REASON[Number(reason)] || ("reason code " + reason);
+    const disagree = can !== ok;
+    if (Venue.issuerCore) Venue.issuerCore.journalDisagree = disagree;
     out.innerHTML = '<div class="card ' + (ok ? "open" : "dead") + '">' +
         "<div class='meta'>explain(" + esc(shortAddr(from)) + " → " + esc(shortAddr(to)) +
         ", " + esc(String(qty)) + ")</div>" +
         "<div><b>" + (ok ? "would be allowed" : "would be refused") + "</b> · " + esc(why) + "</div>" +
         "<div class='meta'>canTransfer says " + (can ? "true" : "false") +
-        (can === ok ? "" : ". The two getters disagree, which is worth reporting.") + "</div></div>";
+        (disagree ? ". The two getters disagree, which is worth reporting." : "") + "</div></div>";
+    Venue.recordIssuerActivity?.({
+        title: "Transfer preflight",
+        detail: (ok ? "allowed" : "refused") + " · " + why,
+        source: "journal",
+    });
+    Venue.renderIssuerAttention?.();
 };
 
 Venue.refreshTape = async function () {
@@ -1832,23 +1990,118 @@ Venue.financeActionLabel = function (label) {
     return raw || "transaction";
 };
 
+Venue.looksLikeRevertData = function (hex) {
+    const raw = String(hex || "");
+    if (!/^0x[0-9a-fA-F]+$/.test(raw)) return false;
+    const n = raw.length - 2;
+    if (n === 8) return true;
+    if (n === 64) return false;
+    return n > 8 && (n - 8) % 64 === 0;
+};
+
+Venue.financeRevertData = function (error) {
+    const c = error?.info?.error?.data ?? error?.data ?? error?.error?.data ?? error?.receipt?.revertReason;
+    const candidates = [];
+    if (typeof c === "string") candidates.push(c);
+    if (c && typeof c.data === "string") candidates.push(c.data);
+    const msg = String(error?.shortMessage || error?.message || "");
+    const matches = msg.match(/0x[0-9a-fA-F]{8,}/g) || [];
+    for (const hex of [...candidates, ...matches]) {
+        if (Venue.looksLikeRevertData(hex)) return hex.toLowerCase();
+    }
+    return "";
+};
+
+Venue.financeUnnamedApproveCopy =
+    "Hedera rejected the collateral approval before a named error was returned.";
+Venue.financeComplianceNotAllowedCopy =
+    "ATS refused this approval. The vault is not admitted as a spender in the current KYC epoch.";
+
+Venue.financeVaultApproveRefusedCopy = function (reason) {
+    const why = JOURNAL_REASON[Number(reason)] || "";
+    if (Number(reason) === 1 || /recipient/i.test(why)) {
+        return Venue.financeComplianceNotAllowedCopy;
+    }
+    if (why) return "ATS refused this approval because " + why + ".";
+    return Venue.financeComplianceNotAllowedCopy;
+};
+
+Venue.financeRevertIsNamed = function (decoded, error) {
+    const parsed = decoded || {};
+    const data = Venue.financeRevertData(error);
+    const sel = String(parsed.selector || data.slice(0, 10) || "").toLowerCase();
+    if (sel === "0xfc855b1b" || parsed.name === "InvalidKycStatus" || parsed.route) {
+        return true;
+    }
+    if (sel === "0x66eb1b54" || parsed.name === "ComplianceNotAllowed") {
+        return true;
+    }
+    const name = String(parsed.name || "");
+    if (name && !/^0x[0-9a-fA-F]{8}$/.test(name)) return true;
+    const message = String(parsed.message || error?.shortMessage || error?.message || "").trim();
+    if (/missing revert data|CALL_EXCEPTION|without a reason|cannot estimate/i.test(message)) {
+        return false;
+    }
+    if (/^0x[0-9a-fA-F]{8}$/.test(message) || /^0x[0-9a-fA-F]{8}$/.test(sel)) {
+        return false;
+    }
+    return !!message && !/^0x[0-9a-fA-F]+$/.test(message);
+};
+
+Venue.financeReadableRevert = function (error, decoded) {
+    const parsed = decoded || (typeof decodeRevert === "function"
+        ? decodeRevert(error)
+        : {message: String(error?.message || error || "")});
+    const data = Venue.financeRevertData(error);
+    const sel = String(parsed.selector || data.slice(0, 10) || "").toLowerCase();
+    if (sel === "0xfc855b1b" || parsed.name === "InvalidKycStatus") {
+        return "ATS refused this address. Prove eligibility first.";
+    }
+    if (sel === "0x66eb1b54" || parsed.name === "ComplianceNotAllowed") {
+        return Venue.financeComplianceNotAllowedCopy;
+    }
+    const raw = String(parsed.message || error?.shortMessage || error?.message || "");
+    if (/read only property/i.test(raw)) {
+        return "The live quote could not be read. Refresh and try Accept again.";
+    }
+    if (/INSUFFICIENT_GAS|out of gas/i.test(raw) || parsed.name === "OutOfGas") {
+        return "Accept ran out of gas creating the ATS hold. Refresh and try again.";
+    }
+    if (!Venue.financeRevertIsNamed(parsed, error)) {
+        return Venue.financeUnnamedApproveCopy;
+    }
+    return String(parsed.message || error?.message || "Transaction failed.").slice(0, 400);
+};
+
 Venue.financeTxFailureDetail = function (extra) {
     const raw = extra && typeof extra === "object" ? (extra.message || extra.detail || "") : extra;
     const text = String(raw || "").trim();
-    if (/^0x[0-9a-fA-F]{8}$/.test(text) && typeof decodeRevert === "function") {
-        const decoded = decodeRevert({data: text, message: text});
-        return String(decoded.message || "Transaction failed.").slice(0, 400);
+    if (/^0x66eb1b54$/i.test(text) || /ComplianceNotAllowed/i.test(text)) {
+        return Venue.financeComplianceNotAllowedCopy;
     }
+    if (/^0x[0-9a-fA-F]{8}$/.test(text)) return Venue.financeUnnamedApproveCopy;
     return text.slice(0, 400);
 };
 
 Venue.financeTxAttemptDetail = function (action, stage, extra) {
     if (stage === "failed" || stage === "rejected") {
-        return Venue.financeTxFailureDetail(extra) || (
+        const reason = Venue.financeTxFailureDetail(extra) || (
             stage === "rejected"
                 ? "Wallet request rejected."
                 : "Transaction failed."
         );
+        if (action === "authorize collateral") {
+            const lot = extra && typeof extra === "object" && extra.lot != null
+                ? extra.lot
+                : Venue.financePreview?.terms?.collateralAmount
+                    ?? Venue.financePreview?.lot
+                    ?? Venue.financePreview?.collateral;
+            const attempt = lot != null && String(lot) !== ""
+                ? "Authorize " + String(lot) + " LPRC to the vault."
+                : "Authorize collateral to the vault.";
+            return reason && reason !== attempt ? (attempt + " " + reason).slice(0, 400) : attempt;
+        }
+        return reason;
     }
     const lot = extra && typeof extra === "object" && extra.lot != null
         ? extra.lot
@@ -2469,13 +2722,17 @@ Venue.financeDraft = function () {
 
 Venue.financeTermsForQuote = function (terms) {
     if (!terms) return terms;
+    const word = (field, fallback = 0n) => {
+        const raw = terms[field];
+        return raw == null || raw === "" ? fallback : asBig(raw);
+    };
     return {
-        partition: String(terms.partition),
-        collateralAmount: asBig(terms.collateralAmount),
-        haircutBps: Number(asBig(terms.haircutBps)),
-        maintenanceBps: Number(asBig(terms.maintenanceBps)),
-        repoRateBps: asBig(terms.repoRateBps),
-        term: asBig(terms.term),
+        partition: String(terms.partition ?? ""),
+        collateralAmount: word("collateralAmount"),
+        haircutBps: Number(word("haircutBps")),
+        maintenanceBps: Number(word("maintenanceBps")),
+        repoRateBps: word("repoRateBps"),
+        term: word("term"),
     };
 };
 
@@ -2812,8 +3069,34 @@ Venue.ensureVaultAllowance = async function (amount) {
     const current = asBig(await token.allowance(Venue.account, vaultAddress));
     if (current >= required) return false;
 
+    const journal = Venue.c?.journal;
+    const seated = token && typeof token.compliance === "function"
+        ? await token.compliance()
+        : "";
+    const journalAddr = CLIENT.addresses?.SeamJournal || "";
+    const journalIsSeated = !seated || !journalAddr || addrEq(seated, journalAddr);
+    if (journalIsSeated && journal && typeof journal.explain === "function") {
+        const explained = await journal.explain(Venue.account, vaultAddress, 0n);
+        const ok = explained && typeof explained === "object" && "0" in explained
+            ? explained[0]
+            : explained;
+        const reason = explained && typeof explained === "object" && "1" in explained
+            ? explained[1]
+            : 0;
+        if (!ok) {
+            throw new Error(Venue.financeVaultApproveRefusedCopy(reason));
+        }
+    }
+
     const approve = writer.approve;
-    await approve.staticCall(vaultAddress, required);
+    try {
+        await approve.staticCall(vaultAddress, required);
+    } catch (error) {
+        const decoded = typeof decodeRevert === "function" ? decodeRevert(error) : {message: String(error?.message || error || "")};
+        if (Venue.financeRevertIsNamed(decoded, error)) {
+            throw new Error(Venue.financeReadableRevert(error, decoded));
+        }
+    }
     const receipt = await Venue.send(
         () => approve(vaultAddress, required, {gasLimit: 350_000}),
         "authorize collateral",
@@ -2849,11 +3132,12 @@ Venue.doAcceptOffer = async function () {
         if (asBig(offer.expiresAt) <= nowSec()) {
             throw new Error("This offer expired. The lender must cancel it and fund a new one.");
         }
+        const terms = Venue.financeTermsForQuote(offer.terms);
         const [borrowerKyc, lenderKyc, livePrincipal, freeCollateral] = await Promise.all([
             Venue.c.registry.getKycStatus(offer.borrower),
             Venue.c.registry.getKycStatus(offer.lender),
-            Venue.c.vault.quotePrincipal(offer.terms),
-            Venue.c.token.balanceOfByPartition(offer.terms.partition, Venue.account),
+            Venue.c.vault.quotePrincipal(terms),
+            Venue.c.token.balanceOfByPartition(terms.partition, Venue.account),
         ]);
         if (Number(borrowerKyc) !== 1 || Number(lenderKyc) !== 1) {
             throw new Error(
@@ -2862,23 +3146,25 @@ Venue.doAcceptOffer = async function () {
         }
         if (asBig(livePrincipal) !== asBig(offer.principal)) {
             throw new Error(
-                "The live valuation moved since funding. The lender must cancel and reprice.",
+                "The live quote is " + formatHbar(asBig(livePrincipal)) +
+                " HBAR; funded principal is " + formatHbar(asBig(offer.principal)) +
+                " HBAR. The lender must cancel and reprice.",
             );
         }
-        if (asBig(freeCollateral) < asBig(offer.terms.collateralAmount)) {
+        if (asBig(freeCollateral) < asBig(terms.collateralAmount)) {
             throw new Error("The borrower does not have the required free collateral lot.");
         }
         const allowance = typeof Venue.c.token.allowance === "function"
             ? asBig(await Venue.c.token.allowance(Venue.account, CLIENT.addresses.RepoVault))
             : 0n;
-        if (allowance < asBig(offer.terms.collateralAmount)) {
+        if (allowance < asBig(terms.collateralAmount)) {
             throw new Error("Authorize the collateral lot first. Acceptance is a separate wallet confirmation.");
         }
 
         const call = Venue.w.vault.accept;
         await call.staticCall(id);
         const receipt = await Venue.send(
-            () => call(id, {gasLimit: 1_500_000}),
+            () => call(id, {gasLimit: 4_000_000}),
             "accept financing",
         );
         if (!receipt) return;
@@ -2933,7 +3219,9 @@ Venue.financeActions = function (ctx) {
     const acceptStage = Venue.financeUiState().acceptStage || "idle";
     if (ctx.kind === "offer") {
         if (canSign && role === "borrower" && !ctx.expired) {
-            if (acceptStage === "idle") {
+            if (ctx.repriced) {
+                primary = {id: "none", label: "Quote moved since funding", disabled: true};
+            } else if (acceptStage === "idle") {
                 primary = {id: "accept-review", label: "Review acceptance"};
             } else if (!ctx.enoughAllowance) {
                 primary = {id: "approve", label: "Approve collateral"};
@@ -3091,15 +3379,28 @@ Venue.runFinanceAction = async function (action, ctx) {
             ctx.enoughAllowance = true;
             Venue.paintSelectedFacility(ctx);
         } catch (error) {
-            if (Venue.financeUiState().flight && !Venue.busy) {
-                Venue.setFinanceUi({flight: null});
+            Venue.setFinanceUi({flight: null});
+            const already = Venue.financeUiState().txStatus;
+            if (already?.stage === "failed" || already?.stage === "rejected") {
                 Venue.paintFinanceBusy("failed");
+                return;
             }
-            throw error;
+            const message = Venue.financeReadableRevert(error);
+            Venue.financeTxStage("failed", "authorize collateral", {message});
+            throw new Error(message);
         }
         return;
     }
-    if (action.id === "accept") await Venue.doAcceptOffer();
+    if (action.id === "accept") {
+        try {
+            await Venue.doAcceptOffer();
+        } catch (error) {
+            const message = Venue.financeReadableRevert(error);
+            Venue.financeTxStage("failed", "accept financing", {message});
+            throw new Error(message);
+        }
+        return;
+    }
     if (action.id === "cancel") await Venue.doCancelOffer();
     if (action.id === "close") await Venue.closeFacility(id);
     if (action.id === "add") {
@@ -5307,6 +5608,14 @@ Venue.doDisclose = async function () {
         : "Nothing was emitted. The budget could not afford even the coarsest reading, " +
           "so the journal withheld rather than overspend. Spent is still " + after + " bits.",
         said ? "ok" : "bad");
+    Venue.recordIssuerActivity?.({
+        title: said ? "Epoch disclosed" : "Disclosure withheld",
+        detail: said
+            ? "Epoch " + said.args[0] + " · spent " + before + " → " + after
+            : "Budget could not afford a reading · spent still " + after,
+        tx: rec.hash || rec.transactionHash || null,
+        source: "disclose",
+    });
     await Venue.refreshVenue();
 };
 
@@ -5421,7 +5730,14 @@ Venue.refreshImmutables = async function () {
               "also checked against minimumCancelFee, which is what the contract would reject below.";
     }
     const mf = $("imm-minfee");
-    if (mf) mf.textContent = minFee + " tinybar minimum, engine charges " + fee;
+    const minFeeText = minFee + " tinybar minimum, engine charges " + fee;
+    if (mf) mf.textContent = minFeeText;
+    Venue.issuerImmutables = {
+        checked: true,
+        drifted,
+        total: pairs.length,
+        minFeeText,
+    };
 };
 
 Venue.doFinanceWrite = async function (method, args, label, valueTinybar) {

@@ -983,14 +983,14 @@ test("Vercel responses add browser hardening headers without a CSP rewrite", () 
     assert.doesNotMatch(vercel, /Content-Security-Policy/);
 });
 
-test("generated pages keep the institutional source label and no private trading markup", () => {
+test("generated pages keep the institutional source label and skip prefetch", () => {
     const markets = readFileSync(new URL("../app/trade.html", import.meta.url), "utf8");
     const financing = readFileSync(new URL("../app/repo.html", import.meta.url), "utf8");
     for (const page of [markets, financing]) {
         assert.match(page, /SOFR model plus signed dealer quote/);
         assert.doesNotMatch(page, /rel="prefetch"/);
     }
-    assert.doesNotMatch(marketsTemplate, /private-trading|FixedDenominationRouter|SessionAccount/);
+    assert.match(marketsTemplate, /\/\*INLINE app\/private-trading-crypto.bundle.mjs\*\//);
     assert.doesNotMatch(financingTemplate, /private-trading|FixedDenominationRouter|SessionAccount/);
 });
 

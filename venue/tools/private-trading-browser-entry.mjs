@@ -1,0 +1,55 @@
+import {
+    QUICKNET_CHAIN_HASH,
+    TIMED_TICKET_SIZE,
+    computeTimedTicketAutomationMetadata,
+    computeTimedTicketEngineCommitment,
+    createTimedTicketEnvelope,
+    decryptTimedTicketEnvelope,
+    generateTimedTicketCapability,
+    parseTimedTicketEnvelope,
+    roundAtOrAfter,
+    roundTime,
+    selectSafeTargetRound,
+} from "./timed-ticket.mjs";
+import {
+    PinnedQuicknetClient,
+    QuicknetLockedKeyProvider,
+} from "../agent/runtime/drand-client.mjs";
+import {plonk} from "snarkjs";
+import {
+    createPrivateRoutingProofs,
+    createPrivateSessionProofs,
+    buildPrivateMerklePath,
+    fetchVerifiedPrivateArtifact,
+    privateHolderCommitment,
+    privateRouterNoteCommitment,
+    privateSessionLeaf,
+    randomPrivateField,
+    reconstructPrivateMerkleRoot,
+} from "./private-zk.mjs";
+
+globalThis.PrivateTradingCrypto = Object.freeze({
+    QUICKNET_CHAIN_HASH,
+    TIMED_TICKET_SIZE,
+    PinnedQuicknetClient,
+    QuicknetLockedKeyProvider,
+    computeTimedTicketAutomationMetadata,
+    computeTimedTicketEngineCommitment,
+    createTimedTicketEnvelope,
+    decryptTimedTicketEnvelope,
+    generateTimedTicketCapability,
+    parseTimedTicketEnvelope,
+    roundAtOrAfter,
+    roundTime,
+    selectSafeTargetRound,
+    plonk,
+    createPrivateRoutingProofs,
+    createPrivateSessionProofs,
+    buildPrivateMerklePath,
+    fetchVerifiedPrivateArtifact,
+    privateHolderCommitment,
+    privateRouterNoteCommitment,
+    privateSessionLeaf,
+    randomPrivateField,
+    reconstructPrivateMerkleRoot,
+});

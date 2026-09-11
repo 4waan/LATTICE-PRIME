@@ -3783,6 +3783,262 @@ html.fin-drawer-open{overflow:hidden}
   .financing-page .ticket,.fin-advanced-grid{grid-template-columns:1fr}
 }
 
+/* ---------- Issuer command center ---------- */
+.issuer-page{
+  max-width:64rem;padding-top:1.05rem;padding-bottom:4.5rem;
+}
+.issuer-page .lede{
+  max-width:38rem;margin:.2rem 0 0;color:var(--slate);font-size:.875rem;font-weight:500;
+}
+.iss-hero{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:1rem;margin-bottom:.55rem;
+}
+.iss-hero-copy{min-width:0}
+.iss-hero h1{font-size:clamp(1.35rem,2.2vw,1.65rem);letter-spacing:-.035em;margin:0}
+.iss-hero-meta{
+  display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .65rem;margin-top:.55rem;
+}
+.iss-hero-actions{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:flex-end}
+.iss-hero-actions button{min-height:36px;position:relative}
+.iss-quiet-btn{
+  background:transparent;color:var(--ink-2);border:1px solid var(--rule);
+}
+.iss-quiet-btn:hover{background:var(--sunk);filter:none}
+.iss-icon-btn{
+  min-height:28px;padding:0 .55rem;font-size:.68rem;
+  background:transparent;color:var(--slate);border:1px solid var(--rule);
+}
+.iss-quiet-link{font-size:.72rem;font-weight:650;color:var(--primary);text-decoration:none}
+.iss-quiet-link:hover{text-decoration:underline}
+.iss-chip{
+  display:inline-flex;align-items:center;gap:.3rem;min-height:1.5rem;padding:.12rem .5rem;
+  border-radius:8px;background:var(--sealed-wash);color:var(--primary);
+  font-size:.68rem;font-weight:700;
+}
+.iss-chip-neutral{background:var(--sunk);color:var(--slate)}
+.iss-meta-line{color:var(--slate);font-size:.72rem}
+.iss-addr-row{display:inline-flex;align-items:center;gap:.35rem;min-width:0}
+.iss-addr-row .mono{
+  max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem;
+}
+.iss-badge{
+  min-width:1.15rem;height:1.15rem;padding:0 .32rem;border-radius:var(--pill);
+  background:var(--exposed);color:#fff;font-size:.62rem;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.iss-readonly-note{
+  margin:0 0 .85rem;color:var(--slate);font-size:.74rem;max-width:42rem;
+}
+.iss-kicker{
+  margin:0 0 .2rem;color:var(--primary);font-size:.68rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+}
+.iss-visually-hidden{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+
+.iss-status{
+  margin:0 0 1rem;padding:.65rem 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+}
+.iss-status-strip{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.55rem .85rem;
+}
+.iss-status-strip > div{min-width:0}
+.iss-status-label{
+  display:block;color:var(--slate);font-size:.68rem;font-weight:650;margin-bottom:.12rem;
+}
+.iss-status-strip strong{
+  display:block;font-size:.8rem;font-weight:700;line-height:1.3;overflow-wrap:anywhere;
+}
+.iss-tone-ok{color:var(--success)}
+.iss-tone-bad{color:var(--exposed)}
+.iss-tone-warn{color:var(--held)}
+.iss-tone-neutral{color:var(--slate)}
+
+.iss-view-toggle{
+  position:sticky;top:0;z-index:5;isolation:isolate;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+  margin:0 0 1rem;padding:4px;border-radius:14px;background:var(--sunk);
+  border:1px solid var(--rule);
+}
+.iss-view-thumb{
+  position:absolute;inset:4px auto 4px 4px;width:calc(25% - 2px);
+  border-radius:10px;background:var(--surface);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 8%,transparent);
+  transition:transform .18s ease;pointer-events:none;z-index:0;
+}
+.iss-view-toggle[data-view="governance"] .iss-view-thumb{transform:translateX(100%)}
+.iss-view-toggle[data-view="payments"] .iss-view-thumb{transform:translateX(200%)}
+.iss-view-toggle[data-view="compliance"] .iss-view-thumb{transform:translateX(300%)}
+.iss-view-toggle button{
+  position:relative;z-index:1;min-height:40px;border-radius:10px;background:transparent;
+  color:var(--slate);font-weight:650;font-size:.8rem;
+}
+.iss-view-toggle button[aria-selected="true"]{color:var(--ink)}
+.iss-view-toggle button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.iss-tab-short{display:none}
+
+.iss-summary-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.85rem;margin-bottom:1rem;
+}
+.iss-card,.iss-module{
+  min-width:0;padding:.9rem .95rem;border:1px solid var(--rule);border-radius:14px;
+  background:var(--surface);box-shadow:0 1px 0 color-mix(in srgb,var(--ink) 4%,transparent);
+}
+.iss-card{cursor:pointer}
+.iss-card:hover,.iss-card:focus-within{border-color:color-mix(in srgb,var(--primary) 35%,var(--rule))}
+.iss-card header,.iss-module header{
+  display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin-bottom:.55rem;
+}
+.iss-card h2,.iss-module h2{margin:0;font-size:.95rem;letter-spacing:-.02em}
+.iss-card-src{color:var(--faint);font-size:.62rem;font-weight:650;white-space:nowrap}
+.iss-dl{display:grid;gap:.35rem;margin:0 0 .7rem}
+.iss-dl.dense{gap:.28rem}
+.iss-dl > div{display:flex;justify-content:space-between;gap:.75rem;align-items:baseline}
+.iss-dl dt{color:var(--slate);font-size:.68rem;font-weight:650}
+.iss-dl dd{margin:0;text-align:right;font-size:.78rem;font-weight:650;overflow-wrap:anywhere}
+.iss-card-action,.iss-card-actions .iss-card-action{
+  min-height:32px;padding:0 .7rem;font-size:.7rem;font-weight:650;
+  background:transparent;color:var(--primary);border:1px solid color-mix(in srgb,var(--primary) 28%,var(--rule));
+}
+.iss-card-actions{display:flex;flex-wrap:wrap;gap:.4rem}
+.iss-module-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.85rem}
+.iss-module-copy{margin:0 0 .75rem;color:var(--slate);font-size:.78rem;max-width:none}
+.iss-pay-grid{grid-template-columns:repeat(2,minmax(0,1fr));display:grid;gap:.35rem .9rem}
+.iss-pay-grid > div{display:flex;justify-content:space-between;gap:.75rem}
+.iss-pay-ready{
+  margin:0 0 .75rem;padding:.55rem .7rem;border-radius:10px;background:var(--sunk);
+  font-size:.8rem;font-weight:700;
+}
+.iss-inline-calendar{margin:.75rem 0;display:flex;flex-direction:column;gap:.35rem}
+.iss-inline-calendar .rowline{font-size:.74rem}
+.iss-last-result{margin-top:.75rem}
+.iss-attention{margin-top:.25rem}
+.iss-section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.45rem}
+.iss-section-head h2{margin:0;font-size:.95rem}
+.iss-attention-ok{
+  padding:.72rem .85rem;border:1px dashed var(--rule-hard);border-radius:12px;
+  color:var(--slate);font-size:.74rem;
+}
+.iss-attention .attention-item button{
+  flex:0 0 auto;color:var(--ink);font-size:.64rem;font-weight:650;
+  padding:.36rem .56rem;border:1px solid var(--rule);border-radius:8px;background:transparent;
+}
+
+html.iss-popup-open{overflow:hidden}
+.iss-modal[hidden],.iss-modal-backdrop[hidden],
+.iss-drawer[hidden],.iss-drawer-backdrop[hidden]{display:none !important}
+.iss-modal-backdrop,.iss-drawer-backdrop{
+  position:fixed;inset:0;z-index:40;
+  background:color-mix(in srgb,var(--ink) 28%,transparent);
+}
+.iss-modal{
+  position:fixed;inset:0;z-index:42;display:grid;place-items:center;padding:1rem;
+}
+.iss-modal-card{
+  position:relative;width:min(34rem,100%);max-height:min(92vh,46rem);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface);border:1px solid var(--rule);border-radius:18px;
+  box-shadow:0 28px 70px rgba(0,0,0,.24);
+}
+.iss-modal-card.wide{width:min(52rem,100%)}
+.iss-modal-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  padding:1rem 1.1rem .75rem;border-bottom:1px solid var(--rule);flex:0 0 auto;
+}
+.iss-modal-head h2{margin:0;font-size:1.1rem}
+.iss-modal-close,.iss-drawer-close{
+  min-height:34px;padding:0 .75rem;background:var(--sunk);color:var(--slate);
+}
+.iss-modal-body{padding:1rem 1.1rem 1.25rem;overflow:auto;overscroll-behavior:contain}
+.iss-modal-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem}
+.iss-scroll{max-height:min(50vh,28rem);overflow:auto}
+.iss-search-row{margin-bottom:.75rem}
+.iss-search-row input,.iss-search-row select{width:100%}
+.iss-input-actions{display:flex;gap:.4rem}
+.iss-input-actions input{flex:1 1 auto}
+.iss-help{margin-top:1rem}
+.iss-help summary{cursor:pointer;color:var(--primary);font-size:.74rem;font-weight:650}
+.iss-help p{margin:.45rem 0 0;color:var(--slate);font-size:.74rem;max-width:none}
+.iss-shortcut-list{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+.iss-shortcut-list li{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  font-size:.82rem;
+}
+.iss-shortcut-list kbd{
+  min-width:1.6rem;padding:.15rem .4rem;border:1px solid var(--rule);border-radius:6px;
+  background:var(--sunk);font-family:var(--mono);font-size:.72rem;text-align:center;
+}
+
+.iss-drawer{
+  position:fixed;top:0;right:0;bottom:0;z-index:41;
+  width:min(32rem,100vw);display:flex;flex-direction:column;
+  background:var(--surface);border-left:1px solid var(--rule);
+  box-shadow:-18px 0 40px color-mix(in srgb,var(--ink) 12%,transparent);
+}
+.iss-drawer-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  padding:1rem 1.1rem .7rem;border-bottom:1px solid var(--rule);
+}
+.iss-drawer-head h2{font-size:1.15rem;margin:0}
+.iss-drawer-tabs{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:.75rem 1.1rem 0;
+  padding:4px;border-radius:12px;background:var(--sunk);
+}
+.iss-drawer-tabs button{min-height:38px;border-radius:9px;background:transparent}
+.iss-drawer-tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink)}
+.iss-drawer-status{margin:.55rem 1.1rem 0;max-width:none;color:var(--slate);font-size:.72rem}
+.iss-drawer-panel{
+  flex:1;min-height:0;overflow:auto;padding:1rem 1.1rem 2rem;
+  overscroll-behavior:contain;
+}
+.iss-local-activity{margin-bottom:1rem}
+.iss-local-activity h3{margin:0 0 .45rem;font-size:.78rem}
+.iss-hcs-header{margin-bottom:.85rem}
+.iss-tape-row{
+  border:1px solid var(--rule);border-radius:10px;background:var(--paper);margin-bottom:.45rem;
+}
+.iss-tape-row > summary{
+  display:grid;grid-template-columns:minmax(0,1.2fr) auto;gap:.35rem .75rem;
+  padding:.55rem .65rem;cursor:pointer;list-style:none;
+}
+.iss-tape-row > summary::-webkit-details-marker{display:none}
+.iss-tape-main{display:flex;flex-wrap:wrap;gap:.25rem .55rem;align-items:baseline;min-width:0}
+.iss-tape-name{font-size:.78rem;font-weight:700}
+.iss-tape-src{color:var(--faint);font-size:.62rem}
+.iss-tape-meta{color:var(--slate);font-size:.64rem;text-align:right}
+.iss-tape-args{padding:0 .65rem .65rem;display:flex;flex-wrap:wrap;gap:.35rem}
+.tape .tline.unknown,.iss-tape-row.unknown{box-shadow:inset 3px 0 0 var(--held)}
+
+@media(max-width:980px){
+  .iss-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .iss-module-grid{grid-template-columns:1fr 1fr}
+  .iss-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:720px){
+  .iss-hero{flex-direction:column}
+  .iss-hero-actions{width:100%}
+  .iss-hero-actions button{flex:1 1 auto}
+  .iss-view-toggle{top:0}
+  .iss-tab-full{display:none}
+  .iss-tab-short{display:inline}
+  .iss-summary-grid,.iss-module-grid,.iss-pay-grid{grid-template-columns:1fr}
+  .iss-status-strip{grid-template-columns:1fr 1fr}
+  .iss-modal,.iss-modal-backdrop,.iss-drawer,.iss-drawer-backdrop{inset:0;width:100vw;border-radius:0}
+  .iss-modal{place-items:stretch;padding:0}
+  .iss-modal-card,.iss-modal-card.wide{
+    width:100%;max-height:100vh;border-radius:0;min-height:100vh;
+  }
+  .iss-addr-row .mono{max-width:8.5rem}
+}
+@media(max-width:520px){
+  .iss-status-strip{grid-template-columns:1fr}
+}
+
 /* The front door. Loaded after venue.css and app.css, so it inherits the
    Hedera token set and only adds what the marketing surface needs.
 
@@ -6626,10 +6882,12 @@ const DEMO_PROOFS = {"7":{"0xcfc5923def1f25db05fe50754ef0822175afd449":{"address
 // The browser build inlines this file before venue-app.mjs.
 
 const TICKET_VAULT_DB = "seamme.vault";
-const TICKET_VAULT_DB_VERSION = 2;
+const TICKET_VAULT_DB_VERSION = 4;
 const TICKET_VAULT_HANDLE_STORE = "handles";
 const TICKET_VAULT_KEY_STORE = "keys";
 const TICKET_VAULT_DATA_STORE = "tickets";
+const PRIVATE_SESSION_STORE = "private-sessions";
+const PRIVATE_SECRET_STORE = "private-secrets";
 const TICKET_VAULT_SCHEMA = 2;
 const TICKET_VAULT_PAYLOAD_SCHEMA = 1;
 const TICKET_VAULT_MAX_RECORDS = 500;
@@ -6810,6 +7068,8 @@ function openTicketVaultDb(factory = globalThis.indexedDB) {
                 TICKET_VAULT_HANDLE_STORE,
                 TICKET_VAULT_KEY_STORE,
                 TICKET_VAULT_DATA_STORE,
+                PRIVATE_SESSION_STORE,
+                PRIVATE_SECRET_STORE,
             ]) {
                 if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
             }
@@ -7047,6 +7307,7 @@ async function requestPersistentTicketStorage(storage = globalThis.navigator?.st
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const ATS_KYC = "0xfc855b1b";
+const ATS_COMPLIANCE_NOT_ALLOWED = "0x66eb1b54";
 const TICKET_VER = 1;
 const VAULT_VER = 1;
 const HOLD_VER = 1;
@@ -7188,13 +7449,26 @@ function bytesRow(w) {
     return '<span class="pad">' + pad + '</span><span class="sig">' + sig + "</span>";
 }
 
+function looksLikeRevertData(hex) {
+    const raw = String(hex || "");
+    if (!/^0x[0-9a-fA-F]+$/.test(raw)) return false;
+    const n = raw.length - 2;
+    if (n === 8) return true;
+    if (n === 64) return false;
+    return n > 8 && (n - 8) % 64 === 0;
+}
+
 function extractData(err) {
     const c = err?.info?.error?.data ?? err?.data ?? err?.error?.data ?? err?.receipt?.revertReason;
-    if (typeof c === "string" && c.startsWith("0x")) return c;
-    if (c && typeof c.data === "string") return c.data;
+    const candidates = [];
+    if (typeof c === "string") candidates.push(c);
+    if (c && typeof c.data === "string") candidates.push(c.data);
     const msg = String(err?.shortMessage || err?.message || "");
-    const m = msg.match(/0x[0-9a-fA-F]{8,}/);
-    return m ? m[0] : null;
+    const matches = msg.match(/0x[0-9a-fA-F]{8,}/g) || [];
+    for (const hex of [...candidates, ...matches]) {
+        if (looksLikeRevertData(hex)) return hex;
+    }
+    return null;
 }
 
 function is429(err) {
@@ -7205,6 +7479,20 @@ function is429(err) {
 function decodeRevert(err) {
     const data = extractData(err);
     const fallback = err?.shortMessage || err?.reason || err?.message || String(err);
+    if (/read only property/i.test(String(fallback))) {
+        return {
+            message: "The live quote could not be read. Refresh and try Accept again.",
+            selector: null,
+            name: "TypeError",
+        };
+    }
+    if (/INSUFFICIENT_GAS|out of gas/i.test(String(fallback))) {
+        return {
+            message: "Accept ran out of gas creating the ATS hold. Refresh and try again.",
+            selector: null,
+            name: "OutOfGas",
+        };
+    }
     if (!data || data === "0x") return {message: fallback, selector: null, name: null};
     const sel = data.slice(0, 10).toLowerCase();
     if (sel === ATS_KYC) {
@@ -7213,6 +7501,13 @@ function decodeRevert(err) {
             name: "InvalidKycStatus",
             message: "ATS refused this address. Prove eligibility first.",
             route: "prove.html",
+        };
+    }
+    if (sel === ATS_COMPLIANCE_NOT_ALLOWED) {
+        return {
+            selector: sel,
+            name: "ComplianceNotAllowed",
+            message: "ATS refused this approval. The vault is not admitted as a spender in the current KYC epoch.",
         };
     }
     const meta = CLIENT.errors[sel];
@@ -11344,7 +11639,14 @@ Venue.send = async function (txFactory, label) {
         Venue.positionTxStage?.("pending", label);
         Venue.financeTxStage?.("pending", label, {hash: submittedHash});
         const rec = await tx.wait();
-        if (rec.status !== 1) throw new Error(label + " reverted");
+        if (rec.status !== 1) {
+            const used = rec.gasUsed;
+            const limit = rec.gasLimit || tx.gasLimit;
+            if (used != null && limit != null && asBig(used) >= asBig(limit)) {
+                throw new Error("INSUFFICIENT_GAS");
+            }
+            throw new Error(label + " reverted");
+        }
         Venue.lastReceipt = rec;
         if (Venue.page !== "repo") Venue.toast(label + " confirmed");
         const confirmedHash = rec.hash || rec.transactionHash || submittedHash;

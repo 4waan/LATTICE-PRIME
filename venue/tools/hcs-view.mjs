@@ -203,13 +203,17 @@ Venue.hcsLine = function (row) {
     // network reaches the DOM unescaped, and an exception that happens to be
     // safe today is how the next one gets written.
     const tx = r.tx
-        ? " · <a href='" + esc(explorerTx(r.tx)) + "' rel='noopener'>" + esc(shortId(r.tx)) + "</a>"
+        ? " · <a href='" + esc(explorerTx(r.tx)) + "' target='_blank' rel='noopener noreferrer'>" +
+          esc(shortId(r.tx)) + "</a>"
         : "";
-    return '<div class="hline k-' + esc(r.k) + '">' +
+    const raw = esc(JSON.stringify(r));
+    return '<details class="iss-tape-row hline k-' + esc(r.k) + '">' +
+        "<summary><div class='iss-tape-main'>" +
         '<span class="hseq">#' + esc(String(row.seq)) + "</span>" +
         '<span class="hkind">' + esc(r.k) + "</span>" +
-        '<span class="hsay">' + esc(describe(r)) + verdict + "</span>" +
-        '<span class="hat">' + esc(when) + tx + "</span></div>";
+        '<span class="hsay">' + esc(describe(r)) + verdict + "</span></div>" +
+        '<span class="hat">' + esc(when) + tx + "</span></summary>" +
+        '<div class="iss-tape-args"><span class="targ"><i>record</i>' + raw + "</span></div></details>";
 };
 
 Venue.paintTopic = function (state) {
@@ -218,19 +222,31 @@ Venue.paintTopic = function (state) {
     if (!HCS || !HCS.topicId) {
         el.innerHTML = '<div class="empty">No topic is configured in this build. ' +
             "Run <code>make hcs-topic</code>, then <code>make hcs-relay</code>.</div>";
+        Venue.paintIssuerHcsHeader?.(null);
         return;
     }
     const scan = $("hcs-scan");
     if (scan) {
-        scan.href = CLIENT.network.explorer + "/topic/" + HCS.topicId;
+        scan.href = CLIENT.network.explorer + "/topic/" + encodeURIComponent(HCS.topicId);
         scan.hidden = false;
+        scan.rel = "noopener noreferrer";
+        scan.target = "_blank";
     }
+    Venue.paintIssuerHcsHeader?.(state);
     if (!state || !state.records.length) {
         el.innerHTML = '<div class="empty">The topic <b>' + esc(HCS.topicId) +
             "</b> carries no readable record yet. " +
             "It fills as the venue acts and <code>tools/hcs-relay.mjs</code> runs.</div>";
         return;
     }
+    const filter = ($("hcs-filter")?.value || "all");
+    const filtered = state.records.filter((row) => {
+        const kind = row.rec.k;
+        if (filter === "all") return true;
+        if (filter === "action") return !hcsIsLiveness(kind);
+        if (filter === "liveness") return hcsIsLiveness(kind);
+        return kind === filter;
+    });
     const kinds = {};
     for (const row of state.records) kinds[row.rec.k] = (kinds[row.rec.k] || 0) + 1;
     const head = '<div class="hcs-head">' +
@@ -258,7 +274,11 @@ Venue.paintTopic = function (state) {
                 ? " The committed snapshot was set aside because " + esc(state.fallback) + "."
                 : "");
     }
-    el.innerHTML = head + state.records.map(Venue.hcsLine).join("") +
+    how += " Checkpoints and anchors are not fully checked by the browser audit; " +
+        "that verification belongs to the command-line verifier.";
+    el.innerHTML = head + (filtered.length
+        ? filtered.map(Venue.hcsLine).join("")
+        : '<div class="empty">No records match this filter.</div>') +
         '<p class="note">' + how + " Newest action receipts plus recent checkpoints and anchors, selected from " +
         esc(String(state.total)) + " topic messages. Sequence number and consensus timestamp " +
         "come from the topic, not from this client. The topic is an ordered record, not a database: " +
@@ -378,16 +398,41 @@ Venue.auditTopic = async function () {
     }
     Venue.paintTopic(state);
     const failed = wanted.filter((row) => row.audit.some((x) => !x.pass)).length;
+    if (Venue.issuerUiState) {
+        const hcs = {
+            ...Venue.issuerUiState().hcs,
+            checked: true,
+            audited: true,
+            auditFailed: failed > 0,
+        };
+        Venue.setIssuerUi({hcs});
+        Venue.paintIssuerHcsHeader?.(state);
+        Venue.renderIssuerOverview?.();
+    }
     Venue.toast(failed
         ? failed + " record" + (failed === 1 ? "" : "s") + " did not match the chain"
         : wanted.length + " record" + (wanted.length === 1 ? "" : "s") + " match the chain");
+    Venue.recordIssuerActivity?.({
+        title: failed ? "HCS audit failed" : "HCS audit passed",
+        detail: failed
+            ? failed + " record(s) did not match the chain"
+            : wanted.length + " record(s) matched the chain",
+        source: "hcs-audit",
+    });
 };
 
-/// Wire the two buttons and take the first read. Called by `Venue.mountVenue`
-/// through an existence check, so this file is optional to the screen booting.
-Venue.mountTopic = async function () {
-    $("hcs-reload")?.addEventListener("click", () => Venue.refreshTopic().catch((e) => Venue.fail(e)));
+/// Wire the two buttons. Called by `Venue.mountVenue` through an existence
+/// check, so this file is optional to the screen booting. Topic history is
+/// loaded lazily from the Activity & evidence drawer unless `{lazy:false}`.
+Venue.mountTopic = async function (opts = {}) {
+    $("hcs-reload")?.addEventListener("click", () => {
+        const run = Venue.refreshIssuerEvidence
+            ? Venue.refreshIssuerEvidence({force: true})
+            : Venue.refreshTopic();
+        run.catch((e) => Venue.fail(e));
+    });
     $("hcs-audit")?.addEventListener("click", () => Venue.auditTopic().catch((e) => Venue.fail(e)));
+    if (opts.lazy) return;
     // One paged read against the mirror node, on a different host from the one
     // serving `eth_call`, so the topic costs the trading screens nothing.
     await Venue.refreshTopic();

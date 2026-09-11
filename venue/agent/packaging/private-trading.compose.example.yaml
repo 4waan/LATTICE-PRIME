@@ -1,0 +1,33 @@
+services:
+  private-trading:
+    build:
+      context: ../../..
+      dockerfile: venue/agent/packaging/Dockerfile.private-trading
+    image: lattice-private-trading:1
+    restart: unless-stopped
+    read_only: true
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    env_file:
+      - ../secrets/private-trading.env
+    environment:
+      PRIVATE_TRADING_STATE_DIR: /state
+      PRIVATE_TRADING_HTTP_HOST: 0.0.0.0
+      PRIVATE_TRADING_HTTP_PORT: "8787"
+    expose:
+      - "8787"
+    volumes:
+      - private-trading-state:/state
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 10m
+
+volumes:
+  private-trading-state:
