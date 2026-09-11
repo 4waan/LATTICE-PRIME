@@ -5614,8 +5614,8 @@ html.lattice-dialog-open{overflow:hidden}
           <div class="failure-copy">
             <p class="failure-state closed">Closed in the encoding</p>
             <h3>A small nonce turns a price commitment into a search problem.</h3>
-            <p>A bond price lives in a narrow domain. A weak salt can be enumerated in minutes on a laptop, making the seal decorative.</p>
-            <p class="failure-answer"><b>Protocol response</b> The opening uses a full-scalar-field salt and a fixed domain-separated encoding bound to the committer.</p>
+            <p>A bond price lives in a narrow domain. A weak nonce can be enumerated in minutes on a laptop, making the seal decorative.</p>
+            <p class="failure-answer"><b>Protocol response</b> The opening uses a full-scalar-field nonce and a fixed domain-separated encoding bound to the committer.</p>
             <a href="../docs/commit-preview.html">Open the commitment proof <span aria-hidden="true">&rarr;</span></a>
           </div>
         </article>
@@ -5677,7 +5677,7 @@ html.lattice-dialog-open{overflow:hidden}
         <b>BUY</b>
         <b>101.25</b>
         <b>40,000</b>
-        <code>salt 0x91&hellip;4c</code>
+        <code>nonce 0x91&hellip;4c</code>
       </div>
 
       <div class="propagation-paths">
@@ -5720,7 +5720,7 @@ html.lattice-dialog-open{overflow:hidden}
             <div class="prop-private"><dt>side</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">BUY</span></dd></div>
             <div class="prop-private"><dt>price</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">101.25</span></dd></div>
             <div class="prop-private"><dt>quantity</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">40,000</span></dd></div>
-            <div class="prop-private"><dt>salt</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">0x91&hellip;4c</span></dd></div>
+            <div class="prop-private"><dt>nonce</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">0x91&hellip;4c</span></dd></div>
           </dl>
           <div class="observer-band">
             <div class="observer-dots" aria-hidden="true">
@@ -5738,8 +5738,8 @@ html.lattice-dialog-open{overflow:hidden}
         <button type="button" data-prop-phase="reveal" aria-pressed="false"><span>03</span>Reveal</button>
         <button type="button" data-prop-phase="publish" aria-pressed="false"><span>04</span>Account for disclosure</button>
       </div>
-      <p class="prop-phase-note" data-prop-note aria-live="polite">The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and salt are absent.</p>
-      <p class="prop-noscript-copy">At reveal, side, price, quantity, salt and backing become public transaction inputs. The disclosure lattice governs later venue events, not those inputs.</p>
+      <p class="prop-phase-note" data-prop-note aria-live="polite">The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and nonce are absent.</p>
+      <p class="prop-noscript-copy">At reveal, side, price, quantity, nonce and backing become public transaction inputs. The disclosure lattice governs later venue events, not those inputs.</p>
 
       <div class="audience-grid" aria-label="Disclosure policy surfaces">
         <article>
@@ -6710,26 +6710,26 @@ const SIDE = {BUY: 0, SELL: 1};
 /// The committer is in the preimage so a commitment lifted from the wire cannot
 /// be submitted and revealed by someone else. Without it the stolen commitment
 /// still verifies, which is what makes the omission easy to miss.
-function preimageWords(committer, side, price, qty, salt) {
+function preimageWords(committer, side, price, qty, nonce) {
     return [
         {name: "DOMAIN_ORDER", type: "bytes32", bytes: word(DOMAIN_ORDER), sig: 32, from: "constant"},
         {name: "committer", type: "address", bytes: word(committer), sig: 20, from: "wallet"},
         {name: "side", type: "uint8", bytes: word(side), sig: 1, from: "order"},
         {name: "price", type: "uint128", bytes: word(price), sig: 16, from: "order"},
         {name: "qty", type: "uint128", bytes: word(qty), sig: 16, from: "order"},
-        {name: "salt", type: "bytes32", bytes: word(salt), sig: 32, from: "you"},
+        {name: "nonce", type: "bytes32", bytes: word(nonce), sig: 32, from: "you"},
     ];
 }
 
-function encodePreimage(committer, side, price, qty, salt) {
-    const words = preimageWords(committer, side, price, qty, salt);
+function encodePreimage(committer, side, price, qty, nonce) {
+    const words = preimageWords(committer, side, price, qty, nonce);
     const out = new Uint8Array(words.length * 32);
     words.forEach((w, i) => out.set(w.bytes, i * 32));
     return out;
 }
 
-const commitmentOf = (committer, side, price, qty, salt) =>
-    hex(keccak_256(encodePreimage(committer, side, price, qty, salt)));
+const commitmentOf = (committer, side, price, qty, nonce) =>
+    hex(keccak_256(encodePreimage(committer, side, price, qty, nonce)));
 
 /// `bytes4(keccak256(sig))`. Computed rather than pasted.
 const selector = (sig) => hex(keccak_256(new TextEncoder().encode(sig))).slice(0, 10);
@@ -17119,7 +17119,7 @@ Landing.propagation = function () {
     const notes = {
         commit: "The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and salt are absent.",
         cancel: "The single clock has closed cancellation. Reveal opens at the same boundary, leaving no last-look overlap.",
-        reveal: "When reveal opens, side, price, quantity, salt and backing become public transaction inputs. The commitment protected when, not who.",
+        reveal: "When reveal opens, side, price, quantity, nonce and backing become public transaction inputs. The commitment protected when, not who.",
         publish: "The first cancellation uses the public-activity allowance. The next valid cancellation completes without a venue event, and the consensus record makes that silence checkable.",
     };
     const labels = {
