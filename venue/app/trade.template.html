@@ -10,7 +10,6 @@ document.documentElement.setAttribute("data-theme",
      closing script tag: the document is a quarter of a megabyte of inlined client. -->
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
-<link rel="prefetch" href="position.html">
 <style>
 /*INLINE docs/venue.css*/
 /*INLINE app/app.css*/
@@ -71,33 +70,35 @@ document.documentElement.setAttribute("data-theme",
   </header>
 
   <section class="market-oracle" id="feed-box" aria-labelledby="oracle-heading">
-    <div class="oracle-primary">
+    <div class="oracle-summary">
       <div class="oracle-label-row">
         <h2 id="oracle-heading">Price reference</h2>
         <span class="feed-state" id="feed-state" role="status">Loading</span>
       </div>
-      <div class="oracle-primary-value">
-        <strong class="num" id="feed-mark">Loading</strong>
-        <span>HBAR per bond</span>
-      </div>
       <p class="note" id="feed-failure" role="status"></p>
+    </div>
+    <div class="oracle-values" aria-label="Current price reference">
+      <div class="oracle-quote">
+        <span>HBAR per bond</span>
+        <strong class="num" id="feed-mark">Loading</strong>
+      </div>
+      <div class="oracle-quote">
+        <span>Clean price</span>
+        <strong class="num" id="feed-price">Loading</strong>
+        <small>USD per bond</small>
+      </div>
     </div>
     <details class="oracle-details">
       <summary>Reference details</summary>
       <div class="oracle-details-body">
         <div class="oracle-secondary-values">
           <div>
-            <span>Clean price</span>
-            <strong class="num" id="feed-price">Loading</strong>
-            <small>USD per bond</small>
-          </div>
-          <div>
             <span>Coupon reference</span>
             <strong class="num" id="feed-rate">Loading</strong>
             <small>basis points</small>
           </div>
           <div>
-            <span>Freshness</span>
+            <span>Last finalized</span>
             <strong id="feed-age">Checking last update</strong>
           </div>
         </div>
@@ -110,9 +111,12 @@ document.documentElement.setAttribute("data-theme",
           <div><span>Hedera conversion leg</span><strong id="feed-cashleg">Loading</strong></div>
           <div><span>Hedera network HBAR/USD</span><strong class="num" id="feed-hbar">Loading</strong></div>
           <div><span>Market HBAR/USD check</span><strong class="num" id="feed-hbar-market">Loading</strong></div>
+          <div><span>Market observation age</span><strong id="feed-market-age">Loading</strong></div>
           <div><span>Valuation source</span><strong id="feed-source">Loading</strong></div>
-          <div><span>Publisher evidence</span><strong id="feed-evidence">Loading</strong></div>
+          <div><span>Qualified-print age</span><strong id="feed-print-age">Loading</strong></div>
+          <div><span>HCS evidence sequence</span><strong id="feed-evidence">Loading</strong></div>
           <div><span>Hedera scheduler</span><strong id="feed-scheduler">Loading</strong></div>
+          <div><span>Latest scheduler reason</span><strong id="feed-scheduler-reason">Loading</strong></div>
           <div><span>Publisher quorum</span><strong id="feed-quorum">Loading</strong></div>
           <div><span>Heartbeats</span><strong id="feed-heartbeat">Loading</strong></div>
           <div><span>Deviation cap</span><strong id="feed-deviation">Loading</strong></div>

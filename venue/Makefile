@@ -8,8 +8,9 @@ TOOLCHAIN := /Users/awaansiddiqui/hedera2026/toolchain
 SNARK     := $(TOOLCHAIN)/node_modules/.bin/snarkjs
 PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
+ORACLE_PROFILE ?= issuer
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat oracle-test oracle-dry-run oracle-publisher oracle-topic oracle-evidence-verify oracle-scheduler oracle-image agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat oracle-test oracle-dry-run oracle-publisher oracle-topic oracle-evidence-verify oracle-health oracle-acceptance oracle-acceptance-finalize oracle-scheduler oracle-image agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -265,7 +266,7 @@ hcs-index: vectors
 # submission use that same key, so no publisher container needs another seat's
 # key or a shared HCS submit key.
 oracle-test:
-	$(NODE) node --test oracle/tests/*.test.mjs
+	$(NODE) node --test oracle/tests/*.test.mjs tools/oracle-ui.test.mjs
 	forge test --match-path test/OracleScheduler.t.sol
 
 oracle-dry-run:
@@ -279,6 +280,15 @@ oracle-topic:
 
 oracle-evidence-verify:
 	$(NODE) node oracle/verify-evidence.mjs
+
+oracle-health:
+	$(NODE) ORACLE_PUBLISHER_ID=$(ORACLE_PROFILE) node oracle/healthcheck.mjs
+
+oracle-acceptance:
+	$(NODE) node oracle/acceptance-monitor.mjs
+
+oracle-acceptance-finalize:
+	$(NODE) node oracle/finalize-acceptance.mjs
 
 oracle-scheduler:
 	bash script/live/oracle-scheduler.sh $(or $(MODE),status) $(or $(FUND_HBAR),50)

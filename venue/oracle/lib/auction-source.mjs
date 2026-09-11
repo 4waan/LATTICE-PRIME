@@ -36,7 +36,13 @@ export function decodeAuctionLogs(logs, abi) {
         } catch {
             continue;
         }
-        if (!parsed || !["RoundCrossed", "Settled", "PrintedCoarse", "PrintWithheld"].includes(parsed.name)) {
+        if (!parsed || ![
+            "RoundCrossed",
+            "Settled",
+            "SettlementRefused",
+            "PrintedCoarse",
+            "PrintWithheld",
+        ].includes(parsed.name)) {
             continue;
         }
         const tx = transactionHash(log);
@@ -44,24 +50,42 @@ export function decodeAuctionLogs(logs, abi) {
             rejected.push({code: "BAD_TX", message: "mirror log has no transaction hash"});
             continue;
         }
-        if (!groups.has(tx)) groups.set(tx, {tx, exact: null, settlements: [], degraded: null});
+        if (!groups.has(tx)) {
+            groups.set(tx, {
+                tx,
+                exact: null,
+                exacts: [],
+                settlements: [],
+                refusals: [],
+                degraded: null,
+                degradedOutputs: [],
+            });
+        }
         const group = groups.get(tx);
         if (parsed.name === "RoundCrossed") {
-            group.exact = {
+            const exact = {
                 round: Number(parsed.args.round),
                 priceTwice: BigInt(parsed.args.priceTwice),
                 indicatedVolume: BigInt(parsed.args.volume),
                 at: timestampSeconds(log),
             };
+            group.exacts.push(exact);
+            if (group.exact === null) group.exact = exact;
         } else if (parsed.name === "Settled") {
             group.settlements.push({
-                sellId: String(parsed.args.sellId),
-                buyId: String(parsed.args.buyId),
+                sellId: String(parsed.args.sellId).toLowerCase(),
+                buyId: String(parsed.args.buyId).toLowerCase(),
                 amount: BigInt(parsed.args.amount),
                 cost: BigInt(parsed.args.cost),
             });
+        } else if (parsed.name === "SettlementRefused") {
+            group.refusals.push({
+                sellId: String(parsed.args.sellId).toLowerCase(),
+                buyId: String(parsed.args.buyId).toLowerCase(),
+            });
         } else {
             group.degraded = parsed.name;
+            group.degradedOutputs.push(parsed.name);
         }
     }
     return {groups: [...groups.values()], rejected};
@@ -75,10 +99,32 @@ async function qualifyGroup(group, {
     minimumVolume,
     usdPerHbar8,
 }) {
-    if (!group.exact || group.degraded) {
+    const degradedOutputs = Array.isArray(group.degradedOutputs) &&
+        group.degradedOutputs.length > 0
+        ? group.degradedOutputs
+        : group.degraded
+            ? [group.degraded]
+            : [];
+    if (degradedOutputs.length > 0) {
+        return {accepted: false, code: "DEGRADED_PRINT", outputs: [...degradedOutputs].sort()};
+    }
+    const exacts = Array.isArray(group.exacts) && group.exacts.length > 0
+        ? group.exacts
+        : group.exact
+            ? [group.exact]
+            : [];
+    if (exacts.length === 0) {
         return {accepted: false, code: "NO_EXACT_PRINT"};
     }
-    const age = now - group.exact.at;
+    if (exacts.length !== 1) {
+        return {accepted: false, code: "AMBIGUOUS_PRINT", exactPrints: exacts.length};
+    }
+    const exact = exacts[0];
+    const refusals = Array.isArray(group.refusals) ? group.refusals : [];
+    if (refusals.length > 0) {
+        return {accepted: false, code: "SETTLEMENT_REFUSED", refusals: refusals.length};
+    }
+    const age = now - exact.at;
     if (age < -30 || age > maximumAgeSeconds) {
         return {accepted: false, code: "STALE_PRINT", age};
     }
@@ -86,12 +132,34 @@ async function qualifyGroup(group, {
         return {accepted: false, code: "NO_SETTLEMENT"};
     }
 
+    let indicatedVolume;
+    let priceTwice;
+    try {
+        indicatedVolume = uint(exact.indicatedVolume, "indicatedVolume");
+        priceTwice = uint(exact.priceTwice, "priceTwice");
+    } catch {
+        return {accepted: false, code: "AMBIGUOUS_PRINT"};
+    }
     let volume = 0n;
     const counterparties = new Set();
+    const settlementPairs = new Set();
     for (const settlement of group.settlements) {
+        const sellId = String(settlement.sellId ?? "").toLowerCase();
+        const buyId = String(settlement.buyId ?? "").toLowerCase();
+        const pair = `${sellId}:${buyId}`;
+        let amount;
+        try {
+            amount = uint(settlement.amount, "settlement.amount");
+        } catch {
+            return {accepted: false, code: "AMBIGUOUS_SETTLEMENT"};
+        }
+        if (!sellId || !buyId || amount === 0n || settlementPairs.has(pair)) {
+            return {accepted: false, code: "AMBIGUOUS_SETTLEMENT"};
+        }
+        settlementPairs.add(pair);
         const [seller, buyer] = await Promise.all([
-            orderLookup(settlement.sellId),
-            orderLookup(settlement.buyId),
+            orderLookup(sellId),
+            orderLookup(buyId),
         ]);
         const sellAddress = String(seller?.trader ?? seller).toLowerCase();
         const buyAddress = String(buyer?.trader ?? buyer).toLowerCase();
@@ -104,37 +172,58 @@ async function qualifyGroup(group, {
         }
         counterparties.add(sellAddress);
         counterparties.add(buyAddress);
-        volume += settlement.amount;
+        volume += amount;
+    }
+    if (volume < indicatedVolume) {
+        return {
+            accepted: false,
+            code: "PARTIAL_SETTLEMENT",
+            indicatedVolume,
+            settledVolume: volume,
+        };
+    }
+    if (volume > indicatedVolume) {
+        return {
+            accepted: false,
+            code: "INDICATED_VOLUME_MISMATCH",
+            indicatedVolume,
+            settledVolume: volume,
+        };
     }
     if (volume < minimumVolume) {
         return {accepted: false, code: "LOW_VOLUME", volume};
     }
 
-    const priceUsd8 = printToUsd8(group.exact.priceTwice, usdPerHbar8);
+    const priceUsd8 = printToUsd8(priceTwice, usdPerHbar8);
     if (priceUsd8 === 0n) return {accepted: false, code: "ZERO_PRICE"};
-    const canonical = JSON.stringify({
-        tx: group.tx,
-        round: group.exact.round,
-        at: group.exact.at,
-        priceTwice: group.exact.priceTwice.toString(),
-        volume: volume.toString(),
+    const sortedCounterparties = [...counterparties].sort();
+    const provenance = {
+        transaction: String(group.tx).toLowerCase(),
+        auctionRound: String(exact.round),
+        timestamp: exact.at,
+        indicatedVolume: indicatedVolume.toString(),
+        settledVolume: volume.toString(),
+        priceTwice: priceTwice.toString(),
+        priceUsd8: priceUsd8.toString(),
         usdPerHbar8: usdPerHbar8.toString(),
-        counterparties: [...counterparties].sort(),
-    });
+        counterparties: sortedCounterparties,
+    };
     return {
         accepted: true,
         observation: {
             source: "hedera-auction-print",
             tx: group.tx,
-            round: group.exact.round,
-            observedAt: group.exact.at,
+            round: exact.round,
+            observedAt: exact.at,
             age,
-            priceTwice: group.exact.priceTwice,
+            priceTwice,
             priceUsd8,
             volume,
-            indicatedVolume: group.exact.indicatedVolume,
-            counterparties: [...counterparties].sort(),
-            sourceDigest: keccak256(toUtf8Bytes(canonical)),
+            settledVolume: volume,
+            indicatedVolume,
+            counterparties: sortedCounterparties,
+            provenance,
+            sourceDigest: keccak256(toUtf8Bytes(JSON.stringify(provenance))),
         },
     };
 }

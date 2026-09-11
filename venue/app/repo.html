@@ -11,7 +11,6 @@ document.documentElement.setAttribute("data-theme",
      closing script tag: the document is a quarter of a megabyte of inlined client. -->
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preload" href="vendor/ethers-6.13.5.umd.min.js" as="script">
-<link rel="prefetch" href="venue.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700&display=swap">
@@ -203,7 +202,7 @@ footer b{color:var(--slate);font-weight:600}
   --held:#ffcf72; --held-wash:#2a2210;
 }
 
-html{min-height:100%;color-scheme:light}
+html{min-height:100%;color-scheme:light;overflow-x:clip}
 :root[data-theme="dark"]{color-scheme:dark}
 /* Author `display` on buttons beats the UA [hidden] rule. Clock and modal
    already special-case this, so one rule covers the rest. */
@@ -1882,17 +1881,16 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .market-session i{padding:0 .16rem;color:var(--faint);font-style:normal}
 
 .market-oracle{
-  display:grid;grid-template-columns:auto minmax(22rem,1fr) auto;
-  align-items:center;gap:0;margin:.75rem 0;padding:.85rem .95rem;
+  display:grid;grid-template-columns:minmax(13rem,1fr) minmax(18rem,1.25fr) auto;
+  align-items:stretch;gap:0;margin:.75rem 0;padding:.72rem .8rem;
   border-radius:13px;overflow:visible;box-shadow:none;
 }
 .oracle-summary{
-  min-width:0;display:flex;flex-direction:column;justify-content:center;padding:.15rem 1rem .15rem .1rem;
+  min-width:0;display:flex;flex-direction:column;justify-content:center;padding:.2rem .8rem .2rem .1rem;
 }
-.oracle-label-row{justify-content:flex-start;gap:.65rem;margin:0}
-.oracle-label-row h2{font-size:1.28rem;line-height:1.15;letter-spacing:-.03em}
-.market-oracle .feed-state{padding:.16rem .48rem;font-size:.62rem}
-.market-oracle .feed-state.ok{
+.oracle-label-row{justify-content:flex-start;gap:.55rem;margin:0}
+.oracle-label-row h2{font-size:1rem;line-height:1.1;letter-spacing:-.025em}
+.market-oracle .feed-state{padding:.14rem .42rem;font-size:.56rem}.market-oracle .feed-state.ok{
   background:var(--market-blue-soft);color:var(--market-blue);
 }
 .market-oracle .feed-state.bad{
@@ -1905,13 +1903,11 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   min-width:0;padding:.25rem .8rem;border:0;border-left:1px solid var(--rule);
   display:flex;flex-direction:column;justify-content:center;gap:.02rem;
 }
-.oracle-quote > span{color:var(--slate);font-size:.68rem;font-weight:650}
-.oracle-quote strong{font-size:1.42rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.oracle-quote small{font-size:.58rem}
-.oracle-summary .note{display:none}
-.oracle-details-body .note{margin:0 0 .65rem;font-size:.68rem;line-height:1.45}
-.oracle-details-body .note:empty,.oracle-details-body .note[hidden]{display:none}
-@media(prefers-reduced-motion:no-preference){
+.oracle-quote > span{color:var(--slate);font-size:.58rem;font-weight:650}
+.oracle-quote strong{font-size:.82rem;line-height:1.25}
+.oracle-quote small{font-size:.53rem}
+.oracle-summary .note{margin:.3rem 0 0;font-size:.62rem}
+.oracle-summary .note:empty{display:none}@media(prefers-reduced-motion:no-preference){
   .market-oracle .feed-state.ok{animation:oracle-live-pulse 2.4s ease-in-out infinite}
   @keyframes oracle-live-pulse{
     0%,100%{opacity:.78;box-shadow:0 0 0 0 color-mix(in srgb,var(--market-blue) 0%,transparent)}
@@ -2318,8 +2314,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   .market-session{align-items:flex-start;text-align:left}
   .market-session > span:last-child{display:block}
   .market-oracle{grid-template-columns:minmax(0,1fr) auto;padding:.65rem}
-  .oracle-summary{padding:.1rem .4rem .2rem 0}
-  .oracle-values{grid-template-columns:1fr 1fr}
+  .oracle-summary{padding:.1rem .4rem .35rem 0}  .oracle-values{grid-template-columns:1fr 1fr}
   .oracle-quote{padding:.35rem .45rem}
   .oracle-values .oracle-quote:first-child{border-left:0}
   .oracle-details > summary{padding:0 .25rem;font-size:.55rem}
@@ -2355,15 +2350,10 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .markets-page .account-grant,
 .markets-page .privacy-chip,
 .markets-page .draft-state{font-size:.65rem}
-.markets-page .oracle-label-row h2{font-size:1.38rem}
-.markets-page .market-oracle .feed-state{font-size:.64rem}
-.markets-page .oracle-quote > span{font-size:.72rem}
-.markets-page .oracle-quote strong{font-size:1.55rem}
-@media(max-width:520px){
-  .markets-page .oracle-label-row h2{font-size:1.12rem}
-  .markets-page .oracle-quote strong{font-size:1.15rem}
-}
-.markets-page .oracle-secondary-values span,
+.markets-page .oracle-label-row h2{font-size:1.02rem}
+.markets-page .market-oracle .feed-state{font-size:.59rem}
+.markets-page .oracle-quote > span{font-size:.66rem}
+.markets-page .oracle-quote strong{font-size:.84rem}.markets-page .oracle-secondary-values span,
 .markets-page .oracle-secondary-values small{font-size:.63rem}
 .markets-page .oracle-secondary-values strong{font-size:.76rem}
 .markets-page .oracle-details > summary{font-size:.68rem}
@@ -4819,12 +4809,10 @@ const DEMO_PROOFS = {"7":{"0xcfc5923def1f25db05fe50754ef0822175afd449":{"address
 // The browser build inlines this file before venue-app.mjs.
 
 const TICKET_VAULT_DB = "seamme.vault";
-const TICKET_VAULT_DB_VERSION = 4;
+const TICKET_VAULT_DB_VERSION = 2;
 const TICKET_VAULT_HANDLE_STORE = "handles";
 const TICKET_VAULT_KEY_STORE = "keys";
 const TICKET_VAULT_DATA_STORE = "tickets";
-const PRIVATE_SESSION_STORE = "private-sessions";
-const PRIVATE_SECRET_STORE = "private-secrets";
 const TICKET_VAULT_SCHEMA = 2;
 const TICKET_VAULT_PAYLOAD_SCHEMA = 1;
 const TICKET_VAULT_MAX_RECORDS = 500;
@@ -5005,8 +4993,6 @@ function openTicketVaultDb(factory = globalThis.indexedDB) {
                 TICKET_VAULT_HANDLE_STORE,
                 TICKET_VAULT_KEY_STORE,
                 TICKET_VAULT_DATA_STORE,
-                PRIVATE_SESSION_STORE,
-                PRIVATE_SECRET_STORE,
             ]) {
                 if (!db.objectStoreNames.contains(name)) db.createObjectStore(name);
             }
@@ -5308,8 +5294,7 @@ const PRIVATE_ROUTER_ABI = [
     "function activeViewKeyX() view returns (uint256)",
     "function activeViewKeyY() view returns (uint256)",
     "function nullifierSpent(bytes32 nullifier) view returns (bool)",
-];
-const ROW_NAMES = {
+];const ROW_NAMES = {
     3: "Order size",
     4: "Order price",
     5: "Execution price",
@@ -8122,11 +8107,11 @@ Venue.emergencyPrivateReveal = async function () {
     if (action?.dataset.confirm !== "1") {
         if (action) {
             action.dataset.confirm = "1";
-            Venue.paintPrivateRecovery(ticket, phase);
+            Venue.paintPrivateRecovery?.(ticket, phase);
             clearTimeout(Venue._privateRecoveryConfirmTimer);
             Venue._privateRecoveryConfirmTimer = setTimeout(() => {
                 delete action.dataset.confirm;
-                Venue.paintPrivateRecovery(ticket, phase);
+                Venue.paintPrivateRecovery?.(ticket, phase);
             }, 10_000);
         }
         Venue.status(
@@ -8278,6 +8263,13 @@ Venue.boot = async function (page) {
     // window.ethereum. Reconnect without a prompt if this origin is already
     // authorised; eth_accounts asks nothing of the user.
     const injected = Venue.providers[0]?.provider || window.ethereum;
+    const walletReady = (async () => {
+        if (!injected) return;
+        Venue.eth = injected;
+        Venue.bindProviderEvents(injected);
+        const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
+        if (accs?.[0]) await Venue.attachAccount(accs[0]);
+    })();
 
     let wired = null;
     let clocked = false;
@@ -8310,17 +8302,9 @@ Venue.boot = async function (page) {
     Venue.wiringOk = !Venue.wiringErr;
     await Venue.loadPrivateCandidateStatus();
     await Venue.applyPrivateCandidateOverlay();
-    const walletReady = (async () => {
-        if (!injected) return;
-        Venue.eth = injected;
-        Venue.bindProviderEvents(injected);
-        const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
-        if (accs?.[0]) await Venue.attachAccount(accs[0]);
-    })();
-    await Promise.all([
-        Venue.probeFinancing(),
-        walletReady,
-    ]);
+    if (page === "position" || page === "repo") {
+        await Venue.probeFinancing();
+    }
     if (!Venue.account) {
         let saved = null;
         try { saved = sessionStorage.getItem("seamme.watch"); } catch (e) { saved = null; }
@@ -8330,6 +8314,9 @@ Venue.boot = async function (page) {
         }
     }
     if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
+    walletReady.then(async () => {
+        if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
+    }).catch(() => {});
     const mount = {
         index: Venue.mountIndex,
         prove: Venue.mountProve,
@@ -9172,8 +9159,16 @@ Venue.startPolling = function () {
     }, 1000);
 };
 
-Venue.tick = async function () {
+Venue.tick = function () {
     if (document.hidden) return;
+    if (Venue._tickFlight) return Venue._tickFlight;
+    Venue._tickFlight = Venue._runTick().finally(() => {
+        Venue._tickFlight = null;
+    });
+    return Venue._tickFlight;
+};
+
+Venue._runTick = async function () {
     try {
         // One wave a tick. The clocks are read alongside the screen rather than
         // before it: a refresh that wanted this tick's round would have had to
@@ -10251,6 +10246,7 @@ Venue.mountTrade = async function () {
     });
     $("market-reload")?.addEventListener("click", () => Venue.refreshMarketTape().catch((e) => Venue.fail(e)));
     $("feed-refresh")?.addEventListener("click", () => Venue.pollOracle());
+    Venue._prefetchHref = "position.html";
     $("order-attention-go")?.addEventListener("click", () => {
         $("active-orders")?.scrollIntoView({behavior: "smooth", block: "start"});
     });
@@ -10751,7 +10747,7 @@ Venue.guidedOrderState = function (o, path = "manual") {
                 (isPrivate ? "private session." : "connected wallet."),
         });
     }
-    const requiredHbar = isPrivate ? funds.privateRequired : funds.manualRequired;
+    const requiredHbar = isPrivate ? funds.privateRequired : (funds.manualRequired ?? funds.totalCash);
     if (availableHbar === undefined || requiredHbar === null) {
         return result({
             mode: "loading",
@@ -10760,14 +10756,16 @@ Venue.guidedOrderState = function (o, path = "manual") {
             blocker: "The HBAR balance and current network fee quote must be confirmed first.",
         });
     }
-    if (availableHbar !== undefined && requiredHbar !== null && availableHbar < requiredHbar) {
+    if (availableHbar < requiredHbar) {
         return result({
             mode: isPrivate ? "session-fund" : "balance",
             label: isPrivate ? "Fund private session" : "Not enough HBAR",
             disabled: !isPrivate,
-            blocker: "Minimum " + readableHbar(requiredHbar) + " HBAR. Shortfall: " +
-                readableHbar(requiredHbar - availableHbar) + " HBAR in the " +
-                (isPrivate ? "private session." : "connected wallet."),
+            blocker: isPrivate
+                ? "Minimum " + readableHbar(requiredHbar) + " HBAR. Shortfall: " +
+                    readableHbar(requiredHbar - availableHbar) + " HBAR in the private session."
+                : "This wallet needs at least " + readableHbar(requiredHbar) +
+                    " HBAR plus network fees. Add HBAR or withdraw available trading credit.",
         });
     }
     if (isPrivate) {
@@ -10878,7 +10876,7 @@ Venue.paintOrderTrack = function () {
     };
     if (deadlineWrap) deadlineWrap.hidden = true;
     if (!ticket) {
-        Venue.paintPrivateRecovery(null, null);
+        Venue.paintPrivateRecovery?.(null, null);
         if (status) status.textContent = "No submitted order";
         if (title) title.textContent = "Start with new order details";
         if (copy) copy.textContent = "Your next order action will appear here.";
@@ -10892,11 +10890,12 @@ Venue.paintOrderTrack = function () {
         revealed: !!ticket.revealed,
     };
     const phase = Venue.ticketPhase(ticket, chain);
-    Venue.paintPrivateRecovery(ticket, phase);
+    Venue.paintPrivateRecovery?.(ticket, phase);
     const automated = ticket.path === "private" || ticket.automaticReveal === true;
+    const immutables = (typeof CLIENT !== "undefined" && CLIENT.immutables) || {};
     const closes = asBig(chain.committedAt || 0)
-        + asBig(CLIENT.immutables.revealDelay)
-        + asBig(CLIENT.immutables.revealWindow);
+        + asBig(immutables.revealDelay || 0)
+        + asBig(immutables.revealWindow || 0);
     if (phase.phase === "cancel") {
         if (status) status.textContent = "Sealed";
         if (title) {
@@ -10914,7 +10913,7 @@ Venue.paintOrderTrack = function () {
             ticketDate(automated && ticket.releaseAt ? ticket.releaseAt : automated ? phase.until : closes),
         );
         return Venue.account
-            ? {mode: "replace-track", label: "Replace order", disabled: false}
+            ? {mode: "cancel-track", label: "Cancel sealed order", disabled: false, danger: true}
             : {mode: "connect", label: "Connect to manage order", disabled: false};
     } else if (phase.phase === "reveal") {
         if (status) status.textContent = automated ? "Auto reveal scheduled" : "Reveal required";
@@ -12360,7 +12359,7 @@ Venue.paintTickets = async function () {
                 nextTitle = "Order complete";
                 nextCopy = "Check inventory and trading credit for the settled outcome and released remainder.";
                 actions = '<button type="button" class="primary" data-act="offset" data-id="' +
-                    esc(t.id) + '">Place opposite order</button><button type="button" data-act="new">Start fresh</button>';
+                    esc(t.id) + '">Place opposite order</button><button type="button" data-act="new">Place another order</button>';
             } else if (pastLast) {
                 tone = "waiting";
                 badge = "Ready to release";
@@ -15966,12 +15965,13 @@ Venue.mountRepo = async function () {
     Venue.paintFinancingGate();
     Venue.paintFinancingEvidence();
     Venue.paintFinanceActivity();
-    await Promise.all([
-        Venue.refreshVault().catch((error) => Venue.financeVaultReadFailed(error)),
-        Venue.pollOracle().catch((error) => Venue.oracleReadFailed(error)),
-        Venue.recoverViewerFinanceHistory().catch(() => []),
-    ]);
+    Venue._prefetchHref = "venue.html";
+    const vault = Venue.refreshVault().catch((error) => Venue.financeVaultReadFailed(error));
+    const oracle = Venue.pollOracle();
+    const history = Venue.recoverViewerFinanceHistory().catch(() => []);
+    await Venue.whenOracleHeadline();
     Venue.discoverRepos().catch(() => {});
+    await Promise.all([vault, oracle, history]);
     Venue.setFinanceUi({booted: true});
 };
 
@@ -18438,7 +18438,7 @@ Venue.validateOracleEvidenceRecord = function (record) {
 Venue.refreshOracleEvidence = async function () {
     const topics = typeof ORACLE_TOPICS === "undefined" ? [] : ORACLE_TOPICS;
     if (!topics.length) {
-        Venue.oracleEvidence = {configured: false, records: [], errors: []};
+        Venue.oracleEvidence = {configured: false, records: [], errors: [], skipped: []};
         return Venue.oracleEvidence;
     }
     const topicRows = await Promise.all(topics.map(async (topic) => {
@@ -18459,7 +18459,12 @@ Venue.refreshOracleEvidence = async function () {
                         !addrEq(record.oracle, CLIENT.addresses.PrimeOracle) ||
                         !addrEq(record.publisher, topic.publisher)
                     ) {
-                        throw new Error("message does not match this deployment and publisher");
+                        return {
+                            topic,
+                            sequence: String(message.sequence_number),
+                            skipped: true,
+                            skipReason: "message does not match this deployment and publisher",
+                        };
                     }
                     Venue.validateOracleEvidenceRecord(record);
                     return {
@@ -18486,6 +18491,7 @@ Venue.refreshOracleEvidence = async function () {
         records: rows.filter((row) => row.record),
         errors: rows.filter((row) => row.error),
         empty: rows.filter((row) => row.empty),
+        skipped: rows.filter((row) => row.skipped),
     };
     return Venue.oracleEvidence;
 };
@@ -18774,6 +18780,7 @@ Venue.paintOracleCountdown = function () {
 Venue.oracleReadFailed = function (error) {
     const message = decodeRevert(error).message;
     Venue.oracleClock = null;
+    Venue.markOracleHeadline?.();
     const failure = $("feed-failure");
     if (failure) {
         failure.hidden = false;
@@ -18834,23 +18841,64 @@ Venue.oracleReadFailed = function (error) {
     Venue.paintOracleImpact([], {rpc: true});
 };
 
-Venue.pollOracle = async function () {
-    try {
-        await Venue.refreshOracle();
-        return true;
-    } catch (error) {
-        Venue.oracleReadFailed(error);
-        return false;
-    } finally {
-        const refreshedAt = Date.now();
-        if (Venue.page === "trade") Venue._tradeOracleAt = refreshedAt;
-        if (Venue.page === "repo") Venue._repoOracleAt = refreshedAt;
-    }
+Venue.markOracleHeadline = function () {
+    Venue._oracleHeadlineAt = Date.now();
+    const waiters = Venue._oracleHeadlineWaiters || [];
+    Venue._oracleHeadlineWaiters = [];
+    for (const resolve of waiters) resolve();
+    Venue.scheduleDeferredPrefetch();
+};
+
+Venue.whenOracleHeadline = function () {
+    if (Venue._oracleHeadlineAt) return Promise.resolve();
+    return new Promise((resolve) => {
+        (Venue._oracleHeadlineWaiters ||= []).push(resolve);
+    });
+};
+
+Venue.scheduleDeferredPrefetch = function () {
+    if (Venue._prefetchScheduled || !Venue._prefetchHref) return;
+    Venue._prefetchScheduled = true;
+    const href = Venue._prefetchHref;
+    const start = () => {
+        if (typeof document === "undefined" || !document.head) return;
+        if (document.querySelector('link[data-oracle-prefetch="1"]')) return;
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = href;
+        link.setAttribute("data-oracle-prefetch", "1");
+        document.head.appendChild(link);
+    };
+    if (typeof requestIdleCallback === "function") requestIdleCallback(start);
+    else setTimeout(start, 1);
+};
+
+Venue.pollOracle = function () {
+    if (Venue._oracleFlight) return Venue._oracleFlight;
+    const flight = (async () => {
+        try {
+            await Venue.refreshOracle();
+            return true;
+        } catch (error) {
+            Venue.oracleReadFailed(error);
+            return false;
+        } finally {
+            const refreshedAt = Date.now();
+            if (Venue.page === "trade") Venue._tradeOracleAt = refreshedAt;
+            if (Venue.page === "repo") Venue._repoOracleAt = refreshedAt;
+            if (Venue._oracleFlight === flight) Venue._oracleFlight = null;
+        }
+    })();
+    Venue._oracleFlight = flight;
+    return flight;
 };
 
 Venue.refreshOracle = async function () {
     const box = $("feed-box");
-    if (!box) return;
+    if (!box) {
+        Venue.markOracleHeadline();
+        return;
+    }
     const {oracle, watch} = Venue.c;
     if (!oracle) {
         Venue.oracleReadFailed(new Error(
@@ -18860,6 +18908,7 @@ Venue.refreshOracle = async function () {
             $("feed-state").textContent = "PrimeOracle not configured";
             $("feed-state").className = "feed-state bad";
         }
+        Venue.markOracleHeadline();
         return;
     }
 
@@ -18879,21 +18928,84 @@ Venue.refreshOracle = async function () {
         }],
         empty: [],
     }));
-    const [
-        f,
-        panel,
-        quorum,
-        heartbeat,
-        cashHeartbeat,
-        dev,
-        round,
-        openRound,
-        cash,
-        evidence,
-        scheduler,
-    ] =
-        await Promise.all([
-            watch.feed(),
+    const put = (id, v, cls) => {
+        const el = $(id);
+        if (!el) return;
+        el.innerHTML = v;
+        if (cls !== undefined) {
+            el.className = id === "feed-state"
+                ? "feed-state " + cls
+                : "v " + cls;
+        }
+    };
+    let f;
+    try {
+        f = await watch.feed();
+    } catch (error) {
+        Venue.markOracleHeadline();
+        throw error;
+    }
+
+    const dark = !!f.dark;
+    const publishedAt = Number(asBig(f.publishedAt));
+    const age = publishedAt > 0
+        ? Number(nowSec() > asBig(f.publishedAt)
+            ? nowSec() - asBig(f.publishedAt)
+            : 0n)
+        : null;
+    const published = publishedAt > 0
+        ? new Date(publishedAt * 1000)
+            .toISOString().replace("T", " ").slice(0, 19) + "Z"
+        : null;
+    const valuationUnavailable = dark || asBig(f.cleanPrice) === 0n;
+    let stateLabel;
+    if (f.ourLegDark && f.cashLegDark) {
+        stateLabel = Venue.page === "trade"
+            ? "Panel and HBAR rate stale"
+            : "panel and HBAR rate stale";
+    } else if (f.ourLegDark) {
+        stateLabel = Venue.page === "trade" ? "Panel stale" : "panel stale";
+    } else if (f.cashLegDark) {
+        stateLabel = Venue.page === "trade" ? "HBAR rate stale" : "HBAR rate stale";
+    } else {
+        stateLabel = Venue.page === "trade" ? "Live" : "live";
+    }
+    put("feed-state", stateLabel, dark ? "bad" : "ok");
+    put("feed-price", valuationUnavailable ? "Unavailable"
+        : esc(formatPrice(asBig(f.cleanPrice))) +
+            (Venue.page === "trade" ? "" : " USD"),
+    valuationUnavailable ? "bad" : "ok");
+    put("feed-rate", valuationUnavailable
+        ? "Unavailable"
+        : String(f.refRateBps) + (Venue.page === "trade" ? "" : " bps"),
+    valuationUnavailable ? "bad" : "ok");
+    put("feed-age", age === null
+        ? "Last finalized time unavailable"
+        : "Finalized " + published + " · " + fmtRemain(age) + " ago",
+    age === null ? "bad" : dark ? "bad" : "ok");
+    box.classList.toggle("is-unavailable", dark);
+    box.hidden = false;
+    Venue.markOracleHeadline();
+
+    let panel;
+    let quorum;
+    let heartbeat;
+    let cashHeartbeat;
+    let dev;
+    let round;
+    let openRound;
+    let cash;
+    try {
+        [
+            panel,
+            quorum,
+            heartbeat,
+            cashHeartbeat,
+            dev,
+            round,
+            openRound,
+            cash,
+        ] = await Promise.all([
             oracle.publishers(),
             oracle.quorum(),
             oracle.heartbeat(),
@@ -18902,9 +19014,14 @@ Venue.refreshOracle = async function () {
             oracle.lastRound(),
             oracle.openRound(),
             oracle.cashLeg(),
-            evidenceRead,
-            schedulerRead,
         ]);
+    } catch {
+        put("feed-open", "Panel details unavailable", "bad");
+        put("feed-quorum", "Panel details unavailable", "bad");
+        put("feed-heartbeat", "Panel details unavailable", "bad");
+        put("feed-evidence", "Evidence details unavailable", "bad");
+        return;
+    }
     const [finalizedPanelRead, openPanelRead] = await Promise.allSettled([
         oracle.panelOf(round),
         oracle.panelOf(openRound),
@@ -18921,47 +19038,11 @@ Venue.refreshOracle = async function () {
     const openPanelError = openPanelRead.status === "rejected"
         ? decodeRevert(openPanelRead.reason).message
         : null;
-
-    const dark = !!f.dark;
-    const publishedAt = Number(asBig(f.publishedAt));
-    const age = publishedAt > 0
-        ? Number(nowSec() > asBig(f.publishedAt)
-            ? nowSec() - asBig(f.publishedAt)
-            : 0n)
-        : null;
-    const published = publishedAt > 0
-        ? new Date(publishedAt * 1000)
-            .toISOString().replace("T", " ").slice(0, 19) + "Z"
-        : null;
-    const put = (id, v, cls) => {
-        const el = $(id);
-        if (!el) return;
-        el.innerHTML = v;
-        if (cls !== undefined) {
-            el.className = id === "feed-state"
-                ? "feed-state " + cls
-                : "v " + cls;
-        }
-    };
-
-    let stateLabel;
-    if (f.ourLegDark && f.cashLegDark) {
-        stateLabel = Venue.page === "trade"
-            ? "Panel and HBAR rate stale"
-            : "panel and HBAR rate stale";
-    } else if (f.ourLegDark) {
-        stateLabel = Venue.page === "trade" ? "Panel stale" : "panel stale";
-    } else if (f.cashLegDark) {
-        stateLabel = Venue.page === "trade" ? "HBAR rate stale" : "HBAR rate stale";
-    } else {
-        stateLabel = Venue.page === "trade" ? "Live" : "live";
-    }
     if (openPanelError) {
         stateLabel += Venue.page === "trade"
             ? ", panel read failed"
             : "; panel read failed";
     }
-    const valuationUnavailable = dark || asBig(f.cleanPrice) === 0n;
     const markUnavailable = dark || asBig(f.markPerUnitTinybar) === 0n;
     put("feed-state", stateLabel, dark || openPanelError ? "bad" : "ok");
     put("feed-price", valuationUnavailable ? "Unavailable"
@@ -18979,10 +19060,7 @@ Venue.refreshOracle = async function () {
     openPanelError || openAnswers.length < Number(quorum) ? "bad" : "ok");
     put("feed-age", age === null
         ? "Last finalized time unavailable"
-        : Venue.page === "repo"
-            ? '<span class="fin-health-value">' + esc(published) + '</span>' +
-              '<span class="fin-health-meta">' + esc(fmtRemain(age) + " ago") + "</span>"
-            : "Finalized " + published + " · " + fmtRemain(age) + " ago",
+        : "Finalized " + published + " · " + fmtRemain(age) + " ago",
     age === null ? "bad" : dark ? "bad" : "ok");
     put("feed-ourleg",
         Venue.page === "trade" ? (f.ourLegDark ? "stale" : "live") : (f.ourLegDark ? "dark" : "live"),
@@ -19008,6 +19086,29 @@ Venue.refreshOracle = async function () {
             esc(shortAddr(f.cashFeed)) + "</a>"
         : "not seated");
 
+    let evidence;
+    let scheduler;
+    try {
+        [evidence, scheduler] = await Promise.all([evidenceRead, schedulerRead]);
+    } catch (error) {
+        evidence = {
+            configured: true,
+            records: [],
+            errors: [{
+                topic: {profile: "all topics"},
+                error: error.message || String(error),
+                fetchError: true,
+            }],
+            empty: [],
+        };
+        scheduler = {
+            status: "rpc-failed",
+            error: decodeRevert(error).message,
+            events: [],
+        };
+        put("feed-evidence", "Evidence details unavailable", "bad");
+    }
+
     const evidenceView = Venue.classifyOracleEvidence({
         evidence,
         round,
@@ -19027,7 +19128,7 @@ Venue.refreshOracle = async function () {
     const newestAnswerClaim = evidenceView.answerRows[0] || null;
     const sourceDescriptions = {
         "qualified-market": "Qualified Hedera auction plus fixed-point model",
-        "model-dealer-fallback": "SOFR model plus disclosed testnet dealer simulation",
+        "model-dealer-fallback": "SOFR model plus signed dealer quote",
         "market-only": "Qualified Hedera auction",
     };
     const sourceRow = newestVerifiedAnswer || newestAnswerClaim;
@@ -19198,6 +19299,9 @@ Venue.refreshOracle = async function () {
                 parts.push("No current answer or status sequence");
             }
             if (evidence.errors.length) {
+                if ((evidence.errors || []).some((row) => row.fetchError)) {
+                    parts.unshift("Evidence details unavailable");
+                }
                 parts.push("Evidence failures: " + evidence.errors.map((row) =>
                     row.topic?.profile + (row.sequence ? " #" + row.sequence : "") +
                     ": " + row.error).join("; "));
@@ -19226,6 +19330,15 @@ Venue.refreshOracle = async function () {
             !answered.has(String(publisher).toLowerCase()))
         : [];
     const failureParts = [];
+    const quoteUnreadable = !!(f.ourLegDark || f.cashLegDark ||
+        openPanelError || finalizedPanelError);
+    const healthyStatusCodes = new Set(["NOT_DUE", "ALREADY_ANSWERED"]);
+    const blockingCodes = [...new Set(
+        evidenceView.freshStatuses
+            .map((row) => row.record.code)
+            .filter((code) => !healthyStatusCodes.has(code)),
+    )];
+    const fetchErrors = (evidence.errors || []).filter((row) => row.fetchError);
     if (f.ourLegDark) {
         const expiredAt = asBig(f.publishedAt) > 0n
             ? new Date((Number(f.publishedAt) + Number(heartbeat)) * 1000).toISOString()
@@ -19259,53 +19372,16 @@ Venue.refreshOracle = async function () {
         failureParts.push("Finalized panel read failed: " + finalizedPanelError +
             ". HCS provenance cannot be verified.");
     }
-    for (const row of evidenceView.freshStatuses) {
-        const divergence = row.record.hbarDivergenceBps != null
-            ? " Reported divergence " + row.record.hbarDivergenceBps + " bps."
-            : "";
-        failureParts.push(
-            Venue.oracleStatusLabel(row.record.code) + " [" + row.record.code +
-            "] from " + row.topic.profile + ": " +
-            Venue.oracleStatusMessage(row.record.code) + divergence +
-            " This publisher status is HCS evidence only and is not an EVM answer."
-        );
+    if (quoteUnreadable && blockingCodes.length) {
+        failureParts.push("Publishers withheld: " + blockingCodes.join(", ") + ".");
     }
-    if (evidenceView.staleStatuses.length) {
-        failureParts.push(
-            "Stale publisher status rejected: " +
-            evidenceView.staleStatuses.map((row) =>
-                row.topic.profile + " [" + row.record.code + "]").join(", ") + "."
-        );
-    }
-    if (evidence.errors.length) {
+    if (quoteUnreadable && fetchErrors.length) {
         failureParts.push("HCS evidence missing or failed: " +
-            evidence.errors.map((row) =>
+            fetchErrors.map((row) =>
                 row.topic?.profile + ": " + row.error).join("; ") + ".");
     }
-    if (asBig(round) > 0n && evidence.configured && !verifiedEvidenceQuorum) {
-        failureParts.push(
-            "Current HCS provenance is not verified to publisher quorum against the finalized EVM panel."
-        );
-    } else if (asBig(round) > 0n && evidence.configured && !verifiedProvenanceQuorum) {
-        failureParts.push(
-            "Current EVM-matched HCS evidence predates source timestamp and identity commitments."
-        );
-    }
-    if (scheduler.status === "not-deployed") {
-        failureParts.push("Scheduler not deployed.");
-    } else if (scheduler.status === "deployment-missing") {
-        failureParts.push("Scheduler deployment is missing at its configured address.");
-    } else if (scheduler.status === "rpc-failed") {
+    if (quoteUnreadable && scheduler.status === "rpc-failed") {
         failureParts.push("Scheduler RPC failure: " + scheduler.error + ".");
-    } else if (scheduler.status === "binding-failed") {
-        failureParts.push("Scheduler binding failure: " +
-            scheduler.bindingIssues.join("; ") + ".");
-    } else if (scheduler.latestProblem) {
-        const exactReason = Venue.schedulerEventReason(scheduler.latestProblem);
-        if (!exactReason.includes("STOP_FINALIZED")) {
-            failureParts.push("Latest scheduler failure or stop: " +
-                exactReason + ".");
-        }
     }
     const failure = $("feed-failure");
     if (failure) {

@@ -52,6 +52,9 @@ function harness() {
         formatHbar: String,
         explorerTx: (hash) => "https://example.test/transaction/" + hash,
         setTimeout: () => {},
+        Date,
+        AbortController,
+        fetch: async () => ({ok: true, json: async () => ({})}),
     });
     return {Venue, element, copied, financingEvidence};
 }
@@ -115,8 +118,9 @@ test("dark oracle names the expired heartbeat and missing publisher", async () =
     await Venue.refreshOracle();
     assert.equal(element("feed-state").innerHTML, "live");
     assert.equal(element("feed-price").innerHTML, "10000000000 USD");
-    assert.equal(element("feed-failure").hidden, false);
-    assert.match(element("feed-failure").textContent, /Scheduler not deployed/);
+    assert.equal(element("feed-scheduler").textContent, "Not deployed");
+    assert.equal(element("feed-failure").hidden, true);
+    assert.doesNotMatch(element("feed-failure").textContent, /Scheduler not deployed/);
 
     Venue.c.watch.feed = async () => {
         throw new Error("testnet RPC timed out");

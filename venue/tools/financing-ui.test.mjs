@@ -441,7 +441,10 @@ test("repo screen tokens and health strip stay out of the Markets chip", () => {
 
 test("workspace chrome binds before mount and keeps a user-chosen view", async () => {
     const {Venue, element} = harness();
-    Venue.pollOracle = async () => true;
+    Venue.pollOracle = async () => {
+        Venue.markOracleHeadline?.();
+        return true;
+    };
     Venue.refreshVault = async () => {};
     Venue.discoverRepos = async () => {};
     Venue.bindFinanceChrome();

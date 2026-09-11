@@ -10,13 +10,14 @@ COPY venue/tools/hcs-chain.mjs ./tools/hcs-chain.mjs
 COPY venue/deployments ./deployments
 RUN ln -s /opt/toolchain/node_modules ./node_modules \
     && mkdir -p /state \
-    && chown -R node:node /state
+    && chown -R node:node /state \
+    && chmod -R a-w /srv/venue/oracle /srv/venue/tools /srv/venue/deployments /opt/toolchain
 
 USER node
 ENV NODE_ENV=production
 ENV ORACLE_STATE_ROOT=/state
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD ["node", "oracle/healthcheck.mjs"]
+    CMD ["node", "-e", "fetch('http://127.0.0.1:8080/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
 ENTRYPOINT ["node", "oracle/publisher.mjs"]
