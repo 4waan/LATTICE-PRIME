@@ -1,0 +1,43 @@
+app = "lattice-oracle-publisher-b"
+primary_region = "iad"
+
+[build]
+  dockerfile = "venue/oracle/packaging/Dockerfile.publisher"
+
+[env]
+  NODE_ENV = "production"
+  ORACLE_CONFIG = "/srv/venue/oracle/profiles/publisher-b.json"
+  ORACLE_STATE_ROOT = "/state"
+  ORACLE_SOURCE_PROFILE = "publisher-b-primary"
+  ORACLE_PUBLISHER_ID = "publisher-b"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "10s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "publisher_b_state"
+  destination = "/state"
+  initial_size = "1gb"
+  snapshot_retention = 14
+
+[[restart]]
+  policy = "always"
+  retries = 10

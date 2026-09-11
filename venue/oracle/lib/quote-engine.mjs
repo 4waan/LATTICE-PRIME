@@ -342,6 +342,8 @@ export async function buildHybridQuote(config, dependencies = {}) {
         {
             fetchImpl: dependencies.fetchImpl,
             timeoutMs: config.dealers?.timeoutMs ?? 10_000,
+            production: config.dealers?.production,
+            allowFileEndpoints: config.dealers?.allowFileEndpoints === true,
             chainId: terms.chainId,
             oracle: terms.oracle,
             instrument: terms.instrument,

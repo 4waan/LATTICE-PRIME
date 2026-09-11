@@ -3,6 +3,7 @@ x-publisher: &publisher
     context: ../../..
     dockerfile: venue/oracle/packaging/Dockerfile.publisher
   image: lattice-oracle-publisher:1
+  user: "node"
   restart: unless-stopped
   read_only: true
   cap_drop:
@@ -21,7 +22,6 @@ services:
       - ../secrets/publisher-a.env
     volumes:
       - ../profiles/publisher-a.json:/config/oracle.json:ro
-      - ../quotes/publisher-a:/dealer:ro
       - publisher-a-state:/state
 
   publisher-b:
@@ -30,7 +30,6 @@ services:
       - ../secrets/publisher-b.env
     volumes:
       - ../profiles/publisher-b.json:/config/oracle.json:ro
-      - ../quotes/publisher-b:/dealer:ro
       - publisher-b-state:/state
 
   publisher-c:
@@ -39,7 +38,6 @@ services:
       - ../secrets/publisher-c.env
     volumes:
       - ../profiles/publisher-c.json:/config/oracle.json:ro
-      - ../quotes/publisher-c:/dealer:ro
       - publisher-c-state:/state
 
 volumes:

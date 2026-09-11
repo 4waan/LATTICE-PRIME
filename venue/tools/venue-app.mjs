@@ -818,8 +818,9 @@ Venue.boot = async function (page) {
         await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
     }
     Venue.wiringOk = !Venue.wiringErr;
-    await Venue.probeFinancing();
-    await walletReady;
+    if (page === "position" || page === "repo") {
+        await Venue.probeFinancing();
+    }
     if (!Venue.account) {
         let saved = null;
         try { saved = sessionStorage.getItem("seamme.watch"); } catch (e) { saved = null; }
@@ -829,6 +830,9 @@ Venue.boot = async function (page) {
         }
     }
     if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
+    walletReady.then(async () => {
+        if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
+    }).catch(() => {});
     const mount = {
         index: Venue.mountIndex,
         prove: Venue.mountProve,
@@ -1588,8 +1592,16 @@ Venue.startPolling = function () {
     }, 1000);
 };
 
-Venue.tick = async function () {
+Venue.tick = function () {
     if (document.hidden) return;
+    if (Venue._tickFlight) return Venue._tickFlight;
+    Venue._tickFlight = Venue._runTick().finally(() => {
+        Venue._tickFlight = null;
+    });
+    return Venue._tickFlight;
+};
+
+Venue._runTick = async function () {
     try {
         // One wave a tick. The clocks are read alongside the screen rather than
         // before it: a refresh that wanted this tick's round would have had to
@@ -2584,6 +2596,7 @@ Venue.mountTrade = async function () {
     });
     $("market-reload")?.addEventListener("click", () => Venue.refreshMarketTape().catch((e) => Venue.fail(e)));
     $("feed-refresh")?.addEventListener("click", () => Venue.pollOracle());
+    Venue._prefetchHref = "position.html";
     $("order-attention-go")?.addEventListener("click", () => {
         $("active-orders")?.scrollIntoView({behavior: "smooth", block: "start"});
     });

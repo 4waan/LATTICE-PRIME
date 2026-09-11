@@ -45,7 +45,60 @@ test("a five minute publisher remains healthy at the old two minute threshold", 
             },
             now,
         });
-        assert.deepEqual(result, {ok: true, message: "publisher process is advancing"});
+        assert.equal(result.ok, true);
+        assert.equal(result.status, "ok");
+        assert.equal(result.message, "publisher process is advancing");
+        assert.equal(result.publisher, "publisher-a");
+        assert.equal(result.lastLoopAt, "2027-01-01T00:00:00Z");
+        assert.equal(result.pending, null);
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});
+
+test("health is stalled when the journal stops and overdue when a prepare is stuck", () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-health-stuck-"));
+    try {
+        writeFileSync(
+            join(root, "journal.json"),
+            JSON.stringify({
+                updatedAt: "2027-01-01T00:00:00Z",
+                lastConfirmedRound: 4,
+                pending: {
+                    status: "PREPARED",
+                    preparedAt: "2026-12-31T23:40:00Z",
+                },
+            }),
+        );
+        const env = {
+            ORACLE_PUBLISHER_ID: "publisher-a",
+            ORACLE_STATE_ROOT: root,
+            ORACLE_HEALTH_MAX_AGE_SECONDS: "900",
+        };
+        const overdue = publisherHealth({
+            config: {pollSeconds: 300, evidence: {maximumBroadcastDelaySeconds: 600}},
+            env,
+            now: Date.parse("2027-01-01T00:00:00Z"),
+        });
+        assert.equal(overdue.ok, false);
+        assert.equal(overdue.status, "recovery-overdue");
+        assert.deepEqual(overdue.pending, {kind: "answer", status: "PREPARED"});
+        assert.equal(overdue.lastConfirmedRound, 4);
+
+        writeFileSync(
+            join(root, "journal.json"),
+            JSON.stringify({
+                updatedAt: "2026-12-31T23:00:00Z",
+                pending: null,
+            }),
+        );
+        const stalled = publisherHealth({
+            config: {pollSeconds: 300},
+            env,
+            now: Date.parse("2027-01-01T00:00:00Z"),
+        });
+        assert.equal(stalled.ok, false);
+        assert.equal(stalled.status, "stalled");
     } finally {
         rmSync(root, {recursive: true, force: true});
     }
