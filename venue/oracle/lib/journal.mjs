@@ -26,8 +26,11 @@ function fresh(profile, address) {
         createdAt: new Date().toISOString(),
         updatedAt: null,
         pending: null,
+        pendingStatus: null,
         lastEvidenceHash: null,
         lastConfirmedRound: null,
+        lastConfirmedSources: null,
+        lastSourceBaseline: null,
         lastDecision: null,
         lastStatus: null,
         lastSchedulerArm: null,
@@ -59,6 +62,9 @@ export class PublisherJournal {
         if (state.profile !== profile || state.address.toLowerCase() !== address.toLowerCase()) {
             throw new Error(`${path} belongs to another publisher identity`);
         }
+        state.pendingStatus ??= null;
+        state.lastConfirmedSources ??= null;
+        state.lastSourceBaseline ??= state.lastConfirmedSources;
         const journal = new PublisherJournal(root, state);
         if (!existsSync(path)) journal.save();
         return journal;
@@ -106,11 +112,43 @@ export class PublisherJournal {
         this.event("decision", decision);
     }
 
+    sourceBaseline(sources) {
+        if (this.state.lastSourceBaseline !== null) return;
+        this.state.lastSourceBaseline = sources;
+        this.save();
+        this.event("source-baseline", {sources});
+    }
+
     prepared(record) {
         if (this.state.pending) throw new Error("cannot prepare while a transaction is pending");
+        if (this.state.pendingStatus) {
+            throw new Error("cannot prepare while status evidence is pending");
+        }
+        for (const field of [
+            "chainId",
+            "oracle",
+            "publisher",
+            "topicId",
+            "evidenceMessage",
+            "evidenceHash",
+            "txHash",
+            "signedTransaction",
+            "to",
+            "round",
+            "cleanPriceUsd8",
+            "referenceRateBps",
+            "sourceDigest",
+            "observedAt",
+            "expiresAt",
+        ]) {
+            if (record[field] === null || record[field] === undefined || record[field] === "") {
+                throw new Error(`prepared transaction is missing ${field}`);
+            }
+        }
         this.state.pending = {
             status: "PREPARED",
             preparedAt: new Date().toISOString(),
+            evidenceAttempts: 0,
             ...record,
         };
         this.save();
@@ -121,9 +159,41 @@ export class PublisherJournal {
         });
     }
 
+    evidenceAttempted(at, transactionId = null) {
+        if (!["PREPARED", "EVIDENCE_PENDING"].includes(this.state.pending?.status)) {
+            throw new Error("only an unevidenced transaction can submit evidence");
+        }
+        this.state.pending.status = "EVIDENCE_PENDING";
+        this.state.pending.evidenceAttempts =
+            Number(this.state.pending.evidenceAttempts ?? 0) + 1;
+        this.state.pending.lastEvidenceAttemptAt = Number(at);
+        if (transactionId) this.state.pending.evidenceTransactionId = transactionId;
+        this.save();
+        this.event("evidence-attempted", {
+            txHash: this.state.pending.txHash,
+            evidenceHash: this.state.pending.evidenceHash,
+            attempt: this.state.pending.evidenceAttempts,
+            transactionId,
+        });
+    }
+
+    evidenceTransactionId(transactionId) {
+        if (this.state.pending?.status !== "EVIDENCE_PENDING") return;
+        this.state.pending.evidenceTransactionId = transactionId;
+        this.save();
+    }
+
     evidenced(receipt, evidenceHash) {
-        if (this.state.pending?.status !== "PREPARED") {
-            throw new Error("only a prepared transaction can receive evidence");
+        if (!["PREPARED", "EVIDENCE_PENDING", "HCS_EXPIRED"].includes(
+            this.state.pending?.status,
+        )) {
+            throw new Error("only an unevidenced transaction can receive evidence");
+        }
+        if (this.state.pending.evidenceHash !== evidenceHash) {
+            throw new Error("evidence hash does not match the prepared transaction");
+        }
+        if (String(receipt.topicId) !== String(this.state.pending.topicId)) {
+            throw new Error("evidence receipt belongs to another topic");
         }
         this.state.pending.status = "EVIDENCED";
         this.state.pending.evidence = receipt;
@@ -139,7 +209,81 @@ export class PublisherJournal {
         });
     }
 
+    statusPrepared(record) {
+        if (this.state.pendingStatus) {
+            throw new Error("cannot prepare while status evidence is pending");
+        }
+        if (this.state.pending) {
+            throw new Error("cannot prepare status while a transaction is pending");
+        }
+        for (const field of [
+            "chainId",
+            "oracle",
+            "publisher",
+            "topicId",
+            "evidenceMessage",
+            "evidenceHash",
+            "round",
+            "code",
+            "observedAt",
+        ]) {
+            if (record[field] === null || record[field] === undefined || record[field] === "") {
+                throw new Error(`prepared status is missing ${field}`);
+            }
+        }
+        this.state.pendingStatus = {
+            status: "PREPARED",
+            preparedAt: new Date().toISOString(),
+            evidenceAttempts: 0,
+            ...record,
+        };
+        this.save();
+        this.event("status-prepared", {
+            code: record.code,
+            evidenceHash: record.evidenceHash,
+        });
+    }
+
+    statusEvidenceAttempted(at, transactionId = null) {
+        if (!["PREPARED", "EVIDENCE_PENDING"].includes(
+            this.state.pendingStatus?.status,
+        )) {
+            throw new Error("only an unevidenced status can submit evidence");
+        }
+        this.state.pendingStatus.status = "EVIDENCE_PENDING";
+        this.state.pendingStatus.evidenceAttempts =
+            Number(this.state.pendingStatus.evidenceAttempts ?? 0) + 1;
+        this.state.pendingStatus.lastEvidenceAttemptAt = Number(at);
+        if (transactionId) {
+            this.state.pendingStatus.evidenceTransactionId = transactionId;
+        }
+        this.save();
+        this.event("status-evidence-attempted", {
+            code: this.state.pendingStatus.code,
+            evidenceHash: this.state.pendingStatus.evidenceHash,
+            attempt: this.state.pendingStatus.evidenceAttempts,
+            transactionId,
+        });
+    }
+
+    statusEvidenceTransactionId(transactionId) {
+        if (this.state.pendingStatus?.status !== "EVIDENCE_PENDING") return;
+        this.state.pendingStatus.evidenceTransactionId = transactionId;
+        this.save();
+    }
+
     statusEvidenced(receipt, hash, code, observedAt) {
+        if (!["PREPARED", "EVIDENCE_PENDING"].includes(
+            this.state.pendingStatus?.status,
+        )) {
+            throw new Error("no pending status can receive evidence");
+        }
+        if (this.state.pendingStatus.evidenceHash !== hash) {
+            throw new Error("status evidence hash does not match its pending record");
+        }
+        if (String(receipt.topicId) !== String(this.state.pendingStatus.topicId)) {
+            throw new Error("status evidence receipt belongs to another topic");
+        }
         this.state.lastEvidenceHash = hash;
         this.state.lastStatus = {
             code,
@@ -150,6 +294,7 @@ export class PublisherJournal {
             evidenceHash: hash,
         };
         this.state.counters.evidence += 1;
+        this.state.pendingStatus = null;
         this.save();
         this.event("status-evidenced", {
             code,
@@ -157,6 +302,87 @@ export class PublisherJournal {
             sequenceNumber: receipt.sequenceNumber,
             evidenceHash: hash,
         });
+    }
+
+    blockPending(code, message) {
+        if (!this.state.pending) return;
+        this.state.pending.status = "BLOCKED";
+        this.state.pending.lastError = {
+            at: new Date().toISOString(),
+            code,
+            message,
+        };
+        this.state.counters.failed += 1;
+        this.save();
+        this.event("blocked", {
+            txHash: this.state.pending.txHash,
+            code,
+            message,
+        });
+    }
+
+    blockStatus(code, message) {
+        if (!this.state.pendingStatus) return;
+        this.state.pendingStatus.status = "BLOCKED";
+        this.state.pendingStatus.lastError = {
+            at: new Date().toISOString(),
+            code,
+            message,
+        };
+        this.state.counters.failed += 1;
+        this.save();
+        this.event("status-blocked", {
+            evidenceHash: this.state.pendingStatus.evidenceHash,
+            code,
+            message,
+        });
+    }
+
+    expirePendingEvidence(code, message) {
+        if (this.state.pending?.status !== "EVIDENCE_PENDING" &&
+            this.state.pending?.status !== "HCS_EXPIRED") {
+            throw new Error("only unresolved HCS evidence can expire");
+        }
+        const first = this.state.pending.status !== "HCS_EXPIRED";
+        this.state.pending.status = "HCS_EXPIRED";
+        this.state.pending.lastError = {
+            at: new Date().toISOString(),
+            code,
+            message,
+        };
+        if (first) this.state.counters.failed += 1;
+        this.save();
+        if (first) {
+            this.event("hcs-evidence-expired", {
+                txHash: this.state.pending.txHash,
+                evidenceHash: this.state.pending.evidenceHash,
+                code,
+                message,
+            });
+        }
+    }
+
+    expireBroadcast(code, message) {
+        if (this.state.pending?.status !== "BROADCAST" &&
+            this.state.pending?.status !== "EXPIRED") {
+            throw new Error("only a broadcast transaction can expire unresolved");
+        }
+        const first = this.state.pending.status !== "EXPIRED";
+        this.state.pending.status = "EXPIRED";
+        this.state.pending.lastError = {
+            at: new Date().toISOString(),
+            code,
+            message,
+        };
+        if (first) this.state.counters.failed += 1;
+        this.save();
+        if (first) {
+            this.event("broadcast-expired", {
+                txHash: this.state.pending.txHash,
+                code,
+                message,
+            });
+        }
     }
 
     broadcast() {
@@ -173,7 +399,10 @@ export class PublisherJournal {
     confirmed(receipt) {
         if (!this.state.pending) throw new Error("no pending transaction to confirm");
         const round = this.state.pending.round;
+        const confirmedSources = this.state.pending.confirmedSources ?? null;
         this.state.lastConfirmedRound = round;
+        this.state.lastConfirmedSources = confirmedSources;
+        this.state.lastSourceBaseline = confirmedSources;
         this.state.counters.confirmed += 1;
         this.event("confirmed", {txHash: this.state.pending.txHash, round, receipt});
         this.state.pending = null;
@@ -210,6 +439,19 @@ export class PublisherJournal {
             message,
         });
         this.state.pending = null;
+        this.state.counters.failed += 1;
+        this.save();
+    }
+
+    abandonStatus(code, message) {
+        if (!this.state.pendingStatus) return;
+        this.event("status-abandoned", {
+            evidenceHash: this.state.pendingStatus.evidenceHash,
+            status: this.state.pendingStatus.status,
+            code,
+            message,
+        });
+        this.state.pendingStatus = null;
         this.state.counters.failed += 1;
         this.save();
     }

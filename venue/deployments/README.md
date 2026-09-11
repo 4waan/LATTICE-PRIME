@@ -84,6 +84,39 @@ unit. `CouponDistributor` publishes the same number through
 `payingAgentFeeBps()`. `make client` checks the contract value against the live
 HTS fee schedule and fails on drift.
 
+## Oracle evidence
+
+`oracle-scheduler.json` binds the current HSS scheduler `0.0.10456288` to PrimeOracle
+`0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8`. Its three publisher topics carry
+canonical HCS evidence before each matching EVM answer. Verification starts at
+round 2 because round 1 was the documented migration round before HCS-first
+publishing. The verifier reads every in-scope `panelOf(round)` and fails on any
+pending, expired, invalid, missing, or unreadable evidence.
+
+`oracle-scheduler.json` records the deployment and funding receipts, runtime and
+immutable-masked bytecode hashes, superseded scheduler recoveries, round 3 HSS
+canary, natural NY Fed SOFR round 4, and measured scheduler costs. The contract
+limits unchanged-answer retries to four and all scheduling attempts to eight
+per round.
+
+`oracle-acceptance.json` is the fail-closed sustained record. It starts from the
+then-current round 2, spans more than one full 21,600-second heartbeat, accounts
+explicitly for a local monitor suspension using the unchanged onchain round and
+its unexpired heartbeat, verifies the natural round 4 `NEW_SOFR` identity
+change for all three publishers, and rechecks every in-scope HCS answer against
+`panelOf(round)`.
+
+`oracle-numeric-verification.json` records 18,006 exact comparisons against a
+separate Python implementation with zero numeric defects. The ignored harness
+is intentionally not release evidence; the tracked report names its source
+hashes, method, coverage, circularity risks, and uncovered cases.
+
+The current dealer signer is a disclosed testnet simulation and is not
+production-eligible. The real external inputs are official NY Fed SOFR and the
+market HBAR/USD cross-check. The Hedera-native inputs are qualified venue
+settlements, HCS evidence, HSS finalization, Mirror Node receipts, and the
+network fee conversion rate at `0x168`.
+
 ## Coupon and bond lifecycle evidence
 
 `bond-coupon-zero.json` closes the first coupon on the canonical LPRC bond. Its

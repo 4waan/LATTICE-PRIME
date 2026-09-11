@@ -1,0 +1,210 @@
+{
+  "schema": "lattice.oracle.numeric-independent-verification.v2",
+  "generatedAt": "2026-09-10T08:57:13Z",
+  "status": "passed",
+  "subject": {
+    "gitRevision": "778cde2ea1685922acd1af2dd4b7725b599bb32e",
+    "sourceSha256": {
+      "oracle/lib/fixed.mjs": "febc259b6d64c480be2d1967c2e7e66cb095fd9cd95283dfd260ce87f95c3b90",
+      "oracle/lib/valuation.mjs": "1d8d05f13587b4fa8f0919acf7bbe7176ea1def7e0ef1ab21aee2965434b4116",
+      "oracle/lib/auction-source.mjs": "5b6b7093f4ffd4683ed64cc410f4eb01d98dc29832b8b0294af7ef9b20b8e612"
+    },
+    "valuationSourceConfirmedBeforeEachRun": true,
+    "sourceStableWithinEachRun": true
+  },
+  "tools": {
+    "python": "3.9.6",
+    "pythonImplementation": "CPython",
+    "node": "v22.21.1",
+    "v8": "12.4.254.21-node.33",
+    "normalOptimizeLevel": 0,
+    "optimizedOptimizeLevel": 1
+  },
+  "method": {
+    "independentOracle": "Python Fraction and Decimal formulas with no production-module imports",
+    "transport": "newline-delimited JSON text to a separate Node 22 process",
+    "comparisonDefinition": "One exact structured comparison covers the complete selected result or exact error name and code for one production invocation.",
+    "normalCommand": "cd venue && python3 oracle/state/independent/verify.py",
+    "optimizedCommand": "cd venue && python3 -O oracle/state/independent/verify.py",
+    "combinedCommand": "cd venue && python3 oracle/state/independent/verify.py && python3 -O oracle/state/independent/verify.py",
+    "makeTargetAdded": false,
+    "makeTargetReason": "A target would pretend the intentionally ignored harness exists in a clean checkout.",
+    "harnessTracked": false,
+    "harnessIgnoredLocation": "oracle/state/independent",
+    "harnessSha256": "33fc4b7d4399ba58c6ab47299b5c1c6220f2ecf38a9fdd56850d25bb9441dad5",
+    "bridgeSha256": "bcae036f743a73cb43744b7558ca2f88fc14f077b285db98cb3f7b1672f5705b",
+    "assertOnlyChecks": false
+  },
+  "coverage": {
+    "casesPerMode": 9003,
+    "exactStructuredComparisonsPerMode": 9003,
+    "casesAcrossNormalAndOptimized": 18006,
+    "exactStructuredComparisonsAcrossNormalAndOptimized": 18006,
+    "normalFailures": 0,
+    "optimizedFailures": 0,
+    "taggedCasesPerMode": {
+      "age-boundary": 4,
+      "aggregate-grid": 4608,
+      "configuration-sweep": 4613,
+      "coupon-boundary": 3245,
+      "decimal": 21,
+      "deviation-boundary": 114,
+      "dominant-print": 577,
+      "fallback": 7,
+      "guard": 47,
+      "half-boundary": 1784,
+      "huge-uint-safe": 1313,
+      "model-grid": 3672,
+      "mul-div": 313,
+      "outlier-boundary": 9,
+      "partial-volume-guard": 9,
+      "permutation-invariance": 36,
+      "print-conversion": 162,
+      "rate-boundary": 1632,
+      "rounding-ceil": 104,
+      "rounding-floor": 104,
+      "rounding-nearest": 104,
+      "scale-boundary": 4,
+      "zero-one-volume": 1157
+    }
+  },
+  "results": {
+    "defectsWithReproducers": [],
+    "defectFailureCountAcrossModes": 0,
+    "nonDefectObservations": [
+      {
+        "observation": "Auction print conversion floors the exact rational USD8 value. It does not round a half unit upward.",
+        "evidenceTags": [
+          "print-conversion",
+          "half-boundary"
+        ]
+      },
+      {
+        "observation": "Market arithmetic rounds an exact half upward after summing all price times volume products.",
+        "evidenceTags": [
+          "half-boundary",
+          "zero-one-volume"
+        ]
+      },
+      {
+        "observation": "Deviation is asymmetric because the fallback value is the denominator, and integer division floors before the strict greater-than threshold check.",
+        "evidenceTags": [
+          "deviation-boundary"
+        ]
+      },
+      {
+        "observation": "A valuation exactly on a coupon date excludes that paid cashflow and resets accrued interest for the next future period.",
+        "evidenceTags": [
+          "coupon-boundary"
+        ]
+      },
+      {
+        "observation": "Dealer source identifiers are deduplicated before fallback quorum. A later quote with the same identifier replaces the earlier value without adding a source.",
+        "evidenceTags": [
+          "fallback"
+        ]
+      },
+      {
+        "observation": "A zero settlement is rejected as ambiguous before the configured minimum-volume comparison, including when the configured minimum is zero.",
+        "evidenceTags": [
+          "zero-one-volume",
+          "configuration-sweep"
+        ]
+      },
+      {
+        "observation": "Source qualification requires settled volume to equal indicated crossed volume. Lower volume is partial, higher volume is an indicated-volume mismatch, and only an exact match reaches the minimum-volume check.",
+        "evidenceTags": [
+          "partial-volume-guard"
+        ]
+      }
+    ],
+    "claimsVerified": [
+      {
+        "claim": "exact decimal and rational rounding",
+        "casesPerMode": 345,
+        "exactStructuredComparisonsPerMode": 345,
+        "exactStructuredComparisonsAcrossModes": 690,
+        "normalFailures": 0,
+        "optimizedFailures": 0
+      },
+      {
+        "claim": "exact print conversion",
+        "casesPerMode": 164,
+        "exactStructuredComparisonsPerMode": 164,
+        "exactStructuredComparisonsAcrossModes": 328,
+        "normalFailures": 0,
+        "optimizedFailures": 0
+      },
+      {
+        "claim": "floating-rate model valuation",
+        "casesPerMode": 3692,
+        "exactStructuredComparisonsPerMode": 3692,
+        "exactStructuredComparisonsAcrossModes": 7384,
+        "normalFailures": 0,
+        "optimizedFailures": 0
+      },
+      {
+        "claim": "integer deviation boundaries",
+        "casesPerMode": 111,
+        "exactStructuredComparisonsPerMode": 111,
+        "exactStructuredComparisonsAcrossModes": 222,
+        "normalFailures": 0,
+        "optimizedFailures": 0
+      },
+      {
+        "claim": "settled-volume and outlier guards",
+        "casesPerMode": 31,
+        "exactStructuredComparisonsPerMode": 31,
+        "exactStructuredComparisonsAcrossModes": 62,
+        "normalFailures": 0,
+        "optimizedFailures": 0
+      },
+      {
+        "claim": "volume-weighted arithmetic aggregation and fallback",
+        "casesPerMode": 4660,
+        "exactStructuredComparisonsPerMode": 4660,
+        "exactStructuredComparisonsAcrossModes": 9320,
+        "normalFailures": 0,
+        "optimizedFailures": 0
+      }
+    ],
+    "notTestedOrUncovered": [
+      "Live NY Fed, Mirror Node, JSON-RPC, Hedera 0x168, dealer signature, and HCS retrieval paths were not called.",
+      "The quote-engine orchestration and publisher transaction path were not run end to end.",
+      "Counterparty identity, wash-trade, excluded-address, malformed log, and digest correctness were not reverified except where needed to reach numeric qualification.",
+      "JavaScript Number behavior above the safe integer range was not treated as supported for timestamps, age limits, or coupon counts. Large integer monetary inputs were transported as decimal text.",
+      "Arbitrary schedule lengths and every uint256 value were not exhaustively enumerated. The corpus uses constructed boundaries and Cartesian configuration sweeps.",
+      "Resource exhaustion from extremely long schedules, extremely long decimal strings, or unbounded BigInt growth was not measured.",
+      "No independent external bond-pricing library was used. The oracle is a Python Fraction derivation of the stated discrete cashflow rules.",
+      "No Makefile target was added because the ignored harness is intentionally absent from a clean checkout."
+    ]
+  },
+  "circularityRisks": [
+    "The production implementation and this corpus were interpreted from the same repository requirements, so a shared specification misunderstanding remains possible.",
+    "The Node bridge imports production modules and selects numeric output fields. A bridge selection mistake could hide an unselected field defect.",
+    "The Python model uses a different Fraction product derivation, but it intentionally reproduces the same coupon and cashflow floor points required by the interface.",
+    "The corpus is deterministic and constructed. This improves branch targeting but does not provide probabilistic exploration outside the listed Cartesian sets.",
+    "Normal and optimized runs use the same Python and Node versions on the same machine.",
+    "Tracked unit tests were not used as expected-value oracles."
+  ],
+  "sanitization": {
+    "containsSecrets": false,
+    "containsAbsoluteLocalPaths": false,
+    "containsLiveNetworkResponses": false,
+    "trackedEvidenceOnly": "deployments/oracle-numeric-verification.json"
+  },
+  "runs": {
+    "normal": {
+      "passed": true,
+      "caseCount": 9003,
+      "exactComparisonCount": 9003,
+      "failureCount": 0
+    },
+    "optimized": {
+      "passed": true,
+      "caseCount": 9003,
+      "exactComparisonCount": 9003,
+      "failureCount": 0
+    }
+  }
+}

@@ -1,12 +1,14 @@
 {
   "schema": "lattice.oracle.scheduler.v1",
-  "deployedAt": "2026-09-10T01:07:59.173062+00:00",
-  "address": "0xb2896395b7eb36f9bea4e9c4fe5e59dd30f20e6d",
-  "oracle": "0x05adE174f2C410cccbC2AB4006D14Ca7a3fdA6c2",
-  "treasury": "0xcfc5923def1f25db05fe50754ef0822175afd449",
-  "transactionHash": "0x15b4a6d09b5ac9d1d61dce97e9d0fe6ee69fc42d200fb406c1d68832a82d7adf",
-  "runtimeBytecodeHash": "0xf386f7c11c7685b7877c794b18058b0b8d2adc191aab157bd8b2eb8b94f1bea8",
-  "immutableMaskedRuntimeBytecodeHash": "0x3833e5b90395a8f42438e451400c6658c8f1dd222e91ecf094488ec3afa00d12",
+  "deployedAt": "2026-09-10T09:10:04.605841+00:00",
+  "address": "0x405c034ec3ba7839e348ed3536f0bcff15cfbff9",
+  "contractId": "0.0.10456288",
+  "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+  "treasury": "0xCFc5923dEf1F25db05FE50754Ef0822175AFD449",
+  "transactionHash": "0x1a4633815e61be1cf25af0494fbb674467ef768f45cd9c9dcbb0d17d55393b80",
+  "runtimeBytecodeHash": "0xb25ca945bc7d08adbc441b2a122bb8b58bdc86cd75efae02a0504000e1c24074",
+  "immutableMaskedRuntimeBytecodeHash": "0x3392ede290bafcb234627e2456ee7f476dd42e93ed1bf43add89b06d255740c5",
+  "runtimeArtifact": "out/OracleScheduler.sol/OracleScheduler.json",
   "chainId": 296,
   "configuration": {
     "initialDelaySeconds": 90,
@@ -17,10 +19,276 @@
     ],
     "maximumUnchangedChecks": 4,
     "maximumChecksPerRound": 8,
+    "maximumSchedulingAttemptsPerRound": 8,
     "executionClockToleranceSeconds": 2,
     "minimumBalanceTinybar": "500000000"
   },
+  "bindings": {
+    "checkedAt": "2026-09-10T09:10:04.605841+00:00",
+    "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+    "treasury": "0xCFc5923dEf1F25db05FE50754Ef0822175AFD449",
+    "initialDelaySeconds": 90
+  },
+  "productionCanary": {
+    "round": 3,
+    "classification": "Runtime migration canary. It verifies the final scheduler and expanded provenance schema but is not counted as a new upstream-source observation.",
+    "publisherDecisionCode": "NEW_SOFR",
+    "publisherDecisionQualification": "The official SOFR observation was new to the upgraded publisher journal, but its 2026-09-08 effective date was already used in round 2.",
+    "publishedAt": 1789032536,
+    "cleanPriceUsd8": "9999977726",
+    "referenceRateBps": "364",
+    "algorithmVersion": "hybrid-vwap-usd8-v1",
+    "configurationDigest": "0x9ffcde8895f94e77562533e66a4f560df3361b0a20f8f14b652a6f9587ee6891",
+    "sourceMode": "model-dealer-fallback",
+    "dealer": {
+      "address": "0x6ABb1F2376a0D51d9fD54159553A0446614548c3",
+      "classification": "disclosed testnet simulation",
+      "productionEligible": false
+    },
+    "answerTransactions": {
+      "issuer": "0x4a2f74b1b1fcd900569410eacfad6a11ca829244d6e4242328f75638257dc7ce",
+      "seller": "0xb603dab456f57454de57e30828f31848aa130a4ca08fa13706bf89d84ef6ea9b",
+      "buyer": "0x027a6cb726e4a67a8479dea22d62393b36e2203d541e7af432683f0486522237"
+    },
+    "hcsEvidence": {
+      "issuer": {
+        "topicId": "0.0.10450872",
+        "sequenceNumber": 14
+      },
+      "seller": {
+        "topicId": "0.0.10450875",
+        "sequenceNumber": 13
+      },
+      "buyer": {
+        "topicId": "0.0.10450876",
+        "sequenceNumber": 12
+      },
+      "verification": {
+        "currentVerified": 6,
+        "pending": 0,
+        "expired": 0,
+        "invalid": 0,
+        "missingPanelEvidence": 0,
+        "mirrorErrors": 0,
+        "panelErrors": 0
+      }
+    },
+    "schedule": {
+      "scheduleId": "0.0.10456570",
+      "scheduleAddress": "0x00000000000000000000000000000000009f8dfa",
+      "creatorArmTransactionHash": "0xb5b664c11265c81763b74a43e4e003a31ac54dc3a9daa8f55c5688ef3b74605c",
+      "creatorArmTransactionId": "0.0.7314364-1789032444-553687382",
+      "creatorArmGasUsed": "1539279",
+      "creatorArmFeeTinybar": "170859969",
+      "duplicateArmGasUsedEach": "23740",
+      "duplicateArmFeeTinybarEach": "2635140",
+      "duplicateArmTransactions": [
+        "0x0bd76488da8eeb3e831a4dcaaf302629a74bdd74dde0b07531a2c3794ea8a660",
+        "0xd6dafa61a27db83a37947e0c7d1a921baee6a00276bc3fc5a2409521d76a37e8"
+      ]
+    },
+    "scheduledFinalization": {
+      "transactionId": "0.0.7314364-1789032444-553687382",
+      "nonce": 53,
+      "transactionHash": "0x48254ccd947b45a5af7f5702a49741421ee59ef1555ae614b058dd5590ba8f11",
+      "consensusTimestamp": "1789032536.001889355",
+      "gasLimit": "2000000",
+      "gasUsed": "161686",
+      "feeTinybar": "17947146",
+      "result": "SUCCESS"
+    },
+    "cost": {
+      "scope": "Scheduler arm and scheduled finalization only; excludes publisher answers, HCS evidence, and source retrieval.",
+      "directHssPathHbar": "1.88807115",
+      "duplicateArmRaceHbar": "0.05270280",
+      "observedTotalHbar": "1.94077395",
+      "networkConversionUsdPerHbar8": "7626366",
+      "observedTotalUsd": "0.14801",
+      "sixRoundsPerDayUsd": "0.89"
+    }
+  },
+  "officialSourceCanary": {
+    "round": 4,
+    "classification": "Testnet acceptance only: natural NY Fed SOFR change with the explicitly nonproduction simulated dealer fallback.",
+    "trigger": "NEW_SOFR",
+    "sofrEffectiveDate": "2026-09-09",
+    "sofrEffectiveAt": 1788912000,
+    "sofrIdentity": "0xcc527067db37ba76",
+    "publishedAt": 1789051720,
+    "cleanPriceUsd8": "9999976344",
+    "referenceRateBps": "364",
+    "sourceMode": "model-dealer-fallback",
+    "answerTransactions": {
+      "issuer": "0xe59aee0897f8c2ba1304cd844a76d50dee59641ea3ca82e98130035727553671",
+      "seller": "0x23fd6aa3d68dc904ce6eec274c1d6da1174e8ee761be5e045e741a92f246fa87",
+      "buyer": "0x78c705791fd30231d72f615b1592dc6a5558f523d087734cd7d924980693c788"
+    },
+    "hcsEvidence": {
+      "issuer": {
+        "topicId": "0.0.10450872",
+        "sequenceNumber": 18,
+        "configurationDigest": "0x63d5fa00bb8de182415778c25de0dce006cd66f13c23cb269f2ca3c65cb74292",
+        "sourceDigest": "0xd527100380dd467cc5b52ab1e5d600c45129c75f99bf28b1098646e936868c6c"
+      },
+      "seller": {
+        "topicId": "0.0.10450875",
+        "sequenceNumber": 17,
+        "configurationDigest": "0x74cf20f60de70577d49cb5876b17cff2a3bc7a34446d80de8c2fedd1ef3b9710",
+        "sourceDigest": "0x0bb4ac63cdab4fc0025fefc97f6aca3c5aef709712b44d30c66088de02112f3b"
+      },
+      "buyer": {
+        "topicId": "0.0.10450876",
+        "sequenceNumber": 16,
+        "configurationDigest": "0xbfd0b23de9d357541dffe8ca8f9280b12b9e384525fef0819b08793a3535be80",
+        "sourceDigest": "0xd7ee7f97588e36be26cd6d12a4fa39ea45c716c97ed5fb2aab5368635011e64f"
+      },
+      "verification": {
+        "currentVerified": 9,
+        "pending": 0,
+        "expired": 0,
+        "invalid": 0,
+        "missingPanelEvidence": 0,
+        "mirrorErrors": 0,
+        "panelErrors": 0
+      }
+    },
+    "schedule": {
+      "scheduleId": "0.0.10461438",
+      "scheduleAddress": "0x00000000000000000000000000000000009fa0fe",
+      "creatorArmTransactionHash": "0x6ac9805c92afcf68f5c18204b4e26011aab058408cb35522eebe8a53ab085173",
+      "creatorArmTransactionId": "0.0.7314364-1789051626-731884484",
+      "creatorArmGasUsed": "1502279",
+      "creatorArmFeeTinybar": "169757527",
+      "duplicateArmGasUsedEach": "23740",
+      "duplicateArmFeeTinybarEach": "2682620",
+      "duplicateArmTransactions": [
+        "0xa6d530d80d69c9c603a3af439891089eeca5e285e7ae4d26d1786d4007d01639",
+        "0xad5ae0e0915e055eb2b036cae87b37ddf66ae7595249c98bb2ea67e43e899e2c"
+      ]
+    },
+    "scheduledFinalization": {
+      "transactionId": "0.0.7314364-1789051626-731884484",
+      "nonce": 53,
+      "transactionHash": "0x9fb0d37d2ee1ca79552a74eba10770c06f4a5b84af16ae5927c1ed18b348dd75",
+      "consensusTimestamp": "1789051722.077702208",
+      "gasLimit": "2000000",
+      "gasUsed": "162434",
+      "feeTinybar": "18355042",
+      "result": "SUCCESS"
+    },
+    "cost": {
+      "scope": "Scheduler arm and scheduled finalization only; excludes publisher answers, HCS evidence, and source retrieval.",
+      "directHssPathHbar": "1.88112569",
+      "duplicateArmRaceHbar": "0.05365240",
+      "observedTotalHbar": "1.93477809",
+      "networkConversionUsdPerHbar8": "7509000",
+      "observedTotalUsd": "0.14528",
+      "sixRoundsPerDayUsd": "0.87"
+    }
+  },
   "supersedes": [
+    {
+      "schema": "lattice.oracle.scheduler.v1",
+      "deployedAt": "2026-09-10T06:55:17.758180+00:00",
+      "address": "0x6ecdd92a3c8f132694ce5270b7fd6d9f884acb3b",
+      "contractId": "0.0.10454853",
+      "oracle": "0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8",
+      "treasury": "0xcfc5923def1f25db05fe50754ef0822175afd449",
+      "transactionHash": "0xbd4c0a8229ed6fd6d3b280eda92bab4aee0f3119d53ebdeb78d411ecc4c758a9",
+      "decommissionedAt": "2026-09-10T09:07:57+00:00",
+      "decommissionReason": "Replaced by the globally bounded scheduling-attempt implementation.",
+      "fundingRecoveryTransactionHash": "0xb3bf374be2de3624ea268d2b8821a685d157ed71436e716a2eaaafd4e38a474b",
+      "recoveredHbar": "9.8468217",
+      "fundingTransactionHash": "0x609bfceb2e4eb56496f30769562182a996cdc4d34c96cca9387e804ea0dbaccc",
+      "fundedHbar": "10",
+      "runtimeBytecodeHash": "0xb10b868fd2314bb2773258610843e1ac897b70949be10b7c4ce795bddf33d4fd",
+      "immutableMaskedRuntimeBytecodeHash": "0x3833e5b90395a8f42438e451400c6658c8f1dd222e91ecf094488ec3afa00d12",
+      "chainId": 296,
+      "configuration": {
+        "initialDelaySeconds": 90,
+        "retrySeconds": [
+          300,
+          900,
+          3600
+        ],
+        "maximumUnchangedChecks": 4,
+        "maximumChecksPerRound": 8,
+        "executionClockToleranceSeconds": 2,
+        "minimumBalanceTinybar": "500000000"
+      },
+      "acceptance": {
+        "round": 2,
+        "trigger": {
+          "mode": "accelerated-source-driven-keepalive",
+          "acceptanceKeepaliveSeconds": 1,
+          "productionKeepaliveSeconds": 14400,
+          "note": "Only the off-chain publication clock was accelerated. The production valuation adapters, source quorum, HCS-first ordering, and onchain quorum were unchanged; the temporary configuration was removed after this round."
+        },
+        "publishedAt": 1789023569,
+        "cleanPriceUsd8": "9999978373",
+        "referenceRateBps": "364",
+        "answerTransactions": {
+          "issuer": "0xda40c77aea8b393a40884a6a7870ac3c3b7200eecf93cad526bfc1259f4d632b",
+          "seller": "0xfd2bb9401a04b8ae5199c2cfd5ef1d9c94c4165951132547cd82490ded7378a1",
+          "buyer": "0x9701b67cafc8443f93fa4b28a85b499c2857ff20e81f4ce3f94b2611ee86e4ff"
+        },
+        "hcsEvidence": {
+          "issuer": {
+            "topicId": "0.0.10450872",
+            "sequenceNumber": 11
+          },
+          "seller": {
+            "topicId": "0.0.10450875",
+            "sequenceNumber": 10
+          },
+          "buyer": {
+            "topicId": "0.0.10450876",
+            "sequenceNumber": 9
+          },
+          "verifiedCurrentOracleRoundMessages": 3
+        },
+        "schedule": {
+          "scheduleId": "0.0.10454874",
+          "scheduleAddress": "0x00000000000000000000000000000000009F875a",
+          "creatorArmTransactionHash": "0x3e523dba48dc975b8732de3c8bb14c738d7b40e5dea027355ed48b06e5069af5",
+          "creatorArmTransactionId": "0.0.7314364-1789023478-488959014",
+          "creatorArmGasUsed": "1537115",
+          "creatorArmFeeTinybar": "169082650",
+          "duplicateArmGasUsedEach": "23740",
+          "duplicateArmFeeTinybarEach": "2611400",
+          "duplicateArmTransactions": [
+            "0xc8b78f4ef8d172052ebe8d7d776eda9958c50f135cff8490c8a17d036cb0d6d2",
+            "0x624fd99695af7386cbd105e7cb5b4677ab1b3c50fcb220f07ff5a66a02d71967"
+          ]
+        },
+        "scheduledFinalization": {
+          "transactionId": "0.0.7314364-1789023478-488959014",
+          "nonce": 53,
+          "transactionHash": "0x85a835c1d674a4a9c1aa3ed24a6178f5ecd18709f75ecd67bf216a4c8467d0f9",
+          "consensusTimestamp": "1789023571.084162650",
+          "gasLimit": "2000000",
+          "gasUsed": "139253",
+          "feeTinybar": "15317830",
+          "result": "SUCCESS"
+        },
+        "cost": {
+          "scope": "Scheduler arm and scheduled finalization only; excludes publisher answer transactions, HCS evidence, and source retrieval.",
+          "directHssPathHbar": "1.8440048",
+          "duplicateArmRaceHbar": "0.052228",
+          "observedTotalHbar": "1.8962328",
+          "networkConversionUsdPerHbar8": "7708266",
+          "observedTotalUsd": "0.14617",
+          "sixRoundsPerDayUsd": "0.88"
+        }
+      }
+    },
+    {
+      "address": "0xb2896395b7eb36f9bea4e9c4fe5e59dd30f20e6d",
+      "transactionHash": "0x15b4a6d09b5ac9d1d61dce97e9d0fe6ee69fc42d200fb406c1d68832a82d7adf",
+      "reason": "A stale environment override bound this scheduler to the superseded PrimeOracle. Deployment now rejects a target that differs from the current address book.",
+      "fundingRecoveryTransactionHash": "0x99fd6fab20744f07712e228900d0db567c01da83771af6ef8d48c6f01fdb0fab",
+      "recoveredHbar": "9.8467722"
+    },
     {
       "address": "0x1ee298148a9e7825ca919d9983127600a4001736",
       "transactionHash": "0x19ef8d24af6801877e79d3076cbba8ca5e6dbe3c0de4c7e25cb3a8f85bf3bfe2",
@@ -32,6 +300,15 @@
       "transactionHash": "0x2c50ec9ad725c6ec3a1e27a9c807431808ea52a6becafcf297da5b9a78c24d9d",
       "reason": "Testnet showed consensus expiry one second ahead of EVM block time. The strict early check was replaced with a measured two-second tolerance.",
       "unrecoverableTestnetFundingHbar": "19.97166512"
+    }
+  ],
+  "fundingTransactionHash": "0x33cc830984cbf5d19c88a0ebdbf70cd4e1d02af89117e4f5e730d8855c2e156b",
+  "fundedHbar": "10",
+  "fundingTransactions": [
+    {
+      "transactionHash": "0x33cc830984cbf5d19c88a0ebdbf70cd4e1d02af89117e4f5e730d8855c2e156b",
+      "fundedHbar": "10",
+      "recordedAt": "2026-09-10T09:10:21.699205+00:00"
     }
   ]
 }
