@@ -68,8 +68,7 @@ const PRIVATE_ROUTER_ABI = [
     "function activeViewKeyX() view returns (uint256)",
     "function activeViewKeyY() view returns (uint256)",
     "function nullifierSpent(bytes32 nullifier) view returns (bool)",
-];
-const ROW_NAMES = {
+];const ROW_NAMES = {
     3: "Order size",
     4: "Order price",
     5: "Execution price",
@@ -2882,11 +2881,11 @@ Venue.emergencyPrivateReveal = async function () {
     if (action?.dataset.confirm !== "1") {
         if (action) {
             action.dataset.confirm = "1";
-            Venue.paintPrivateRecovery(ticket, phase);
+            Venue.paintPrivateRecovery?.(ticket, phase);
             clearTimeout(Venue._privateRecoveryConfirmTimer);
             Venue._privateRecoveryConfirmTimer = setTimeout(() => {
                 delete action.dataset.confirm;
-                Venue.paintPrivateRecovery(ticket, phase);
+                Venue.paintPrivateRecovery?.(ticket, phase);
             }, 10_000);
         }
         Venue.status(
@@ -3038,6 +3037,13 @@ Venue.boot = async function (page) {
     // window.ethereum. Reconnect without a prompt if this origin is already
     // authorised; eth_accounts asks nothing of the user.
     const injected = Venue.providers[0]?.provider || window.ethereum;
+    const walletReady = (async () => {
+        if (!injected) return;
+        Venue.eth = injected;
+        Venue.bindProviderEvents(injected);
+        const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
+        if (accs?.[0]) await Venue.attachAccount(accs[0]);
+    })();
 
     let wired = null;
     let clocked = false;
@@ -3070,17 +3076,9 @@ Venue.boot = async function (page) {
     Venue.wiringOk = !Venue.wiringErr;
     await Venue.loadPrivateCandidateStatus();
     await Venue.applyPrivateCandidateOverlay();
-    const walletReady = (async () => {
-        if (!injected) return;
-        Venue.eth = injected;
-        Venue.bindProviderEvents(injected);
-        const accs = await injected.request({method: "eth_accounts"}).catch(() => []);
-        if (accs?.[0]) await Venue.attachAccount(accs[0]);
-    })();
-    await Promise.all([
-        Venue.probeFinancing(),
-        walletReady,
-    ]);
+    if (page === "position" || page === "repo") {
+        await Venue.probeFinancing();
+    }
     if (!Venue.account) {
         let saved = null;
         try { saved = sessionStorage.getItem("seamme.watch"); } catch (e) { saved = null; }
@@ -3090,6 +3088,9 @@ Venue.boot = async function (page) {
         }
     }
     if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
+    walletReady.then(async () => {
+        if (Venue.viewer()) await Venue.hydrateTicketVault(Venue.viewer());
+    }).catch(() => {});
     const mount = {
         index: Venue.mountIndex,
         prove: Venue.mountProve,
@@ -3932,8 +3933,16 @@ Venue.startPolling = function () {
     }, 1000);
 };
 
-Venue.tick = async function () {
+Venue.tick = function () {
     if (document.hidden) return;
+    if (Venue._tickFlight) return Venue._tickFlight;
+    Venue._tickFlight = Venue._runTick().finally(() => {
+        Venue._tickFlight = null;
+    });
+    return Venue._tickFlight;
+};
+
+Venue._runTick = async function () {
     try {
         // One wave a tick. The clocks are read alongside the screen rather than
         // before it: a refresh that wanted this tick's round would have had to
@@ -5011,6 +5020,7 @@ Venue.mountTrade = async function () {
     });
     $("market-reload")?.addEventListener("click", () => Venue.refreshMarketTape().catch((e) => Venue.fail(e)));
     $("feed-refresh")?.addEventListener("click", () => Venue.pollOracle());
+    Venue._prefetchHref = "position.html";
     $("order-attention-go")?.addEventListener("click", () => {
         $("active-orders")?.scrollIntoView({behavior: "smooth", block: "start"});
     });
@@ -5511,7 +5521,7 @@ Venue.guidedOrderState = function (o, path = "manual") {
                 (isPrivate ? "private session." : "connected wallet."),
         });
     }
-    const requiredHbar = isPrivate ? funds.privateRequired : funds.manualRequired;
+    const requiredHbar = isPrivate ? funds.privateRequired : (funds.manualRequired ?? funds.totalCash);
     if (availableHbar === undefined || requiredHbar === null) {
         return result({
             mode: "loading",
@@ -5520,14 +5530,16 @@ Venue.guidedOrderState = function (o, path = "manual") {
             blocker: "The HBAR balance and current network fee quote must be confirmed first.",
         });
     }
-    if (availableHbar !== undefined && requiredHbar !== null && availableHbar < requiredHbar) {
+    if (availableHbar < requiredHbar) {
         return result({
             mode: isPrivate ? "session-fund" : "balance",
             label: isPrivate ? "Fund private session" : "Not enough HBAR",
             disabled: !isPrivate,
-            blocker: "Minimum " + readableHbar(requiredHbar) + " HBAR. Shortfall: " +
-                readableHbar(requiredHbar - availableHbar) + " HBAR in the " +
-                (isPrivate ? "private session." : "connected wallet."),
+            blocker: isPrivate
+                ? "Minimum " + readableHbar(requiredHbar) + " HBAR. Shortfall: " +
+                    readableHbar(requiredHbar - availableHbar) + " HBAR in the private session."
+                : "This wallet needs at least " + readableHbar(requiredHbar) +
+                    " HBAR plus network fees. Add HBAR or withdraw available trading credit.",
         });
     }
     if (isPrivate) {
@@ -5638,7 +5650,7 @@ Venue.paintOrderTrack = function () {
     };
     if (deadlineWrap) deadlineWrap.hidden = true;
     if (!ticket) {
-        Venue.paintPrivateRecovery(null, null);
+        Venue.paintPrivateRecovery?.(null, null);
         if (status) status.textContent = "No submitted order";
         if (title) title.textContent = "Start with new order details";
         if (copy) copy.textContent = "Your next order action will appear here.";
@@ -5652,11 +5664,12 @@ Venue.paintOrderTrack = function () {
         revealed: !!ticket.revealed,
     };
     const phase = Venue.ticketPhase(ticket, chain);
-    Venue.paintPrivateRecovery(ticket, phase);
+    Venue.paintPrivateRecovery?.(ticket, phase);
     const automated = ticket.path === "private" || ticket.automaticReveal === true;
+    const immutables = (typeof CLIENT !== "undefined" && CLIENT.immutables) || {};
     const closes = asBig(chain.committedAt || 0)
-        + asBig(CLIENT.immutables.revealDelay)
-        + asBig(CLIENT.immutables.revealWindow);
+        + asBig(immutables.revealDelay || 0)
+        + asBig(immutables.revealWindow || 0);
     if (phase.phase === "cancel") {
         if (status) status.textContent = "Sealed";
         if (title) {
@@ -5674,7 +5687,7 @@ Venue.paintOrderTrack = function () {
             ticketDate(automated && ticket.releaseAt ? ticket.releaseAt : automated ? phase.until : closes),
         );
         return Venue.account
-            ? {mode: "replace-track", label: "Replace order", disabled: false}
+            ? {mode: "cancel-track", label: "Cancel sealed order", disabled: false, danger: true}
             : {mode: "connect", label: "Connect to manage order", disabled: false};
     } else if (phase.phase === "reveal") {
         if (status) status.textContent = automated ? "Auto reveal scheduled" : "Reveal required";
@@ -7120,7 +7133,7 @@ Venue.paintTickets = async function () {
                 nextTitle = "Order complete";
                 nextCopy = "Check inventory and trading credit for the settled outcome and released remainder.";
                 actions = '<button type="button" class="primary" data-act="offset" data-id="' +
-                    esc(t.id) + '">Place opposite order</button><button type="button" data-act="new">Start fresh</button>';
+                    esc(t.id) + '">Place opposite order</button><button type="button" data-act="new">Place another order</button>';
             } else if (pastLast) {
                 tone = "waiting";
                 badge = "Ready to release";

@@ -1123,12 +1123,13 @@ Venue.mountRepo = async function () {
     Venue.paintFinancingGate();
     Venue.paintFinancingEvidence();
     Venue.paintFinanceActivity();
-    await Promise.all([
-        Venue.refreshVault().catch((error) => Venue.financeVaultReadFailed(error)),
-        Venue.pollOracle().catch((error) => Venue.oracleReadFailed(error)),
-        Venue.recoverViewerFinanceHistory().catch(() => []),
-    ]);
+    Venue._prefetchHref = "venue.html";
+    const vault = Venue.refreshVault().catch((error) => Venue.financeVaultReadFailed(error));
+    const oracle = Venue.pollOracle();
+    const history = Venue.recoverViewerFinanceHistory().catch(() => []);
+    await Venue.whenOracleHeadline();
     Venue.discoverRepos().catch(() => {});
+    await Promise.all([vault, oracle, history]);
     Venue.setFinanceUi({booted: true});
 };
 
@@ -3595,7 +3596,7 @@ Venue.validateOracleEvidenceRecord = function (record) {
 Venue.refreshOracleEvidence = async function () {
     const topics = typeof ORACLE_TOPICS === "undefined" ? [] : ORACLE_TOPICS;
     if (!topics.length) {
-        Venue.oracleEvidence = {configured: false, records: [], errors: []};
+        Venue.oracleEvidence = {configured: false, records: [], errors: [], skipped: []};
         return Venue.oracleEvidence;
     }
     const topicRows = await Promise.all(topics.map(async (topic) => {
@@ -3616,7 +3617,12 @@ Venue.refreshOracleEvidence = async function () {
                         !addrEq(record.oracle, CLIENT.addresses.PrimeOracle) ||
                         !addrEq(record.publisher, topic.publisher)
                     ) {
-                        throw new Error("message does not match this deployment and publisher");
+                        return {
+                            topic,
+                            sequence: String(message.sequence_number),
+                            skipped: true,
+                            skipReason: "message does not match this deployment and publisher",
+                        };
                     }
                     Venue.validateOracleEvidenceRecord(record);
                     return {
@@ -3643,6 +3649,7 @@ Venue.refreshOracleEvidence = async function () {
         records: rows.filter((row) => row.record),
         errors: rows.filter((row) => row.error),
         empty: rows.filter((row) => row.empty),
+        skipped: rows.filter((row) => row.skipped),
     };
     return Venue.oracleEvidence;
 };
@@ -3931,6 +3938,7 @@ Venue.paintOracleCountdown = function () {
 Venue.oracleReadFailed = function (error) {
     const message = decodeRevert(error).message;
     Venue.oracleClock = null;
+    Venue.markOracleHeadline?.();
     const failure = $("feed-failure");
     if (failure) {
         failure.hidden = false;
@@ -3991,23 +3999,64 @@ Venue.oracleReadFailed = function (error) {
     Venue.paintOracleImpact([], {rpc: true});
 };
 
-Venue.pollOracle = async function () {
-    try {
-        await Venue.refreshOracle();
-        return true;
-    } catch (error) {
-        Venue.oracleReadFailed(error);
-        return false;
-    } finally {
-        const refreshedAt = Date.now();
-        if (Venue.page === "trade") Venue._tradeOracleAt = refreshedAt;
-        if (Venue.page === "repo") Venue._repoOracleAt = refreshedAt;
-    }
+Venue.markOracleHeadline = function () {
+    Venue._oracleHeadlineAt = Date.now();
+    const waiters = Venue._oracleHeadlineWaiters || [];
+    Venue._oracleHeadlineWaiters = [];
+    for (const resolve of waiters) resolve();
+    Venue.scheduleDeferredPrefetch();
+};
+
+Venue.whenOracleHeadline = function () {
+    if (Venue._oracleHeadlineAt) return Promise.resolve();
+    return new Promise((resolve) => {
+        (Venue._oracleHeadlineWaiters ||= []).push(resolve);
+    });
+};
+
+Venue.scheduleDeferredPrefetch = function () {
+    if (Venue._prefetchScheduled || !Venue._prefetchHref) return;
+    Venue._prefetchScheduled = true;
+    const href = Venue._prefetchHref;
+    const start = () => {
+        if (typeof document === "undefined" || !document.head) return;
+        if (document.querySelector('link[data-oracle-prefetch="1"]')) return;
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = href;
+        link.setAttribute("data-oracle-prefetch", "1");
+        document.head.appendChild(link);
+    };
+    if (typeof requestIdleCallback === "function") requestIdleCallback(start);
+    else setTimeout(start, 1);
+};
+
+Venue.pollOracle = function () {
+    if (Venue._oracleFlight) return Venue._oracleFlight;
+    const flight = (async () => {
+        try {
+            await Venue.refreshOracle();
+            return true;
+        } catch (error) {
+            Venue.oracleReadFailed(error);
+            return false;
+        } finally {
+            const refreshedAt = Date.now();
+            if (Venue.page === "trade") Venue._tradeOracleAt = refreshedAt;
+            if (Venue.page === "repo") Venue._repoOracleAt = refreshedAt;
+            if (Venue._oracleFlight === flight) Venue._oracleFlight = null;
+        }
+    })();
+    Venue._oracleFlight = flight;
+    return flight;
 };
 
 Venue.refreshOracle = async function () {
     const box = $("feed-box");
-    if (!box) return;
+    if (!box) {
+        Venue.markOracleHeadline();
+        return;
+    }
     const {oracle, watch} = Venue.c;
     if (!oracle) {
         Venue.oracleReadFailed(new Error(
@@ -4017,6 +4066,7 @@ Venue.refreshOracle = async function () {
             $("feed-state").textContent = "PrimeOracle not configured";
             $("feed-state").className = "feed-state bad";
         }
+        Venue.markOracleHeadline();
         return;
     }
 
@@ -4036,21 +4086,84 @@ Venue.refreshOracle = async function () {
         }],
         empty: [],
     }));
-    const [
-        f,
-        panel,
-        quorum,
-        heartbeat,
-        cashHeartbeat,
-        dev,
-        round,
-        openRound,
-        cash,
-        evidence,
-        scheduler,
-    ] =
-        await Promise.all([
-            watch.feed(),
+    const put = (id, v, cls) => {
+        const el = $(id);
+        if (!el) return;
+        el.innerHTML = v;
+        if (cls !== undefined) {
+            el.className = id === "feed-state"
+                ? "feed-state " + cls
+                : "v " + cls;
+        }
+    };
+    let f;
+    try {
+        f = await watch.feed();
+    } catch (error) {
+        Venue.markOracleHeadline();
+        throw error;
+    }
+
+    const dark = !!f.dark;
+    const publishedAt = Number(asBig(f.publishedAt));
+    const age = publishedAt > 0
+        ? Number(nowSec() > asBig(f.publishedAt)
+            ? nowSec() - asBig(f.publishedAt)
+            : 0n)
+        : null;
+    const published = publishedAt > 0
+        ? new Date(publishedAt * 1000)
+            .toISOString().replace("T", " ").slice(0, 19) + "Z"
+        : null;
+    const valuationUnavailable = dark || asBig(f.cleanPrice) === 0n;
+    let stateLabel;
+    if (f.ourLegDark && f.cashLegDark) {
+        stateLabel = Venue.page === "trade"
+            ? "Panel and HBAR rate stale"
+            : "panel and HBAR rate stale";
+    } else if (f.ourLegDark) {
+        stateLabel = Venue.page === "trade" ? "Panel stale" : "panel stale";
+    } else if (f.cashLegDark) {
+        stateLabel = Venue.page === "trade" ? "HBAR rate stale" : "HBAR rate stale";
+    } else {
+        stateLabel = Venue.page === "trade" ? "Live" : "live";
+    }
+    put("feed-state", stateLabel, dark ? "bad" : "ok");
+    put("feed-price", valuationUnavailable ? "Unavailable"
+        : esc(formatPrice(asBig(f.cleanPrice))) +
+            (Venue.page === "trade" ? "" : " USD"),
+    valuationUnavailable ? "bad" : "ok");
+    put("feed-rate", valuationUnavailable
+        ? "Unavailable"
+        : String(f.refRateBps) + (Venue.page === "trade" ? "" : " bps"),
+    valuationUnavailable ? "bad" : "ok");
+    put("feed-age", age === null
+        ? "Last finalized time unavailable"
+        : "Finalized " + published + " · " + fmtRemain(age) + " ago",
+    age === null ? "bad" : dark ? "bad" : "ok");
+    box.classList.toggle("is-unavailable", dark);
+    box.hidden = false;
+    Venue.markOracleHeadline();
+
+    let panel;
+    let quorum;
+    let heartbeat;
+    let cashHeartbeat;
+    let dev;
+    let round;
+    let openRound;
+    let cash;
+    try {
+        [
+            panel,
+            quorum,
+            heartbeat,
+            cashHeartbeat,
+            dev,
+            round,
+            openRound,
+            cash,
+        ] = await Promise.all([
             oracle.publishers(),
             oracle.quorum(),
             oracle.heartbeat(),
@@ -4059,9 +4172,14 @@ Venue.refreshOracle = async function () {
             oracle.lastRound(),
             oracle.openRound(),
             oracle.cashLeg(),
-            evidenceRead,
-            schedulerRead,
         ]);
+    } catch {
+        put("feed-open", "Panel details unavailable", "bad");
+        put("feed-quorum", "Panel details unavailable", "bad");
+        put("feed-heartbeat", "Panel details unavailable", "bad");
+        put("feed-evidence", "Evidence details unavailable", "bad");
+        return;
+    }
     const [finalizedPanelRead, openPanelRead] = await Promise.allSettled([
         oracle.panelOf(round),
         oracle.panelOf(openRound),
@@ -4078,47 +4196,11 @@ Venue.refreshOracle = async function () {
     const openPanelError = openPanelRead.status === "rejected"
         ? decodeRevert(openPanelRead.reason).message
         : null;
-
-    const dark = !!f.dark;
-    const publishedAt = Number(asBig(f.publishedAt));
-    const age = publishedAt > 0
-        ? Number(nowSec() > asBig(f.publishedAt)
-            ? nowSec() - asBig(f.publishedAt)
-            : 0n)
-        : null;
-    const published = publishedAt > 0
-        ? new Date(publishedAt * 1000)
-            .toISOString().replace("T", " ").slice(0, 19) + "Z"
-        : null;
-    const put = (id, v, cls) => {
-        const el = $(id);
-        if (!el) return;
-        el.innerHTML = v;
-        if (cls !== undefined) {
-            el.className = id === "feed-state"
-                ? "feed-state " + cls
-                : "v " + cls;
-        }
-    };
-
-    let stateLabel;
-    if (f.ourLegDark && f.cashLegDark) {
-        stateLabel = Venue.page === "trade"
-            ? "Panel and HBAR rate stale"
-            : "panel and HBAR rate stale";
-    } else if (f.ourLegDark) {
-        stateLabel = Venue.page === "trade" ? "Panel stale" : "panel stale";
-    } else if (f.cashLegDark) {
-        stateLabel = Venue.page === "trade" ? "HBAR rate stale" : "HBAR rate stale";
-    } else {
-        stateLabel = Venue.page === "trade" ? "Live" : "live";
-    }
     if (openPanelError) {
         stateLabel += Venue.page === "trade"
             ? ", panel read failed"
             : "; panel read failed";
     }
-    const valuationUnavailable = dark || asBig(f.cleanPrice) === 0n;
     const markUnavailable = dark || asBig(f.markPerUnitTinybar) === 0n;
     put("feed-state", stateLabel, dark || openPanelError ? "bad" : "ok");
     put("feed-price", valuationUnavailable ? "Unavailable"
@@ -4136,10 +4218,7 @@ Venue.refreshOracle = async function () {
     openPanelError || openAnswers.length < Number(quorum) ? "bad" : "ok");
     put("feed-age", age === null
         ? "Last finalized time unavailable"
-        : Venue.page === "repo"
-            ? '<span class="fin-health-value">' + esc(published) + '</span>' +
-              '<span class="fin-health-meta">' + esc(fmtRemain(age) + " ago") + "</span>"
-            : "Finalized " + published + " · " + fmtRemain(age) + " ago",
+        : "Finalized " + published + " · " + fmtRemain(age) + " ago",
     age === null ? "bad" : dark ? "bad" : "ok");
     put("feed-ourleg",
         Venue.page === "trade" ? (f.ourLegDark ? "stale" : "live") : (f.ourLegDark ? "dark" : "live"),
@@ -4165,6 +4244,29 @@ Venue.refreshOracle = async function () {
             esc(shortAddr(f.cashFeed)) + "</a>"
         : "not seated");
 
+    let evidence;
+    let scheduler;
+    try {
+        [evidence, scheduler] = await Promise.all([evidenceRead, schedulerRead]);
+    } catch (error) {
+        evidence = {
+            configured: true,
+            records: [],
+            errors: [{
+                topic: {profile: "all topics"},
+                error: error.message || String(error),
+                fetchError: true,
+            }],
+            empty: [],
+        };
+        scheduler = {
+            status: "rpc-failed",
+            error: decodeRevert(error).message,
+            events: [],
+        };
+        put("feed-evidence", "Evidence details unavailable", "bad");
+    }
+
     const evidenceView = Venue.classifyOracleEvidence({
         evidence,
         round,
@@ -4184,7 +4286,7 @@ Venue.refreshOracle = async function () {
     const newestAnswerClaim = evidenceView.answerRows[0] || null;
     const sourceDescriptions = {
         "qualified-market": "Qualified Hedera auction plus fixed-point model",
-        "model-dealer-fallback": "SOFR model plus disclosed testnet dealer simulation",
+        "model-dealer-fallback": "SOFR model plus signed dealer quote",
         "market-only": "Qualified Hedera auction",
     };
     const sourceRow = newestVerifiedAnswer || newestAnswerClaim;
@@ -4355,6 +4457,9 @@ Venue.refreshOracle = async function () {
                 parts.push("No current answer or status sequence");
             }
             if (evidence.errors.length) {
+                if ((evidence.errors || []).some((row) => row.fetchError)) {
+                    parts.unshift("Evidence details unavailable");
+                }
                 parts.push("Evidence failures: " + evidence.errors.map((row) =>
                     row.topic?.profile + (row.sequence ? " #" + row.sequence : "") +
                     ": " + row.error).join("; "));
@@ -4383,6 +4488,15 @@ Venue.refreshOracle = async function () {
             !answered.has(String(publisher).toLowerCase()))
         : [];
     const failureParts = [];
+    const quoteUnreadable = !!(f.ourLegDark || f.cashLegDark ||
+        openPanelError || finalizedPanelError);
+    const healthyStatusCodes = new Set(["NOT_DUE", "ALREADY_ANSWERED"]);
+    const blockingCodes = [...new Set(
+        evidenceView.freshStatuses
+            .map((row) => row.record.code)
+            .filter((code) => !healthyStatusCodes.has(code)),
+    )];
+    const fetchErrors = (evidence.errors || []).filter((row) => row.fetchError);
     if (f.ourLegDark) {
         const expiredAt = asBig(f.publishedAt) > 0n
             ? new Date((Number(f.publishedAt) + Number(heartbeat)) * 1000).toISOString()
@@ -4416,53 +4530,16 @@ Venue.refreshOracle = async function () {
         failureParts.push("Finalized panel read failed: " + finalizedPanelError +
             ". HCS provenance cannot be verified.");
     }
-    for (const row of evidenceView.freshStatuses) {
-        const divergence = row.record.hbarDivergenceBps != null
-            ? " Reported divergence " + row.record.hbarDivergenceBps + " bps."
-            : "";
-        failureParts.push(
-            Venue.oracleStatusLabel(row.record.code) + " [" + row.record.code +
-            "] from " + row.topic.profile + ": " +
-            Venue.oracleStatusMessage(row.record.code) + divergence +
-            " This publisher status is HCS evidence only and is not an EVM answer."
-        );
+    if (quoteUnreadable && blockingCodes.length) {
+        failureParts.push("Publishers withheld: " + blockingCodes.join(", ") + ".");
     }
-    if (evidenceView.staleStatuses.length) {
-        failureParts.push(
-            "Stale publisher status rejected: " +
-            evidenceView.staleStatuses.map((row) =>
-                row.topic.profile + " [" + row.record.code + "]").join(", ") + "."
-        );
-    }
-    if (evidence.errors.length) {
+    if (quoteUnreadable && fetchErrors.length) {
         failureParts.push("HCS evidence missing or failed: " +
-            evidence.errors.map((row) =>
+            fetchErrors.map((row) =>
                 row.topic?.profile + ": " + row.error).join("; ") + ".");
     }
-    if (asBig(round) > 0n && evidence.configured && !verifiedEvidenceQuorum) {
-        failureParts.push(
-            "Current HCS provenance is not verified to publisher quorum against the finalized EVM panel."
-        );
-    } else if (asBig(round) > 0n && evidence.configured && !verifiedProvenanceQuorum) {
-        failureParts.push(
-            "Current EVM-matched HCS evidence predates source timestamp and identity commitments."
-        );
-    }
-    if (scheduler.status === "not-deployed") {
-        failureParts.push("Scheduler not deployed.");
-    } else if (scheduler.status === "deployment-missing") {
-        failureParts.push("Scheduler deployment is missing at its configured address.");
-    } else if (scheduler.status === "rpc-failed") {
+    if (quoteUnreadable && scheduler.status === "rpc-failed") {
         failureParts.push("Scheduler RPC failure: " + scheduler.error + ".");
-    } else if (scheduler.status === "binding-failed") {
-        failureParts.push("Scheduler binding failure: " +
-            scheduler.bindingIssues.join("; ") + ".");
-    } else if (scheduler.latestProblem) {
-        const exactReason = Venue.schedulerEventReason(scheduler.latestProblem);
-        if (!exactReason.includes("STOP_FINALIZED")) {
-            failureParts.push("Latest scheduler failure or stop: " +
-                exactReason + ".");
-        }
     }
     const failure = $("feed-failure");
     if (failure) {

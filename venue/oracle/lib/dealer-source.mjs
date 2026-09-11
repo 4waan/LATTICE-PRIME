@@ -1,7 +1,10 @@
 import {
+    Signature,
     getAddress,
     isAddress,
     isHexString,
+    keccak256,
+    toUtf8Bytes,
     verifyTypedData,
 } from "ethers";
 import {readFile} from "node:fs/promises";
@@ -24,6 +27,44 @@ export class DealerQuoteError extends Error {
         super(message);
         this.name = "DealerQuoteError";
         this.code = code;
+    }
+}
+
+export const SIGNED_DEALER_SOURCE = "signed-dealer";
+export const MAX_DEALER_RESPONSE_BYTES = 64 * 1024;
+
+export function dealerFetchPolicy(options = {}, env = process.env) {
+    const production = options.production ?? env.NODE_ENV === "production";
+    return {
+        production,
+        allowFileEndpoints: options.allowFileEndpoints === true,
+        timeoutMs: options.timeoutMs ?? 10_000,
+        authorization: options.authorization ?? env.ORACLE_DEALER_AUTHORIZATION ?? null,
+    };
+}
+
+export function assertDealerEndpoint(endpoint, policy) {
+    const url = String(endpoint ?? "");
+    if (policy.production) {
+        if (!url.startsWith("https://")) {
+            throw new DealerQuoteError(
+                "INSECURE_ENDPOINT",
+                "production dealer endpoints must use HTTPS",
+            );
+        }
+        return;
+    }
+    if (url.startsWith("file:")) {
+        if (!policy.allowFileEndpoints) {
+            throw new DealerQuoteError(
+                "FILE_ENDPOINT_FORBIDDEN",
+                "file dealer endpoints are limited to explicit tests",
+            );
+        }
+        return;
+    }
+    if (!url.startsWith("https://") && !url.startsWith("http://")) {
+        throw new DealerQuoteError("BAD_ENDPOINT", "dealer endpoint must be HTTP(S) or a test file URL");
     }
 }
 
@@ -70,6 +111,31 @@ function normalizedMessage(raw, instrument) {
     return message;
 }
 
+function dealerQuoteDigest(domain, message, signer, signature) {
+    const canonical = JSON.stringify({
+        schema: "lattice-prime-dealer-quote-v1",
+        domain: {
+            name: domain.name,
+            version: domain.version,
+            chainId: String(domain.chainId),
+            verifyingContract: domain.verifyingContract.toLowerCase(),
+        },
+        primaryType: "DealerQuote",
+        fields: DEALER_QUOTE_TYPES.DealerQuote,
+        message: {
+            instrument: message.instrument.toLowerCase(),
+            cleanPriceUsd8: message.cleanPriceUsd8.toString(),
+            effectiveAt: message.effectiveAt.toString(),
+            expiresAt: message.expiresAt.toString(),
+            nonce: message.nonce,
+            sourceHash: message.sourceHash,
+        },
+        signer: signer.toLowerCase(),
+        signature,
+    });
+    return keccak256(toUtf8Bytes(canonical));
+}
+
 export function verifyDealerQuote(raw, {
     chainId,
     oracle,
@@ -94,13 +160,16 @@ export function verifyDealerQuote(raw, {
         throw new DealerQuoteError("NO_SIGNATURE", "dealer quote has no signature");
     }
 
+    const domain = dealerDomain({chainId, oracle});
     let signer;
+    let signature;
     try {
+        signature = Signature.from(raw.signature).serialized.toLowerCase();
         signer = getAddress(verifyTypedData(
-            dealerDomain({chainId, oracle}),
+            domain,
             DEALER_QUOTE_TYPES,
             message,
-            raw.signature,
+            signature,
         ));
     } catch (error) {
         throw new DealerQuoteError("BAD_SIGNATURE", `dealer signature is invalid: ${error.message}`);
@@ -111,32 +180,123 @@ export function verifyDealerQuote(raw, {
     }
 
     return {
-        source: raw.source ?? "signed-dealer",
+        source: SIGNED_DEALER_SOURCE,
         signer,
+        instrument: message.instrument,
         cleanPriceUsd8: message.cleanPriceUsd8,
         effectiveAt: Number(message.effectiveAt),
         expiresAt: Number(message.expiresAt),
         nonce: message.nonce,
-        sourceDigest: message.sourceHash,
-        signature: raw.signature,
+        sourceHash: message.sourceHash,
+        sourceDigest: dealerQuoteDigest(domain, message, signer, signature),
+        signature,
     };
+}
+
+function headerValue(headers, name) {
+    if (!headers) return null;
+    if (typeof headers.get === "function") return headers.get(name);
+    return headers[name] ?? headers[name.toLowerCase()] ?? null;
+}
+
+function classifyFetchError(error) {
+    const name = error?.name ?? "";
+    const message = String(error?.message ?? error);
+    if (name === "TimeoutError" || name === "AbortError" || /timeout|aborted/i.test(message)) {
+        return new DealerQuoteError("TIMEOUT", "dealer endpoint timed out");
+    }
+    if (/redirect/i.test(message)) {
+        return new DealerQuoteError("REDIRECT", "dealer endpoint must not redirect");
+    }
+    if (error instanceof DealerQuoteError) return error;
+    return new DealerQuoteError("UNREACHABLE", message);
+}
+
+async function readDealerPayload(response) {
+    const contentType = String(headerValue(response.headers, "content-type") ?? "");
+    if (!contentType.toLowerCase().includes("application/json")) {
+        throw new DealerQuoteError("BAD_CONTENT_TYPE", "dealer response must be JSON");
+    }
+    const declared = headerValue(response.headers, "content-length");
+    if (declared != null && declared !== "") {
+        const length = Number(declared);
+        if (!Number.isFinite(length) || length > MAX_DEALER_RESPONSE_BYTES) {
+            throw new DealerQuoteError("RESPONSE_TOO_LARGE", "dealer response exceeds 64 KiB");
+        }
+    }
+    if (response.body && typeof response.body.getReader === "function") {
+        const reader = response.body.getReader();
+        const chunks = [];
+        let total = 0;
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+            total += bytes.byteLength;
+            if (total > MAX_DEALER_RESPONSE_BYTES) {
+                try { await reader.cancel(); } catch { /* already over the bound */ }
+                throw new DealerQuoteError("RESPONSE_TOO_LARGE", "dealer response exceeds 64 KiB");
+            }
+            chunks.push(bytes);
+        }
+        const body = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+        try {
+            return JSON.parse(body.toString("utf8"));
+        } catch {
+            throw new DealerQuoteError("MALFORMED_JSON", "dealer response is not valid JSON");
+        }
+    }
+    const text = typeof response.text === "function"
+        ? await response.text()
+        : JSON.stringify(await response.json());
+    if (Buffer.byteLength(text, "utf8") > MAX_DEALER_RESPONSE_BYTES) {
+        throw new DealerQuoteError("RESPONSE_TOO_LARGE", "dealer response exceeds 64 KiB");
+    }
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new DealerQuoteError("MALFORMED_JSON", "dealer response is not valid JSON");
+    }
 }
 
 export async function fetchDealerQuotes(endpoints, options = {}) {
     const accepted = [];
     const rejected = [];
+    const policy = dealerFetchPolicy(options);
     for (const endpoint of endpoints ?? []) {
         try {
+            assertDealerEndpoint(endpoint, policy);
             let payload;
             if (String(endpoint).startsWith("file:")) {
-                payload = JSON.parse(await readFile(fileURLToPath(endpoint), "utf8"));
+                try {
+                    payload = JSON.parse(await readFile(fileURLToPath(endpoint), "utf8"));
+                } catch (error) {
+                    if (error instanceof SyntaxError) {
+                        throw new DealerQuoteError("MALFORMED_JSON", "dealer response is not valid JSON");
+                    }
+                    throw error;
+                }
             } else {
-                const response = await (options.fetchImpl ?? fetch)(endpoint, {
-                    headers: {accept: "application/json"},
-                    signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                payload = await response.json();
+                const headers = {accept: "application/json"};
+                if (policy.authorization) headers.authorization = policy.authorization;
+                let response;
+                const ac = new AbortController();
+                const timer = setTimeout(() => ac.abort(), policy.timeoutMs);
+                try {
+                    response = await (options.fetchImpl ?? fetch)(endpoint, {
+                        headers,
+                        redirect: "error",
+                        signal: ac.signal,
+                    });
+                } catch (error) {
+                    throw classifyFetchError(error);
+                } finally {
+                    clearTimeout(timer);
+                }
+                if (!response.ok) {
+                    throw new DealerQuoteError("HTTP_ERROR", `HTTP ${response.status}`);
+                }
+                payload = await readDealerPayload(response);
             }
             const quotes = Array.isArray(payload) ? payload : [payload];
             for (const quote of quotes) {
@@ -147,7 +307,11 @@ export async function fetchDealerQuotes(endpoints, options = {}) {
                 }
             }
         } catch (error) {
-            rejected.push({endpoint, code: "UNREACHABLE", message: error.message});
+            rejected.push({
+                endpoint,
+                code: error.code ?? "UNREACHABLE",
+                message: error.message,
+            });
         }
     }
     return {accepted, rejected};

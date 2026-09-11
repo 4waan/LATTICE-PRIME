@@ -8,7 +8,12 @@ import {
     printToUsd8,
     weightedMedian,
 } from "../lib/fixed.mjs";
-import {aggregateHybrid, valueFloatingRateBond} from "../lib/valuation.mjs";
+import {
+    MARKET_VWAP_ROUNDING,
+    aggregateHybrid,
+    valueFloatingRateBond,
+    volumeWeightedMarketMark,
+} from "../lib/valuation.mjs";
 
 test("decimal parsing rounds once at the requested scale", () => {
     assert.equal(parseDecimal("3.64", 2), 364n);
@@ -30,6 +35,42 @@ test("median rules match the oracle and weighted median resists a small outlier"
 test("twice-tinybar auction prices convert without losing a half tinybar", () => {
     assert.equal(printToUsd8(200_000_000n, 8_000_000n), 8_000_000n);
     assert.equal(printToUsd8(255_176_901n, 8_000_000n), 10_207_076n);
+});
+
+test("market VWAP is exact until one nearest ties-up rounding operation", () => {
+    assert.equal(volumeWeightedMarketMark([
+        {value: 100n, weight: 2n},
+        {value: 101n, weight: 1n},
+    ]), 100n);
+    assert.equal(volumeWeightedMarketMark([
+        {value: 100n, weight: 1n},
+        {value: 101n, weight: 1n},
+    ]), 101n);
+    assert.equal(volumeWeightedMarketMark([
+        {value: (1n << 128n) - 2n, weight: 1n << 96n},
+        {value: (1n << 128n) - 1n, weight: 1n << 96n},
+    ]), (1n << 128n) - 1n);
+});
+
+test("market volume qualifies exactly at the configured boundary", () => {
+    const atBoundary = aggregateHybrid({
+        prints: [{priceUsd8: 10_000_000_000n, volume: 25n}],
+        referenceRateBps: 364n,
+        minimumMarketVolume: 25n,
+        requireCrossCheck: false,
+    });
+    assert.equal(atBoundary.ok, true);
+    assert.equal(atBoundary.mode, "market-only");
+    assert.equal(atBoundary.marketRounding, MARKET_VWAP_ROUNDING);
+
+    const belowBoundary = aggregateHybrid({
+        prints: [{priceUsd8: 10_000_000_000n, volume: 24n}],
+        referenceRateBps: 364n,
+        minimumMarketVolume: 25n,
+        requireCrossCheck: false,
+    });
+    assert.equal(belowBoundary.ok, false);
+    assert.equal(belowBoundary.code, "SOURCE_QUORUM");
 });
 
 test("floating-rate model stays near par when coupon and discount margins match", () => {
@@ -110,8 +151,9 @@ test("qualified market price must agree with its fallback cross-check", () => {
     });
     assert.equal(accepted.ok, true);
     assert.equal(accepted.mode, "qualified-market");
-    assert.equal(accepted.cleanPriceUsd8, 10_000_000_000n);
+    assert.equal(accepted.cleanPriceUsd8, 10_002_000_000n);
     assert.deepEqual(accepted.crossCheckSources, ["model"]);
+    assert.equal(accepted.marketRounding, MARKET_VWAP_ROUNDING);
 
     const rejected = aggregateHybrid({
         prints: [{priceUsd8: 100_000_000n, volume: 100n}],

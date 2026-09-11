@@ -30,7 +30,7 @@
   --held:#ffcf72; --held-wash:#2a2210;
 }
 
-html{min-height:100%;color-scheme:light}
+html{min-height:100%;color-scheme:light;overflow-x:clip}
 :root[data-theme="dark"]{color-scheme:dark}
 /* Author `display` on buttons beats the UA [hidden] rule. Clock and modal
    already special-case this, so one rule covers the rest. */
@@ -1709,17 +1709,16 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .market-session i{padding:0 .16rem;color:var(--faint);font-style:normal}
 
 .market-oracle{
-  display:grid;grid-template-columns:auto minmax(22rem,1fr) auto;
-  align-items:center;gap:0;margin:.75rem 0;padding:.85rem .95rem;
+  display:grid;grid-template-columns:minmax(13rem,1fr) minmax(18rem,1.25fr) auto;
+  align-items:stretch;gap:0;margin:.75rem 0;padding:.72rem .8rem;
   border-radius:13px;overflow:visible;box-shadow:none;
 }
 .oracle-summary{
-  min-width:0;display:flex;flex-direction:column;justify-content:center;padding:.15rem 1rem .15rem .1rem;
+  min-width:0;display:flex;flex-direction:column;justify-content:center;padding:.2rem .8rem .2rem .1rem;
 }
-.oracle-label-row{justify-content:flex-start;gap:.65rem;margin:0}
-.oracle-label-row h2{font-size:1.28rem;line-height:1.15;letter-spacing:-.03em}
-.market-oracle .feed-state{padding:.16rem .48rem;font-size:.62rem}
-.market-oracle .feed-state.ok{
+.oracle-label-row{justify-content:flex-start;gap:.55rem;margin:0}
+.oracle-label-row h2{font-size:1rem;line-height:1.1;letter-spacing:-.025em}
+.market-oracle .feed-state{padding:.14rem .42rem;font-size:.56rem}.market-oracle .feed-state.ok{
   background:var(--market-blue-soft);color:var(--market-blue);
 }
 .market-oracle .feed-state.bad{
@@ -1732,13 +1731,11 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   min-width:0;padding:.25rem .8rem;border:0;border-left:1px solid var(--rule);
   display:flex;flex-direction:column;justify-content:center;gap:.02rem;
 }
-.oracle-quote > span{color:var(--slate);font-size:.68rem;font-weight:650}
-.oracle-quote strong{font-size:1.42rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.oracle-quote small{font-size:.58rem}
-.oracle-summary .note{display:none}
-.oracle-details-body .note{margin:0 0 .65rem;font-size:.68rem;line-height:1.45}
-.oracle-details-body .note:empty,.oracle-details-body .note[hidden]{display:none}
-@media(prefers-reduced-motion:no-preference){
+.oracle-quote > span{color:var(--slate);font-size:.58rem;font-weight:650}
+.oracle-quote strong{font-size:.82rem;line-height:1.25}
+.oracle-quote small{font-size:.53rem}
+.oracle-summary .note{margin:.3rem 0 0;font-size:.62rem}
+.oracle-summary .note:empty{display:none}@media(prefers-reduced-motion:no-preference){
   .market-oracle .feed-state.ok{animation:oracle-live-pulse 2.4s ease-in-out infinite}
   @keyframes oracle-live-pulse{
     0%,100%{opacity:.78;box-shadow:0 0 0 0 color-mix(in srgb,var(--market-blue) 0%,transparent)}
@@ -2145,8 +2142,7 @@ body[data-screen="trade"] .clock-inline.open .clocks{
   .market-session{align-items:flex-start;text-align:left}
   .market-session > span:last-child{display:block}
   .market-oracle{grid-template-columns:minmax(0,1fr) auto;padding:.65rem}
-  .oracle-summary{padding:.1rem .4rem .2rem 0}
-  .oracle-values{grid-template-columns:1fr 1fr}
+  .oracle-summary{padding:.1rem .4rem .35rem 0}  .oracle-values{grid-template-columns:1fr 1fr}
   .oracle-quote{padding:.35rem .45rem}
   .oracle-values .oracle-quote:first-child{border-left:0}
   .oracle-details > summary{padding:0 .25rem;font-size:.55rem}
@@ -2182,15 +2178,10 @@ body[data-screen="trade"] .clock-inline.open .clocks{
 .markets-page .account-grant,
 .markets-page .privacy-chip,
 .markets-page .draft-state{font-size:.65rem}
-.markets-page .oracle-label-row h2{font-size:1.38rem}
-.markets-page .market-oracle .feed-state{font-size:.64rem}
-.markets-page .oracle-quote > span{font-size:.72rem}
-.markets-page .oracle-quote strong{font-size:1.55rem}
-@media(max-width:520px){
-  .markets-page .oracle-label-row h2{font-size:1.12rem}
-  .markets-page .oracle-quote strong{font-size:1.15rem}
-}
-.markets-page .oracle-secondary-values span,
+.markets-page .oracle-label-row h2{font-size:1.02rem}
+.markets-page .market-oracle .feed-state{font-size:.59rem}
+.markets-page .oracle-quote > span{font-size:.66rem}
+.markets-page .oracle-quote strong{font-size:.84rem}.markets-page .oracle-secondary-values span,
 .markets-page .oracle-secondary-values small{font-size:.63rem}
 .markets-page .oracle-secondary-values strong{font-size:.76rem}
 .markets-page .oracle-details > summary{font-size:.68rem}
