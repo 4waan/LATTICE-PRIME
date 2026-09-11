@@ -1,6 +1,8 @@
 import {Contract, JsonRpcProvider, Transaction, ZeroAddress} from "ethers";
+import {createServer} from "node:http";
 import {existsSync, readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
+import {publisherHealth} from "./healthcheck.mjs";
 import {loadOracleConfig, loadPublisherIdentity} from "./lib/config.mjs";
 import {
     QUALITY_FLAGS,
@@ -38,6 +40,77 @@ function json(value) {
 
 function output(type, fields = {}) {
     console.log(json({at: new Date().toISOString(), type, ...fields}));
+}
+
+export function attachPublisherShutdown(proc = process, {deadlineMs = 10_000} = {}) {
+    let stopping = false;
+    let wake = () => {};
+    const wait = (ms) => new Promise((resolve) => {
+        const timer = setTimeout(resolve, ms);
+        wake = () => {
+            clearTimeout(timer);
+            resolve();
+        };
+    });
+    const stop = () => {
+        stopping = true;
+        wake();
+        const timer = setTimeout(() => {
+            proc.exit(0);
+        }, deadlineMs);
+        timer.unref?.();
+    };
+    proc.on("SIGINT", stop);
+    proc.on("SIGTERM", stop);
+    return {
+        isStopping: () => stopping,
+        wait,
+        stop,
+    };
+}
+
+export function startPublisherHealthServer({
+    config,
+    env = process.env,
+    identity = null,
+    create = createServer,
+} = {}) {
+    const port = Number(env.PORT ?? env.ORACLE_HEALTH_PORT ?? 8080);
+    const server = create((req, res) => {
+        const path = String(req.url ?? "").split("?")[0];
+        if (req.method !== "GET" || path !== "/healthz") {
+            res.writeHead(404);
+            res.end();
+            return;
+        }
+        let result;
+        try {
+            result = publisherHealth({config, env});
+        } catch {
+            result = {
+                ok: false,
+                status: "stalled",
+                publisher: identity?.profile ?? env.ORACLE_PUBLISHER_ID ?? null,
+                lastLoopAt: null,
+                lastConfirmedRound: null,
+                pending: null,
+            };
+        }
+        const body = JSON.stringify({
+            status: result.ok ? "ok" : result.status,
+            publisher: result.publisher ?? identity?.profile ?? null,
+            lastLoopAt: result.lastLoopAt ?? null,
+            lastConfirmedRound: result.lastConfirmedRound ?? null,
+            pending: result.pending ?? null,
+        });
+        res.writeHead(result.ok ? 200 : 503, {
+            "content-type": "application/json",
+            "cache-control": "no-store",
+        });
+        res.end(body);
+    });
+    server.listen(port, "0.0.0.0");
+    return server;
 }
 
 export function assertSchedulerOracle(expected, actual, source = "scheduler") {
@@ -1386,9 +1459,8 @@ async function main() {
     const once = args.includes("--once") || args.includes("--one-shot");
     const intervalMs = Math.max(5, Number(value("--interval", config.pollSeconds ?? 15))) * 1000;
 
-    let stopping = false;
-    process.on("SIGINT", () => { stopping = true; });
-    process.on("SIGTERM", () => { stopping = true; });
+    const shutdown = attachPublisherShutdown();
+    const healthServer = startPublisherHealthServer({config, identity});
     do {
         try {
             const currentDeployment = readDeployment().client;
@@ -1439,10 +1511,11 @@ async function main() {
                 break;
             }
         }
-        if (!once && !stopping) {
-            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        if (!once && !shutdown.isStopping()) {
+            await shutdown.wait(intervalMs);
         }
-    } while (!once && !stopping);
+    } while (!once && !shutdown.isStopping());
+    await new Promise((resolve) => healthServer.close(resolve));
     provider.destroy();
 }
 

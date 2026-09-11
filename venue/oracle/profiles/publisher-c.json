@@ -1,7 +1,7 @@
 {
   "network": "hedera-testnet",
   "chainId": 296,
-  "sourceProfile": "publisher-a-primary",
+  "sourceProfile": "publisher-c-primary",
   "pollSeconds": 300,
   "publishMoveBps": 25,
   "keepaliveSeconds": 14400,

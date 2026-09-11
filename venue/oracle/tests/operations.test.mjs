@@ -11,9 +11,13 @@ function text(path) {
     return readFileSync(path, "utf8");
 }
 
-test("publisher packaging supplies its configured portable dealer quote", () => {
+test("publisher packaging uses one HTTPS dealer endpoint and isolated keys", () => {
     const config = JSON.parse(text(join(oracleRoot, "config.example.json")));
-    assert.deepEqual(config.dealers.endpoints, ["file:///dealer/quote.json"]);
+    assert.deepEqual(config.dealers.endpoints, [
+        "https://dealer.example/lattice-prime-quote",
+    ]);
+    assert.equal(config.pollSeconds, 300);
+    assert.equal(config.keepaliveSeconds, 14400);
 
     const compose = text(join(oracleRoot, "packaging", "compose.example.yaml"));
     for (const profile of ["publisher-a", "publisher-b", "publisher-c"]) {
@@ -21,13 +25,23 @@ test("publisher packaging supplies its configured portable dealer quote", () => 
             compose,
             new RegExp(`\\.\\./profiles/${profile}\\.json:/config/oracle\\.json:ro`),
         );
-        assert.match(
-            compose,
-            new RegExp(`\\.\\./quotes/${profile}:/dealer:ro`),
-        );
     }
     assert.equal((compose.match(/:\/config\/oracle\.json:ro/g) ?? []).length, 3);
-    assert.equal((compose.match(/:\/dealer:ro/g) ?? []).length, 3);
+    assert.doesNotMatch(compose, /:\/dealer:ro/);
+    assert.doesNotMatch(compose, /quotes\//);
+
+    const profiles = ["publisher-a", "publisher-b", "publisher-c"].map((name) => {
+        const body = JSON.parse(text(join(oracleRoot, "profiles", `${name}.json`)));
+        return {name, profile: body.sourceProfile, endpoints: body.dealers.endpoints};
+    });
+    assert.deepEqual(profiles.map((row) => row.profile), [
+        "publisher-a-primary",
+        "publisher-b-primary",
+        "publisher-c-primary",
+    ]);
+    for (const row of profiles) {
+        assert.deepEqual(row.endpoints, ["https://dealer.example/lattice-prime-quote"]);
+    }
 
     const publisherEnvironment = text(
         join(oracleRoot, "packaging", "publisher.env.example"),
@@ -36,6 +50,48 @@ test("publisher packaging supplies its configured portable dealer quote", () => 
         /^([A-Z0-9_]*(?:PRIVATE_KEY|MNEMONIC|SECRET))=/gm,
     )].map((match) => match[1]);
     assert.deepEqual(secretNames, ["ORACLE_PUBLISHER_PRIVATE_KEY"]);
+    assert.match(publisherEnvironment, /ORACLE_DEALER_ENDPOINT=https:\/\/dealer\.example/);
+    assert.doesNotMatch(publisherEnvironment, /ORACLE_PUBLISHER_2_PRIVATE_KEY/);
+
+    assert.match(compose, /user: "node"/);
+    assert.match(compose, /read_only: true/);
+
+    const dockerfile = text(join(oracleRoot, "packaging", "Dockerfile.publisher"));
+    assert.match(dockerfile, /^USER node$/m);
+    assert.match(dockerfile, /ORACLE_STATE_ROOT=\/state/);
+    assert.match(dockerfile, /\/healthz/);
+    assert.match(dockerfile, /chown -R node:node \/state/);
+    assert.match(dockerfile, /chmod -R a-w \/srv\/venue\/oracle/);
+
+    const flyApps = [];
+    const publisherIds = [];
+    const sourceProfiles = [];
+    for (const name of ["publisher-a", "publisher-b", "publisher-c"]) {
+        const fly = text(join(oracleRoot, "packaging", `fly.${name}.toml`));
+        assert.match(fly, new RegExp(`app = "lattice-oracle-${name}"`));
+        assert.match(fly, new RegExp(`ORACLE_PUBLISHER_ID = "${name}"`));
+        assert.match(fly, new RegExp(`ORACLE_SOURCE_PROFILE = "${name}-primary"`));
+        assert.match(fly, /auto_stop_machines = "off"/);
+        assert.match(fly, /auto_start_machines = true/);
+        assert.match(fly, /min_machines_running = 1/);
+        assert.match(fly, /memory = "512mb"/);
+        assert.match(fly, /destination = "\/state"/);
+        assert.match(fly, /initial_size = "1gb"/);
+        assert.match(fly, /snapshot_retention = 14/);
+        assert.match(fly, /path = "\/healthz"/);
+        assert.match(fly, /policy = "always"/);
+        assert.doesNotMatch(fly, /PRIVATE_KEY/);
+        flyApps.push(fly);
+        publisherIds.push(fly.match(/ORACLE_PUBLISHER_ID = "([^"]+)"/)[1]);
+        sourceProfiles.push(fly.match(/ORACLE_SOURCE_PROFILE = "([^"]+)"/)[1]);
+    }
+    assert.equal(new Set(flyApps).size, 3);
+    assert.deepEqual(publisherIds, ["publisher-a", "publisher-b", "publisher-c"]);
+    assert.deepEqual(sourceProfiles, [
+        "publisher-a-primary",
+        "publisher-b-primary",
+        "publisher-c-primary",
+    ]);
 });
 
 test("live scripts keep raw keys out of process arguments", () => {

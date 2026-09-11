@@ -23,28 +23,75 @@ export function healthMaximumAgeSeconds(config, env = process.env) {
     return Math.ceil(Math.max(configured, pollSeconds * POLL_INTERVAL_ALLOWANCE));
 }
 
+function coarsePending(record, kind = "answer") {
+    if (!record) return null;
+    return {
+        kind,
+        status: record.status ?? null,
+    };
+}
+
 export function publisherHealth({config, env = process.env, now = Date.now()}) {
     const profile = env.ORACLE_PUBLISHER_ID;
     const root = resolve(env.ORACLE_STATE_ROOT ?? `oracle/state/${profile ?? ""}`);
     const path = join(root, "journal.json");
+    const base = {
+        ok: false,
+        status: "stalled",
+        message: "publisher journal is missing",
+        publisher: profile ?? null,
+        lastLoopAt: null,
+        lastConfirmedRound: null,
+        pending: null,
+    };
     if (!profile || !existsSync(path)) {
-        return {ok: false, message: "publisher journal is missing"};
+        return base;
     }
     let journal;
     try {
         journal = JSON.parse(readFileSync(path, "utf8"));
     } catch {
-        return {ok: false, message: "publisher journal is unreadable"};
+        return {...base, message: "publisher journal is unreadable"};
     }
+    const pending = coarsePending(journal.pending) ??
+        coarsePending(journal.pendingStatus, "status");
+    const current = {
+        ...base,
+        lastLoopAt: journal.updatedAt ?? null,
+        lastConfirmedRound: journal.lastConfirmedRound ?? null,
+        pending,
+    };
     const updatedAt = Date.parse(journal.updatedAt);
     const maximumAgeMs = healthMaximumAgeSeconds(config, env) * 1000;
     if (!Number.isFinite(updatedAt) || now - updatedAt > maximumAgeMs) {
-        return {ok: false, message: "publisher journal has stopped advancing"};
+        return {
+            ...current,
+            message: "publisher journal has stopped advancing",
+        };
     }
     if (journal.pending?.status === "FAILED") {
-        return {ok: false, message: "publisher has a terminal transaction failure"};
+        return {
+            ...current,
+            message: "publisher has a terminal transaction failure",
+        };
     }
-    return {ok: true, message: "publisher process is advancing"};
+    const windowSeconds = Number(config.evidence?.maximumBroadcastDelaySeconds ?? 600);
+    const started = Date.parse(journal.pending?.preparedAt);
+    const inFlight = ["PREPARED", "EVIDENCE_PENDING", "EVIDENCED", "BROADCAST"]
+        .includes(journal.pending?.status);
+    if (inFlight && Number.isFinite(started) && now - started > windowSeconds * 1000) {
+        return {
+            ...current,
+            status: "recovery-overdue",
+            message: "prepared transaction exceeded the broadcast window",
+        };
+    }
+    return {
+        ...current,
+        ok: true,
+        status: "ok",
+        message: "publisher process is advancing",
+    };
 }
 
 function main() {

@@ -30,7 +30,7 @@
   --held:#ffcf72; --held-wash:#2a2210;
 }
 
-html{min-height:100%;color-scheme:light}
+html{min-height:100%;color-scheme:light;overflow-x:clip}
 :root[data-theme="dark"]{color-scheme:dark}
 /* Author `display` on buttons beats the UA [hidden] rule. Clock and modal
    already special-case this, so one rule covers the rest. */
