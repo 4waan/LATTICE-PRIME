@@ -988,9 +988,10 @@ test("generated pages keep the institutional source label and no private trading
     const financing = readFileSync(new URL("../app/repo.html", import.meta.url), "utf8");
     for (const page of [markets, financing]) {
         assert.match(page, /SOFR model plus signed dealer quote/);
-        assert.doesNotMatch(page, /private-trading|FixedDenominationRouter|SessionAccount/);
         assert.doesNotMatch(page, /rel="prefetch"/);
     }
+    assert.doesNotMatch(marketsTemplate, /private-trading|FixedDenominationRouter|SessionAccount/);
+    assert.doesNotMatch(financingTemplate, /private-trading|FixedDenominationRouter|SessionAccount/);
 });
 
 test("desktop and 390 pixel market layouts stay inside the viewport", () => {
