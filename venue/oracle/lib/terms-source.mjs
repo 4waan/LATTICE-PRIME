@@ -1,7 +1,22 @@
-import {Contract, JsonRpcProvider, keccak256, toUtf8Bytes} from "ethers";
+import {Contract, JsonRpcProvider, ZeroAddress, getAddress, isAddress, keccak256, toUtf8Bytes} from "ethers";
 import {readFileSync} from "node:fs";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
+
+function requiredAddress(value, label) {
+    if (!isAddress(value) || getAddress(value) === ZeroAddress) {
+        throw new Error(`deployment is missing ${label}`);
+    }
+    return getAddress(value);
+}
+
+function requiredUint(value, label) {
+    try {
+        return BigInt(value);
+    } catch {
+        throw new Error(`${label} is malformed`);
+    }
+}
 
 const ORACLE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const VENUE_ROOT = join(ORACLE_ROOT, "..");
@@ -21,16 +36,24 @@ export async function readInstrumentTerms({
     root = VENUE_ROOT,
     provider = null,
     rpcUrl = null,
+    client: clientOverride = null,
+    scheduleContract = null,
+    oracleContract = null,
 } = {}) {
-    const {client, scheduleAbi, oracleAbi} = readDeployment(root);
+    const {client: deployed, scheduleAbi, oracleAbi} = readDeployment(root);
+    const client = clientOverride ?? deployed;
     const chainId = Number(client.network.chainId);
+    const oracleAddress = requiredAddress(client.addresses.PrimeOracle, "PrimeOracle");
+    const instrument = requiredAddress(client.addresses.token, "token");
+    const scheduleAddress = requiredAddress(client.addresses.CouponSchedule, "CouponSchedule");
+    const engine = requiredAddress(client.addresses.MatchingEngine, "MatchingEngine");
     const reader = provider ?? new JsonRpcProvider(
         rpcUrl ?? client.network.rpc,
         chainId,
         {staticNetwork: true, batchMaxCount: 20},
     );
-    const schedule = new Contract(client.addresses.CouponSchedule, scheduleAbi, reader);
-    const oracle = new Contract(client.addresses.PrimeOracle, oracleAbi, reader);
+    const schedule = scheduleContract ?? new Contract(scheduleAddress, scheduleAbi, reader);
+    const oracle = oracleContract ?? new Contract(oracleAddress, oracleAbi, reader);
     const [issuedAt, dates, spreadBps, faceValue, basis, cash] = await Promise.all([
         schedule.issuedAt(),
         schedule.dates(),
@@ -40,25 +63,26 @@ export async function readInstrumentTerms({
         oracle.cashLeg(),
     ]);
     if (Number(basis) !== 1) throw new Error(`unsupported coupon basis ${basis}`);
-    if (!cash.ok || BigInt(cash.usdPerHbar) === 0n) {
+    const usdPerHbar8 = requiredUint(cash?.usdPerHbar, "usdPerHbar");
+    if (!cash?.ok || usdPerHbar8 === 0n) {
         throw new Error("the seated HBAR/USD conversion is unavailable");
     }
 
     const terms = {
         chainId,
-        oracle: client.addresses.PrimeOracle,
-        instrument: client.addresses.token,
-        schedule: client.addresses.CouponSchedule,
-        issuedAt: Number(issuedAt),
-        dates: [...dates].map(Number),
-        spreadBps: BigInt(spreadBps),
-        faceValue: BigInt(faceValue),
+        oracle: oracleAddress,
+        instrument,
+        schedule: scheduleAddress,
+        issuedAt: Number(requiredUint(issuedAt, "issuedAt")),
+        dates: [...dates].map((value) => Number(requiredUint(value, "coupon date"))),
+        spreadBps: requiredUint(spreadBps, "spreadBps"),
+        faceValue: requiredUint(faceValue, "faceValue"),
         cashDecimals: Number(client.coupon?.cashToken?.decimals ?? 2),
-        usdPerHbar8: BigInt(cash.usdPerHbar),
+        usdPerHbar8,
         hbarRateUpdatedAt: Number(cash.updatedAt),
         mirrorUrl: client.network.mirror,
         rpcUrl: rpcUrl ?? client.network.rpc,
-        engine: client.addresses.MatchingEngine,
+        engine,
     };
     const canonical = JSON.stringify({
         chainId: terms.chainId,

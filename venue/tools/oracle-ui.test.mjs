@@ -86,6 +86,9 @@ function harness({now = 10_000, topics = [], schedulerRecord = null} = {}) {
         navigator: {clipboard: {writeText: async () => {}}},
         document: {execCommand: () => false},
         setTimeout: () => {},
+        Date,
+        fetch: async () => ({ok: true, json: async () => ({})}),
+        AbortController,
         ethers,
         atob,
         TextDecoder,
@@ -890,4 +893,110 @@ test("Markets and Financing refresh every 30 seconds without reloading", async (
         await Venue.tick();
         assert.equal(polls, 1);
     }
+});
+
+test("core price renders before delayed evidence and failed Mirror", async () => {
+    const h = harness();
+    let releaseEvidence;
+    installOracle(h, {
+        evidence: baseEvidence(),
+        finalizedAnswers: [
+            {price: 10_000_000_000n, rate: 364n, by: PUBLISHER_A},
+            {price: 10_000_000_000n, rate: 364n, by: PUBLISHER_B},
+        ],
+    });
+    h.Venue.refreshOracleEvidence = () => new Promise((resolve) => {
+        releaseEvidence = resolve;
+    });
+    const pending = h.Venue.refreshOracle();
+    for (let i = 0; i < 20 && !/10000000000/.test(h.element("feed-price").innerHTML); i++) {
+        await Promise.resolve();
+    }
+    assert.notEqual(h.element("feed-price").innerHTML, "Loading");
+    assert.notEqual(h.element("feed-price").innerHTML, "Unavailable");
+    assert.match(h.element("feed-price").innerHTML, /10000000000/);
+    releaseEvidence({
+        configured: true,
+        records: [],
+        errors: [{topic: {profile: "issuer"}, error: "timed out", fetchError: true}],
+        empty: [],
+    });
+    await pending;
+    assert.match(h.element("feed-price").innerHTML, /10000000000/);
+    assert.match(h.element("feed-evidence").innerHTML, /Evidence details unavailable/);
+});
+
+test("oracle polling is single-flight and manual refresh joins the in-flight read", async () => {
+    const h = harness();
+    let started = 0;
+    let release;
+    h.Venue.refreshOracle = () => {
+        started += 1;
+        return new Promise((resolve) => { release = resolve; });
+    };
+    const first = h.Venue.pollOracle();
+    const second = h.Venue.pollOracle();
+    assert.equal(first, second);
+    assert.equal(started, 1);
+    release();
+    assert.equal(await first, true);
+    assert.equal(await second, true);
+});
+
+test("wallet discovery is not awaited before public boot and financing probe is page scoped", () => {
+    const boot = runtime.slice(
+        runtime.indexOf("Venue.boot = async function"),
+        runtime.indexOf("\nVenue.block = function"),
+    );
+    assert.match(boot, /page === "position" \|\| page === "repo"/);
+    assert.match(boot, /await Venue.probeFinancing\(\)/);
+    assert.doesNotMatch(boot, /await walletReady/);
+    assert.match(runtime, /const ORACLE_REFRESH_MS = 30_000;/);
+});
+
+test("Financing starts vault and oracle together and defers prefetch", () => {
+    const mount = source.slice(
+        source.indexOf("Venue.mountRepo = async function"),
+        source.indexOf("\nVenue.paintFinancingEvidence = function"),
+    );
+    assert.match(mount, /Venue.refreshVault\(\)/);
+    assert.match(mount, /Venue.pollOracle\(\)/);
+    assert.match(mount, /await Venue.whenOracleHeadline\(\)/);
+    assert.match(mount, /Venue.discoverRepos/);
+    assert.match(source, /requestIdleCallback/);
+    assert.doesNotMatch(marketsTemplate, /rel="prefetch"/);
+    assert.doesNotMatch(financingTemplate, /rel="prefetch"/);
+    assert.match(source, /SOFR model plus signed dealer quote/);
+    assert.doesNotMatch(source, /disclosed testnet dealer simulation/);
+});
+
+test("Vercel responses add browser hardening headers without a CSP rewrite", () => {
+    const vercel = readFileSync(new URL("../../vercel.json", import.meta.url), "utf8");
+    assert.match(vercel, /X-Content-Type-Options/);
+    assert.match(vercel, /nosniff/);
+    assert.match(vercel, /Referrer-Policy/);
+    assert.match(vercel, /no-referrer/);
+    assert.match(vercel, /X-Frame-Options/);
+    assert.match(vercel, /DENY/);
+    assert.match(vercel, /Permissions-Policy/);
+    assert.match(vercel, /camera=\(\), microphone=\(\), geolocation=\(\)/);
+    assert.doesNotMatch(vercel, /Content-Security-Policy/);
+});
+
+test("generated pages keep the institutional source label and no private trading markup", () => {
+    const markets = readFileSync(new URL("../app/trade.html", import.meta.url), "utf8");
+    const financing = readFileSync(new URL("../app/repo.html", import.meta.url), "utf8");
+    for (const page of [markets, financing]) {
+        assert.match(page, /SOFR model plus signed dealer quote/);
+        assert.doesNotMatch(page, /private-trading|FixedDenominationRouter|SessionAccount/);
+        assert.doesNotMatch(page, /rel="prefetch"/);
+    }
+});
+
+test("desktop and 390 pixel market layouts stay inside the viewport", () => {
+    const css = readFileSync(new URL("../app/app.css", import.meta.url), "utf8");
+    assert.match(css, /html\{[^}]*overflow-x:clip/);
+    assert.match(css, /@media\(max-width:520px\)/);
+    assert.match(css, /\.market-oracle\{grid-template-columns:minmax\(0,1fr\) auto/);
+    assert.match(marketsTemplate, /class="market-oracle"/);
 });

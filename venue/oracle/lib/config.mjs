@@ -65,6 +65,27 @@ export function loadOracleConfig(path = process.env.ORACLE_CONFIG ?? "oracle/con
             "sourceProfile must be a safe nonempty identifier",
         );
     }
+    config.dealers = config.dealers ?? {};
+    if (process.env.ORACLE_DEALER_ENDPOINT) {
+        config.dealers.endpoints = [process.env.ORACLE_DEALER_ENDPOINT];
+    }
+    if (process.env.ORACLE_DEALER_ADDRESSES) {
+        config.dealers.allowedAddresses = process.env.ORACLE_DEALER_ADDRESSES
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+    }
+    const production = process.env.NODE_ENV === "production" || config.dealers.production === true;
+    if (production) {
+        for (const endpoint of config.dealers.endpoints ?? []) {
+            if (!String(endpoint).startsWith("https://")) {
+                throw new OracleConfigError(
+                    "INSECURE_DEALER_ENDPOINT",
+                    "production dealer endpoints must use HTTPS",
+                );
+            }
+        }
+    }
     return config;
 }
 

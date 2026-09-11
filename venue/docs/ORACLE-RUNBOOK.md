@@ -42,12 +42,13 @@ reusing the previous price or weakening the source count.
 Copy `oracle/config.example.json` to the ignored `oracle/config.json`. Configure
 dealer endpoints, dealer addresses, market cross-check, and quality limits.
 
-For containers, make one config per publisher under `oracle/profiles/` and one
-read-only quote mount under `oracle/quotes/<publisher>/`. Give every config a
-distinct `sourceProfile` and, where providers exist, a separately operated RPC,
-Mirror Node, and dealer delivery path. The source profile is committed into the
-configuration and aggregate source digests. The Compose example uses distinct
-config and dealer mount paths for each process.
+For containers, make one config per publisher under `oracle/profiles/`. Give
+every config a distinct `sourceProfile` and, where providers exist, a separately
+operated RPC, Mirror Node, and dealer delivery path. The source profile is
+committed into the configuration and aggregate source digests. The Compose
+example uses distinct config paths for each process. Production dealer quotes
+arrive over HTTPS from the institutional endpoint. File quote mounts stay
+available only for explicit local tests.
 
 Create three secret files from
 `oracle/packaging/publisher.env.example`. Each file uses the same generic
@@ -86,6 +87,22 @@ Start all three isolated containers:
 docker compose -f oracle/packaging/compose.example.yaml up -d
 ```
 
+Persistent hosting uses one Fly app per publisher so each process sees only its
+own key. The checked-in Fly files are
+`oracle/packaging/fly.publisher-a.toml`,
+`oracle/packaging/fly.publisher-b.toml`, and
+`oracle/packaging/fly.publisher-c.toml`. Each app has one always-on Machine,
+automatic stopping disabled, a 512 MB VM, a 1 GB encrypted `/state` volume with
+fourteen day snapshot retention, and a read-only `/healthz` check. Deploy each
+app from the repository root so the Dockerfile copy paths resolve. Install
+secrets per app. Do not put more than one publisher key in any shared file or
+image. Stop local publisher copies of those keys before starting the Fly apps.
+
+Watch `/healthz` from an external checker as well as the Fly HTTP check. Alert
+when the status is not HTTP 200. A failing Fly health check does not by itself
+restart the Machine. Keep the always-on restart policy and the stalled-worker
+alert.
+
 Each answer is signed before broadcast so its EVM transaction hash is known.
 The process writes a durable `PREPARED` journal, waits for the HCS evidence
 receipt, marks the entry `EVIDENCED`, then broadcasts the exact signed
@@ -104,16 +121,15 @@ node oracle/sign-dealer-quote.mjs \
   --output dealer-quote.json
 ```
 
-Add the dealer address to `dealers.allowedAddresses`. Serve the quote through
-HTTPS or mount it read-only and configure a `file:///quotes/dealer-quote.json`
+Add the dealer address to `dealers.allowedAddresses` or
+`ORACLE_DEALER_ADDRESSES`. Serve the quote from the institutional HTTPS
 endpoint. Quotes are bound to chain 296, the deployed oracle, the bond address,
-an expiry, a nonce, and the source packet hash.
+an expiry, a nonce, and the source packet hash. The unsigned `source` label is
+not used for identity or authorization. The recovered signer is.
 
-The current Hedera testnet fallback uses a dedicated signer at
-`0x6ABb1F2376a0D51d9fD54159553A0446614548c3`. Its source packet and UI label it
-as a testnet simulation with `productionEligible: false`. It is isolated from
-the publisher keys and synthetic trading bots, but it is not an institutional
-dealer. Replace it with an externally operated endpoint before production.
+The signing utility is for tests and institutional onboarding. Do not run it as
+a production daemon. Historical scheduler and canary records that name the
+earlier testnet simulation remain accurate for those rounds.
 
 ## HSS finalization
 
