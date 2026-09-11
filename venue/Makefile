@@ -10,7 +10,7 @@ PTAU      := $(TOOLCHAIN)/ptau/powersOfTau28_hez_final_15.ptau
 NODE      := . $$HOME/.nvm/nvm.sh && nvm use 22.21.1 >/dev/null &&
 ORACLE_PROFILE ?= issuer
 
-.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat oracle-test oracle-dry-run oracle-publisher oracle-topic oracle-evidence-verify oracle-health oracle-acceptance oracle-acceptance-finalize oracle-scheduler oracle-image agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
+.PHONY: all build test sizes circuit fixtures prove-live verifier clean report census rulebook vectors pages app local-app private-browser private-test private-service-image private-canary client prove-live-epoch beat coupon-cash hcs-topic hcs-relay hcs-verify financing-beat oracle-test oracle-dry-run oracle-publisher oracle-topic oracle-evidence-verify oracle-health oracle-acceptance oracle-acceptance-finalize oracle-scheduler oracle-image agent-bootstrap agent-model agent-formal agent-test agent-proof agent-worker agent-worker-test agent-e2e agent-launch agent-phase2-plan agent-phase2-live agent-phase2-pause-live agent-phase3-local agent-evm-verifier-build agent-evm-verifier-live
 
 all: build census circuit verifier fixtures pages app test report
 
@@ -119,8 +119,39 @@ pages: vectors
 # builds offline. `make client` is what regenerates those off chain 296, and it
 # is deliberately not a prerequisite: rebuilding the UI must never be able to
 # move the address book underneath it.
-app: vectors
-	$(NODE) node --test tools/ticket-vault.test.mjs tools/venue-obs.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
+private-browser:
+	$(NODE) node --test tools/private-trading-browser.test.mjs
+	$(NODE) node tools/build-private-trading-browser.mjs
+
+private-test: private-browser
+	$(NODE) node --test tools/timed-ticket.test.mjs tools/private-zk.test.mjs tools/private-session-vault.test.mjs tools/private-secret-vault.test.mjs tools/private-release.test.mjs tools/private-canary-evidence.test.mjs tools/private-canary-runner.test.mjs
+	$(NODE) node --test agent/tests/timed-ticket-custody.test.mjs agent/tests/private-trading-adapters.test.mjs agent/tests/private-session-registration.test.mjs agent/tests/private-session-recovery.test.mjs agent/tests/private-trading-http.test.mjs
+	forge test --match-path 'test/Session*.t.sol'
+	forge test --match-path 'test/DualRegistrationGate.t.sol'
+	forge test --match-path 'test/FixedDenominationRouter.t.sol'
+
+private-service-image:
+	docker build -f agent/packaging/Dockerfile.private-trading \
+		-t lattice-private-trading:1 ..
+
+# Guarded private-trading candidate. Default `plan` reads and validates; it sends
+# nothing. `canary-plan` checks a recorded candidate without transactions.
+# `canary-run` requires the acknowledgement string and dedicated keys, and still
+# writes only under `out/private-trading`.
+#
+#   make private-canary
+#   make private-canary MODE=canary-plan
+private-canary:
+	bash script/live/private-trading-canary.sh $(or $(MODE),plan)
+
+# Same-origin Markets server on 127.0.0.1:8765. Serves venue/app and forwards
+# /api/private to the durable worker so browser fetches stay same-origin.
+local-app:
+	$(NODE) node --test tools/local-app-gateway.test.mjs tools/private-candidate-overlay.test.mjs
+	PRIVATE_TRADING_ALLOWED_ORIGIN=http://127.0.0.1:8765 $(NODE) node tools/local-app-gateway.mjs
+
+app: vectors private-browser
+	$(NODE) node --test tools/ticket-vault.test.mjs tools/private-session-vault.test.mjs tools/private-secret-vault.test.mjs tools/private-zk.test.mjs tools/private-release.test.mjs tools/private-candidate-overlay.test.mjs tools/local-app-gateway.test.mjs tools/venue-obs.test.mjs tools/oracle-ui.test.mjs tools/financing-ui.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/issuer-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
 	$(NODE) node --test ../api/eligibility/register.test.mjs
 	$(NODE) node tools/gen-app.mjs
 

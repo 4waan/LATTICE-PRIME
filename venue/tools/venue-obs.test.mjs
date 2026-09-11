@@ -418,7 +418,7 @@ test("a moved valuation is refused before collateral approval", async () => {
         throw new Error("approval must not be reached");
     };
 
-    await assert.rejects(Venue.doAcceptOffer(), /valuation moved/);
+    await assert.rejects(Venue.doAcceptOffer(), /live quote is 11 HBAR; funded principal is 10 HBAR/);
     assert.equal(Venue.repoActionPending, false);
 });
 

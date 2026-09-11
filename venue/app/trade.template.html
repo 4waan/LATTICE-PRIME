@@ -254,6 +254,21 @@ document.documentElement.setAttribute("data-theme",
             <p id="future-obligation-copy">Reveal timing will appear here.</p>
           </div>
 
+          <div class="review-path-actions" aria-label="Choose how to place this order">
+            <button type="button" class="wallet-btn" id="commit-auto">⚡️ Shielded Order</button>
+            <button type="button" class="trade-path manual-path" id="commit-manual">🔒 Sealed Order</button>
+          </div>
+
+          <details class="review-detail path-privacy-detail">
+            <summary>Compare privacy, setup, and fees</summary>
+            <div class="review-detail-body path-comparison">
+              <p><strong>Private + automatic</strong> is routed pseudonymous execution. A ZK proof avoids publishing a direct wallet-to-session link, while public records can group orders from the same rotating session. An authorized compliance viewer can map that session to the regulated credential.</p>
+              <p><strong>Direct manual</strong> uses this connected wallet on chain. A buy needs two wallet approvals; a sell needs three. Side, price, and quantity become public at reveal on either path.</p>
+              <p>Public deposits, withdrawals, timing, uncommon denominations, low traffic, IP metadata, analytics, and relayer reuse can still create correlations.</p>
+              <p id="path-privacy-copy">Private setup and routing costs are quoted separately from recurring order fees.</p>
+            </div>
+          </details>
+
           <div id="hold-field" class="hold-option" hidden>
             <div>
               <strong id="hold-label">Sell inventory</strong>
@@ -300,14 +315,18 @@ document.documentElement.setAttribute("data-theme",
             <strong id="track-status-title">Reading order status</strong>
             <p id="track-status-copy">Your order remains sealed.</p>
           </div>
-          <div class="track-deadline">
-            <span>Personal deadline</span>
+          <div class="track-deadline" id="track-deadline-wrap" hidden>
+            <span id="track-deadline-label">Reveal by</span>
             <strong id="track-deadline">Loading</strong>
           </div>
           <details class="review-detail">
             <summary>Changing or recovering this order</summary>
             <div class="review-detail-body">
               <p>Placed price and quantity are immutable. Before reveal, cancel and create a new order to change them. A compatible LPRC reservation can be reused.</p>
+              <div id="private-recovery-wrap" hidden>
+                <p id="private-recovery-copy">Automatic reveal is the privacy-preserving path. Emergency reveal from this wallet is a fallback that publicly links this wallet to the private session.</p>
+                <button type="button" id="private-recovery-action">Emergency wallet reveal</button>
+              </div>
             </div>
           </details>
         </section>
@@ -421,6 +440,52 @@ document.documentElement.setAttribute("data-theme",
   </section>
 </main>
 
+<div class="modal private-setup-modal" id="private-setup-modal" hidden>
+  <div class="modal-scrim" data-private-close></div>
+  <div class="modal-card private-setup-card" role="dialog" aria-modal="true" aria-labelledby="private-setup-title" aria-describedby="private-setup-copy">
+    <button type="button" class="modal-x" data-private-close aria-label="Close private trading setup">&times;</button>
+    <span class="section-kicker">Private + automatic</span>
+    <h2 id="private-setup-title">Set up rotating session</h2>
+    <p class="sub" id="private-setup-copy">The browser creates the session keys and proofs locally. The platform relays registration and automatic reveal.</p>
+    <div class="private-setup-progress" id="private-setup-progress" role="status">
+      <div><span>1</span><strong>Credential</strong><small id="private-step-credential">Checking device</small></div>
+      <div><span>2</span><strong>Session</strong><small id="private-step-session">Not started</small></div>
+      <div><span>3</span><strong>Funding</strong><small id="private-step-funding">Not funded</small></div>
+    </div>
+    <label class="private-credential-input" id="private-credential-wrap">
+      <span>Holder credential</span>
+      <input id="private-credential-file" type="file" accept="application/json,.json">
+      <strong>Choose credential</strong>
+      <small>Imported once, then encrypted in device storage.</small>
+    </label>
+    <div class="private-session-balances">
+      <div><span>Session HBAR</span><strong class="num" id="private-session-hbar">Unavailable</strong></div>
+      <div><span>Session LPRC</span><strong class="num" id="private-session-lprc">Unavailable</strong></div>
+    </div>
+    <div class="status" id="private-setup-status" role="status" aria-live="polite"></div>
+    <details class="review-detail private-session-management" id="private-session-management" hidden>
+      <summary>Session rotation and recovery</summary>
+      <div class="review-detail-body">
+        <p id="private-session-management-copy">Rotation creates a fresh public session after active orders and trading credit are settled. Fixed-pool recovery can still be correlated by timing and low traffic.</p>
+        <button type="button" id="private-session-rotate">Checking rotation safety</button>
+        <div class="private-session-history" id="private-session-history"></div>
+      </div>
+    </details>
+    <details class="review-detail">
+      <summary>Privacy limits and recovery</summary>
+      <div class="review-detail-body">
+        <p>Deposits, withdrawals, timing, amount, IP metadata, and low traffic can still correlate the wallet and rotating session. The route is pseudonymous, not invisible on HashScan.</p>
+        <p>The authorized compliance view maps the regulated credential to this session. It never receives the timed reveal key or sealed order terms.</p>
+        <p>Session keys, credential material, routing notes, and manual recovery data stay encrypted on this device. Export remains optional.</p>
+      </div>
+    </details>
+    <div class="private-setup-actions">
+      <button type="button" data-private-close>Close</button>
+      <button type="button" class="primary" id="private-setup-action">Continue setup</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal withdraw-modal" id="withdraw-modal" hidden>
   <div class="modal-scrim" data-withdraw-close></div>
   <div class="modal-card withdraw-modal-card" role="dialog" aria-modal="true" aria-labelledby="withdraw-modal-title" aria-describedby="withdraw-modal-copy">
@@ -455,6 +520,9 @@ document.documentElement.setAttribute("data-theme",
 /*INLINE tools/lattice.mjs*/
 /*INLINE tools/client-bundle.mjs*/
 /*INLINE tools/ticket-vault.mjs*/
+/*INLINE tools/private-session-vault.mjs*/
+/*INLINE tools/private-secret-vault.mjs*/
+/*INLINE app/private-trading-crypto.bundle.mjs*/
 /*INLINE tools/venue-app.mjs*/
 /*INLINE tools/venue-obs.mjs*/
 Venue.boot("trade");

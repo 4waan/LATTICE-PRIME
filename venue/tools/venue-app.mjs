@@ -4,6 +4,7 @@
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const ATS_KYC = "0xfc855b1b";
+const ATS_COMPLIANCE_NOT_ALLOWED = "0x66eb1b54";
 const TICKET_VER = 1;
 const VAULT_VER = 1;
 const HOLD_VER = 1;
@@ -145,13 +146,26 @@ function bytesRow(w) {
     return '<span class="pad">' + pad + '</span><span class="sig">' + sig + "</span>";
 }
 
+function looksLikeRevertData(hex) {
+    const raw = String(hex || "");
+    if (!/^0x[0-9a-fA-F]+$/.test(raw)) return false;
+    const n = raw.length - 2;
+    if (n === 8) return true;
+    if (n === 64) return false;
+    return n > 8 && (n - 8) % 64 === 0;
+}
+
 function extractData(err) {
     const c = err?.info?.error?.data ?? err?.data ?? err?.error?.data ?? err?.receipt?.revertReason;
-    if (typeof c === "string" && c.startsWith("0x")) return c;
-    if (c && typeof c.data === "string") return c.data;
+    const candidates = [];
+    if (typeof c === "string") candidates.push(c);
+    if (c && typeof c.data === "string") candidates.push(c.data);
     const msg = String(err?.shortMessage || err?.message || "");
-    const m = msg.match(/0x[0-9a-fA-F]{8,}/);
-    return m ? m[0] : null;
+    const matches = msg.match(/0x[0-9a-fA-F]{8,}/g) || [];
+    for (const hex of [...candidates, ...matches]) {
+        if (looksLikeRevertData(hex)) return hex;
+    }
+    return null;
 }
 
 function is429(err) {
@@ -162,6 +176,20 @@ function is429(err) {
 function decodeRevert(err) {
     const data = extractData(err);
     const fallback = err?.shortMessage || err?.reason || err?.message || String(err);
+    if (/read only property/i.test(String(fallback))) {
+        return {
+            message: "The live quote could not be read. Refresh and try Accept again.",
+            selector: null,
+            name: "TypeError",
+        };
+    }
+    if (/INSUFFICIENT_GAS|out of gas/i.test(String(fallback))) {
+        return {
+            message: "Accept ran out of gas creating the ATS hold. Refresh and try again.",
+            selector: null,
+            name: "OutOfGas",
+        };
+    }
     if (!data || data === "0x") return {message: fallback, selector: null, name: null};
     const sel = data.slice(0, 10).toLowerCase();
     if (sel === ATS_KYC) {
@@ -170,6 +198,13 @@ function decodeRevert(err) {
             name: "InvalidKycStatus",
             message: "ATS refused this address. Prove eligibility first.",
             route: "prove.html",
+        };
+    }
+    if (sel === ATS_COMPLIANCE_NOT_ALLOWED) {
+        return {
+            selector: sel,
+            name: "ComplianceNotAllowed",
+            message: "ATS refused this approval. The vault is not admitted as a spender in the current KYC epoch.",
         };
     }
     const meta = CLIENT.errors[sel];
@@ -4301,7 +4336,14 @@ Venue.send = async function (txFactory, label) {
         Venue.positionTxStage?.("pending", label);
         Venue.financeTxStage?.("pending", label, {hash: submittedHash});
         const rec = await tx.wait();
-        if (rec.status !== 1) throw new Error(label + " reverted");
+        if (rec.status !== 1) {
+            const used = rec.gasUsed;
+            const limit = rec.gasLimit || tx.gasLimit;
+            if (used != null && limit != null && asBig(used) >= asBig(limit)) {
+                throw new Error("INSUFFICIENT_GAS");
+            }
+            throw new Error(label + " reverted");
+        }
         Venue.lastReceipt = rec;
         if (Venue.page !== "repo") Venue.toast(label + " confirmed");
         const confirmedHash = rec.hash || rec.transactionHash || submittedHash;

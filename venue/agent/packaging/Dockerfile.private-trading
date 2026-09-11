@@ -1,0 +1,22 @@
+FROM node:22.21.1-bookworm-slim
+
+WORKDIR /srv
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY venue/agent/runtime/drand-client.mjs \
+    venue/agent/runtime/private-*.mjs \
+    venue/agent/runtime/timed-ticket-*.mjs \
+    ./venue/agent/runtime/
+COPY venue/tools/timed-ticket.mjs ./venue/tools/timed-ticket.mjs
+RUN mkdir -p /state \
+    && chown -R node:node /state
+
+USER node
+ENV NODE_ENV=production
+ENV PRIVATE_TRADING_STATE_DIR=/state
+ENV PRIVATE_TRADING_HTTP_HOST=0.0.0.0
+ENV PRIVATE_TRADING_HTTP_PORT=8787
+
+EXPOSE 8787
+ENTRYPOINT ["node", "venue/agent/runtime/private-trading-server.mjs"]

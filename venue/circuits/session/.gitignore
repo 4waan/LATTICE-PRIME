@@ -1,0 +1,5 @@
+*.r1cs
+*.sym
+*.zkey
+*_vkey.json
+*_js/

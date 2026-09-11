@@ -1461,3 +1461,161 @@ test("opening the drawer while recovering does not clear existing rows", () => {
     assert.match(element("fin-activity").innerHTML, /Refreshing wallet history/);
     assert.doesNotMatch(element("fin-activity").innerHTML, /Looking up this wallet/);
 });
+
+test("a 32-byte hash in an error message is not revert data", () => {
+    const hash = "0x" + "66ee".repeat(16);
+    const {Venue} = harness();
+    assert.equal(Venue.looksLikeRevertData(hash), false);
+    assert.equal(Venue.financeRevertData({
+        message: "missing revert data in call exception; tx=" + hash,
+    }), "");
+    const readable = Venue.financeReadableRevert({
+        message: "missing revert data in call exception; tx=" + hash,
+    });
+    assert.doesNotMatch(readable, /0x66ee/);
+    assert.match(readable, /Hedera rejected the collateral approval/);
+});
+
+test("an unnamed approve staticCall still reaches send and records a readable failure", async () => {
+    const {Venue, element} = harness({account: "borrower"});
+    let sent = 0;
+    Venue.setFinanceUi({selectedId: repoId});
+    Venue.page = "repo";
+    Venue.financePreview = {terms: {collateralAmount: 1n}};
+    Venue.requireAccount = async () => {};
+    Venue.c.token = {allowance: async () => 0n};
+    const approve = async () => {
+        sent += 1;
+        throw Object.assign(new Error("user rejected"), {code: 4001});
+    };
+    approve.staticCall = async () => {
+        throw {data: "0x66eeb154", message: "0x66eeb154"};
+    };
+    Venue.w = {token: {approve}};
+    Venue.send = async () => {
+        sent += 1;
+        return null;
+    };
+    await assert.rejects(
+        Venue.runFinanceAction({id: "approve", label: "Approve collateral"}, {
+            id: repoId,
+            offer: {terms: {collateralAmount: 1n}},
+            collateral: 1n,
+        }),
+        /Hedera rejected the collateral approval|Collateral authorization was not confirmed/,
+    );
+    assert.equal(sent, 1);
+    assert.match(element("fin-tx-status").innerHTML, /authorize collateral failed/i);
+    assert.doesNotMatch(element("fin-tx-status").innerHTML, /0x66eeb154/);
+    assert.match(element("fin-activity").innerHTML, /Transaction failed/);
+    assert.match(element("fin-activity").innerHTML, /Authorize 1 LPRC to the vault/);
+    assert.match(element("fin-activity").innerHTML, /Hedera rejected the collateral approval|Collateral authorization was not confirmed/);
+    assert.doesNotMatch(element("fin-activity").innerHTML, /0x66eeb154/);
+});
+
+test("a ComplianceNotAllowed approve staticCall never opens the wallet", async () => {
+    const {Venue, element} = harness({account: "borrower"});
+    let sent = 0;
+    Venue.setFinanceUi({selectedId: repoId});
+    Venue.page = "repo";
+    Venue.financePreview = {terms: {collateralAmount: 1n}};
+    Venue.requireAccount = async () => {};
+    Venue.c.token = {allowance: async () => 0n};
+    const approve = async () => {
+        sent += 1;
+        throw new Error("approve should not be sent");
+    };
+    approve.staticCall = async () => {
+        throw {data: "0x66eb1b54", message: "0x66eb1b54"};
+    };
+    Venue.w = {token: {approve}};
+    Venue.send = async () => {
+        sent += 1;
+        return null;
+    };
+    await assert.rejects(
+        Venue.runFinanceAction({id: "approve", label: "Approve collateral"}, {
+            id: repoId,
+            offer: {terms: {collateralAmount: 1n}},
+            collateral: 1n,
+        }),
+        /vault is not admitted as a spender/,
+    );
+    assert.equal(sent, 0);
+    assert.match(element("fin-tx-status").innerHTML, /authorize collateral failed/i);
+    assert.match(element("fin-tx-status").innerHTML, /vault is not admitted as a spender/);
+    assert.match(element("fin-activity").innerHTML, /Transaction failed/);
+    assert.doesNotMatch(element("fin-activity").innerHTML, /0x66eb1b54/);
+});
+
+test("a journal refusal never opens the wallet for approve", async () => {
+    const {Venue, element} = harness({account: "borrower"});
+    let sent = 0;
+    Venue.setFinanceUi({selectedId: repoId});
+    Venue.page = "repo";
+    Venue.financePreview = {terms: {collateralAmount: 1n}};
+    Venue.requireAccount = async () => {};
+    Venue.c.token = {allowance: async () => 0n};
+    Venue.c.journal = {
+        explain: async () => [false, 1],
+    };
+    const approve = async () => {
+        sent += 1;
+        throw new Error("approve should not be sent");
+    };
+    approve.staticCall = async () => {
+        sent += 1;
+        throw new Error("staticCall should not run");
+    };
+    Venue.w = {token: {approve}};
+    Venue.send = async () => {
+        sent += 1;
+        return null;
+    };
+    await assert.rejects(
+        Venue.runFinanceAction({id: "approve", label: "Approve collateral"}, {
+            id: repoId,
+            offer: {terms: {collateralAmount: 1n}},
+            collateral: 1n,
+        }),
+        /vault is not admitted as a spender/,
+    );
+    assert.equal(sent, 0);
+    assert.match(element("fin-tx-status").innerHTML, /authorize collateral failed/i);
+    assert.match(element("fin-activity").innerHTML, /Transaction failed/);
+});
+
+test("a KYC approve staticCall never opens the wallet", async () => {
+    const {Venue, element} = harness({account: "borrower"});
+    let sent = 0;
+    Venue.setFinanceUi({selectedId: repoId});
+    Venue.page = "repo";
+    Venue.financePreview = {terms: {collateralAmount: 1n}};
+    Venue.requireAccount = async () => {};
+    Venue.c.token = {allowance: async () => 0n};
+    const approve = async () => {
+        sent += 1;
+        throw new Error("approve should not be sent");
+    };
+    approve.staticCall = async () => {
+        throw {data: "0xfc855b1b", message: "0xfc855b1b"};
+    };
+    Venue.w = {token: {approve}};
+    Venue.send = async () => {
+        sent += 1;
+        return null;
+    };
+    await assert.rejects(
+        Venue.runFinanceAction({id: "approve", label: "Approve collateral"}, {
+            id: repoId,
+            offer: {terms: {collateralAmount: 1n}},
+            collateral: 1n,
+        }),
+        /Prove eligibility first/,
+    );
+    assert.equal(sent, 0);
+    assert.match(element("fin-tx-status").innerHTML, /authorize collateral failed/i);
+    assert.match(element("fin-tx-status").innerHTML, /Prove eligibility first/);
+    assert.match(element("fin-activity").innerHTML, /Transaction failed/);
+    assert.match(element("fin-activity").innerHTML, /Prove eligibility first/);
+});
