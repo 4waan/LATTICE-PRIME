@@ -14,7 +14,7 @@ function harness() {
     const element = (id) => {
         if (!elements.has(id)) elements.set(id, {
             textContent: "", innerHTML: "", value: "", querySelectorAll: () => [],
-            className: "", hidden: false,
+            className: "", hidden: false, dataset: {},
             classList: {add: () => {}, remove: () => {}, toggle: () => {}},
             focus: () => {}, select: () => {},
         });
@@ -36,7 +36,21 @@ function harness() {
         ZERO: "zero", G: {EXACT: 4}, T: {IMM: 0},
         nowSec: () => 1_000n,
         navigator: {clipboard: {writeText: async (value) => copied.push(value)}},
-        document: {execCommand: () => false},
+        document: {
+            execCommand: () => false,
+            hidden: false,
+            activeElement: null,
+            documentElement: {classList: {add: () => {}, remove: () => {}}},
+            addEventListener: () => {},
+            querySelectorAll: () => [],
+        },
+        sessionStorage: {getItem: () => null, setItem: () => {}},
+        localStorage: {getItem: () => null, setItem: () => {}},
+        location: {search: "", origin: "https://example.test", pathname: "/repo.html"},
+        URLSearchParams,
+        URL,
+        formatHbar: String,
+        explorerTx: (hash) => "https://example.test/transaction/" + hash,
         setTimeout: () => {},
         Date,
         AbortController,
@@ -104,7 +118,9 @@ test("dark oracle names the expired heartbeat and missing publisher", async () =
     await Venue.refreshOracle();
     assert.equal(element("feed-state").innerHTML, "live");
     assert.equal(element("feed-price").innerHTML, "10000000000 USD");
+    assert.equal(element("feed-scheduler").textContent, "Not deployed");
     assert.equal(element("feed-failure").hidden, true);
+    assert.doesNotMatch(element("feed-failure").textContent, /Scheduler not deployed/);
 
     Venue.c.watch.feed = async () => {
         throw new Error("testnet RPC timed out");
@@ -197,12 +213,13 @@ test("verified financing receipts render automatic, historical, and lifecycle li
         },
     };
     Venue.paintFinancingEvidence();
-    assert.match(element("fin-evidence").innerHTML, /fundOffer/);
+    assert.match(element("fin-evidence").innerHTML, /Fund offer/);
+    assert.doesNotMatch(element("fin-evidence").innerHTML, /fundOffer|markToMarket|settleDefault|RepoVault|MarginWatch/);
     assert.match(element("fin-evidence").innerHTML, /automatic HSS success/);
     assert.match(element("fin-evidence").innerHTML, /0\.0\.3/);
     assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/automatic/);
-    assert.match(element("fin-evidence").innerHTML, /markToMarket/);
-    assert.match(element("fin-evidence").innerHTML, /settleDefault/);
+    assert.match(element("fin-evidence").innerHTML, /Mark posted/);
+    assert.match(element("fin-evidence").innerHTML, /Settle default/);
     assert.match(element("fin-evidence").innerHTML, /Fallback settled/);
     assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/scheduled/);
     assert.match(element("fin-evidence").innerHTML, /hashscan\.test\/fallback/);
@@ -300,6 +317,9 @@ test("ATS collateral approval is confirmed before acceptance", async () => {
     Venue.discoverRepos = async () => { steps.push("refresh list"); };
     Venue.noteReceipt = async () => { steps.push("receipt"); };
 
+    await assert.rejects(Venue.doAcceptOffer(), /Authorize the collateral lot first/);
+    assert.deepEqual(steps, []);
+    await Venue.ensureVaultAllowance(10n);
     await Venue.doAcceptOffer();
     assert.deepEqual(steps, [
         "check approval:10",
