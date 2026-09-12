@@ -18,8 +18,10 @@ import {
 import {accountIdAddress} from "../lib/evidence-verifier.mjs";
 import {PublisherJournal} from "../lib/journal.mjs";
 import {
+    HEDERA_TRANSACTION_VALID_SECONDS,
     assertRuntimeAddress,
     assertSchedulerOracle,
+    reusableEvidenceTransactionId,
     runPublisherPass,
 } from "../publisher.mjs";
 
@@ -585,6 +587,141 @@ test("an HCS retry reuses the persisted Hedera transaction ID", async () => {
         assert.equal(result.action, "recovery");
         assert.equal(result.recovered, true);
         assert.equal(retriedTransactionId, hederaTransactionId);
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});
+
+test("a persisted Hedera transaction ID is only reused inside its valid duration", () => {
+    const fresh = `0.0.5001@${NOW - 30}.123456789`;
+    assert.equal(reusableEvidenceTransactionId(fresh, NOW), fresh);
+    assert.equal(
+        reusableEvidenceTransactionId(`0.0.5001@${NOW - HEDERA_TRANSACTION_VALID_SECONDS}.0`, NOW),
+        null,
+    );
+    assert.equal(reusableEvidenceTransactionId(`0.0.5001@${NOW - 2_000}.0`, NOW), null);
+    assert.equal(reusableEvidenceTransactionId(null, NOW), null);
+    assert.equal(reusableEvidenceTransactionId("not-a-transaction-id", NOW), null);
+});
+
+test("an HCS retry mints a fresh transaction ID once the persisted one expired", async () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-hcs-fresh-retry-"));
+    try {
+        const staleTransactionId = `0.0.5001@${NOW - 400}.123456789`;
+        await assert.rejects(
+            () => runPublisherPass(passOptions(root, {
+                submitEvidenceFn: async ({onTransactionId}) => {
+                    await onTransactionId(staleTransactionId);
+                    throw new Error("receipt unavailable");
+                },
+            })),
+            /receipt unavailable/,
+        );
+        const journal = PublisherJournal.open(root, "publisher-a", wallet.address);
+        assert.equal(journal.state.pending.evidenceTransactionId, staleTransactionId);
+        let retriedTransactionId = "unset";
+        const result = await runPublisherPass(passOptions(root, {
+            journal,
+            now: NOW + 1,
+            findEvidenceFn: async () => null,
+            submitEvidenceFn: async ({transactionId}) => {
+                retriedTransactionId = transactionId;
+                return {topicId, sequenceNumber: "4", transactionId: `0.0.5001@${NOW + 1}.0`};
+            },
+        }));
+        assert.equal(result.action, "recovery");
+        assert.equal(result.recovered, true);
+        assert.equal(retriedTransactionId, null);
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});
+
+test("an exhausted status heartbeat is abandoned and the pass carries on", async () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-status-exhausted-"));
+    try {
+        const unavailable = {
+            ok: false,
+            code: "SOURCE_QUORUM",
+            reason: "no qualified source quorum",
+            sourceDigest,
+            terms: {oracle: oracleAddress, usdPerHbar8: 8_000_000n},
+            prints: {accepted: [], rejected: []},
+            dealers: {accepted: [], rejected: []},
+        };
+        const submits = [];
+        const failing = async ({transactionId, onTransactionId}) => {
+            submits.push(transactionId ?? null);
+            // Report a valid-start already outside the Hedera window so the
+            // retry has to mint a fresh ID instead of replaying this one.
+            await onTransactionId(`0.0.5001@${NOW - 1_000 + submits.length}.0`);
+            throw new Error("HCS unreachable");
+        };
+        const first = await runPublisherPass(passOptions(root, {
+            buildQuoteFn: async () => unavailable,
+            submitEvidenceFn: failing,
+        }));
+        assert.equal(first.action, "withhold");
+        assert.equal(first.statusEvidenceError.message, "HCS unreachable");
+        const journal = PublisherJournal.open(root, "publisher-a", wallet.address);
+        assert.equal(journal.state.pendingStatus.status, "EVIDENCE_PENDING");
+        assert.equal(journal.state.pendingStatus.evidenceAttempts, 1);
+
+        await assert.rejects(
+            () => runPublisherPass(passOptions(root, {
+                journal,
+                now: NOW + 1,
+                buildQuoteFn: async () => unavailable,
+                submitEvidenceFn: failing,
+            })),
+            /HCS unreachable/,
+        );
+        assert.equal(journal.state.pendingStatus.evidenceAttempts, 2);
+        assert.deepEqual(submits, [null, null]);
+
+        const waiting = await runPublisherPass(passOptions(root, {
+            journal,
+            now: NOW + 2,
+            buildQuoteFn: async () => {
+                throw new Error("valuation must wait for the last HCS attempt to die");
+            },
+            submitEvidenceFn: async () => {
+                throw new Error("must not resubmit an exhausted status");
+            },
+        }));
+        assert.equal(waiting.action, "status-recovery");
+        assert.equal(waiting.retryExhausted, true);
+        assert.equal(waiting.abandoned, undefined);
+        assert.equal(journal.state.pendingStatus.status, "EVIDENCE_PENDING");
+
+        const lastAttemptAt = Number(journal.state.pendingStatus.lastEvidenceAttemptAt);
+        const failedBefore = journal.state.counters.failed;
+        const hashBefore = journal.state.lastEvidenceHash;
+        let statusMessages = 0;
+        const resumed = await runPublisherPass(passOptions(root, {
+            journal,
+            now: lastAttemptAt + HEDERA_TRANSACTION_VALID_SECONDS,
+            buildQuoteFn: async () => unavailable,
+            findEvidenceFn: async () => null,
+            submitEvidenceFn: async () => {
+                statusMessages += 1;
+                return {topicId, sequenceNumber: "9", transactionId: "0.0.5001@9.9"};
+            },
+        }));
+        assert.equal(resumed.action, "withhold");
+        assert.equal(resumed.ok, true);
+        assert.equal(statusMessages, 1);
+        assert.equal(journal.state.pendingStatus, null);
+        assert.equal(journal.state.counters.failed, failedBefore + 1);
+        assert.equal(journal.state.lastStatus.code, "SOURCE_QUORUM");
+        assert.notEqual(journal.state.lastEvidenceHash, hashBefore);
+        const events = readFileSync(join(root, "events.jsonl"), "utf8")
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const abandoned = events.filter((event) => event.type === "status-abandoned");
+        assert.equal(abandoned.length, 1);
+        assert.equal(abandoned[0].code, "STATUS_EVIDENCE_EXHAUSTED");
     } finally {
         rmSync(root, {recursive: true, force: true});
     }
@@ -1227,6 +1364,65 @@ test("an expired broadcast record is never rebroadcast", async () => {
         assert.equal(result.expired, true);
         assert.equal(journal.state.pending.status, "EXPIRED");
         assert.deepEqual(secondOrder, []);
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});
+
+test("an expired answer whose nonce another transaction spent is abandoned", async () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-nonce-consumed-"));
+    try {
+        const firstOrder = [];
+        await assert.rejects(
+            () => runPublisherPass(passOptions(root, {
+                config: config({evidence: {maximumBroadcastDelaySeconds: 5}}),
+                provider: fakeProvider(firstOrder, {
+                    broadcastError: new Error("relay unavailable"),
+                }),
+            })),
+            (error) => error.code === "BROADCAST_FAILED",
+        );
+        const journal = PublisherJournal.open(root, "publisher-a", wallet.address);
+        assert.equal(journal.state.pending.status, "BROADCAST");
+        assert.equal(journal.state.pending.nonce, 7);
+        const hashBefore = journal.state.lastEvidenceHash;
+        const failedBefore = journal.state.counters.failed;
+
+        const secondOrder = [];
+        const nonceQueries = [];
+        const recoveryProvider = fakeProvider(secondOrder);
+        recoveryProvider.getTransactionReceipt = async () => null;
+        recoveryProvider.getTransactionCount = async (address, tag) => {
+            nonceQueries.push([address, tag]);
+            return 8;
+        };
+        const result = await runPublisherPass(passOptions(root, {
+            journal,
+            config: config({evidence: {maximumBroadcastDelaySeconds: 5}}),
+            provider: recoveryProvider,
+            now: NOW + 6,
+        }));
+        assert.equal(result.action, "recovery");
+        assert.equal(result.expired, true);
+        assert.equal(result.abandoned, true);
+        assert.equal(result.code, "NONCE_CONSUMED");
+        assert.deepEqual(nonceQueries, [[wallet.address, "latest"]]);
+        assert.deepEqual(secondOrder, []);
+        assert.equal(journal.state.pending, null);
+        assert.equal(journal.state.lastConfirmedRound, null);
+        assert.equal(journal.state.lastEvidenceHash, hashBefore);
+        assert.equal(journal.state.counters.failed, failedBefore + 1);
+
+        const reopened = PublisherJournal.open(root, "publisher-a", wallet.address);
+        assert.equal(reopened.state.pending, null);
+        const events = readFileSync(join(root, "events.jsonl"), "utf8")
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const abandoned = events.filter((event) => event.type === "abandoned");
+        assert.equal(abandoned.length, 1);
+        assert.equal(abandoned[0].code, "NONCE_CONSUMED");
+        assert.equal(abandoned[0].status, "BROADCAST");
     } finally {
         rmSync(root, {recursive: true, force: true});
     }

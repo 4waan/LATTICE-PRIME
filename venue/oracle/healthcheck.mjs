@@ -5,6 +5,17 @@ import {loadOracleConfig} from "./lib/config.mjs";
 
 const DEFAULT_MAXIMUM_AGE_SECONDS = 120;
 const POLL_INTERVAL_ALLOWANCE = 2;
+const DEFAULT_MAXIMUM_EVIDENCE_ATTEMPTS = 2;
+
+// Pending records in these states never advance on their own; the publisher
+// keeps polling (so the journal still looks alive) but cannot answer again
+// until an operator clears them.
+const DEAD_END_MESSAGES = {
+    FAILED: "publisher has a terminal transaction failure",
+    BLOCKED: "publisher has a blocked pending record",
+    EXPIRED: "publisher holds an expired answer it will not rebroadcast",
+    HCS_EXPIRED: "publisher holds expired HCS evidence with an unknown chain position",
+};
 
 function positiveSeconds(value, label) {
     const seconds = Number(value);
@@ -69,11 +80,29 @@ export function publisherHealth({config, env = process.env, now = Date.now()}) {
             message: "publisher journal has stopped advancing",
         };
     }
-    if (journal.pending?.status === "FAILED") {
-        return {
-            ...current,
-            message: "publisher has a terminal transaction failure",
-        };
+    for (const record of [journal.pending, journal.pendingStatus]) {
+        const deadEnd = DEAD_END_MESSAGES[record?.status];
+        if (deadEnd) {
+            return {
+                ...current,
+                status: "dead-end",
+                message: deadEnd,
+            };
+        }
+    }
+    const maximumAttempts = Math.max(
+        1,
+        Number(config.evidence?.maximumEvidenceAttempts ?? DEFAULT_MAXIMUM_EVIDENCE_ATTEMPTS),
+    );
+    for (const [record, label] of [[journal.pending, "answer"], [journal.pendingStatus, "status"]]) {
+        if (record?.status === "EVIDENCE_PENDING" &&
+            Number(record.evidenceAttempts ?? 0) >= maximumAttempts) {
+            return {
+                ...current,
+                status: "recovery-exhausted",
+                message: `${label} evidence exhausted its HCS attempts without a receipt`,
+            };
+        }
     }
     const windowSeconds = Number(config.evidence?.maximumBroadcastDelaySeconds ?? 600);
     const started = Date.parse(journal.pending?.preparedAt);

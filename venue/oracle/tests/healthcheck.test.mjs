@@ -103,3 +103,109 @@ test("health is stalled when the journal stops and overdue when a prepare is stu
         rmSync(root, {recursive: true, force: true});
     }
 });
+
+test("dead-end pending records fail health even while the journal keeps advancing", () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-health-dead-end-"));
+    try {
+        const env = {
+            ORACLE_PUBLISHER_ID: "publisher-a",
+            ORACLE_STATE_ROOT: root,
+            ORACLE_HEALTH_MAX_AGE_SECONDS: "120",
+        };
+        const now = Date.parse("2027-01-01T00:01:00Z");
+        const expectations = [
+            ["pending", "EXPIRED", "publisher holds an expired answer it will not rebroadcast"],
+            ["pending", "HCS_EXPIRED", "publisher holds expired HCS evidence with an unknown chain position"],
+            ["pending", "BLOCKED", "publisher has a blocked pending record"],
+            ["pending", "FAILED", "publisher has a terminal transaction failure"],
+            ["pendingStatus", "BLOCKED", "publisher has a blocked pending record"],
+        ];
+        for (const [field, status, message] of expectations) {
+            writeFileSync(
+                join(root, "journal.json"),
+                JSON.stringify({
+                    updatedAt: "2027-01-01T00:00:30Z",
+                    lastConfirmedRound: 7,
+                    pending: null,
+                    pendingStatus: null,
+                    [field]: {status, preparedAt: "2027-01-01T00:00:00Z"},
+                }),
+            );
+            const result = publisherHealth({config: {pollSeconds: 300}, env, now});
+            assert.equal(result.ok, false, `${field} ${status} must not be healthy`);
+            assert.equal(result.status, "dead-end");
+            assert.equal(result.message, message);
+            assert.deepEqual(result.pending, {
+                kind: field === "pending" ? "answer" : "status",
+                status,
+            });
+        }
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});
+
+test("exhausted HCS attempts fail health for answers and status heartbeats", () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-health-exhausted-"));
+    try {
+        const env = {
+            ORACLE_PUBLISHER_ID: "publisher-a",
+            ORACLE_STATE_ROOT: root,
+            ORACLE_HEALTH_MAX_AGE_SECONDS: "120",
+        };
+        const now = Date.parse("2027-01-01T00:01:00Z");
+        const config = {pollSeconds: 300, evidence: {maximumEvidenceAttempts: 2}};
+        writeFileSync(
+            join(root, "journal.json"),
+            JSON.stringify({
+                updatedAt: "2027-01-01T00:00:30Z",
+                pending: null,
+                pendingStatus: {
+                    status: "EVIDENCE_PENDING",
+                    evidenceAttempts: 2,
+                    preparedAt: "2027-01-01T00:00:00Z",
+                },
+            }),
+        );
+        const status = publisherHealth({config, env, now});
+        assert.equal(status.ok, false);
+        assert.equal(status.status, "recovery-exhausted");
+        assert.equal(status.message, "status evidence exhausted its HCS attempts without a receipt");
+        assert.deepEqual(status.pending, {kind: "status", status: "EVIDENCE_PENDING"});
+
+        writeFileSync(
+            join(root, "journal.json"),
+            JSON.stringify({
+                updatedAt: "2027-01-01T00:00:30Z",
+                pending: {
+                    status: "EVIDENCE_PENDING",
+                    evidenceAttempts: 2,
+                    preparedAt: "2027-01-01T00:00:50Z",
+                },
+                pendingStatus: null,
+            }),
+        );
+        const answer = publisherHealth({config, env, now});
+        assert.equal(answer.ok, false);
+        assert.equal(answer.status, "recovery-exhausted");
+        assert.equal(answer.message, "answer evidence exhausted its HCS attempts without a receipt");
+
+        writeFileSync(
+            join(root, "journal.json"),
+            JSON.stringify({
+                updatedAt: "2027-01-01T00:00:30Z",
+                pending: null,
+                pendingStatus: {
+                    status: "EVIDENCE_PENDING",
+                    evidenceAttempts: 1,
+                    preparedAt: "2027-01-01T00:00:50Z",
+                },
+            }),
+        );
+        const retrying = publisherHealth({config, env, now});
+        assert.equal(retrying.ok, true);
+        assert.equal(retrying.status, "ok");
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});

@@ -109,6 +109,18 @@ receipt, marks the entry `EVIDENCED`, then broadcasts the exact signed
 transaction. A restart resumes this sequence without recomputing or changing
 the answer.
 
+`/healthz` and `make oracle-health` return `dead-end` when the journal holds a
+`FAILED`, `BLOCKED`, `EXPIRED`, or `HCS_EXPIRED` record, and
+`recovery-exhausted` when an HCS submit has used every configured attempt
+without a receipt. Both mean the seat keeps polling but cannot answer again
+until the record is cleared. Two cases clear themselves: a status heartbeat
+whose HCS attempts are exhausted is abandoned once its last Hedera transaction
+ID can no longer be accepted, and an expired answer whose nonce another
+transaction from the same wallet consumed is abandoned as `NONCE_CONSUMED`.
+An HCS retry reuses its persisted transaction ID only inside the 180 second
+Hedera validity window; after that it mints a fresh one. Publisher wallets
+should still not sign anything else while the seat runs.
+
 ## Dealer quote operation
 
 A dealer keeps `DEALER_QUOTE_PRIVATE_KEY` outside every publisher process. The
