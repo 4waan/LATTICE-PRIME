@@ -427,6 +427,23 @@ function pendingTransaction(record) {
     };
 }
 
+// Hedera accepts a transaction only within its valid duration (at most 180
+// seconds after the valid-start encoded in its ID). Reusing a persisted HCS
+// transaction ID keeps a receipt-lost retry idempotent inside that window;
+// after it, the same ID can only fail with TRANSACTION_EXPIRED.
+export const HEDERA_TRANSACTION_VALID_SECONDS = 180;
+
+export function reusableEvidenceTransactionId(transactionId, nowSeconds) {
+    if (!transactionId) return null;
+    const match = /@(\d+)(?:\.\d+)?/.exec(String(transactionId));
+    if (!match) return null;
+    const validStart = Number(match[1]);
+    if (!Number.isFinite(validStart)) return null;
+    return Number(nowSeconds) - validStart < HEDERA_TRANSACTION_VALID_SECONDS
+        ? String(transactionId)
+        : null;
+}
+
 async function recoverPending({
     config,
     identity,
@@ -550,7 +567,10 @@ async function recoverPending({
                 privateKey: identity.wallet.privateKey.replace(/^0x/, ""),
                 topicId: identity.topicId,
                 message: record.evidenceMessage,
-                transactionId: record.evidenceTransactionId ?? null,
+                transactionId: reusableEvidenceTransactionId(
+                    record.evidenceTransactionId,
+                    currentTime(),
+                ),
                 onTransactionId: async (transactionId) => {
                     if (transactionId) journal.evidenceTransactionId(transactionId);
                 },
@@ -607,6 +627,27 @@ async function recoverPending({
         }
         await assertCurrentDeployment(oracle.target, readDeploymentFn);
         if (isExpired()) {
+            // The seat wallet may also sign unrelated transactions. If one of
+            // them spent this nonce while our hash never landed, the signed
+            // answer is unmineable and holding it only wedges the publisher.
+            const record = journal.state.pending;
+            const confirmedNonce = Number(
+                await provider.getTransactionCount(identity.address, "latest"),
+            );
+            if (Number.isFinite(confirmedNonce) &&
+                confirmedNonce > Number(record.nonce)) {
+                journal.abandon(
+                    "NONCE_CONSUMED",
+                    `nonce ${record.nonce} was spent by another transaction; ` +
+                    `expired answer ${record.txHash} can never land`,
+                );
+                return {
+                    recovered: false,
+                    expired: true,
+                    abandoned: true,
+                    code: "NONCE_CONSUMED",
+                };
+            }
             journal.expireBroadcast(
                 "EVIDENCE_EXPIRED",
                 "expired answer will not be rebroadcast",
@@ -688,7 +729,10 @@ async function recoverPendingStatus({
             privateKey: identity.wallet.privateKey.replace(/^0x/, ""),
             topicId: identity.topicId,
             message: record.evidenceMessage,
-            transactionId: record.evidenceTransactionId ?? null,
+            transactionId: reusableEvidenceTransactionId(
+                record.evidenceTransactionId,
+                currentTime(),
+            ),
             onTransactionId: async (transactionId) => {
                 if (transactionId) {
                     journal.statusEvidenceTransactionId(transactionId);
@@ -740,10 +784,27 @@ async function recoverPendingStatus({
             Number(config.evidence?.maximumEvidenceAttempts ?? 2),
         );
         if (Number(pending.evidenceAttempts ?? 0) >= maximumAttempts) {
+            // A status heartbeat carries no signed EVM transaction, so once
+            // the mirror shows nothing and the last HCS transaction can no
+            // longer be accepted, dropping it is safe. The next due status
+            // is prepared fresh; blocking here would wedge every later pass.
+            if (currentTime() < attemptedAt + HEDERA_TRANSACTION_VALID_SECONDS) {
+                return {
+                    recovered: false,
+                    evidencePending: true,
+                    retryExhausted: true,
+                    retryAt: attemptedAt + HEDERA_TRANSACTION_VALID_SECONDS,
+                };
+            }
+            journal.abandonStatus(
+                "STATUS_EVIDENCE_EXHAUSTED",
+                `status evidence gave up after ${pending.evidenceAttempts} HCS attempts`,
+            );
             return {
                 recovered: false,
-                evidencePending: true,
+                abandoned: true,
                 retryExhausted: true,
+                code: "STATUS_EVIDENCE_EXHAUSTED",
             };
         }
         const receipt = await submit();
@@ -1143,7 +1204,7 @@ export async function runPublisherPass({
         clock,
         mirrorUrl,
     });
-    if (statusRecovery) {
+    if (statusRecovery && !statusRecovery.abandoned) {
         return {
             ok: Boolean(statusRecovery.recovered) && !statusRecovery.blocked,
             action: "status-recovery",
