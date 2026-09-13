@@ -20,6 +20,7 @@ import path from "node:path";
 import {
     QUICKNET_CHAIN_HASH,
     TIMED_TICKET_SIZE,
+    TIMED_TICKET_STORE_ID_DOMAIN,
     parseTimedTicketEnvelope,
 } from "../../tools/timed-ticket.mjs";
 
@@ -38,7 +39,7 @@ export const TIMED_TICKET_STATES = Object.freeze([
 export const TIMED_TICKET_TERMINAL_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 const STORE_SCHEMA = "hedera2026.timed-ticket-store.v1";
-const ID_DOMAIN = Buffer.from("hedera2026.timed-ticket.store-id.v1", "utf8");
+const ID_DOMAIN = Buffer.from(TIMED_TICKET_STORE_ID_DOMAIN, "utf8");
 const ID_PATTERN = /^[0-9a-f]{64}$/;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const HEX_32_PATTERN = /^0x[0-9a-f]{64}$/;

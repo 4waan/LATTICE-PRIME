@@ -85,12 +85,29 @@ test("independent sparse-tree construction reconstructs the selected path", () =
 });
 
 test("issued session credentials reconstruct a shared published root", () => {
+    // Two bound holders plus a pool of unbound leaves, the shape the credential
+    // claim binds to wallets later. Pool ids start at 100 so they never collide
+    // with the bound holders' ids.
+    const pool = Array.from({length: 16}, (_, index) => ({
+        holderSecret: BigInt(1_000 + index),
+        credentialId: 100 + index,
+    }));
     const tree = issuePrivateSessionCredentials([
         {wallet: "0xCFc5923dEf1F25db05FE50754Ef0822175AFD449", holderSecret: 11n},
         {wallet: "0x1111111111111111111111111111111111111111", holderSecret: 22n},
+        ...pool,
     ], 16);
-    assert.equal(tree.credentials.length, 2);
+    assert.equal(tree.credentials.length, 18);
     assert.equal(tree.credentials[0].credentialRoot, tree.credentials[1].credentialRoot);
+    assert.equal(tree.credentials[0].wallet, "0xcfc5923def1f25db05fe50754ef0822175afd449");
+    for (const credential of tree.credentials.slice(2)) {
+        assert.equal(credential.wallet, undefined);
+        assert.equal(credential.credentialRoot, tree.root);
+    }
+    assert.deepEqual(
+        tree.credentials.slice(2).map((credential) => credential.credentialId),
+        pool.map((holder) => String(holder.credentialId)),
+    );
     for (const credential of tree.credentials) {
         assert.equal(
             reconstructPrivateMerkleRoot(

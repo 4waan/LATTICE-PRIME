@@ -46,13 +46,6 @@ test("gateway config defaults to 127.0.0.1:8765", () => {
 test("gateway serves Markets files and proxies /api/private with origin Host", async () => {
     const root = await mkdtemp(join(tmpdir(), "local-app-"));
     await writeFile(join(root, "trade.html"), "<html>markets</html>");
-    const credentials = join(root, "holder-credentials.json");
-    await writeFile(credentials, JSON.stringify({
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
-            credentialId: "73",
-            holderSecret: "1",
-        },
-    }));
 
     let seen;
     const upstream = http.createServer((incoming, response) => {
@@ -81,7 +74,6 @@ test("gateway serves Markets files and proxies /api/private with origin Host", a
             LOCAL_APP_ROOT: root,
             PRIVATE_TRADING_ALLOWED_ORIGIN: "http://127.0.0.1:8765",
             PRIVATE_TRADING_UPSTREAM: `http://127.0.0.1:${upstreamPort}`,
-            PRIVATE_HOLDER_CREDENTIALS_FILE: credentials,
         }),
     });
     await new Promise((resolve) => gateway.server.listen(0, "127.0.0.1", resolve));
@@ -126,7 +118,30 @@ test("gateway serves Markets files and proxies /api/private with origin Host", a
     assert.equal(seen.site, "same-origin");
     assert.equal(seen.body, JSON.stringify({ticket: "demo"}));
 
-    const issued = await request({
+    // The credential claim is a worker route: the gateway forwards it like any
+    // other /api/private call and never reads the holder store itself.
+    const claimBody = JSON.stringify({account: "0xAaAa", signature: "0x00"});
+    const claimed = await request({
+        hostname: "127.0.0.1",
+        port,
+        method: "POST",
+        path: "/api/private/credentials",
+        headers: {
+            host: "127.0.0.1:8765",
+            origin: "http://127.0.0.1:8765",
+            "content-type": "application/json",
+            "sec-fetch-site": "same-origin",
+        },
+    }, claimBody);
+    assert.equal(claimed.status, 200);
+    assert.equal(seen.method, "POST");
+    assert.equal(seen.url, "/api/private/credentials");
+    assert.equal(seen.host, "127.0.0.1:8765");
+    assert.equal(seen.origin, "http://127.0.0.1:8765");
+    assert.equal(seen.site, "same-origin");
+    assert.equal(seen.body, claimBody);
+
+    const legacy = await request({
         hostname: "127.0.0.1",
         port,
         path: "/api/private/holder-credential",
@@ -135,19 +150,9 @@ test("gateway serves Markets files and proxies /api/private with origin Host", a
             "x-lattice-account": "0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa",
         },
     });
-    assert.equal(issued.status, 200);
-    assert.equal(JSON.parse(issued.body).credential.credentialId, "73");
-
-    const missing = await request({
-        hostname: "127.0.0.1",
-        port,
-        path: "/api/private/holder-credential",
-        headers: {
-            host: "127.0.0.1:8765",
-            "x-lattice-account": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        },
-    });
-    assert.equal(missing.status, 404);
+    assert.equal(legacy.status, 200, "forwarded to the upstream, not served locally");
+    assert.equal(seen.url, "/api/private/holder-credential");
+    assert.deepEqual(JSON.parse(legacy.body), {ok: true});
 
     const localhost = await request({
         hostname: "127.0.0.1",
@@ -187,7 +192,6 @@ test("gateway serves Markets files and proxies /api/private with origin Host", a
             LOCAL_APP_ROOT: root,
             PRIVATE_TRADING_ALLOWED_ORIGIN: "http://127.0.0.1:8765",
             PRIVATE_TRADING_UPSTREAM: `http://127.0.0.1:${upstreamPort}`,
-            PRIVATE_HOLDER_CREDENTIALS_FILE: credentials,
             PRIVATE_TRADING_CANDIDATE_FILE: candidate,
             PRIVATE_TRADING_HBAR_NOTES_FILE: notes,
         }),
@@ -231,7 +235,6 @@ test("gateway serves Markets files and proxies /api/private with origin Host", a
             LOCAL_APP_ROOT: root,
             PRIVATE_TRADING_ALLOWED_ORIGIN: "http://127.0.0.1:8765",
             PRIVATE_TRADING_UPSTREAM: `http://127.0.0.1:${upstreamPort}`,
-            PRIVATE_HOLDER_CREDENTIALS_FILE: credentials,
             PRIVATE_TRADING_CANDIDATE_FILE: candidate,
             PRIVATE_TRADING_HBAR_NOTES_FILE: notes,
             PRIVATE_TRADING_PROVING_ROOT: provingRoot,

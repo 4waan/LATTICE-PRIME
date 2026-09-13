@@ -446,18 +446,12 @@ document.documentElement.setAttribute("data-theme",
     <button type="button" class="modal-x" data-private-close aria-label="Close private trading setup">&times;</button>
     <span class="section-kicker">Private + automatic</span>
     <h2 id="private-setup-title">Set up rotating session</h2>
-    <p class="sub" id="private-setup-copy">The browser creates the session keys and proofs locally. The platform relays registration and automatic reveal.</p>
+    <p class="sub" id="private-setup-copy">One wallet signature links this wallet's eligibility grant to a private credential. The browser creates the session keys and proofs locally. The platform relays registration and automatic reveal.</p>
     <div class="private-setup-progress" id="private-setup-progress" role="status">
       <div><span>1</span><strong>Credential</strong><small id="private-step-credential">Checking device</small></div>
       <div><span>2</span><strong>Session</strong><small id="private-step-session">Not started</small></div>
       <div><span>3</span><strong>Funding</strong><small id="private-step-funding">Not funded</small></div>
     </div>
-    <label class="private-credential-input" id="private-credential-wrap">
-      <span>Holder credential</span>
-      <input id="private-credential-file" type="file" accept="application/json,.json">
-      <strong>Choose credential</strong>
-      <small>Imported once, then encrypted in device storage.</small>
-    </label>
     <div class="private-session-balances">
       <div><span>Session HBAR</span><strong class="num" id="private-session-hbar">Unavailable</strong></div>
       <div><span>Session LPRC</span><strong class="num" id="private-session-lprc">Unavailable</strong></div>
@@ -477,6 +471,12 @@ document.documentElement.setAttribute("data-theme",
         <p>Deposits, withdrawals, timing, amount, IP metadata, and low traffic can still correlate the wallet and rotating session. The route is pseudonymous, not invisible on HashScan.</p>
         <p>The authorized compliance view maps the regulated credential to this session. It never receives the timed reveal key or sealed order terms.</p>
         <p>Session keys, credential material, routing notes, and manual recovery data stay encrypted on this device. Export remains optional.</p>
+        <label class="private-credential-input" id="private-credential-wrap">
+          <span>Restore from file</span>
+          <input id="private-credential-file" type="file" accept="application/json,.json">
+          <strong>Choose exported credential</strong>
+          <small>Only for a credential exported earlier. Normally the credential is linked to this wallet's eligibility grant with one wallet signature.</small>
+        </label>
       </div>
     </details>
     <div class="private-setup-actions">

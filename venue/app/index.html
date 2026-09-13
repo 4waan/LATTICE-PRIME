@@ -1,7 +1,7 @@
 <title>Lattice Prime</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A cryptographically robust protocol for tokenised repo and fair-order settlement on Hedera, with fixed-length order commitments, zero-knowledge eligibility, and a disclosure lattice.">
+<meta name="description" content="A provably governed secondary marketplace on Hedera to trade tokenised bonds, or finance them through a funded repo agreement. Eligibility is proved in zero knowledge, orders stay sealed until the round closes, and every venue publication draws from a governed disclosure budget.">
 <script>/* Stored choice wins; with nothing stored, follow the operating system.
    Inline and before the stylesheet so the page never paints the wrong theme. */
 document.documentElement.setAttribute("data-theme",
@@ -400,7 +400,8 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .eligibility-card[data-state="granted"] .eligibility-mark{
   background:color-mix(in srgb,var(--success-fill) 22%,var(--surface));color:var(--success);
 }
-.eligibility-card[data-state="error"] .eligibility-mark{
+.eligibility-card[data-state="error"] .eligibility-mark,
+.eligibility-card[data-state="ineligible"] .eligibility-mark{
   background:var(--exposed-wash);color:var(--exposed);
 }
 @keyframes eligibility-pulse{50%{filter:brightness(1.15)}}
@@ -1659,6 +1660,15 @@ body[data-screen="trade"]{
 .order-card.waiting{box-shadow:inset 3px 0 0 var(--market-blue)}
 .order-card.live{box-shadow:inset 3px 0 0 var(--market-green)}
 .order-card.closed{background:color-mix(in srgb,var(--paper) 65%,var(--surface))}
+.order-card.just-placed{
+  border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 24%,transparent);
+}
+@media(prefers-reduced-motion:no-preference){
+  .order-card.just-placed{animation:private-order-arrival 1s ease-in-out 2}
+}
+@keyframes private-order-arrival{
+  50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--primary) 32%,transparent)}
+}
 .order-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
 .order-card-title{display:flex;align-items:center;gap:.5rem;min-width:0}
 .order-side{
@@ -3225,6 +3235,7 @@ body[data-screen="position"] .withdraw-confirm-actions .primary{
 .private-credential-input > strong{grid-column:2;grid-row:1/3;color:var(--violet)}
 .private-credential-input > small{color:var(--muted)}
 .private-credential-input input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.review-detail-body .private-credential-input{margin-top:.6rem}
 .private-session-balances{
   display:grid;grid-template-columns:1fr 1fr;margin:.8rem 0;border:1px solid var(--rule);border-radius:10px;
 }
@@ -5438,7 +5449,7 @@ html.lattice-dialog-open{overflow:hidden}
       <div class="hero-copy">
         <p class="hero-blot">Trade size on a venue that can account for its silence</p>
         <h1 class="hero-h">Trade tokenised bonds. <span class="hi">Shield your next move.</span></h1>
-        <p class="hero-lead">A provably governed secondary marketplace to trade tokenised bonds or financing against them through a funded repo agreement on Hedera. Prove eligibility without publishing credentials and keep orders sealed until the round closes. What the venue will publish will be tracked by a disclosure policy keeping it within a governed budget.</p>
+        <p class="hero-lead">A provably governed secondary marketplace on Hedera to trade tokenised bonds, or finance them through a funded repo agreement. Prove eligibility without publishing credential attributes and keep order fields sealed until the round closes. The disclosure lattice tracks what the venue publishes and keeps it within a governed budget.</p>
         <div class="cta-row">
           <a class="btn-grad lg" href="trade.html">
             Open Markets
@@ -5552,7 +5563,7 @@ html.lattice-dialog-open{overflow:hidden}
   <div class="wrap">
     <div class="frame-head rise">
       <p class="kicker">The two accidents</p>
-      <h2>A house that could read the book, or a book nobody could sum.</h2>
+      <h2>A house that read confidential order, or piling risks staying invisible</h2>
       <p class="frame-lead">Institutional trading produced the same failure twice, in opposite directions. Most venues still pick one.</p>
     </div>
 
@@ -5614,8 +5625,8 @@ html.lattice-dialog-open{overflow:hidden}
           <div class="failure-copy">
             <p class="failure-state closed">Closed in the encoding</p>
             <h3>A small nonce turns a price commitment into a search problem.</h3>
-            <p>A bond price lives in a narrow domain. A weak nonce can be enumerated in minutes on a laptop, making the seal decorative.</p>
-            <p class="failure-answer"><b>Protocol response</b> The opening uses a full-scalar-field nonce and a fixed domain-separated encoding bound to the committer.</p>
+            <p>A bond price lives in a narrow domain. A weak salt can be enumerated in minutes on a laptop, making the seal decorative.</p>
+            <p class="failure-answer"><b>Protocol response</b> The opening uses a full-scalar-field salt and a fixed domain-separated encoding bound to the committer.</p>
             <a href="../docs/commit-preview.html">Open the commitment proof <span aria-hidden="true">&rarr;</span></a>
           </div>
         </article>
@@ -5677,7 +5688,7 @@ html.lattice-dialog-open{overflow:hidden}
         <b>BUY</b>
         <b>101.25</b>
         <b>40,000</b>
-        <code>nonce 0x91&hellip;4c</code>
+        <code>salt 0x91&hellip;4c</code>
       </div>
 
       <div class="propagation-paths">
@@ -5720,7 +5731,7 @@ html.lattice-dialog-open{overflow:hidden}
             <div class="prop-private"><dt>side</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">BUY</span></dd></div>
             <div class="prop-private"><dt>price</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">101.25</span></dd></div>
             <div class="prop-private"><dt>quantity</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">40,000</span></dd></div>
-            <div class="prop-private"><dt>nonce</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">0x91&hellip;4c</span></dd></div>
+            <div class="prop-private"><dt>salt</dt><dd><span class="prop-when-sealed">absent</span><span class="prop-when-open">0x91&hellip;4c</span></dd></div>
           </dl>
           <div class="observer-band">
             <div class="observer-dots" aria-hidden="true">
@@ -5738,8 +5749,8 @@ html.lattice-dialog-open{overflow:hidden}
         <button type="button" data-prop-phase="reveal" aria-pressed="false"><span>03</span>Reveal</button>
         <button type="button" data-prop-phase="publish" aria-pressed="false"><span>04</span>Account for disclosure</button>
       </div>
-      <p class="prop-phase-note" data-prop-note aria-live="polite">The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and nonce are absent.</p>
-      <p class="prop-noscript-copy">At reveal, side, price, quantity, nonce and backing become public transaction inputs. The disclosure lattice governs later venue events, not those inputs.</p>
+      <p class="prop-phase-note" data-prop-note aria-live="polite">The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and salt are absent.</p>
+      <p class="prop-noscript-copy">At reveal, side, price, quantity, salt and backing become public transaction inputs. The disclosure lattice governs later venue events, not those inputs.</p>
 
       <div class="audience-grid" aria-label="Disclosure policy surfaces">
         <article>
@@ -6710,26 +6721,26 @@ const SIDE = {BUY: 0, SELL: 1};
 /// The committer is in the preimage so a commitment lifted from the wire cannot
 /// be submitted and revealed by someone else. Without it the stolen commitment
 /// still verifies, which is what makes the omission easy to miss.
-function preimageWords(committer, side, price, qty, nonce) {
+function preimageWords(committer, side, price, qty, salt) {
     return [
         {name: "DOMAIN_ORDER", type: "bytes32", bytes: word(DOMAIN_ORDER), sig: 32, from: "constant"},
         {name: "committer", type: "address", bytes: word(committer), sig: 20, from: "wallet"},
         {name: "side", type: "uint8", bytes: word(side), sig: 1, from: "order"},
         {name: "price", type: "uint128", bytes: word(price), sig: 16, from: "order"},
         {name: "qty", type: "uint128", bytes: word(qty), sig: 16, from: "order"},
-        {name: "nonce", type: "bytes32", bytes: word(nonce), sig: 32, from: "you"},
+        {name: "salt", type: "bytes32", bytes: word(salt), sig: 32, from: "you"},
     ];
 }
 
-function encodePreimage(committer, side, price, qty, nonce) {
-    const words = preimageWords(committer, side, price, qty, nonce);
+function encodePreimage(committer, side, price, qty, salt) {
+    const words = preimageWords(committer, side, price, qty, salt);
     const out = new Uint8Array(words.length * 32);
     words.forEach((w, i) => out.set(w.bytes, i * 32));
     return out;
 }
 
-const commitmentOf = (committer, side, price, qty, nonce) =>
-    hex(keccak_256(encodePreimage(committer, side, price, qty, nonce)));
+const commitmentOf = (committer, side, price, qty, salt) =>
+    hex(keccak_256(encodePreimage(committer, side, price, qty, salt)));
 
 /// `bytes4(keccak256(sig))`. Computed rather than pasted.
 const selector = (sig) => hex(keccak_256(new TextEncoder().encode(sig))).slice(0, 10);
@@ -6876,7 +6887,7 @@ const HCS = {"topicId":"0.0.10397186","memo":"seamme venue chain 296 disclosure 
 const ORACLE_TOPICS = [{"topicId":"0.0.10450876","profile":"buyer","publisher":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d"},{"topicId":"0.0.10450872","profile":"issuer","publisher":"0xCFc5923dEf1F25db05FE50754Ef0822175AFD449"},{"topicId":"0.0.10450875","profile":"seller","publisher":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397"}];
 const ORACLE_SCHEDULER = {"schema":"lattice.oracle.scheduler.v1","deployedAt":"2026-09-10T09:10:04.605841+00:00","address":"0x405c034ec3ba7839e348ed3536f0bcff15cfbff9","contractId":"0.0.10456288","oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","treasury":"0xCFc5923dEf1F25db05FE50754Ef0822175AFD449","transactionHash":"0x1a4633815e61be1cf25af0494fbb674467ef768f45cd9c9dcbb0d17d55393b80","runtimeBytecodeHash":"0xb25ca945bc7d08adbc441b2a122bb8b58bdc86cd75efae02a0504000e1c24074","immutableMaskedRuntimeBytecodeHash":"0x3392ede290bafcb234627e2456ee7f476dd42e93ed1bf43add89b06d255740c5","runtimeArtifact":"out/OracleScheduler.sol/OracleScheduler.json","chainId":296,"configuration":{"initialDelaySeconds":90,"retrySeconds":[300,900,3600],"maximumUnchangedChecks":4,"maximumChecksPerRound":8,"maximumSchedulingAttemptsPerRound":8,"executionClockToleranceSeconds":2,"minimumBalanceTinybar":"500000000"},"bindings":{"checkedAt":"2026-09-10T09:10:04.605841+00:00","oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","treasury":"0xCFc5923dEf1F25db05FE50754Ef0822175AFD449","initialDelaySeconds":90},"productionCanary":{"round":3,"classification":"Runtime migration canary. It verifies the final scheduler and expanded provenance schema but is not counted as a new upstream-source observation.","publisherDecisionCode":"NEW_SOFR","publisherDecisionQualification":"The official SOFR observation was new to the upgraded publisher journal, but its 2026-09-08 effective date was already used in round 2.","publishedAt":1789032536,"cleanPriceUsd8":"9999977726","referenceRateBps":"364","algorithmVersion":"hybrid-vwap-usd8-v1","configurationDigest":"0x9ffcde8895f94e77562533e66a4f560df3361b0a20f8f14b652a6f9587ee6891","sourceMode":"model-dealer-fallback","dealer":{"address":"0x6ABb1F2376a0D51d9fD54159553A0446614548c3","classification":"disclosed testnet simulation","productionEligible":false},"answerTransactions":{"issuer":"0x4a2f74b1b1fcd900569410eacfad6a11ca829244d6e4242328f75638257dc7ce","seller":"0xb603dab456f57454de57e30828f31848aa130a4ca08fa13706bf89d84ef6ea9b","buyer":"0x027a6cb726e4a67a8479dea22d62393b36e2203d541e7af432683f0486522237"},"hcsEvidence":{"issuer":{"topicId":"0.0.10450872","sequenceNumber":14},"seller":{"topicId":"0.0.10450875","sequenceNumber":13},"buyer":{"topicId":"0.0.10450876","sequenceNumber":12},"verification":{"currentVerified":6,"pending":0,"expired":0,"invalid":0,"missingPanelEvidence":0,"mirrorErrors":0,"panelErrors":0}},"schedule":{"scheduleId":"0.0.10456570","scheduleAddress":"0x00000000000000000000000000000000009f8dfa","creatorArmTransactionHash":"0xb5b664c11265c81763b74a43e4e003a31ac54dc3a9daa8f55c5688ef3b74605c","creatorArmTransactionId":"0.0.7314364-1789032444-553687382","creatorArmGasUsed":"1539279","creatorArmFeeTinybar":"170859969","duplicateArmGasUsedEach":"23740","duplicateArmFeeTinybarEach":"2635140","duplicateArmTransactions":["0x0bd76488da8eeb3e831a4dcaaf302629a74bdd74dde0b07531a2c3794ea8a660","0xd6dafa61a27db83a37947e0c7d1a921baee6a00276bc3fc5a2409521d76a37e8"]},"scheduledFinalization":{"transactionId":"0.0.7314364-1789032444-553687382","nonce":53,"transactionHash":"0x48254ccd947b45a5af7f5702a49741421ee59ef1555ae614b058dd5590ba8f11","consensusTimestamp":"1789032536.001889355","gasLimit":"2000000","gasUsed":"161686","feeTinybar":"17947146","result":"SUCCESS"},"cost":{"scope":"Scheduler arm and scheduled finalization only; excludes publisher answers, HCS evidence, and source retrieval.","directHssPathHbar":"1.88807115","duplicateArmRaceHbar":"0.05270280","observedTotalHbar":"1.94077395","networkConversionUsdPerHbar8":"7626366","observedTotalUsd":"0.14801","sixRoundsPerDayUsd":"0.89"}},"officialSourceCanary":{"round":4,"classification":"Testnet acceptance only: natural NY Fed SOFR change with the explicitly nonproduction simulated dealer fallback.","trigger":"NEW_SOFR","sofrEffectiveDate":"2026-09-09","sofrEffectiveAt":1788912000,"sofrIdentity":"0xcc527067db37ba76","publishedAt":1789051720,"cleanPriceUsd8":"9999976344","referenceRateBps":"364","sourceMode":"model-dealer-fallback","answerTransactions":{"issuer":"0xe59aee0897f8c2ba1304cd844a76d50dee59641ea3ca82e98130035727553671","seller":"0x23fd6aa3d68dc904ce6eec274c1d6da1174e8ee761be5e045e741a92f246fa87","buyer":"0x78c705791fd30231d72f615b1592dc6a5558f523d087734cd7d924980693c788"},"hcsEvidence":{"issuer":{"topicId":"0.0.10450872","sequenceNumber":18,"configurationDigest":"0x63d5fa00bb8de182415778c25de0dce006cd66f13c23cb269f2ca3c65cb74292","sourceDigest":"0xd527100380dd467cc5b52ab1e5d600c45129c75f99bf28b1098646e936868c6c"},"seller":{"topicId":"0.0.10450875","sequenceNumber":17,"configurationDigest":"0x74cf20f60de70577d49cb5876b17cff2a3bc7a34446d80de8c2fedd1ef3b9710","sourceDigest":"0x0bb4ac63cdab4fc0025fefc97f6aca3c5aef709712b44d30c66088de02112f3b"},"buyer":{"topicId":"0.0.10450876","sequenceNumber":16,"configurationDigest":"0xbfd0b23de9d357541dffe8ca8f9280b12b9e384525fef0819b08793a3535be80","sourceDigest":"0xd7ee7f97588e36be26cd6d12a4fa39ea45c716c97ed5fb2aab5368635011e64f"},"verification":{"currentVerified":9,"pending":0,"expired":0,"invalid":0,"missingPanelEvidence":0,"mirrorErrors":0,"panelErrors":0}},"schedule":{"scheduleId":"0.0.10461438","scheduleAddress":"0x00000000000000000000000000000000009fa0fe","creatorArmTransactionHash":"0x6ac9805c92afcf68f5c18204b4e26011aab058408cb35522eebe8a53ab085173","creatorArmTransactionId":"0.0.7314364-1789051626-731884484","creatorArmGasUsed":"1502279","creatorArmFeeTinybar":"169757527","duplicateArmGasUsedEach":"23740","duplicateArmFeeTinybarEach":"2682620","duplicateArmTransactions":["0xa6d530d80d69c9c603a3af439891089eeca5e285e7ae4d26d1786d4007d01639","0xad5ae0e0915e055eb2b036cae87b37ddf66ae7595249c98bb2ea67e43e899e2c"]},"scheduledFinalization":{"transactionId":"0.0.7314364-1789051626-731884484","nonce":53,"transactionHash":"0x9fb0d37d2ee1ca79552a74eba10770c06f4a5b84af16ae5927c1ed18b348dd75","consensusTimestamp":"1789051722.077702208","gasLimit":"2000000","gasUsed":"162434","feeTinybar":"18355042","result":"SUCCESS"},"cost":{"scope":"Scheduler arm and scheduled finalization only; excludes publisher answers, HCS evidence, and source retrieval.","directHssPathHbar":"1.88112569","duplicateArmRaceHbar":"0.05365240","observedTotalHbar":"1.93477809","networkConversionUsdPerHbar8":"7509000","observedTotalUsd":"0.14528","sixRoundsPerDayUsd":"0.87"}},"supersedes":[{"schema":"lattice.oracle.scheduler.v1","deployedAt":"2026-09-10T06:55:17.758180+00:00","address":"0x6ecdd92a3c8f132694ce5270b7fd6d9f884acb3b","contractId":"0.0.10454853","oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","treasury":"0xcfc5923def1f25db05fe50754ef0822175afd449","transactionHash":"0xbd4c0a8229ed6fd6d3b280eda92bab4aee0f3119d53ebdeb78d411ecc4c758a9","decommissionedAt":"2026-09-10T09:07:57+00:00","decommissionReason":"Replaced by the globally bounded scheduling-attempt implementation.","fundingRecoveryTransactionHash":"0xb3bf374be2de3624ea268d2b8821a685d157ed71436e716a2eaaafd4e38a474b","recoveredHbar":"9.8468217","fundingTransactionHash":"0x609bfceb2e4eb56496f30769562182a996cdc4d34c96cca9387e804ea0dbaccc","fundedHbar":"10","runtimeBytecodeHash":"0xb10b868fd2314bb2773258610843e1ac897b70949be10b7c4ce795bddf33d4fd","immutableMaskedRuntimeBytecodeHash":"0x3833e5b90395a8f42438e451400c6658c8f1dd222e91ecf094488ec3afa00d12","chainId":296,"configuration":{"initialDelaySeconds":90,"retrySeconds":[300,900,3600],"maximumUnchangedChecks":4,"maximumChecksPerRound":8,"executionClockToleranceSeconds":2,"minimumBalanceTinybar":"500000000"},"acceptance":{"round":2,"trigger":{"mode":"accelerated-source-driven-keepalive","acceptanceKeepaliveSeconds":1,"productionKeepaliveSeconds":14400,"note":"Only the off-chain publication clock was accelerated. The production valuation adapters, source quorum, HCS-first ordering, and onchain quorum were unchanged; the temporary configuration was removed after this round."},"publishedAt":1789023569,"cleanPriceUsd8":"9999978373","referenceRateBps":"364","answerTransactions":{"issuer":"0xda40c77aea8b393a40884a6a7870ac3c3b7200eecf93cad526bfc1259f4d632b","seller":"0xfd2bb9401a04b8ae5199c2cfd5ef1d9c94c4165951132547cd82490ded7378a1","buyer":"0x9701b67cafc8443f93fa4b28a85b499c2857ff20e81f4ce3f94b2611ee86e4ff"},"hcsEvidence":{"issuer":{"topicId":"0.0.10450872","sequenceNumber":11},"seller":{"topicId":"0.0.10450875","sequenceNumber":10},"buyer":{"topicId":"0.0.10450876","sequenceNumber":9},"verifiedCurrentOracleRoundMessages":3},"schedule":{"scheduleId":"0.0.10454874","scheduleAddress":"0x00000000000000000000000000000000009F875a","creatorArmTransactionHash":"0x3e523dba48dc975b8732de3c8bb14c738d7b40e5dea027355ed48b06e5069af5","creatorArmTransactionId":"0.0.7314364-1789023478-488959014","creatorArmGasUsed":"1537115","creatorArmFeeTinybar":"169082650","duplicateArmGasUsedEach":"23740","duplicateArmFeeTinybarEach":"2611400","duplicateArmTransactions":["0xc8b78f4ef8d172052ebe8d7d776eda9958c50f135cff8490c8a17d036cb0d6d2","0x624fd99695af7386cbd105e7cb5b4677ab1b3c50fcb220f07ff5a66a02d71967"]},"scheduledFinalization":{"transactionId":"0.0.7314364-1789023478-488959014","nonce":53,"transactionHash":"0x85a835c1d674a4a9c1aa3ed24a6178f5ecd18709f75ecd67bf216a4c8467d0f9","consensusTimestamp":"1789023571.084162650","gasLimit":"2000000","gasUsed":"139253","feeTinybar":"15317830","result":"SUCCESS"},"cost":{"scope":"Scheduler arm and scheduled finalization only; excludes publisher answer transactions, HCS evidence, and source retrieval.","directHssPathHbar":"1.8440048","duplicateArmRaceHbar":"0.052228","observedTotalHbar":"1.8962328","networkConversionUsdPerHbar8":"7708266","observedTotalUsd":"0.14617","sixRoundsPerDayUsd":"0.88"}}},{"address":"0xb2896395b7eb36f9bea4e9c4fe5e59dd30f20e6d","transactionHash":"0x15b4a6d09b5ac9d1d61dce97e9d0fe6ee69fc42d200fb406c1d68832a82d7adf","reason":"A stale environment override bound this scheduler to the superseded PrimeOracle. Deployment now rejects a target that differs from the current address book.","fundingRecoveryTransactionHash":"0x99fd6fab20744f07712e228900d0db567c01da83771af6ef8d48c6f01fdb0fab","recoveredHbar":"9.8467722"},{"address":"0x1ee298148a9e7825ca919d9983127600a4001736","transactionHash":"0x19ef8d24af6801877e79d3076cbba8ca5e6dbe3c0de4c7e25cb3a8f85bf3bfe2","reason":"Added recovery for a consumed schedule that never updated contract state.","fundingRecoveryTransactionHash":"0xce092bb6f34d09d58b2c31d6107c97f3adc67b2000b5e72f3a9cfa758256eeaf"},{"address":"0x6981331f639f371ba1ed4696053fe83f52e6330f","transactionHash":"0x2c50ec9ad725c6ec3a1e27a9c807431808ea52a6becafcf297da5b9a78c24d9d","reason":"Testnet showed consensus expiry one second ahead of EVM block time. The strict early check was replaced with a measured two-second tolerance.","unrecoverableTestnetFundingHbar":"19.97166512"}],"fundingTransactionHash":"0x33cc830984cbf5d19c88a0ebdbf70cd4e1d02af89117e4f5e730d8855c2e156b","fundedHbar":"10","fundingTransactions":[{"transactionHash":"0x33cc830984cbf5d19c88a0ebdbf70cd4e1d02af89117e4f5e730d8855c2e156b","fundedHbar":"10","recordedAt":"2026-09-10T09:10:21.699205+00:00"}]};
 const FINANCING_EVIDENCE = {"automatic":{"schema":"lattice.financing.hss-canary.v1","status":"verified","checkedAt":"2026-09-10T06:13:28+00:00","network":"hedera-testnet","chainId":296,"runKind":"compressed automatic-settlement canary","deploymentRecord":"deployments/.financing-deploy/candidate.json","vault":{"address":"0x8c789a6a395c5b912e0a77d64a8e91c6e7cdb5b8","contractId":"0.0.10454144","financingVersion":5,"runtimeBytecodeHash":"0xec4ff4f7e69ff5e576bf0e41a502f0f3fe077b6ac7a7a6580bfac5782d51185b"},"marginWatch":"0xde540b2c42d82ec644699ca5d758ea7d0c6635ad","token":"0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2","oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","couponSchedule":"0xEFDE1B68A1BcAc64788af11e88Dd203C940607dF","id":"0x570e0d0c94b90c37d27985c27e64485491c888ad1a72de8b1e6dace9e5943fa2","borrower":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","lender":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d","terms":{"partition":"0x0000000000000000000000000000000000000000000000000000000000000001","collateralAmount":"1","haircutBps":"200","maintenanceBps":"200","repoRateBps":"450","termSeconds":"300","openedAt":1789020217,"maturity":1789020517},"cash":{"principalTinybar":"127352970084","repurchaseTinybar":"127353024602","penaltyTinybar":"0","closePaidTinybar":"127353024602"},"collateral":{"holdId":"44","amount":"1","freeBefore":"1788","heldBefore":"1000","freeFinal":"1788","heldFinal":"1000"},"receipts":{"fundOffer":{"tx":"0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91","status":1,"gasUsed":"337933","block":40331377,"blockTimestamp":1789020202,"blockTime":"2026-09-10T06:03:22+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x9cbba54e5d914dc3464dd426f2fd1dd1d69c4a19215f77cfcc8ce89ab6b2dc91"},"accept":{"tx":"0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789","status":1,"gasUsed":"2202722","block":40331384,"blockTimestamp":1789020217,"blockTime":"2026-09-10T06:03:37+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xb7f59b0933f49aed02db12f6979802a6d214ae19bb0ea03645d61e1f7a2a2789"},"withdrawBorrower":{"tx":"0x1dc23eb120178dab84b4b958ca313021e35bdb32c7ffc43e571ea4f11bbb26e2","status":1,"gasUsed":"35939","block":40331400,"blockTimestamp":1789020251,"blockTime":"2026-09-10T06:04:11+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x1dc23eb120178dab84b4b958ca313021e35bdb32c7ffc43e571ea4f11bbb26e2"},"close":{"tx":"0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01","status":1,"gasUsed":"326168","block":40331408,"blockTimestamp":1789020268,"blockTime":"2026-09-10T06:04:28+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x6b8a3a6db9b48deeefb0111ad162e08ff6118a68ca52acef2dad6584f556ef01"},"withdrawLender":{"tx":"0x691c0b151df0b481346c30f6c8430d48222435b0b6dc1dc3878a78d9c7c1fcdf","status":1,"gasUsed":"35939","block":40331425,"blockTimestamp":1789020305,"blockTime":"2026-09-10T06:05:05+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x691c0b151df0b481346c30f6c8430d48222435b0b6dc1dc3878a78d9c7c1fcdf"}},"automaticSettlement":{"failObligation":"0x5f0a2d2ccd502ef9032c2465855628a33cff850dad8368bc315217f608fcd241","economicDueAt":1789020517,"executionDelaySeconds":2,"scheduleAddress":"0x00000000000000000000000000000000009f84E5","scheduleId":"0.0.10454245","expirationTime":"1789020519.000000000","executedTimestamp":"1789020519.039793350","transactionId":"0.0.7314364-1789020209-540687199","transactionHashSha384":"0x8e58a1eca49e71ec23c0d4a4fe0394f8f5578ecb76e4c0e06b9e23666f12bfbc55a409573f4ece976714366b66ac5971","result":"SUCCESS","chargedFeeTinybar":"4409130","evmTransactionHash":"0x8e58a1eca49e71ec23c0d4a4fe0394f8f5578ecb76e4c0e06b9e23666f12bfbc","evmBlock":40331524,"evmBlockTimestamp":1789020517,"gasUsed":"40083","callResult":"0x0000000000000000000000000000000000000000000000000000000000000001","hashscan":"https://hashscan.io/testnet/transaction/0.0.7314364@1789020209.540687199","manualFallbackSent":false},"snapshots":{"initialVaultBalanceWeibar":"20000000000000000000","reservedBeforeExecutionTinybar":"500000000","finalVaultBalanceWeibar":"19955908700000000000","reservedFundingTinybar":"0","cashReservedTinybar":"0","additionalCallsFunded":"3","repoState":"CLOSED","obligationStatus":"SETTLED"},"assertions":{"fundedOfferAccepted":true,"atsHoldCreatedAndReleased":true,"cashRoundTrip":true,"strictEconomicDuePreserved":true,"hssExpiredTwoSecondsAfterDue":true,"scheduledTransactionSucceeded":true,"manualFallbackNotSent":true,"obligationSettledAutomatically":true,"scheduleReservationReleased":true,"finalLiabilitiesZero":true}},"production":{"schema":"lattice.financing.beat.v1","status":"verified","checkedAt":"2026-09-10T05:01:15Z","network":"hedera-testnet","chainId":296,"vault":{"address":"0xC45182A32Cf3Cce5845Cb734f3A36b50259146d9","contractId":"0.0.10452732","financingVersion":5},"token":"0x5Efb2Ed7b36728D4893156B9ce41b7068Fb52fe2","oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","id":"0x81a7b6c343c87350fedabf95bb0ea7db94b8ac8fda7130163ec797989d099866","borrower":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","lender":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d","terms":{"partition":"0x0000000000000000000000000000000000000000000000000000000000000001","collateralAmount":"1","haircutBps":"200","maintenanceBps":"200","repoRateBps":"450","termSeconds":"3600","openedAt":1789012304,"maturity":1789015904},"cash":{"markPerUnitTinybar":"130942356414","principalTinybar":"128323509285","repurchaseTinybar":"128324168482","penaltyTinybar":"0","closePaidTinybar":"128324168482"},"collateral":{"holdId":"35","amount":"1","escrow":"0xC45182A32Cf3Cce5845Cb734f3A36b50259146d9","expirationTimestamp":"18446744073709551615","allowanceBefore":"10","allowanceWhileHeld":"9","allowanceAfterRelease":"10"},"snapshots":{"before":{"state":"NONE","borrowerFreeCollateral":"1924","borrowerHeldCollateral":"1002","vaultBalanceWeibar":"20000000000000000000","cashReservedTinybar":"0","borrowerBalanceWeibar":"193127232960000000000","lenderBalanceWeibar":"1611640879630000000000"},"funded":{"state":"NONE, funded offer exists","vaultBalanceWeibar":"1303235092850000000000","cashReservedTinybar":"128323509285"},"open":{"state":"OPEN","borrowerFreeCollateral":"1923","borrowerHeldCollateral":"1003","borrowerCreditTinybar":"128323509285"},"borrowerWithdrew":{"borrowerCreditTinybar":"0","vaultBalanceWeibar":"20000000000000000000","cashReservedTinybar":"0"},"closed":{"state":"CLOSED","borrowerFreeCollateral":"1924","borrowerHeldCollateral":"1002","lenderCreditTinybar":"128324168482","vaultBalanceWeibar":"1303241684820000000000","cashReservedTinybar":"128324168482"},"final":{"borrowerFreeCollateral":"1924","borrowerHeldCollateral":"1002","lenderCreditTinybar":"0","vaultBalanceWeibar":"20000000000000000000","cashReservedTinybar":"0","borrowerBalanceWeibar":"190247077430000000000","lenderBalanceWeibar":"1611251454680000000000"},"postMaturityFallback":{"state":"CLOSED","failObligationStatus":"SETTLED","reservedFundingTinybar":"0","fundedCallsAvailable":"3","vaultBalanceWeibar":"19969697200000000000"}},"receipts":{"approveCollateral":{"tx":"0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a","status":1,"gasUsed":"186519","block":40327626,"blockTimestamp":1789012183,"blockTime":"2026-09-10T03:49:43+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a"},"fundOffer":{"tx":"0xab057ccd5fffdb1442784406e2738f86604d3f4b60218b04afd3474171778816","status":1,"gasUsed":"320833","block":40327677,"blockTimestamp":1789012291,"blockTime":"2026-09-10T03:51:31+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xab057ccd5fffdb1442784406e2738f86604d3f4b60218b04afd3474171778816"},"accept":{"tx":"0x0336a64ebb9a50874aa6524aa06aef2d551f1ffba273875933f4a363b388f430","status":1,"gasUsed":"2207456","block":40327683,"blockTimestamp":1789012304,"blockTime":"2026-09-10T03:51:44+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x0336a64ebb9a50874aa6524aa06aef2d551f1ffba273875933f4a363b388f430"},"withdrawBorrower":{"tx":"0xa279314ca97424f0beab30b1801844ff67843a23ac5783a4686ee98517be8c9a","status":1,"gasUsed":"35939","block":40327710,"blockTimestamp":1789012361,"blockTime":"2026-09-10T03:52:41+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xa279314ca97424f0beab30b1801844ff67843a23ac5783a4686ee98517be8c9a"},"close":{"tx":"0xd82bbbf40efd153e0e336912c55ed02f6fcd6a6618c63a7e3c095aacefae717d","status":1,"gasUsed":"302274","block":40327732,"blockTimestamp":1789012407,"blockTime":"2026-09-10T03:53:27+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xd82bbbf40efd153e0e336912c55ed02f6fcd6a6618c63a7e3c095aacefae717d"},"withdrawLender":{"tx":"0x7ece1d88a6c94d97e2a56c2a0f414caf29889c61187c9903db01fb5f6a57584e","status":1,"gasUsed":"35939","block":40327745,"blockTimestamp":1789012435,"blockTime":"2026-09-10T03:53:55+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x7ece1d88a6c94d97e2a56c2a0f414caf29889c61187c9903db01fb5f6a57584e"},"settleFailFallback":{"tx":"0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca","status":1,"gasUsed":"40083","block":40329635,"blockTimestamp":1789016474,"blockTime":"2026-09-10T05:01:14+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x4ebf258eb0eb36164f08214796b60e61de8dbe4e5ce666a2367f75b2e2bd85ca"}},"approvalWindow":{"address":"0x70C67ba8D07E7142baaBc8791810797a595b3397","contractId":"0.0.10452884","deployTx":"0x0bedc42d9323d5a54f1d0cdda4f2ddfc653987e43c5460f38df71f7cd3cfa376","restriction":"Only (borrower, RepoVault, 0) returns true. Positive-value transfers remain refused.","originalCompliance":"0x0d5BadF7a535C2Cdd2d21068E9273903583D3Ec9","seatTx":"0x8dd07c8d595c12bfb49465a4d4d4077f18bae2608df956aa808354a31fb577a3","approveTx":"0x5dc9cf5f5cf2a7acaaeccd3b21c23ed08112c76311bae6f847b8169e5fa2895a","restoreTx":"0x96dc8a1c48defc3cc0fd9f034978a75ed84b437e8707b5af2e84cdbcf6509ad1","restored":true},"recovery":{"note":"A preparatory funded offer was canceled and withdrawn after the first approval attempt exposed the vault-address compliance requirement. Its principal was fully recovered before the canonical beat.","offerId":"0xa2ba57ab3312d6923e35b9ce93241810ee8456a25d48589479f25ef8986a168f","fundTx":"0x7088f1c081f16a32b9338f9d220b8116dc2c37fe03f5dfb85937c637bd0dcb05","cancelTx":"0x316965822ff11ec459855d0c516b960bcd58ce5f4ce55085882951fc4846c005","withdrawTx":"0x789c17bf60c960977d07cee00059d2374b014e5aec4ddfc6c4ac262402bcb416","failedGasEstimateTx":"0x39c597eeb6b9bafc2084b606b46cdb2dc0d268cf4330cabdf42df9c78f73a0ca"},"hssBoundary":{"failObligation":"0x1b24ec0ef511613b637fd20eae500308bb82f1368aa3704224cd61098a8f8f1f","scheduleAddress":"0x00000000000000000000000000000000009F7Fb9","scheduleId":"0.0.10452921","dueAt":1789015904,"scheduledExecution":{"transactionId":"0.0.7314364-1789012301-474528722","transactionHashSha384":"0xb32f57c80a69cbafc1bc8ff2e600bdaa25cf87a05b92991c2c10fa55a1855d3877b67fa94beeb4992d227ee88924d5dc","consensusTimestamp":"1789015904.009771916","evmBlock":40329366,"evmBlockTimestamp":1789015903,"result":"CONTRACT_REVERT_EXECUTED","chargedFeeTinybar":"3030280","reason":"HSS reached consensus after dueAt, but this Hedera block exposed an EVM block.timestamp one second before dueAt. The strict due-time check reverted without changing repo state.","hashscan":"https://hashscan.io/testnet/transaction/0.0.7314364@1789012301.474528722"},"manualFallback":{"receipt":"settleFailFallback","result":"SETTLED","reservedFundingTinybar":"0","note":"The permissionless settle entry point completed the already-closed repo obligation after dueAt. No collateral or repo cash moved."}},"assertions":{"fundedOfferStoredCash":true,"acceptCreatedAtsHold":true,"holdEscrowIsVault":true,"principalWithdrawn":true,"closePaidExactly":true,"holdReleasedAtClose":true,"cashRoundTrip":true,"finalStateClosed":true,"operatingReservePreserved":true,"complianceJournalRestored":true,"hssBoundaryFailureRecorded":true,"permissionlessFallbackSettled":true,"hssReservationReleased":true}},"lifecycle":{"schema":"lattice.financing.lifecycle.v1","checkedAt":"2026-09-10T04:25:24+00:00","status":"complete","network":"hedera-testnet","deployment":{"schema":"lattice.financing.deployment.v1","kind":"compressed-demo","checkedAt":"2026-09-10T04:01:57+00:00","contracts":{"CouponSchedule":{"address":"0xa9c0c7e3232fd54760530113d65369de7a5d5805","tx":"0x28cf144234d0dfb1a2dd5ad2b28b19726ef00b7ace33603372ef28714008e067","gasUsed":"811612","contractId":"0.0.10453016"},"RepoVault":{"address":"0x97eb738d03797528f20de807254d4141d9bfd2fe","tx":"0x96db6aa41b863104477e076a45c1033770f05f5ac751a769548c45caf1c7521e","gasUsed":"5359410","contractId":"0.0.10453018"},"MarginWatch":{"address":"0xaa1e985dc159ff6fec633c6c73c8ae0cc8a9d356","tx":"0x2d9a69e8cc1037bf964eee03494f65380bbd1354a5afbf8011df2d7a90759377","gasUsed":"1284567","contractId":"0.0.10453020"},"ApprovalWindowCompliance":{"address":"0x622e7d49310569510d09f29a673373bc60a0eb8e","tx":"0x843384a1a5468a5dc2cb729025f1d913b168025c447d93aecbe44a5acb5c6d13","gasUsed":"219124","contractId":"0.0.10453027","seatTx":"0xe7c154ed0d72b61a22920a77c8246a5ac7aa5718f3850cd2ba7b17800aa715d3","approveTx":"0xb82a4077c0d52e50d3f0688fe87cd7a585f60229a97c1e0d3152b9b431733b66","restoreTx":"0x9a293029e6033ee34e93a07182e892c5de309690907e9a712bbf0461f735d034"}}},"vault":"0x97eb738d03797528f20de807254d4141d9bfd2fe","marginWatch":"0xaa1e985dc159ff6fec633c6c73c8ae0cc8a9d356","couponSchedule":"0xa9c0c7e3232fd54760530113d65369de7a5d5805","oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","actors":{"borrower":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","lender":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d"},"position1":{"id":"0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be","purpose":"live-feed margin call, added collateral, cure, and close","terms":{"collateralAmount":"1","haircutBps":"200","maintenanceBps":"205","repoRateBps":"450","termSeconds":"600"},"principalTinybar":"127152487372","openedAt":"1789013160","maturity":"1789013760","collateralHoldId":"36","extraHoldIds":["38"],"finalState":"CLOSED"},"position2":{"id":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","purpose":"coupon observation, settlement fail, penalty, default, and collateral execution","terms":{"collateralAmount":"128","haircutBps":"9990","maintenanceBps":"0","repoRateBps":"450","termSeconds":"825"},"principalTinybar":"16607671820","openedAt":"1789013323","collateralHoldId":"39","preFundingCouponSmallestCashUnits":"1","preFundingReferenceRateBps":"364","couponDue":"1789013779","couponOwedSmallestCashUnits":"1","couponCommitment":"0xa46b3e19a83379a6f154814ba7832ee7845e7dc11e84fb68c2aed2824da8a8c8","maturity":"1789014148","penaltyTinybar":"166077","finalState":"CLOSED"},"hssFallback":{"vaultWasUnfunded":true,"failObligation":"0xb30c1c6f4c58db7ab2cddb1c95f633fbb6f3344691bba0576792b4889cf44e80","couponObligation":"0x128a70aa0e322b77aaa88adb98f9740d11daa3656603fbd14a4f71c6e5a76ca6","scheduleAddress":"0x0000000000000000000000000000000000000000","finalStatus":"SETTLED","unscheduled":{"fail":{"obligation":"0xb30c1c6f4c58db7ab2cddb1c95f633fbb6f3344691bba0576792b4889cf44e80","reason":-3,"meaning":"UNFUNDED"},"coupon":{"obligation":"0x128a70aa0e322b77aaa88adb98f9740d11daa3656603fbd14a4f71c6e5a76ca6","reason":-3,"meaning":"UNFUNDED"}}},"collateral":{"borrowerFreeBefore":"1926","borrowerHeldBefore":"1000","lenderFreeBefore":"1074","borrowerFreeAfter":"1798","borrowerHeldAfter":"1000","lenderFreeAfter":"1202","executedToLender":"128"},"marginWatchCheckpoints":[{"tag":"position1-before","repoId":"0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be","chainTimestamp":"1789013141","alert":{"state":"0","called":"false","cureDeadline":"0","maturity":"0","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1270","metered":"true","budgetBits":"2","spentBits":"0","permitted":"true","audible":"true","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position1-called","repoId":"0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be","chainTimestamp":"1789013252","alert":{"state":"3","called":"true","cureDeadline":"1789013543","maturity":"1789013760","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1270","metered":"true","budgetBits":"2","spentBits":"2","permitted":"true","audible":"false","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position1-closed","repoId":"0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be","chainTimestamp":"1789013304","alert":{"state":"7","called":"false","cureDeadline":"0","maturity":"1789013760","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1270","metered":"true","budgetBits":"2","spentBits":"2","permitted":"true","audible":"false","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position1-cured","repoId":"0x748e8c4e51858698d176d42311ff9cd48a087a1b631e7e315f43f00490b415be","chainTimestamp":"1789013276","alert":{"state":"2","called":"false","cureDeadline":"0","maturity":"1789013760","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1270","metered":"true","budgetBits":"2","spentBits":"2","permitted":"true","audible":"false","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position2-closed","repoId":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","chainTimestamp":"1789014298","alert":{"state":"7","called":"false","cureDeadline":"0","maturity":"1789014148","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1274","metered":"true","budgetBits":"2","spentBits":"1","permitted":"true","audible":"true","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position2-coupon","repoId":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","chainTimestamp":"1789013800","alert":{"state":"2","called":"false","cureDeadline":"0","maturity":"1789014148","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1272","metered":"true","budgetBits":"2","spentBits":"1","permitted":"true","audible":"true","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position2-defaultable","repoId":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","chainTimestamp":"1789014273","alert":{"state":"5","called":"false","cureDeadline":"0","maturity":"1789014148","cureExpired":"false","unmarkedFail":"false","defaultable":"true"},"stream":{"epoch":"1273","metered":"true","budgetBits":"2","spentBits":"1","permitted":"true","audible":"true","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position2-failing","repoId":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","chainTimestamp":"1789014176","alert":{"state":"5","called":"false","cureDeadline":"0","maturity":"1789014148","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1273","metered":"true","budgetBits":"2","spentBits":"1","permitted":"true","audible":"true","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position2-open","repoId":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","chainTimestamp":"1789013339","alert":{"state":"2","called":"false","cureDeadline":"0","maturity":"1789014148","cureExpired":"false","unmarkedFail":"false","defaultable":"false"},"stream":{"epoch":"1270","metered":"true","budgetBits":"2","spentBits":"2","permitted":"true","audible":"false","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}},{"tag":"position2-unmarked-fail","repoId":"0xda9cc87f3c796e96876037609fd0aa3cd9541657dd475edc33dc13907672846d","chainTimestamp":"1789014155","alert":{"state":"2","called":"false","cureDeadline":"0","maturity":"1789014148","cureExpired":"false","unmarkedFail":"true","defaultable":"false"},"stream":{"epoch":"1273","metered":"true","budgetBits":"2","spentBits":"0","permitted":"true","audible":"true","breakingSize":"3"},"feed":{"oracle":"0x4fdFf36036e13eFA7D1fB07408cE69F546c082b8","dark":"false","ourLegDark":"false","cashLegDark":"false","cleanPrice8":"9999980028","refRateBps":"364","publishedAt":"1789010673","round":"1","usdPerHbar8":"7707266","markPerUnitTinybar":"129747436094","cashFeed":"0x49D108838F8B0f1bbe44F7449eB49C9cf2b198b0"}}],"receipts":{"approveCollateral":{"tx":"0xb82a4077c0d52e50d3f0688fe87cd7a585f60229a97c1e0d3152b9b431733b66","status":"0x1","gasUsed":"186519","block":40328014,"blockTimestamp":1789013006,"blockTime":"2026-09-10T04:03:26+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xb82a4077c0d52e50d3f0688fe87cd7a585f60229a97c1e0d3152b9b431733b66"},"complianceRestore":{"tx":"0x9a293029e6033ee34e93a07182e892c5de309690907e9a712bbf0461f735d034","status":"0x1","gasUsed":"64635","block":40328017,"blockTimestamp":1789013012,"blockTime":"2026-09-10T04:03:32+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x9a293029e6033ee34e93a07182e892c5de309690907e9a712bbf0461f735d034"},"complianceSeat":{"tx":"0xe7c154ed0d72b61a22920a77c8246a5ac7aa5718f3850cd2ba7b17800aa715d3","status":"0x1","gasUsed":"64635","block":40328012,"blockTimestamp":1789013001,"blockTime":"2026-09-10T04:03:21+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xe7c154ed0d72b61a22920a77c8246a5ac7aa5718f3850cd2ba7b17800aa715d3"},"position1-accept":{"tx":"0x303afdf7fd1115e0b30b8505c21ef450f107c63f1b070c337b2d784df571961a","status":"0x1","gasUsed":"738627","block":40328087,"blockTimestamp":1789013160,"blockTime":"2026-09-10T04:06:00+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x303afdf7fd1115e0b30b8505c21ef450f107c63f1b070c337b2d784df571961a"},"position1-add-collateral":{"tx":"0xed408d2f88217920580dfa1c0212c95ffa7a5b1a2784b7f3d409464e5fd42a74","status":"0x1","gasUsed":"485450","block":40328134,"blockTimestamp":1789013261,"blockTime":"2026-09-10T04:07:41+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xed408d2f88217920580dfa1c0212c95ffa7a5b1a2784b7f3d409464e5fd42a74"},"position1-close":{"tx":"0x8da75c601e6f099cf8f0349313e98f8d444c13e04ca0251b0453dbaf7c3c91dd","status":"0x1","gasUsed":"392794","block":40328146,"blockTimestamp":1789013286,"blockTime":"2026-09-10T04:08:06+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x8da75c601e6f099cf8f0349313e98f8d444c13e04ca0251b0453dbaf7c3c91dd"},"position1-cure":{"tx":"0x13bc9d75f7faa426e8221f57c4d000ebd5d1367061d46fe652ff33183bba43eb","status":"0x1","gasUsed":"93787","block":40328138,"blockTimestamp":1789013269,"blockTime":"2026-09-10T04:07:49+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x13bc9d75f7faa426e8221f57c4d000ebd5d1367061d46fe652ff33183bba43eb"},"position1-fund":{"tx":"0x74ba189162f617c5be7c1fa1c06fd0fe82026889c46b451d972808e96d4c7148","status":"0x1","gasUsed":"337933","block":40328082,"blockTimestamp":1789013149,"blockTime":"2026-09-10T04:05:49+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x74ba189162f617c5be7c1fa1c06fd0fe82026889c46b451d972808e96d4c7148"},"position1-mark":{"tx":"0xd8f65b72e045078f7505bd689708d8c8f6812a65fa6155ffe486603333beafc8","status":"0x1","gasUsed":"97120","block":40328126,"blockTimestamp":1789013243,"blockTime":"2026-09-10T04:07:23+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xd8f65b72e045078f7505bd689708d8c8f6812a65fa6155ffe486603333beafc8"},"position1-withdraw-borrower":{"tx":"0x25d1e33e099719dd3e48bbb0cbf63a922757e2ed1e05aec390d5aa9de67d6b69","status":"0x1","gasUsed":"35939","block":40328122,"blockTimestamp":1789013235,"blockTime":"2026-09-10T04:07:15+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x25d1e33e099719dd3e48bbb0cbf63a922757e2ed1e05aec390d5aa9de67d6b69"},"position1-withdraw-lender":{"tx":"0x05257af979acb40b9f453f06cdd06bc19b62258ceddf9e103954e5e46e991600","status":"0x1","gasUsed":"35939","block":40328150,"blockTimestamp":1789013295,"blockTime":"2026-09-10T04:08:15+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x05257af979acb40b9f453f06cdd06bc19b62258ceddf9e103954e5e46e991600"},"position2-accept":{"tx":"0xbb8dbcc20060ba77501d46d5b25a4e114e30aa0fafc0ee08f4304dcea1d0ed74","status":"0x1","gasUsed":"816022","block":40328163,"blockTimestamp":1789013323,"blockTime":"2026-09-10T04:08:43+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xbb8dbcc20060ba77501d46d5b25a4e114e30aa0fafc0ee08f4304dcea1d0ed74"},"position2-declare-default":{"tx":"0x3472ab60511da72afa01043ac9ccb61428c05d3a62000f306fed8377769338a1","status":"0x1","gasUsed":"67097","block":40328612,"blockTimestamp":1789014281,"blockTime":"2026-09-10T04:24:41+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x3472ab60511da72afa01043ac9ccb61428c05d3a62000f306fed8377769338a1"},"position2-fund":{"tx":"0x17c36bcfc336e49f83b9779ab455f9bf98ea21bf4c07f8383b2e550197c28de6","status":"0x1","gasUsed":"314072","block":40328158,"blockTimestamp":1789013312,"blockTime":"2026-09-10T04:08:32+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x17c36bcfc336e49f83b9779ab455f9bf98ea21bf4c07f8383b2e550197c28de6"},"position2-mark-failing":{"tx":"0xc4b89067daa3afbc9c9a01fef1525b4b262701ea18b2c7b47834e223d4c72fe7","status":"0x1","gasUsed":"84665","block":40328557,"blockTimestamp":1789014163,"blockTime":"2026-09-10T04:22:43+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xc4b89067daa3afbc9c9a01fef1525b4b262701ea18b2c7b47834e223d4c72fe7"},"position2-note-coupon":{"tx":"0x37dbaeba80ed6fb410d7c69339988fbfee1cf4d038a1cabd592928e45167ff8e","status":"0x1","gasUsed":"147329","block":40328381,"blockTimestamp":1789013789,"blockTime":"2026-09-10T04:16:29+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x37dbaeba80ed6fb410d7c69339988fbfee1cf4d038a1cabd592928e45167ff8e"},"position2-settle-coupon-fallback":{"tx":"0xf15e9f49bf7802c2f4b7f831292441ce83df4230413d6429881593caed37fbef","status":"0x1","gasUsed":"39458","block":40328383,"blockTimestamp":1789013793,"blockTime":"2026-09-10T04:16:33+00:00","hashscan":"https://hashscan.io/testnet/transaction/0xf15e9f49bf7802c2f4b7f831292441ce83df4230413d6429881593caed37fbef"},"position2-settle-default":{"tx":"0x7156173b9e0fd00e25eddcae1cf214918d2851b60d919f25b317b743c277e18c","status":"0x1","gasUsed":"411206","block":40328615,"blockTimestamp":1789014288,"blockTime":"2026-09-10T04:24:48+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x7156173b9e0fd00e25eddcae1cf214918d2851b60d919f25b317b743c277e18c"},"position2-settle-fail-fallback":{"tx":"0x11e371a561c70ebfd5caebc2d3ab9c8fbde6d9d629f8a0e9e4e2d6a3ff442600","status":"0x1","gasUsed":"39498","block":40328559,"blockTimestamp":1789014168,"blockTime":"2026-09-10T04:22:48+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x11e371a561c70ebfd5caebc2d3ab9c8fbde6d9d629f8a0e9e4e2d6a3ff442600"},"position2-withdraw-borrower":{"tx":"0x176f82926f816d2aca86aaba144228a625a501a1e21c5322465223558cf1f891","status":"0x1","gasUsed":"35939","block":40328167,"blockTimestamp":1789013331,"blockTime":"2026-09-10T04:08:51+00:00","hashscan":"https://hashscan.io/testnet/transaction/0x176f82926f816d2aca86aaba144228a625a501a1e21c5322465223558cf1f891"}},"assertions":{"marginCallFromLiveFeed":true,"collateralAdded":true,"curedBeforeDeadline":true,"couponDerivedFromHistoricalFixing":true,"unmarkedFailObserved":true,"article7PenaltyNonzero":true,"defaultAfterGrace":true,"collateralExecutedToLender":true,"manualFallbackSettledBothObligations":true}}};
-const DEMO_PROOFS = {"7":{"0xcfc5923def1f25db05fe50754ef0822175afd449":{"address":"0xcfc5923def1f25db05fe50754ef0822175afd449","proof":["0x2bfa569604c01d5e7682effb0bc082c229c5300ac5c8292b21fba933b40a8ac5","0x2d52983661cdcd852d851bb37f9dc67041de944555bd14627a39c5f4a6e26a8e","0x07d92363f3f85f696f2e83d28506fb6e9858c70ab58f61c9d2c2a7b7f3e264e2","0x1db0c8c1bf2ee37cdb5ee4a4f39bfe2778cfc3286fb5783be00c9b9372cf5347","0x12cb3ac93dfed315770ff591d01db90de41065638e99a49263da66e86354b102","0x023f8f8b6ce60dd44154796a17133dcd1b1e75b667c11b634b027d1bb2f73df0","0x0f8e416e59522b4b8d8b8e60d692583d7f3c18ed19327538c50fcf229dd031d1","0x03d43d1687801327ff755be386cb75f157928be0a185fad9f049426cf30e9cdd","0x01f115ed594e081d963e0d40bfbced7f20cf12ff6a242e41b89a4be65474a97d","0x286d483eb0ea0c52d2ba1ab3a5ac6784d3e497f1eef7e269da94e2441cf4bffc","0x186f9bb3dc08f10a746bbe7ae1c2399b719b839fb865075552b10c89398fd244","0x2579bbd27cc13584875a221f73aa02e00b3bea7e64fdf114c8c0f53f697f9232","0x2051a91bc3c9296437e27f8769221d980096953e660e518cedc9adbce73dfddc","0x2932933579d18d42a2418e33ba6a1cdb39dbe65b99da4203af85c5f1e9929845","0x0803b0088c25148b1c13c3b734daaa58319de825eba6340dd4b6b09fe58667da","0x028ae9f1788197a2c80e0e3d43507b4883a553b9e98b611b517cf5a711051596","0x2e381bf1c0158bd15d63b6f3f78b59067903c353d2db8c0f715102362d0e54a4","0x087c113451b9e238cf46ac5a3c9d4abe26decc4b0581eed7095a7326eb55aa37","0x1076f2b5836273ca130da8e977446b2e5a75c55dd66beca6dcf82533c2d97073","0x2055f43032e92ff1aa7f4be1de1a7fdb4314650b4189d3018658b1a2e2c59076","0x0e309eaf13c297b93326f79367e6fc5e3c052630d108740830675905a5efe6c1","0x08b20c7808695c51a73790ce9d0ab803b26f9a834da6ba12386536081a326093","0x221ddd6fcd02ed0808757a24784dae13da16ac1832e913cb87d38651f3c00872","0x1f2cb516bde41b43440bfda522cfa6b90eb672102342602178fdd13e1f37088d"],"pub":["0x245cde0a2d8143a66dc458f9ab72a71ba11482a19402ca7dff0bc3e3c13ee3f9","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000007","0x000000000000000000000000cfc5923def1f25db05fe50754ef0822175afd449","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397":{"address":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","proof":["0x1e2fd35f3821b83adeabda1882925bbb6911137a890049c2c40b4b6871365a2e","0x1608625f3c938139f8399f0e7877e81f2dd3916d7d5440d4b282b0105befac92","0x187059e027bf23ae6eabfa58e14b67d3e340362c52dd36a9a142fabc1742d713","0x23fc80706ed09191b0dd63bec1d89ac771705589acf567951f773237f51d7ba5","0x0958f4e0801784ac7b9d72112a5fe14491be0f5e5ecd68d1c92be3e804963bdd","0x174cc87f18811929f2f12ccc1e57591e3362a135fb593ac9491dfea0f4a2b9ca","0x25f7a1926064a8e17f80a572397dae26c7ea3201080076aa3ee442b53325ba9a","0x28cfe69a0dc664693afa9aad49f396fd681b82f4b9faad8f84a7418aaf112525","0x14a5ce7067c81486c4f048c558d145e5cac3758ea1fffd1e4a60ceaf6193d1c9","0x1c91d462905207fa0b4c6ae4df5fdc53a35c3b7aa2f2179ac2ed1c6e6bdfa2f5","0x293f20020b227ac5f9c560e0206463fdd84e06607e644129bc843d07242c1891","0x25cb6972db85493f0228bd531e03dc4f719a54f55490b35ae94f27d0836a2392","0x2cff0bd526d0111c7981249ee214d088ac1ee5b8413fa7f99eb4715bf06c5f0e","0x16c92da08ede59c9924bfef8c8b29f20043edf14771cdd3f6ba59dc2c0820728","0x05aebd797f3659e79c34598319d76f2ba2da4a7a12ca10e8111f235eb8375cff","0x14592054ae6ee6ee1bb6c2c7fdaa7642e39a46f894d17e9c9eb34ce630304690","0x2ba4f9108a7c95deba8f8169f70647c291808baa00136846d785b1d76f01ace6","0x0ecfa3809c8b7e48ed3692d3d3ed9acd1831b32b75653967f623550d059251dc","0x214127d10212fb982a7e075c4ee7e8950f00d580c7d1eeadffc8163494665a01","0x280005d5e887034272ff957077acff893e08ebc660e2a58d47b4d26de3ee3085","0x06555989c80a950a232eaf49f1a8a61b3198a5425e92dd9d5b74b6954e053e12","0x2fddcb24f0d40d9571a0adc998219303b46e55d5dceb37417a1dcd93dbef5af1","0x18287795316c1db161b0679bc22679bf59ca1be218a57e1016c3ebd7cb35cc26","0x129770d97045ae1028aca18a09084e6abf17f5beeb449e563f8f0a06f41f093d"],"pub":["0x245cde0a2d8143a66dc458f9ab72a71ba11482a19402ca7dff0bc3e3c13ee3f9","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000007","0x00000000000000000000000021113454ae7a3c2dec1cfac29f4fd715e9fb3397","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d":{"address":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d","proof":["0x06f765b338d21b1eee2d9c803bb501e04de7ffd9c2d6aefcb6085adb446aa78a","0x10071d702d4c5788ed92fa3ba24748b2fbd3a822c46728a457e37e468a896866","0x2600e940236f0b72501e78e5f7d54c2656ea6df83228f070285910fcc15fa492","0x02c288c5c8a31b0f97308e2643a4c3fb0c39f845de66b63d3b0a0f66e2993378","0x10ec4322490885bf62ddd1500447a637fe2e08e92c890a7c5ab5103e40a67307","0x2cab5e24a8738424faf706349c9893fd26e996bd543c30cf8629eea8f5c8abf0","0x2f94e24110672113216dd7236113d67febea8734ce382088ad4b4520367df6b2","0x29f29611fa39ee9f20e2e0ff3d6e54a9ad6bb7e162ca744bc3a661d3c3908d83","0x143c45714de1760987be87355e3fe3276f959a247c41170b35287c4cf90a089d","0x2f1fac17bc3c96edeee2be6be060a75ef2bea0f20102c88099c6ea35610ebd12","0x201fc90ddc26e917ffded60e450de1f4935b4b8ce0ab97bf014b1c9c8220c811","0x20a9e0d60fcf9761a080ac4a69ac0922a501771918448db7dae213fef433a4b7","0x21627078d18347d39d2beab05c07ba5e2ba15f09dca7cff9df8864a7b144e113","0x1860bd6228e3babd6c467da1cc80aada9d9c77bd309ce311b4251e476293d241","0x22bb5b502234846f10cebd9ccdfd57c19a39f40ca0f0a401a7b358b9bbf878d8","0x240efcb4bc4cc192037de95493f776e2fc0db85427bf8f84b269f1c5a9a8bc4e","0x16d43e5824041c900114eea0fe11fe37c8453b1a7fbf482058e0d07182bfad74","0x11c608a2d649d99d48712ca2eede8a5f1e6b39d60375332e12947b0a1a70d911","0x138e1031c0a311d07796ba9f0d504c6c1f96c33676f42706db6f8f98737e4e86","0x256631ada94e4c38ffc811ddb2eb6c031e035bcf4f53914b90e083531f256f10","0x123c8485e279a9f323664f1025d4278e5fcbd1750d12a05314a5fe607fdb474e","0x23a445b2a4a76f34dd40ae1d33f13cdf5383065034dd3cfef75093879df55c60","0x2508ffef985478db73bbde2b5a285ddde879f5b79a339d044d93ed7907624ec1","0x12f1f170f8a1190a468c68879909da621515facc0d5d06d916ed2bc0d3d22dc9"],"pub":["0x245cde0a2d8143a66dc458f9ab72a71ba11482a19402ca7dff0bc3e3c13ee3f9","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000007","0x000000000000000000000000bf01061ec7f793b0d4e9d7eae2b383e86ca13f2d","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]}},"8":{"0xcfc5923def1f25db05fe50754ef0822175afd449":{"address":"0xcfc5923def1f25db05fe50754ef0822175afd449","epoch":"8","proof":["0x0c7654ea21c73b888efd88927a4656f04dd2068d273efd9b6c0312a3ac98c312","0x017ed169a6072abfd52848196628d795cdafcda2a350ea03ee11f5ed0d518718","0x0760e97a02d26f0d453bdab71459b182400caca4aa4eae44ddb3122e3f63be6f","0x0ae3ff63efb637375c162f0000f2b6d5bd6bd47967ff9b76cd08bb02d77d8eda","0x1eb825f294e3dbcf619fa96a06e0e292c5185ae18168046f60ae7bc723488d83","0x0ebe738c49e30fdae9e79bedf460ef3affb0042432d08de413eda56ed7a443a8","0x2860108560c471a62258a2c8dc6953e848efeaedd979f0c1a7723590b3837906","0x103bee215513eedea951bba0729131f2a1addc97d29f9bc92a849549442f277e","0x1017cc046864b01ae05dda1d95ef6fc52fac540395e6e21b2a19e7598a849da0","0x1a6e7e951cc5c84ea68ddbb2541d7ab8f4648159317054d1bb8bf3e7ddd6eb66","0x2e0e1c76c8d697d924dab50bf2d2eb1d9972b0bbc0845f815135dded9cf538e7","0x111132e24820202d1a3d833f2ac7c3faf0e41c5020f2dd8b3ff666bbf5bc18b1","0x0178db7f47d929509182ee53d40392607fc39a7439d5655fe9d6610a891f778e","0x2aacb5da54884d40186cfbdf0d03093681a0a7e4e10fb9c6f655affdff67ddce","0x22f7e1499ae28c623fd5fbccd249d473138a65d1eb8484109c41074a191c5745","0x194c2c2e5249669d8d865bceed6c0a259d57c30fc7d13f215a9ac677c65bd410","0x13e76856addff18152ff637cdda353957d0c47727e41c376c5574d2e7572c2ab","0x142f362482bc83787ad71c793b0ebc19a2e726d4fc9ae5c9fc1ef20e3aabe10f","0x28de8a0bc23856aa3fce00d502316c8063fa860a5159ce65e261de6193bb8a43","0x098f38d7138501cc0a107b376914b93d30e643a732fec9220955734a11ce39e5","0x0e3f69d1fba8e1e57f0b3bcadd248525f9ff03b64c18cc9c5ab111f03b0204cc","0x29fdaa376de40dc3c11341daece65b6520289224d517a027a6d68f38a59a0877","0x00ce3d5ee59e05ffb18f12f4adf7982ea62dfe3b64e0afc291ce75839968d79c","0x2c60611a9d2bbeeac683387952ffe5da7733f0f4f51919a3041c943da925d1ac"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x000000000000000000000000cfc5923def1f25db05fe50754ef0822175afd449","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397":{"address":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","epoch":"8","proof":["0x055335425c67e20278324206a23d5b53f064c3880c2cd9b16d7d84a898af5167","0x2caefe0e1533f5f7a235d764a6c95f93a0a6096d1c9b833773994ee19738ef41","0x132e88649e7ae359c1cfc04b0920b2117722bf9837a9816ffbeba6bc3da2298b","0x0a6166d58b788d9df869698c14df80ecacff7747e3509303fa394ba7e2a44a46","0x036a88372f292891854a3d0e8eb28008b65fec1c83437c963b832cd1bc01ee04","0x0945517dd26ae9f3a187f8d8e9ca0080c99d98767019f5ace531d65bd40a453f","0x0728693ad6c5913206502dc9174b9959062a23c2908f91b9b77f02b79e275b50","0x181ab1ccf970c20150399ddcca93eecdffd5902ff123ab73e90c40ef08c7804e","0x10892de2cb76c1cc3b03a768eb3d4e2af959648ed46d3741d113eddf5d5a3fa9","0x1a8ae067759ea34e369d0e94d063a71ad9c3fd438769a0ed31465b36efba9f9e","0x2e28aea07be0c2d7f501b626fc98e03d0f70f230c6a13aa2a059e8f37deaaada","0x1793d5c878626e328fcd0026da2f0f2ac483403cda6ddf0bf238ea12c2220fe0","0x033888336c449a3668daaa3cdad331fea9a925a0755f7ae0719cec307e8d8a1b","0x1e2ff4e2c72a7868a8affac0348825feca343007e3c1268ab52425cb5946203a","0x0809ae9d7d06b69daa3ded17429670f5d709b5ccb8e9e2bcf1a8b147261cecc1","0x005963ab233cb3ae5bb0aa339b26c84b70d275e90f65ead37ee9a7334925743e","0x084414cd0e3260c6fe56d4002974f313a9480c57b12676da32eaea4c0742263e","0x29b82dbbc3250e66a722d2514110d27c3b6108f554861e8e17da763ced0a8b7f","0x217d0407a70ce8b29211525bf7709b2c4c056588193d744c92994ade6bcfeb44","0x0e7a4a675eec22f13e71f04fd49e1152142598b98a94b72f254df9e6e3f8d2e8","0x07f778c0865cfc30fa51500203bd4f02174e88cb93461f2c40b999da218ffc50","0x2bc43da18b9325e3892e3088538e308e4ddb26084864df8849f548600efc1421","0x1f004bf0503a837bd6e1ff54d2a11ce9802ced5c63a073a40ab8965e7d3c69e7","0x1b5c0bdc4c53222f0686d802aa61bf8c9ae8f5b3d02141c084d1d24fa9689c30"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x00000000000000000000000021113454ae7a3c2dec1cfac29f4fd715e9fb3397","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d":{"address":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d","epoch":"8","proof":["0x2bfdb1309889038619e4ec30c4925579673f5db7c4ed955d95069b717d537b55","0x2ef4da279dec783ef5bf5c7685bac588f5d945baa591f2adb72c89f80901478c","0x0b55faa714d737e0cd5f892f9cffea5d8eff657a3e345177a4db8f61d9d646e9","0x1df74089e2dc6c86e9fc358b0a288bfeee9de67b286fadc2446b348a4e87d68f","0x1930e3228e5852b51d5f3c9f5d55d6e90c49fb29327c4e1baa0113ee28333d93","0x19d875f6f86ac94479e484147366f9c80457f28afc14233a30741c116c99b476","0x037869f684ab09c145b6ded34c9bbae46951495437f63e465c68275eb52411be","0x243496e00dbae433f79d577da935392b567c63ad21ec997e608f79d90cbbd542","0x1c1f3432a8860610332c10cf444fbcb559aee0c78cf8bb0edf47b33f9afdabbb","0x2e937b1a659ca060f30c9866a725db0179c20d440848107c4b55ed8fa3091bc5","0x1c5c97d08a8278114b68618b022831da5293f1833ec4ec24ae5bd7153066ba30","0x1f1d1b7248737d54d9998ee32e715db23c6ef901a0e7561ed5d977f7205b5080","0x1ed9910dfe54cb7f0daba9d1d0eec92be26640217005c26e4bf2f15f04c22ca4","0x1046b1053ad4104380140ca297d58015e9c222409228e5c02344f8333a9ab744","0x1735046c1dfa03db4ca5fb43dcecc01d3f5260e6e75aef8f38309e1b9a963b15","0x1422465a03ccb5ecbe099d3fc76b7e3b680632dfc3ff029fc302811a4faec41a","0x038a74c251e871aaf501877369bc326d6bb0595aa98887c10bc8d15f56e4f734","0x1414328674f6a3696964ab146b730e5c4f84d373b23e7246953ba7c1f9d90c23","0x0dbbb0bd3efe047cc4a1bd61fd70b0ba7e33a0b3364b9637867ec35e9c34a40b","0x13aa1c2c1c96950cdc7269b930e357dfe38d2825e4ade74b2cd9ab7d96a66f3d","0x0adf1b8feac0cb9a2a85fba36210db7be5ecf50ae787407d93407e631714f48b","0x26e70fb67c66f794cd0de8efa3bc3daa670518684b77d4df2795fa10dfe514bb","0x0cf727c3bb63d44eba1d6f89d216aec57fffce2b537864e263162cdd76ec4c83","0x26122f2166ff6e332ab9ec0128256e03467eefad6c6e908a4ef5a054de351a63"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x000000000000000000000000bf01061ec7f793b0d4e9d7eae2b383e86ca13f2d","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]}}};
+const DEMO_PROOFS = {"7":{"0xcfc5923def1f25db05fe50754ef0822175afd449":{"address":"0xcfc5923def1f25db05fe50754ef0822175afd449","proof":["0x2bfa569604c01d5e7682effb0bc082c229c5300ac5c8292b21fba933b40a8ac5","0x2d52983661cdcd852d851bb37f9dc67041de944555bd14627a39c5f4a6e26a8e","0x07d92363f3f85f696f2e83d28506fb6e9858c70ab58f61c9d2c2a7b7f3e264e2","0x1db0c8c1bf2ee37cdb5ee4a4f39bfe2778cfc3286fb5783be00c9b9372cf5347","0x12cb3ac93dfed315770ff591d01db90de41065638e99a49263da66e86354b102","0x023f8f8b6ce60dd44154796a17133dcd1b1e75b667c11b634b027d1bb2f73df0","0x0f8e416e59522b4b8d8b8e60d692583d7f3c18ed19327538c50fcf229dd031d1","0x03d43d1687801327ff755be386cb75f157928be0a185fad9f049426cf30e9cdd","0x01f115ed594e081d963e0d40bfbced7f20cf12ff6a242e41b89a4be65474a97d","0x286d483eb0ea0c52d2ba1ab3a5ac6784d3e497f1eef7e269da94e2441cf4bffc","0x186f9bb3dc08f10a746bbe7ae1c2399b719b839fb865075552b10c89398fd244","0x2579bbd27cc13584875a221f73aa02e00b3bea7e64fdf114c8c0f53f697f9232","0x2051a91bc3c9296437e27f8769221d980096953e660e518cedc9adbce73dfddc","0x2932933579d18d42a2418e33ba6a1cdb39dbe65b99da4203af85c5f1e9929845","0x0803b0088c25148b1c13c3b734daaa58319de825eba6340dd4b6b09fe58667da","0x028ae9f1788197a2c80e0e3d43507b4883a553b9e98b611b517cf5a711051596","0x2e381bf1c0158bd15d63b6f3f78b59067903c353d2db8c0f715102362d0e54a4","0x087c113451b9e238cf46ac5a3c9d4abe26decc4b0581eed7095a7326eb55aa37","0x1076f2b5836273ca130da8e977446b2e5a75c55dd66beca6dcf82533c2d97073","0x2055f43032e92ff1aa7f4be1de1a7fdb4314650b4189d3018658b1a2e2c59076","0x0e309eaf13c297b93326f79367e6fc5e3c052630d108740830675905a5efe6c1","0x08b20c7808695c51a73790ce9d0ab803b26f9a834da6ba12386536081a326093","0x221ddd6fcd02ed0808757a24784dae13da16ac1832e913cb87d38651f3c00872","0x1f2cb516bde41b43440bfda522cfa6b90eb672102342602178fdd13e1f37088d"],"pub":["0x245cde0a2d8143a66dc458f9ab72a71ba11482a19402ca7dff0bc3e3c13ee3f9","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000007","0x000000000000000000000000cfc5923def1f25db05fe50754ef0822175afd449","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397":{"address":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","proof":["0x1e2fd35f3821b83adeabda1882925bbb6911137a890049c2c40b4b6871365a2e","0x1608625f3c938139f8399f0e7877e81f2dd3916d7d5440d4b282b0105befac92","0x187059e027bf23ae6eabfa58e14b67d3e340362c52dd36a9a142fabc1742d713","0x23fc80706ed09191b0dd63bec1d89ac771705589acf567951f773237f51d7ba5","0x0958f4e0801784ac7b9d72112a5fe14491be0f5e5ecd68d1c92be3e804963bdd","0x174cc87f18811929f2f12ccc1e57591e3362a135fb593ac9491dfea0f4a2b9ca","0x25f7a1926064a8e17f80a572397dae26c7ea3201080076aa3ee442b53325ba9a","0x28cfe69a0dc664693afa9aad49f396fd681b82f4b9faad8f84a7418aaf112525","0x14a5ce7067c81486c4f048c558d145e5cac3758ea1fffd1e4a60ceaf6193d1c9","0x1c91d462905207fa0b4c6ae4df5fdc53a35c3b7aa2f2179ac2ed1c6e6bdfa2f5","0x293f20020b227ac5f9c560e0206463fdd84e06607e644129bc843d07242c1891","0x25cb6972db85493f0228bd531e03dc4f719a54f55490b35ae94f27d0836a2392","0x2cff0bd526d0111c7981249ee214d088ac1ee5b8413fa7f99eb4715bf06c5f0e","0x16c92da08ede59c9924bfef8c8b29f20043edf14771cdd3f6ba59dc2c0820728","0x05aebd797f3659e79c34598319d76f2ba2da4a7a12ca10e8111f235eb8375cff","0x14592054ae6ee6ee1bb6c2c7fdaa7642e39a46f894d17e9c9eb34ce630304690","0x2ba4f9108a7c95deba8f8169f70647c291808baa00136846d785b1d76f01ace6","0x0ecfa3809c8b7e48ed3692d3d3ed9acd1831b32b75653967f623550d059251dc","0x214127d10212fb982a7e075c4ee7e8950f00d580c7d1eeadffc8163494665a01","0x280005d5e887034272ff957077acff893e08ebc660e2a58d47b4d26de3ee3085","0x06555989c80a950a232eaf49f1a8a61b3198a5425e92dd9d5b74b6954e053e12","0x2fddcb24f0d40d9571a0adc998219303b46e55d5dceb37417a1dcd93dbef5af1","0x18287795316c1db161b0679bc22679bf59ca1be218a57e1016c3ebd7cb35cc26","0x129770d97045ae1028aca18a09084e6abf17f5beeb449e563f8f0a06f41f093d"],"pub":["0x245cde0a2d8143a66dc458f9ab72a71ba11482a19402ca7dff0bc3e3c13ee3f9","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000007","0x00000000000000000000000021113454ae7a3c2dec1cfac29f4fd715e9fb3397","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d":{"address":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d","proof":["0x06f765b338d21b1eee2d9c803bb501e04de7ffd9c2d6aefcb6085adb446aa78a","0x10071d702d4c5788ed92fa3ba24748b2fbd3a822c46728a457e37e468a896866","0x2600e940236f0b72501e78e5f7d54c2656ea6df83228f070285910fcc15fa492","0x02c288c5c8a31b0f97308e2643a4c3fb0c39f845de66b63d3b0a0f66e2993378","0x10ec4322490885bf62ddd1500447a637fe2e08e92c890a7c5ab5103e40a67307","0x2cab5e24a8738424faf706349c9893fd26e996bd543c30cf8629eea8f5c8abf0","0x2f94e24110672113216dd7236113d67febea8734ce382088ad4b4520367df6b2","0x29f29611fa39ee9f20e2e0ff3d6e54a9ad6bb7e162ca744bc3a661d3c3908d83","0x143c45714de1760987be87355e3fe3276f959a247c41170b35287c4cf90a089d","0x2f1fac17bc3c96edeee2be6be060a75ef2bea0f20102c88099c6ea35610ebd12","0x201fc90ddc26e917ffded60e450de1f4935b4b8ce0ab97bf014b1c9c8220c811","0x20a9e0d60fcf9761a080ac4a69ac0922a501771918448db7dae213fef433a4b7","0x21627078d18347d39d2beab05c07ba5e2ba15f09dca7cff9df8864a7b144e113","0x1860bd6228e3babd6c467da1cc80aada9d9c77bd309ce311b4251e476293d241","0x22bb5b502234846f10cebd9ccdfd57c19a39f40ca0f0a401a7b358b9bbf878d8","0x240efcb4bc4cc192037de95493f776e2fc0db85427bf8f84b269f1c5a9a8bc4e","0x16d43e5824041c900114eea0fe11fe37c8453b1a7fbf482058e0d07182bfad74","0x11c608a2d649d99d48712ca2eede8a5f1e6b39d60375332e12947b0a1a70d911","0x138e1031c0a311d07796ba9f0d504c6c1f96c33676f42706db6f8f98737e4e86","0x256631ada94e4c38ffc811ddb2eb6c031e035bcf4f53914b90e083531f256f10","0x123c8485e279a9f323664f1025d4278e5fcbd1750d12a05314a5fe607fdb474e","0x23a445b2a4a76f34dd40ae1d33f13cdf5383065034dd3cfef75093879df55c60","0x2508ffef985478db73bbde2b5a285ddde879f5b79a339d044d93ed7907624ec1","0x12f1f170f8a1190a468c68879909da621515facc0d5d06d916ed2bc0d3d22dc9"],"pub":["0x245cde0a2d8143a66dc458f9ab72a71ba11482a19402ca7dff0bc3e3c13ee3f9","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000007","0x000000000000000000000000bf01061ec7f793b0d4e9d7eae2b383e86ca13f2d","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]}},"8":{"0xcfc5923def1f25db05fe50754ef0822175afd449":{"address":"0xcfc5923def1f25db05fe50754ef0822175afd449","epoch":"8","proof":["0x0c7654ea21c73b888efd88927a4656f04dd2068d273efd9b6c0312a3ac98c312","0x017ed169a6072abfd52848196628d795cdafcda2a350ea03ee11f5ed0d518718","0x0760e97a02d26f0d453bdab71459b182400caca4aa4eae44ddb3122e3f63be6f","0x0ae3ff63efb637375c162f0000f2b6d5bd6bd47967ff9b76cd08bb02d77d8eda","0x1eb825f294e3dbcf619fa96a06e0e292c5185ae18168046f60ae7bc723488d83","0x0ebe738c49e30fdae9e79bedf460ef3affb0042432d08de413eda56ed7a443a8","0x2860108560c471a62258a2c8dc6953e848efeaedd979f0c1a7723590b3837906","0x103bee215513eedea951bba0729131f2a1addc97d29f9bc92a849549442f277e","0x1017cc046864b01ae05dda1d95ef6fc52fac540395e6e21b2a19e7598a849da0","0x1a6e7e951cc5c84ea68ddbb2541d7ab8f4648159317054d1bb8bf3e7ddd6eb66","0x2e0e1c76c8d697d924dab50bf2d2eb1d9972b0bbc0845f815135dded9cf538e7","0x111132e24820202d1a3d833f2ac7c3faf0e41c5020f2dd8b3ff666bbf5bc18b1","0x0178db7f47d929509182ee53d40392607fc39a7439d5655fe9d6610a891f778e","0x2aacb5da54884d40186cfbdf0d03093681a0a7e4e10fb9c6f655affdff67ddce","0x22f7e1499ae28c623fd5fbccd249d473138a65d1eb8484109c41074a191c5745","0x194c2c2e5249669d8d865bceed6c0a259d57c30fc7d13f215a9ac677c65bd410","0x13e76856addff18152ff637cdda353957d0c47727e41c376c5574d2e7572c2ab","0x142f362482bc83787ad71c793b0ebc19a2e726d4fc9ae5c9fc1ef20e3aabe10f","0x28de8a0bc23856aa3fce00d502316c8063fa860a5159ce65e261de6193bb8a43","0x098f38d7138501cc0a107b376914b93d30e643a732fec9220955734a11ce39e5","0x0e3f69d1fba8e1e57f0b3bcadd248525f9ff03b64c18cc9c5ab111f03b0204cc","0x29fdaa376de40dc3c11341daece65b6520289224d517a027a6d68f38a59a0877","0x00ce3d5ee59e05ffb18f12f4adf7982ea62dfe3b64e0afc291ce75839968d79c","0x2c60611a9d2bbeeac683387952ffe5da7733f0f4f51919a3041c943da925d1ac"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x000000000000000000000000cfc5923def1f25db05fe50754ef0822175afd449","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0x21113454ae7a3c2dec1cfac29f4fd715e9fb3397":{"address":"0x21113454ae7A3c2Dec1cfAc29f4fD715E9FB3397","epoch":"8","proof":["0x055335425c67e20278324206a23d5b53f064c3880c2cd9b16d7d84a898af5167","0x2caefe0e1533f5f7a235d764a6c95f93a0a6096d1c9b833773994ee19738ef41","0x132e88649e7ae359c1cfc04b0920b2117722bf9837a9816ffbeba6bc3da2298b","0x0a6166d58b788d9df869698c14df80ecacff7747e3509303fa394ba7e2a44a46","0x036a88372f292891854a3d0e8eb28008b65fec1c83437c963b832cd1bc01ee04","0x0945517dd26ae9f3a187f8d8e9ca0080c99d98767019f5ace531d65bd40a453f","0x0728693ad6c5913206502dc9174b9959062a23c2908f91b9b77f02b79e275b50","0x181ab1ccf970c20150399ddcca93eecdffd5902ff123ab73e90c40ef08c7804e","0x10892de2cb76c1cc3b03a768eb3d4e2af959648ed46d3741d113eddf5d5a3fa9","0x1a8ae067759ea34e369d0e94d063a71ad9c3fd438769a0ed31465b36efba9f9e","0x2e28aea07be0c2d7f501b626fc98e03d0f70f230c6a13aa2a059e8f37deaaada","0x1793d5c878626e328fcd0026da2f0f2ac483403cda6ddf0bf238ea12c2220fe0","0x033888336c449a3668daaa3cdad331fea9a925a0755f7ae0719cec307e8d8a1b","0x1e2ff4e2c72a7868a8affac0348825feca343007e3c1268ab52425cb5946203a","0x0809ae9d7d06b69daa3ded17429670f5d709b5ccb8e9e2bcf1a8b147261cecc1","0x005963ab233cb3ae5bb0aa339b26c84b70d275e90f65ead37ee9a7334925743e","0x084414cd0e3260c6fe56d4002974f313a9480c57b12676da32eaea4c0742263e","0x29b82dbbc3250e66a722d2514110d27c3b6108f554861e8e17da763ced0a8b7f","0x217d0407a70ce8b29211525bf7709b2c4c056588193d744c92994ade6bcfeb44","0x0e7a4a675eec22f13e71f04fd49e1152142598b98a94b72f254df9e6e3f8d2e8","0x07f778c0865cfc30fa51500203bd4f02174e88cb93461f2c40b999da218ffc50","0x2bc43da18b9325e3892e3088538e308e4ddb26084864df8849f548600efc1421","0x1f004bf0503a837bd6e1ff54d2a11ce9802ced5c63a073a40ab8965e7d3c69e7","0x1b5c0bdc4c53222f0686d802aa61bf8c9ae8f5b3d02141c084d1d24fa9689c30"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x00000000000000000000000021113454ae7a3c2dec1cfac29f4fd715e9fb3397","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0xbf01061ec7f793b0d4e9d7eae2b383e86ca13f2d":{"address":"0xBF01061EC7F793b0D4e9D7EAE2b383e86cA13F2d","epoch":"8","proof":["0x2bfdb1309889038619e4ec30c4925579673f5db7c4ed955d95069b717d537b55","0x2ef4da279dec783ef5bf5c7685bac588f5d945baa591f2adb72c89f80901478c","0x0b55faa714d737e0cd5f892f9cffea5d8eff657a3e345177a4db8f61d9d646e9","0x1df74089e2dc6c86e9fc358b0a288bfeee9de67b286fadc2446b348a4e87d68f","0x1930e3228e5852b51d5f3c9f5d55d6e90c49fb29327c4e1baa0113ee28333d93","0x19d875f6f86ac94479e484147366f9c80457f28afc14233a30741c116c99b476","0x037869f684ab09c145b6ded34c9bbae46951495437f63e465c68275eb52411be","0x243496e00dbae433f79d577da935392b567c63ad21ec997e608f79d90cbbd542","0x1c1f3432a8860610332c10cf444fbcb559aee0c78cf8bb0edf47b33f9afdabbb","0x2e937b1a659ca060f30c9866a725db0179c20d440848107c4b55ed8fa3091bc5","0x1c5c97d08a8278114b68618b022831da5293f1833ec4ec24ae5bd7153066ba30","0x1f1d1b7248737d54d9998ee32e715db23c6ef901a0e7561ed5d977f7205b5080","0x1ed9910dfe54cb7f0daba9d1d0eec92be26640217005c26e4bf2f15f04c22ca4","0x1046b1053ad4104380140ca297d58015e9c222409228e5c02344f8333a9ab744","0x1735046c1dfa03db4ca5fb43dcecc01d3f5260e6e75aef8f38309e1b9a963b15","0x1422465a03ccb5ecbe099d3fc76b7e3b680632dfc3ff029fc302811a4faec41a","0x038a74c251e871aaf501877369bc326d6bb0595aa98887c10bc8d15f56e4f734","0x1414328674f6a3696964ab146b730e5c4f84d373b23e7246953ba7c1f9d90c23","0x0dbbb0bd3efe047cc4a1bd61fd70b0ba7e33a0b3364b9637867ec35e9c34a40b","0x13aa1c2c1c96950cdc7269b930e357dfe38d2825e4ade74b2cd9ab7d96a66f3d","0x0adf1b8feac0cb9a2a85fba36210db7be5ecf50ae787407d93407e631714f48b","0x26e70fb67c66f794cd0de8efa3bc3daa670518684b77d4df2795fa10dfe514bb","0x0cf727c3bb63d44eba1d6f89d216aec57fffce2b537864e263162cdd76ec4c83","0x26122f2166ff6e332ab9ec0128256e03467eefad6c6e908a4ef5a054de351a63"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x000000000000000000000000bf01061ec7f793b0d4e9d7eae2b383e86ca13f2d","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]},"0x2a154462c1d75739b80b5451b55d06bb02266d8f":{"address":"0x2a154462c1D75739B80B5451B55d06BB02266d8f","epoch":"8","cred":"valid","wide":false,"proof":["0x28f82b6c70678a082dfbf3348c74605dac5fe4a4dd659809ae4bdde9585030d6","0x204d75b05f7e3802de2d812f117cf808e52b49de787c07a3293da5f92368c9d8","0x2eb1820e3bda2f9517b19d7899594cb8c633c49b751d556ca2224e643673084c","0x0c1bd29b337873c4b6d37455e7353227b7b82586d2f0f0a2547ee59127945e08","0x210deeeb603e587532a70acd4e68966c809e8fe249ac7cbf5037edbb0aa98ac2","0x2d8fcbb6d71b89288e8fe5a666562de80f4c689cf8a1e5751a53cd45c132e090","0x1aacb052f46defb0be294ef5b28d5d73d530fa412836a4c8ca865d56013dbfc0","0x2708903a173f8a867305e7e58876d7c20c02a27fac5151e8b95802b6e67293ec","0x2cf5ad422bee7fe783fe5e47964e2187d71d4f13d7a675c0a5518c64cab07678","0x0577baf6445393fa16e0249c281bcf8c81143511cbe7cb5fc30e30e58e79ee76","0x0d3f9b7809f03c9cd9c3fae7289a391c89fcddb90253ba1b89e365aef1cf2a38","0x264759a3594cef03a6a7e8e5e0ae4298f21829916a85e25b2b60392ac4c4f00c","0x0e1a1463a3c78cb168dab3eca1c776d103aa910456c720b54ce946ec0f967349","0x24f22fd84b7165625320e62f57365a4e47e5ae3e8033c3d43e090671f1cdf146","0x0f69e9bb79301aba4d63696811b6bae9dad002f3a4b86f9e4b9a98254c634976","0x089992bf5e7b52916873a913f981329208072f944eebfa5df8103f4ff58e911b","0x2fae34c11f7bf837366ae1beb0cac63858ff01f397ec0312d31a29ffa78c5a22","0x172bd28132fc0edd5fc8c340601e43eb41f7e5c4195650abbccedf1e0c6aa622","0x1e3d42e6250f1e417f664bd5246167d38bce199ea6fa60f00253d75325beaa37","0x2940c3ca3bd0080f35009804dcc503c5ff3b6ec6be950699fd997e98d1410785","0x0b6cc38ac25b98ac311323591eeb6ebb4336ef70549bfd1b2487c2abe08b23d8","0x1875dabc26b2b2f4c9614c78a38964f62947ed68527c954d8cc36c4421e0ab9b","0x27c296e284c2c8862e92ae94b3145efb2cb9be19dfd36e6f162ac07d78a679b0","0x087df1d80ce098ad4e12e1bbe754a090604998168bc118e6944c4f32ec137ca7"],"pub":["0x1a998ab1bedf1e086bb796049f92b7f3cc96a424849e60b2788258809e7b738b","0x0000000000000000000000000000000000000000000000000000000000000001","0x0da394ae5ab1debf9024eeaa041f728370999ec3be4be6134ff1a33064990ea3","0x0000000000000000000000000000000000000000000000000000000000000008","0x0000000000000000000000002a154462c1d75739b80b5451b55d06bb02266d8f","0x0000000000000000000000000000000000000000000000000000000000000003","0x00000000000000000000000000000000000000000000000000000000000000ff"]}}};
 
 // Device-local encryption for private order preimages.
 // The browser build inlines this file before venue-app.mjs.
@@ -7315,6 +7326,19 @@ const ORDER_SCALE_LIMIT = 1n << 96n;
 const RECEIPT_SESSION = "seamme.disclosure-receipt.v1";
 const TRADE_SIDE_KEY = "seamme.trade.side";
 const ELIGIBILITY_RELAY_PATH = "/api/eligibility/register";
+// The private-session credential claim. Signed by the connected wallet, checked
+// by the worker against the same domain and type list. Keep both in step:
+// agent/tests/private-credential-controller.test.mjs reads this file.
+const PRIVATE_CREDENTIAL_CLAIM_DOMAIN_NAME = "Lattice Prime Private Session";
+const PRIVATE_CREDENTIAL_CLAIM_TYPES = {
+    CredentialClaim: [
+        {name: "account", type: "address"},
+        {name: "factory", type: "address"},
+        {name: "issuedAt", type: "uint64"},
+    ],
+};
+const PRIVATE_PROOF_WORKER_URL = "private-proof-worker.js";
+const PRIVATE_PROOF_TIMEOUT_MS = 12 * 60 * 1000;
 const ORACLE_REFRESH_MS = 30_000;
 // Live HBAR inserts used 892,647 to 959,079 gas. 600,000 OOGs on Hedera.
 const PRIVATE_HBAR_DEPOSIT_GAS = 1_100_000n;
@@ -7341,6 +7365,7 @@ const PRIVATE_SESSION_ABI = [
 ];
 const PRIVATE_FACTORY_ABI = [
     "function isSessionAccount(address account) view returns (bool)",
+    "function creationCodeHash() view returns (bytes32)",
     "function accountAddress((address sessionSigner,address recoverySigner,address engine,address security,bytes32 partition,address router,bytes32 quicknetChainHash,uint64 generation,bytes32 feePolicyDigest) config,bytes32 salt) view returns (address)",
 ];
 const PRIVATE_GATE_ABI = [
@@ -7674,6 +7699,7 @@ function ticketFile(t) {
         releaseAt: t.releaseAt || undefined,
         generation: t.generation || undefined,
         feePolicyDigest: t.feePolicyDigest || undefined,
+        envelopeId: t.envelopeId || undefined,
         timedTicketId: t.timedTicketId || undefined,
         timedTicketCapability: t.timedTicketCapability || undefined,
         automationState: t.automationState || undefined,
@@ -7802,6 +7828,7 @@ function ticketRecord(t, account) {
         }
         const envelopeDigest = privateHash(t.envelopeDigest, "envelope digest");
         const feePolicyDigest = privateHash(t.feePolicyDigest, "fee policy");
+        const envelopeId = privateHash(t.envelopeId, "envelope id");
         const timedTicketId = String(t.timedTicketId || "").toLowerCase();
         const timedTicketCapability = String(t.timedTicketCapability || "").toLowerCase();
         if (!/^[0-9a-f]{64}$/.test(timedTicketId)
@@ -7827,6 +7854,7 @@ function ticketRecord(t, account) {
             releaseAt,
             generation,
             feePolicyDigest,
+            envelopeId,
             timedTicketId,
             timedTicketCapability,
             automationState: String(t.automationState || "Stored"),
@@ -7966,6 +7994,7 @@ const Venue = {
     _privateSessionRecords: [],
     _privateSecretPayload: {v: 1, credential: null, notes: []},
     _privateScope: null,
+    _privateOrderFlow: null,
 };
 
 function ticketVaultCacheKey(account) {
@@ -8562,35 +8591,159 @@ Venue.adoptPrivateCredential = async function (value, owner = Venue.account) {
     return true;
 };
 
-Venue.ensurePrivateHolderCredential = async function () {
-    if (Venue._privateSecretPayload?.credential) return true;
+// When the next private period opens, from the registry clock the page already
+// carries. Used so a full pool reads as a dated wait rather than an error.
+Venue.privatePeriodOpens = function () {
+    const zero = asBig(CLIENT.clocks?.kyc?.origin ?? 0);
+    const period = asBig(CLIENT.clocks?.kyc?.period ?? 0);
+    if (period === 0n) return "at the next eligibility period";
+    const t = nowSec();
+    const epoch = t <= zero ? 0n : (t - zero) / period;
+    const end = Venue.snap.kycEnd && Venue.snap.kycEnd > t
+        ? Venue.snap.kycEnd
+        : zero + (epoch + 1n) * period;
+    const d = new Date(Number(end) * 1000);
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()];
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mm = String(d.getUTCMinutes()).padStart(2, "0");
+    return d.getUTCDate() + " " + month + " " + hh + ":" + mm + " UTC";
+};
+
+// Service refusals, by public code, as a reason the flow can branch on and a
+// sentence the person can act on. Anything else is "service unavailable".
+Venue.privateClaimRefusal = function (code) {
+    const table = {
+        NOT_ELIGIBLE: ["needs-eligibility",
+            "This wallet has no current eligibility grant. Prove eligibility first."],
+        POOL_EXHAUSTED: ["pool-exhausted",
+            "Private sessions for this period are fully allocated. New sessions open "
+            + Venue.privatePeriodOpens() + "."],
+        ROOT_NOT_ACTIVE: ["root-not-active",
+            "Private session credentials for this period are not issued yet."],
+        CLAIM_STALE: ["clock",
+            "This device clock is more than five minutes off. Correct it and try again."],
+        SIGNATURE_INVALID: ["signature-invalid",
+            "The wallet signature did not verify. Try again from the connected wallet."],
+        CLAIM_CONTEXT_INVALID: ["context",
+            "This page is out of date for the private service. Reload and try again."],
+        CLAIM_SCHEMA_INVALID: ["context",
+            "This page is out of date for the private service. Reload and try again."],
+    };
+    const hit = table[String(code || "")];
+    return hit
+        ? {reason: hit[0], message: hit[1]}
+        : {reason: "service-unavailable",
+            message: "The private credential service is unavailable. Nothing was changed."};
+};
+
+// One wallet signature, no file. The worker checks the signature and the
+// wallet's current on-chain grant, then returns the leaf bound to this wallet
+// in the tree the gate names for the current period. The browser re-derives the
+// commitment and the path before anything touches device storage.
+Venue.claimPrivateHolderCredential = async function (options = {}) {
+    await Venue.requireAccount();
     const owner = Venue.account;
-    if (!owner) return false;
-    const bound = CLIENT.privateTrading?.holderCredentials?.[owner.toLowerCase()]
-        || CLIENT.privateTrading?.holderCredentials?.[owner];
-    if (bound) {
-        await Venue.adoptPrivateCredential(bound, owner);
-        return true;
+    const refuse = (reason, message) => {
+        Venue._privateCredentialState = {stage: "failed", reason, message};
+        return {ok: false, reason, message};
+    };
+    const release = CLIENT.privateTrading;
+    const path = release?.services?.credentials;
+    if (
+        !release?.enabled
+        || !path
+        || !release.addresses?.DualRegistrationGate
+        || !release.addresses?.SessionAccountFactory
+    ) {
+        return refuse("no-service",
+            "Private session credentials are not served on this deployment.");
     }
+    let kyc = Venue.snap.kyc;
+    if (kyc === undefined) {
+        try {
+            kyc = Number(await Venue.c.registry.getKycStatus(owner));
+        } catch {
+            kyc = undefined;
+        }
+    }
+    if (kyc !== 1) {
+        return refuse("needs-eligibility",
+            "Prove eligibility first. The private credential is linked to this wallet's grant.");
+    }
+    Venue._privateCredentialState = {stage: "claiming"};
+    Venue.paintPrivateSetup();
+    const domain = {
+        name: PRIVATE_CREDENTIAL_CLAIM_DOMAIN_NAME,
+        version: "1",
+        chainId: Number(CLIENT.network.chainId),
+        verifyingContract: release.addresses.DualRegistrationGate,
+    };
+    const message = {
+        account: owner,
+        factory: release.addresses.SessionAccountFactory,
+        issuedAt: nowSec().toString(),
+    };
+    let signature;
     try {
-        const response = await fetch("/api/private/holder-credential", {
-            method: "GET",
-            credentials: "omit",
-            cache: "no-store",
-            redirect: "error",
-            referrerPolicy: "no-referrer",
-            headers: {
-                accept: "application/json",
-                "x-lattice-account": owner,
-            },
+        signature = await Venue.signer.signTypedData(
+            domain,
+            PRIVATE_CREDENTIAL_CLAIM_TYPES,
+            message,
+        );
+    } catch (e) {
+        const rejected = e?.code === 4001 || e?.code === "ACTION_REJECTED"
+            || /user rejected|request rejected|denied/i.test(String(e?.shortMessage || e?.message || ""));
+        return refuse(
+            rejected ? "signature-declined" : "signature-failed",
+            rejected
+                ? "The wallet signature was declined. Nothing was changed."
+                : "The wallet could not sign the credential claim.",
+        );
+    }
+    if (!addrEq(Venue.account, owner)) {
+        return refuse("wallet-changed", "The connected wallet changed during the claim.");
+    }
+    let result;
+    try {
+        result = await Venue.privatePost(path, {
+            account: owner,
+            chainId: String(CLIENT.network.chainId),
+            gate: release.addresses.DualRegistrationGate,
+            factory: release.addresses.SessionAccountFactory,
+            issuedAt: message.issuedAt,
+            signature,
         });
-        const text = await response.text();
-        if (!response.ok || text.length > 64 * 1024) return false;
-        const value = JSON.parse(text);
-        if (!addrEq(Venue.account, owner)) return false;
-        await Venue.adoptPrivateCredential(value, owner);
-        return true;
-    } catch {
+    } catch (e) {
+        const refusal = Venue.privateClaimRefusal(e?.message);
+        return refuse(refusal.reason, refusal.message);
+    }
+    if (!addrEq(Venue.account, owner)) {
+        return refuse("wallet-changed", "The connected wallet changed during the claim.");
+    }
+    if (
+        options.expectedRoot !== undefined
+        && BigInt(result?.credential?.credentialRoot || 0) !== asBig(options.expectedRoot)
+    ) {
+        return refuse("root-mismatch",
+            "The issued credential is not for the current private period.");
+    }
+    await Venue.adoptPrivateCredential(result, owner);
+    Venue._privateCredentialState = {stage: "linked"};
+    return {ok: true, credential: Venue._privateSecretPayload?.credential};
+};
+
+Venue.ensurePrivateHolderCredential = async function (options = {}) {
+    if (Venue._privateSecretPayload?.credential) return true;
+    if (!Venue.account) return false;
+    try {
+        const outcome = await Venue.claimPrivateHolderCredential(options);
+        return outcome.ok === true;
+    } catch (e) {
+        Venue._privateCredentialState = {
+            stage: "failed",
+            reason: "adopt-failed",
+            message: e?.message || "The private credential could not be stored on this device.",
+        };
         return false;
     }
 };
@@ -8608,22 +8761,87 @@ Venue.importPrivateCredential = async function (file) {
         throw new Error("The holder credential is not valid JSON.");
     }
     await Venue.adoptPrivateCredential(value, owner);
+    Venue._privateCredentialState = {stage: "restored"};
     Venue.status(
         "private-setup-status",
-        "Holder credential encrypted on this device.",
+        "Holder credential restored from file and encrypted on this device.",
         "ok",
     );
     Venue.paintPrivateSetup();
+};
+
+Venue.privateFundingProgress = function (side = Venue._privateSetupSide) {
+    const order = Venue._privateOrderFlow?.order || Venue.readOrder();
+    const funds = Venue.orderFunds(order);
+    const sell = Number(side) === 1;
+    if (
+        (sell && Venue.snap.sessionFree === undefined)
+        || Venue.snap.sessionTinybar === undefined
+        || funds.privateRequired === null
+    ) {
+        return {ready: false, asset: null, label: "Checking funding", action: "Checking funding"};
+    }
+    let asset;
+    let current;
+    let required;
+    if (
+        sell
+        && Venue.snap.sessionFree !== undefined
+        && Venue.snap.sessionFree < order.qty
+    ) {
+        asset = "LPRC";
+        current = Venue.snap.sessionFree;
+        required = order.qty;
+    } else if (
+        Venue.snap.sessionTinybar !== undefined
+        && funds.privateRequired !== null
+        && Venue.snap.sessionTinybar < funds.privateRequired
+    ) {
+        asset = "HBAR";
+        current = Venue.snap.sessionTinybar;
+        required = funds.privateRequired;
+    } else {
+        return {ready: true, asset: null, label: "Ready for this order", action: "Place private order"};
+    }
+    const denomination = asBig(CLIENT.privateTrading?.routing?.[asset]?.denomination || 0);
+    if (denomination <= 0n) {
+        return {ready: false, asset, label: "Top-up required", action: "Fund private session"};
+    }
+    const targetNotes = (required + denomination - 1n) / denomination;
+    const fundedNotes = current / denomination > targetNotes
+        ? targetNotes
+        : current / denomination;
+    const shortfall = required > current ? required - current : 0n;
+    const amount = asset === "HBAR" ? readableHbar(denomination) : formatQuantity(denomination);
+    const remaining = asset === "HBAR" ? readableHbar(shortfall) : formatQuantity(shortfall);
+    return {
+        ready: false,
+        asset,
+        denomination,
+        targetNotes,
+        fundedNotes,
+        shortfall,
+        label: fundedNotes + " of " + targetNotes + " " + asset + " funded",
+        action: "Fund next " + amount + " " + asset,
+        status: remaining + " " + asset + " still required. Fund the next " +
+            amount + " " + asset + " when ready.",
+    };
 };
 
 Venue.paintPrivateSetup = function () {
     const credential = Venue._privateSecretPayload?.credential;
     const pending = Venue._privateSessionRecords.find((item) => item.state === "PENDING");
     const session = Venue.session;
+    const claimState = Venue._privateCredentialState || {};
+    const kyc = Venue.snap.kyc;
     if ($("private-step-credential")) {
         $("private-step-credential").textContent = credential
             ? "Encrypted on device"
-            : "Import required";
+            : claimState.stage === "claiming"
+                ? "Claiming…"
+                : kyc === 1
+                    ? "Linked to eligibility"
+                    : "Prove eligibility first";
     }
     if ($("private-step-session")) {
         $("private-step-session").textContent = session
@@ -8635,24 +8853,14 @@ Venue.paintPrivateSetup = function () {
                 : "Not created";
     }
     const side = Number(Venue._privateSetupSide || $("side")?.value || 0);
-    const needed = Venue.orderFunds(Venue.readOrder());
-    const funded = session && (
-        side === 1
-            ? Venue.snap.sessionFree !== undefined
-                && Venue.snap.sessionFree >= Venue.readOrder().qty
-                && Venue.snap.sessionTinybar !== undefined
-                && needed.privateRequired !== null
-                && Venue.snap.sessionTinybar >= needed.privateRequired
-            : Venue.snap.sessionTinybar !== undefined
-                && needed.privateRequired !== null
-                && Venue.snap.sessionTinybar >= needed.privateRequired
-    );
+    const progress = Venue.privateFundingProgress?.(side);
+    const funded = session && progress?.ready === true;
     if ($("private-step-funding")) {
         $("private-step-funding").textContent = !session
             ? "Waiting for session"
             : funded
                 ? "Ready for this order"
-                : "Top-up required";
+                : progress?.label || "Top-up required";
     }
     if ($("private-session-hbar")) {
         $("private-session-hbar").textContent = Venue.snap.sessionTinybar === undefined
@@ -8669,13 +8877,28 @@ Venue.paintPrivateSetup = function () {
     }
     const action = $("private-setup-action");
     if (!action) return;
-    action.disabled = !CLIENT.privateTrading?.enabled;
+    const routing = Venue._privateRouteBusy === true;
+    const placing = Venue._privateOrderFlow?.placing === true;
+    const checking = !!session && !funded && progress?.asset === null;
+    action.disabled = !CLIENT.privateTrading?.enabled || routing || placing || checking;
+    action.setAttribute?.("aria-busy", routing || placing || checking ? "true" : "false");
     if ($("private-setup-copy") && !CLIENT.privateTrading?.enabled) {
         $("private-setup-copy").textContent = CLIENT.privateTrading?.reason
             || "Private trading is not bound on this deployment yet. Direct manual remains available.";
     }
-    action.textContent = !credential
-        ? "Choose holder credential"
+    if (!credential && claimState.stage === "failed" && claimState.message) {
+        Venue.status("private-setup-status", claimState.message, "bad");
+    }
+    action.textContent = placing
+        ? "Placing sealed order"
+        : routing
+        ? "Routing deposit in background"
+        : !credential
+        ? kyc === 1
+            ? claimState.stage === "claiming"
+                ? "Waiting for wallet signature"
+                : "Link holder credential"
+            : "Prove eligibility"
         : !session
             ? pending
                 ? "Resume private registration"
@@ -8683,8 +8906,8 @@ Venue.paintPrivateSetup = function () {
             : Venue.snap.sessionKyc !== 1
                 ? "Renew private eligibility"
                 : funded
-                    ? "Ready to trade"
-                    : "Fund private session";
+                    ? "Place private order"
+                    : progress?.action || "Fund private session";
 };
 
 Venue.openPrivateSetup = async function (options = {}) {
@@ -8714,9 +8937,13 @@ Venue.openPrivateSetup = async function (options = {}) {
     });
 };
 
-Venue.closePrivateSetup = function () {
+Venue.closePrivateSetup = function (options = {}) {
     clearTimeout(Venue._privateFundingTimer);
     Venue._privateFundingTimer = null;
+    const flow = Venue._privateOrderFlow;
+    if (options.cancelFlow !== false && flow && flow.completed !== true) {
+        flow.cancelled = true;
+    }
     const modal = $("private-setup-modal");
     if (modal) modal.hidden = true;
     if ($("withdraw-modal")?.hidden !== false) {
@@ -8751,6 +8978,83 @@ Venue.waitForPrivateSession = async function (account) {
     throw new Error("Private session registration is still pending. You can resume safely.");
 };
 
+// Witness generation is CPU and memory intensive. Keeping it in a short-lived
+// worker lets the setup modal, cancel controls, and venue clocks keep painting.
+// The worker is terminated after each request so proving memory is released.
+Venue.runPrivateProof = function (kind, request) {
+    const methods = {
+        routing: "createPrivateRoutingProofs",
+        session: "createPrivateSessionProofs",
+    };
+    const method = methods[kind];
+    if (!method) return Promise.reject(new Error("Private proof request is invalid."));
+    const payload = {...request};
+    delete payload.plonk;
+    if (typeof Worker !== "function") {
+        return PrivateTradingCrypto[method]({
+            ...payload,
+            plonk: PrivateTradingCrypto.plonk,
+        });
+    }
+    return new Promise((resolve, reject) => {
+        let worker;
+        let settled = false;
+        let timer;
+        const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            worker?.terminate();
+            callback(value);
+        };
+        timer = setTimeout(() => {
+            finish(reject, new Error(
+                "Private proof generation timed out. The deposited funds remain recoverable.",
+            ));
+        }, PRIVATE_PROOF_TIMEOUT_MS);
+        try {
+            worker = new Worker(PRIVATE_PROOF_WORKER_URL);
+        } catch {
+            finish(reject, new Error(
+                "The background proof worker is unavailable. Reload Markets and try again.",
+            ));
+            return;
+        }
+        let id;
+        try {
+            id = globalThis.crypto.randomUUID();
+        } catch {
+            finish(reject, new Error(
+                "Browser cryptography is unavailable for the private proof request.",
+            ));
+            return;
+        }
+        worker.onmessage = (event) => {
+            const message = event?.data;
+            if (!message || message.id !== id) return;
+            if (message.ok === true) {
+                finish(resolve, message.result);
+                return;
+            }
+            const error = new Error(
+                String(message.error?.message || "Private proof generation failed."),
+            );
+            error.code = String(message.error?.code || "PROOF_FAILED");
+            finish(reject, error);
+        };
+        worker.onerror = () => finish(reject, new Error(
+            "The background proof worker stopped. The deposited funds remain recoverable.",
+        ));
+        try {
+            worker.postMessage({schemaVersion: 1, id, kind, request: payload});
+        } catch {
+            finish(reject, new Error(
+                "The private proof request could not be moved to the background worker.",
+            ));
+        }
+    });
+};
+
 Venue.createOrRenewPrivateSession = async function (options = {}) {
     const owner = Venue.account;
     if (!owner) throw new Error("Connect the private session owner first.");
@@ -8762,9 +9066,10 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
     if (!Venue._privateSecretPayload?.credential) {
         await Venue.ensurePrivateHolderCredential();
     }
-    const credential = Venue._privateSecretPayload?.credential;
+    let credential = Venue._privateSecretPayload?.credential;
     if (!credential) {
-        $("private-credential-file")?.click();
+        const state = Venue._privateCredentialState || {};
+        if (state.stage === "failed" && state.message) throw new Error(state.message);
         return null;
     }
     const contracts = Venue.privateContracts();
@@ -8830,14 +9135,21 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
     if (!viewKey.published || asBig(root) === 0n) {
         throw new Error("Private eligibility inputs are not published for this period.");
     }
-    if (
-        String(creationCodeHash).toLowerCase()
-        !== String(CLIENT.privateTrading.session.creationCodeHash).toLowerCase()
-    ) {
+    const releasedCodeHash = await Venue.privateSessionCodeHash(contracts);
+    if (String(creationCodeHash).toLowerCase() !== releasedCodeHash) {
         throw new Error("Private session code does not match the released configuration.");
     }
     if (BigInt(credential.credentialRoot) !== asBig(root)) {
-        throw new Error("The holder credential is not valid for this private period.");
+        // A new period published a new tree. The wallet is still granted, so
+        // claim the leaf bound to it under the live root before giving up.
+        const renewed = await Venue.claimPrivateHolderCredential({expectedRoot: asBig(root)});
+        requireOwner();
+        credential = renewed.ok ? Venue._privateSecretPayload?.credential : null;
+        if (!credential || BigInt(credential.credentialRoot) !== asBig(root)) {
+            throw new Error(renewed.ok
+                ? "The holder credential is not valid for this private period."
+                : renewed.message);
+        }
     }
 
     Venue.status(
@@ -8846,7 +9158,7 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
         "",
     );
     const release = CLIENT.privateTrading;
-    const proofs = await PrivateTradingCrypto.createPrivateSessionProofs({
+    const proofs = await Venue.runPrivateProof("session", {
         credential,
         context: {
             credentialRoot: asBig(root).toString(),
@@ -8868,7 +9180,6 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
             eligibility: release.artifacts.sessionEligibility,
             compliance: release.artifacts.sessionCompliance,
         },
-        plonk: PrivateTradingCrypto.plonk,
     });
     requireOwner();
     const needsDeployment = await Venue.reader.getCode(record.account) === "0x";
@@ -9507,7 +9818,11 @@ Venue.armPrivateFundingWatch = function (note, seconds = 15) {
         }
         try {
             const context = await Venue.privateRoutingContext(note.asset);
-            await Venue.completePrivateRoutingNote(note, context);
+            const outcome = await Venue.completePrivateRoutingNote(note, context);
+            const flow = Venue._privateOrderFlow;
+            if (outcome.status === "routed" && flow && !flow.cancelled) {
+                await Venue.advancePrivateOrderFlow(flow);
+            }
         } catch {
             Venue.status(
                 "private-setup-status",
@@ -9573,12 +9888,15 @@ Venue.selectPrivateRoutingRoot = async function (note, context) {
 };
 
 Venue.completePrivateRoutingNote = async function (note, context) {
-    if (!note || !["DEPOSITED", "RECOVERED"].includes(note.state)) return false;
-    if (Venue._privateRouteBusy) return false;
+    if (!note || !["DEPOSITED", "RECOVERED"].includes(note.state)) {
+        return {status: "not-required"};
+    }
+    if (Venue._privateRouteBusy) return {status: "busy"};
     const owner = Venue.account;
     const recipient = Venue.session?.account;
     if (!owner || !recipient) throw new Error("The private session is unavailable.");
     Venue._privateRouteBusy = true;
+    Venue.paintPrivateSetup();
     try {
         const selected = await Venue.selectPrivateRoutingRoot(note, context);
         if (!selected.ready) {
@@ -9591,12 +9909,12 @@ Venue.completePrivateRoutingNote = async function (note, context) {
                 "ok",
             );
             Venue.armPrivateFundingWatch(note, Math.min(30, Number(remaining + 1n)));
-            return false;
+            return {status: "waiting", availableAt: selected.availableAt};
         }
 
         Venue.status(
             "private-setup-status",
-            "Generating the private routing proof on this device.",
+            "Generating the private routing proof in the background. No wallet approval is needed.",
             "",
         );
         if (!addrEq(Venue.account, owner) || !addrEq(Venue.session?.account, recipient)) {
@@ -9620,7 +9938,7 @@ Venue.completePrivateRoutingNote = async function (note, context) {
             context.router.activeViewKeyY(),
         ]);
         const release = CLIENT.privateTrading;
-        const proof = await PrivateTradingCrypto.createPrivateRoutingProofs({
+        const proof = await Venue.runPrivateProof("routing", {
             note,
             path,
             context: {
@@ -9640,7 +9958,6 @@ Venue.completePrivateRoutingNote = async function (note, context) {
                 withdrawal: release.artifacts.routingWithdrawal,
                 compliance: release.artifacts.routingCompliance,
             },
-            plonk: PrivateTradingCrypto.plonk,
         });
         if (!addrEq(Venue.account, owner) || !addrEq(Venue.session?.account, recipient)) {
             throw new Error("The active private session changed during routing.");
@@ -9682,9 +9999,10 @@ Venue.completePrivateRoutingNote = async function (note, context) {
             "ok",
         );
         Venue.paintPrivateSetup();
-        return true;
+        return {status: "routed", asset: context.symbol, transactionHash};
     } finally {
         Venue._privateRouteBusy = false;
+        Venue.paintPrivateSetup();
     }
 };
 
@@ -9695,9 +10013,7 @@ Venue.fundPrivateSession = async function (side) {
     }
     const asset = Venue.privateFundingAsset(side);
     if (!asset) {
-        Venue.closePrivateSetup();
-        Venue.paintTicket();
-        return;
+        return {status: "ready"};
     }
     const context = await Venue.privateRoutingContext(asset);
     let note = await Venue.preparePrivateRoutingNote(context);
@@ -9708,9 +10024,9 @@ Venue.fundPrivateSession = async function (side) {
             "",
         );
         note = await Venue.depositPrivateRoutingNote(note, context);
-        if (!note) return;
+        if (!note) return {status: "cancelled"};
     }
-    await Venue.completePrivateRoutingNote(note, context);
+    return Venue.completePrivateRoutingNote(note, context);
 };
 
 Venue.pendingPrivateTicket = function (order) {
@@ -9762,6 +10078,8 @@ Venue.assertPrivateTicketSummary = function (ticket, summary) {
             !== String(ticket.id).toLowerCase()
         || String(summary?.envelopeDigest || "").toLowerCase()
             !== String(ticket.envelopeDigest).toLowerCase()
+        || String(summary?.envelopeId || "").toLowerCase()
+            !== String(ticket.envelopeId).toLowerCase()
         || String(summary?.targetRound || "") !== String(ticket.releaseRound)
     ) {
         throw new Error("Private ticket service context does not match this order.");
@@ -9798,7 +10116,7 @@ Venue.stagePrivateTicket = async function (ticket, envelope) {
             expected: {
                 engine: CLIENT.addresses.MatchingEngine,
                 sessionAccount: ticket.committer,
-                envelopeId: "0x" + ticket.timedTicketId,
+                envelopeId: ticket.envelopeId,
                 engineCommitment: ticket.id,
                 targetRound: BigInt(ticket.releaseRound),
             },
@@ -9878,7 +10196,8 @@ Venue.createPrivateTicket = async function (order) {
             releaseAt: made.targetTime.toString(),
             generation: made.generation.toString(),
             feePolicyDigest: made.feePolicyDigest,
-            timedTicketId: made.envelopeId.slice(2).toLowerCase(),
+            envelopeId: made.envelopeId.toLowerCase(),
+            timedTicketId: await PrivateTradingCrypto.timedTicketStoreId(made.envelopeId),
             timedTicketCapability: capability,
             automationState: "Stored locally",
             serviceState: "LOCAL",
@@ -10286,40 +10605,171 @@ Venue.emergencyPrivateReveal = async function () {
     return receipt;
 };
 
+Venue.privateOrderFingerprint = function (order) {
+    return [
+        Number(order?.side),
+        String(order?.price),
+        String(order?.qty),
+        String(order?.salt || "").toLowerCase(),
+    ].join(":");
+};
+
+Venue.capturePrivateOrderFlow = function (order) {
+    if (!order?.ok || !Venue.account) throw new Error("Fix the order fields first.");
+    const snapshot = Object.freeze({
+        ok: true,
+        side: Number(order.side),
+        price: asBig(order.price),
+        qty: asBig(order.qty),
+        salt: String(order.salt).toLowerCase(),
+        bad: Object.freeze({}),
+        empty: Object.freeze({price: false, qty: false}),
+    });
+    const flow = {
+        owner: Venue.account,
+        sessionAccount: Venue.session?.account || null,
+        order: snapshot,
+        fingerprint: Venue.privateOrderFingerprint(snapshot),
+        cancelled: false,
+        placing: false,
+        completed: false,
+    };
+    Venue._privateOrderFlow = flow;
+    return flow;
+};
+
+Venue.assertPrivateOrderFlow = function (flow) {
+    if (!flow || Venue._privateOrderFlow !== flow || flow.cancelled) {
+        throw new Error("Private order continuation was cancelled. Routed funds remain safe.");
+    }
+    if (!addrEq(Venue.account, flow.owner)) {
+        throw new Error("The connected wallet changed during private setup.");
+    }
+    if (
+        Venue.privateOrderFingerprint(Venue.readOrder()) !== flow.fingerprint
+    ) {
+        throw new Error("The reviewed order changed during private setup.");
+    }
+    if (flow.sessionAccount && !addrEq(Venue.session?.account, flow.sessionAccount)) {
+        throw new Error("The active private session changed during private setup.");
+    }
+    if (!flow.sessionAccount && Venue.session?.account) {
+        flow.sessionAccount = Venue.session.account;
+    }
+    return flow;
+};
+
+Venue.focusPlacedPrivateOrder = function (ticket) {
+    const section = $("active-orders");
+    const box = $("tickets");
+    const card = [...(box?.querySelectorAll(":scope > .order-card") || [])].find((item) =>
+        String(item.dataset.id).toLowerCase() === String(ticket?.id || "").toLowerCase());
+    card?.classList.add("just-placed");
+    section?.scrollIntoView({behavior: "smooth", block: "start"});
+    if (card) {
+        setTimeout(() => card.classList.remove("just-placed"), 5000);
+    }
+};
+
+Venue.advancePrivateOrderFlow = async function (flow = Venue._privateOrderFlow) {
+    Venue.assertPrivateOrderFlow(flow);
+    await Venue.refreshTrade();
+    Venue.assertPrivateOrderFlow(flow);
+    const state = Venue.guidedOrderState(flow.order, "private");
+    if (state.mode === "session-fund") {
+        const progress = Venue.privateFundingProgress(flow.order.side);
+        Venue.status(
+            "private-setup-status",
+            progress.status || state.blocker || "Another fixed top-up is required.",
+            "ok",
+        );
+        Venue.paintPrivateSetup();
+        return {status: "funding-required", progress};
+    }
+    if (state.mode !== "private-commit") {
+        throw new Error(state.blocker || "Private order placement is not ready.");
+    }
+    if (flow.placing) return {status: "placing"};
+    flow.placing = true;
+    Venue.paintPrivateSetup();
+    Venue.status(
+        "private-setup-status",
+        "Funding is ready. Placing the sealed order through the private relay.",
+        "",
+    );
+    try {
+        const committed = await Venue.placePrivateOrder(flow.order);
+        Venue.assertPrivateOrderFlow(flow);
+        flow.completed = true;
+        await Venue.paintTickets();
+        Venue.closePrivateSetup({cancelFlow: false});
+        Venue.trackTicketId = committed.id;
+        Venue.showOrderStage("track");
+        Venue.status(
+            "trade-status",
+            "Order sealed and scheduled for automatic reveal. It will enter the public order book after reveal.",
+            "ok",
+        );
+        Venue.focusPlacedPrivateOrder(committed);
+        return {status: "placed", ticket: committed};
+    } catch (error) {
+        flow.placing = false;
+        await Venue.paintTickets().catch(() => {});
+        Venue.paintPrivateSetup();
+        throw error;
+    }
+};
+
 Venue.continuePrivateSetup = async function () {
+    const flow = Venue._privateOrderFlow || (
+        typeof Venue.readOrder === "function"
+        && typeof Venue.capturePrivateOrderFlow === "function"
+            ? Venue.capturePrivateOrderFlow(Venue.readOrder())
+            : null
+    );
+    if (flow) Venue.assertPrivateOrderFlow(flow);
     if (!Venue._privateSecretPayload?.credential) {
-        const adopted = await Venue.ensurePrivateHolderCredential();
-        if (!adopted) {
-            $("private-credential-file")?.click();
+        if (Venue.snap.kyc !== undefined && Venue.snap.kyc !== 1) {
+            Venue.closePrivateSetup();
+            window.location.href = "prove.html";
             return;
         }
+        const adopted = await Venue.ensurePrivateHolderCredential();
+        Venue.paintPrivateSetup();
+        if (!adopted) {
+            if (Venue._privateCredentialState?.reason === "needs-eligibility") {
+                Venue.closePrivateSetup();
+                window.location.href = "prove.html";
+            }
+            return;
+        }
+        Venue.status(
+            "private-setup-status",
+            "Holder credential linked to this wallet's eligibility and encrypted on this device.",
+            "ok",
+        );
     }
     if (!Venue.session || Venue.snap.sessionKyc !== 1) {
-        await Venue.createOrRenewPrivateSession();
-        return;
+        const created = await Venue.createOrRenewPrivateSession();
+        if (!created) return {status: "waiting"};
+        if (flow) Venue.assertPrivateOrderFlow(flow);
     }
-    const o = Venue.readOrder();
-    const funds = Venue.orderFunds(o);
-    const side = Number(Venue._privateSetupSide ?? o.side);
-    const funded = side === 1
-        ? Venue.snap.sessionFree >= o.qty
-            && Venue.snap.sessionTinybar >= (funds.privateRequired || 0n)
-        : Venue.snap.sessionTinybar >= (funds.privateRequired || 0n);
-    if (funded) {
-        Venue.closePrivateSetup();
-        Venue.paintTicket();
-        return;
+    if (!flow) return {status: "ready"};
+    if (Venue.privateFundingProgress(flow.order.side).ready) {
+        return Venue.advancePrivateOrderFlow(flow);
     }
-    await Venue.fundPrivateSession(side);
+    const outcome = await Venue.fundPrivateSession(flow.order.side);
+    if (["ready", "routed", "not-required"].includes(outcome.status)) {
+        return Venue.advancePrivateOrderFlow(flow);
+    }
+    return outcome;
 };
 
 Venue.runPrivatePathClick = async function (order, mode) {
     await Venue.requireAccount();
-    const owner = Venue.account;
-    await Venue.hydratePrivateState(owner);
-    if (!addrEq(Venue.account, owner)) {
-        throw new Error("The connected wallet changed during private setup.");
-    }
+    const flow = Venue.capturePrivateOrderFlow(order);
+    await Venue.openPrivateSetup({side: order.side});
+    Venue.assertPrivateOrderFlow(flow);
     const adopted = await Venue.ensurePrivateHolderCredential();
     if (!adopted && !Venue._privateSecretPayload?.credential) {
         await Venue.openPrivateSetup({side: order.side});
@@ -10331,12 +10781,20 @@ Venue.runPrivatePathClick = async function (order, mode) {
             await Venue.openPrivateSetup({side: order.side});
             return;
         }
+        Venue.assertPrivateOrderFlow(flow);
     }
     if (!Venue.session || Venue.snap.sessionKyc !== 1) {
         await Venue.openPrivateSetup({side: order.side});
         return;
     }
-    await Venue.fundPrivateSession(order.side);
+    if (Venue.privateFundingProgress(flow.order.side).ready) {
+        return Venue.advancePrivateOrderFlow(flow);
+    }
+    const outcome = await Venue.fundPrivateSession(flow.order.side);
+    if (["ready", "routed", "not-required"].includes(outcome.status)) {
+        return Venue.advancePrivateOrderFlow(flow);
+    }
+    return outcome;
 };
 
 Venue.boot = async function (page) {
@@ -10477,20 +10935,31 @@ Venue.applyPrivateCandidateOverlay = async function () {
     }
     CLIENT.privateTrading = overlay;
     try {
-        const factory = Venue.privateContracts()?.factory;
-        if (factory) {
-            const hash = String(await factory.creationCodeHash()).toLowerCase();
-            CLIENT.privateTrading = {
-                ...CLIENT.privateTrading,
-                session: {
-                    ...CLIENT.privateTrading.session,
-                    creationCodeHash: hash,
-                },
-            };
-        }
-    } catch { /* keep the overlay; registration will refuse a missing hash */ }
+        const contracts = Venue.privateContracts();
+        if (contracts) await Venue.privateSessionCodeHash(contracts);
+    } catch { /* keep the overlay; registration reads the hash again */ }
     await Venue.observePrivateGate();
     return CLIENT.privateTrading;
+};
+
+// The released client ships the session creation code hash. The candidate
+// overlay ships an empty one, so read it from the factory and keep it.
+Venue.privateSessionCodeHash = async function (contracts) {
+    const shipped = String(CLIENT.privateTrading?.session?.creationCodeHash || "").toLowerCase();
+    if (/^0x[0-9a-f]{64}$/.test(shipped)) return shipped;
+    if (CLIENT.privateTrading?.overlay !== true) {
+        throw new Error("Private session code is not released.");
+    }
+    if (!contracts?.factory) throw new Error("Private trading is not released.");
+    const hash = String(await contracts.factory.creationCodeHash()).toLowerCase();
+    if (!/^0x[0-9a-f]{64}$/.test(hash)) {
+        throw new Error("Private session code hash is unavailable.");
+    }
+    CLIENT.privateTrading = {
+        ...CLIENT.privateTrading,
+        session: {...(CLIENT.privateTrading.session || {}), creationCodeHash: hash},
+    };
+    return hash;
 };
 
 Venue.observePrivateGate = async function () {
@@ -11487,7 +11956,32 @@ Venue.pulseProveStatus = function () {
 Venue.setEligibilityStage = function (stage, message, kind) {
     Venue._eligibilityStage = stage || null;
     if (message !== undefined) Venue.status("prove-status", message, kind || "");
+    Venue.paintEligibilityCopy();
     Venue.paintEligibilityAction();
+};
+
+// The headline follows the stage rather than the grant alone. The old copy
+// promised an automatic check for every connected wallet and the poll
+// re-stamped it every five seconds, so a wallet the venue had turned down
+// still read "Confirm once" over its own refusal.
+Venue.eligibilityCopy = function () {
+    if (!Venue.viewer()) return "Confirm eligibility for this KYC period";
+    if (Venue.snap.kyc === 1) return "Private access is confirmed for this period.";
+    if (!Venue.account) return "This account does not have private access for the current period.";
+    const stage = Venue._eligibilityStage;
+    if (stage === "ineligible") return "This wallet is not eligible for the current period.";
+    if (stage === "checking" || (!Venue.proof && !stage)) return "Checking this wallet's access.";
+    if (!Venue.proof) return "This wallet is not eligible for the current period.";
+    if (stage === "passed") {
+        return "Access check passed. Confirm once and the venue activates access for this period.";
+    }
+    if (stage === "submitting" || stage === "confirming") return "Activating access for this period.";
+    return "Confirm once. The venue checks and activates access automatically.";
+};
+
+Venue.paintEligibilityCopy = function () {
+    const copy = $("kyc-copy");
+    if (copy) copy.textContent = Venue.eligibilityCopy();
 };
 
 Venue.paintEligibilityAction = function () {
@@ -11529,20 +12023,26 @@ Venue.paintEligibilityAction = function () {
         return;
     }
 
+    const verdict = {error: "error", ineligible: "ineligible"}[Venue._eligibilityStage] || "ready";
+
+    // No proof from any provider. Restoring a saved access file is the
+    // holder's own recovery path, offered rather than required: the bundled
+    // provider serves every wallet the issuer has proved for this period.
     if (!Venue.proof) {
         action.textContent = "Restore access file";
         action.dataset.action = "recover";
         action.setAttribute("aria-label", "Choose an account-bound access file");
-        card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "ready";
+        card.dataset.state = verdict;
         return;
     }
 
-    action.textContent = Venue._eligibilityStage === "error"
-        ? "Try private access again"
-        : "Confirm private access";
+    action.textContent = {
+        error: "Try private access again",
+        ineligible: "Check access again",
+    }[Venue._eligibilityStage] || "Confirm private access";
     action.dataset.action = "confirm";
     action.setAttribute("aria-label", action.textContent);
-    card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "ready";
+    card.dataset.state = verdict;
 };
 
 Venue.toast = function (msg) {
@@ -11772,12 +12272,7 @@ Venue.clearProveGrant = function () {
             pins.innerHTML = EMPTY_SIGNALS;
         }
     }
-    const copy = $("kyc-copy");
-    if (copy) {
-        copy.textContent = who
-            ? "This wallet does not have private access for the current period yet."
-            : "Confirm eligibility for this KYC period";
-    }
+    Venue.paintEligibilityCopy();
     Venue.paintEligibilityAction();
 };
 
@@ -11806,22 +12301,26 @@ Venue.refreshProve = async function () {
         ? "next epoch root is unpublished; grants die at the boundary"
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
-    let status = "Confirm eligibility for this KYC period";
     if (who) {
-        const kyc = Number(granted);
-        Venue.snap.kyc = kyc;
-        status = kyc === 1
-            ? "Private access is confirmed for this period."
-            : Venue.account
-                ? "Confirm once. The venue checks and activates access automatically."
-                : "This account does not have private access for the current period.";
+        Venue.snap.kyc = Number(granted);
     } else {
         Venue.snap.kyc = 0;
         Venue.clearProveGrant();
     }
-    if (!Venue._eligibilityBusy) $("kyc-copy").textContent = status;
+    Venue.paintEligibilityCopy();
     if (Venue.proof) Venue.paintPins();
     Venue.paintEligibilityAction();
+    // Grants die at the period boundary and the next period's proof may be
+    // bundled already, so a page left open across the roll re-resolves the
+    // proof and re-runs the check instead of holding last period's verdict.
+    if (
+        Venue.account
+        && Venue._provedEpoch != null
+        && Venue._provedEpoch !== epoch
+        && !Venue._eligibilityBusy
+    ) {
+        await Venue.hydrateProof();
+    }
 };
 
 Venue.onProofFile = async function (file) {
@@ -11893,45 +12392,89 @@ Venue.hydrateProof = async function () {
     const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
         ? Venue.snap.kycEpoch
         : asBig(await Venue.c.registry.currentEpoch());
+    Venue._provedEpoch = epoch;
     const bound = Venue.proof?.address
         && String(Venue.proof.address).toLowerCase() === who.toLowerCase()
         && String(Venue.proof.pub?.[3]) === String(epoch);
-    if (bound) {
-        Venue.paintEligibilityAction();
-        return;
-    }
-    const picked = Venue.proofFor(who, epoch);
-    if (picked) {
+    if (!bound) {
+        const picked = Venue.proofFor(who, epoch);
         Venue.proof = picked;
-        Venue.paintPins();
-        if (Venue.account && Venue.snap.kyc !== 1 && !Venue._eligibilityBusy) {
-            Venue.setEligibilityStage(
-                null,
-                "Your private access check is ready. Confirm once to activate it.",
-                "",
-            );
+        if (picked) {
+            Venue.paintPins();
         } else {
-            Venue.paintEligibilityAction();
+            const pins = $("pins");
+            if (pins) {
+                pins.className = "pins-slot";
+                pins.innerHTML = EMPTY_SIGNALS;
+            }
+            const uses = $("uses");
+            if (uses) uses.textContent = "";
         }
+    }
+    // Inside a confirmation the controller owns the check and the messaging;
+    // its own lookup must not start a second check underneath it.
+    if (Venue._eligibilityBusy) {
+        Venue.paintEligibilityAction();
         return;
     }
-    Venue.proof = null;
-    const pins = $("pins");
-    if (pins) {
-        pins.className = "pins-slot";
-        pins.innerHTML = EMPTY_SIGNALS;
-    }
-    const uses = $("uses");
-    if (uses) uses.textContent = "";
-    if (Venue.account && !Venue.proof && Venue.snap.kyc !== 1) {
-        Venue.setEligibilityStage(
-            null,
-            "This wallet has no account-bound access file on this device.",
-            "",
-        );
-    } else {
+    await Venue.checkEligibility(who);
+};
+
+// The automatic step on connect, and it is read-only: resolve the proof, ask
+// the gate whether it would accept it, and say so. The sponsored registration
+// still needs the one click, so a wallet merely connecting never spends the
+// venue's money. Nothing here calls the relay.
+//
+// Boot mounts the screen and reconnects the wallet concurrently, and both end
+// in `hydrateProof`, so a check already in flight for the same wallet and
+// period is joined rather than repeated.
+Venue.checkEligibility = function (who) {
+    if (!Venue.account || Venue.snap.kyc === 1) {
         Venue.paintEligibilityAction();
+        return Promise.resolve();
     }
+    const proof = Venue.proof;
+    if (!proof) {
+        Venue.setEligibilityStage(
+            "ineligible",
+            "The issuer has no access file on record for this wallet this period.",
+            "bad",
+        );
+        return Promise.resolve();
+    }
+    // The headline and the button already say a check is running; the status
+    // line stays blank until there is a reason or a receipt to put in it.
+    Venue._eligibilityBusy = true;
+    Venue.setEligibilityStage("checking", "", "");
+    const key = who.toLowerCase() + ":" + String(proof.pub?.[3]);
+    if (Venue._eligibilityCheck?.key !== key) {
+        const flight = {key};
+        flight.promise = (async () => {
+            let verdict = null;
+            try { verdict = await Venue.preflightEligibility(who, proof); } catch { verdict = null; }
+            if (Venue._eligibilityCheck === flight) Venue._eligibilityCheck = null;
+            // A check that started for one wallet must not paint for the next;
+            // the next wallet's `clearProveGrant` already reset busy and stage.
+            if (!Venue.stillViewer(who)) return;
+            Venue._eligibilityBusy = false;
+            try { Venue.paintPins(); } catch { /* details cannot interrupt the verdict */ }
+            if (!verdict) {
+                // The gate did not answer. The click re-runs the full check,
+                // so a flaky read must not stand in its way: back to the
+                // unchecked headline, nothing in the status line.
+                Venue.setEligibilityStage(null, "", "");
+                return;
+            }
+            const [ok, reason] = verdict;
+            if (ok) {
+                Venue.setEligibilityStage("passed", "", "");
+            } else {
+                Venue.setEligibilityStage("ineligible", Venue.explainGate(reason), "bad");
+            }
+        })();
+        Venue._eligibilityCheck = flight;
+    }
+    return Venue._eligibilityCheck.promise;
 };
 
 Venue.pickProof = function (data) {
@@ -12153,7 +12696,7 @@ Venue.ensureEligibility = async function () {
 
     Venue._eligibilityBusy = true;
     try {
-        Venue.setEligibilityStage("checking", "Checking your account-bound access privately.", "");
+        Venue.setEligibilityStage("checking", "", "");
         await Venue.hydrateProof();
         const proof = Venue.proof;
         if (!proof) {
@@ -12172,13 +12715,9 @@ Venue.ensureEligibility = async function () {
         try { Venue.paintPins(); } catch { /* details cannot interrupt registration */ }
         if (!ok) throw new Error(Venue.explainGate(reason));
 
-        Venue.setEligibilityStage(
-            "submitting",
-            "The venue is sponsoring your access confirmation. Your wallet will not be charged.",
-            "",
-        );
+        Venue.setEligibilityStage("submitting", "Your wallet will not be charged.", "");
         const submitted = await Venue.submitSponsoredEligibility(who, proof);
-        Venue.setEligibilityStage("confirming", "Confirming private access on Hedera.", "");
+        Venue.setEligibilityStage("confirming", "Confirming on Hedera.", "");
         await Venue.waitForEligibility(who, submitted.txHash);
 
         Venue.snap.kyc = 1;
@@ -12196,6 +12735,9 @@ Venue.ensureEligibility = async function () {
         throw error;
     } finally {
         Venue._eligibilityBusy = false;
+        // The headline said "Activating" a moment ago; it must not keep
+        // saying so under an error line.
+        Venue.paintEligibilityCopy();
         Venue.paintEligibilityAction();
     }
 };
@@ -17119,7 +17661,7 @@ Landing.propagation = function () {
     const notes = {
         commit: "The network receives the trader, timestamp, bond and one fixed-length commitment. Side, price, quantity and salt are absent.",
         cancel: "The single clock has closed cancellation. Reveal opens at the same boundary, leaving no last-look overlap.",
-        reveal: "When reveal opens, side, price, quantity, nonce and backing become public transaction inputs. The commitment protected when, not who.",
+        reveal: "When reveal opens, side, price, quantity, salt and backing become public transaction inputs. The commitment protected when, not who.",
         publish: "The first cancellation uses the public-activity allowance. The next valid cancellation completes without a venue event, and the consensus record makes that silence checkable.",
     };
     const labels = {

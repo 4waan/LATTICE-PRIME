@@ -213,6 +213,20 @@ export function generateTimedTicketCapability(cryptoImpl = globalThis.crypto) {
     return hex(cryptoApi(cryptoImpl).getRandomValues(new Uint8Array(32)));
 }
 
+// The custody service addresses a ticket by sha256(domain || envelope id), not
+// by the envelope id itself. The browser derives the same id before staging so
+// every later request and summary check uses the id the service answers to.
+export const TIMED_TICKET_STORE_ID_DOMAIN = "hedera2026.timed-ticket.store-id.v1";
+
+export async function timedTicketStoreId(envelopeId, cryptoImpl = globalThis.crypto) {
+    const id = parseHex(envelopeId, 32, "ENVELOPE_ID_INVALID");
+    const domain = new TextEncoder().encode(TIMED_TICKET_STORE_ID_DOMAIN);
+    const input = new Uint8Array(domain.length + id.length);
+    input.set(domain, 0);
+    input.set(id, domain.length);
+    return hex(await sha256(input, cryptoImpl)).slice(2);
+}
+
 function createSecretRecord(secret, envelopeId, generation, feePolicyDigest, cryptoImpl) {
     const record = new Uint8Array(TIMED_TICKET_SECRET_SIZE);
     record.set(SECRET_MAGIC, 0);

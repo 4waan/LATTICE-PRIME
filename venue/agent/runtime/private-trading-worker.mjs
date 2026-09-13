@@ -25,6 +25,7 @@ import {
     PrivateSessionRecoveryController,
 } from "./private-session-recovery-controller.mjs";
 import {PrivateSessionController} from "./private-session-controller.mjs";
+import {PrivateCredentialController} from "./private-credential-controller.mjs";
 import {PrivateTradingController} from "./private-trading-controller.mjs";
 import {HederaTimedTicketChainAdapter} from "./private-trading-chain.mjs";
 import {
@@ -207,10 +208,23 @@ export function privateTradingRuntimeConfig(env) {
             env.PRIVATE_TRADING_SESSIONS_PATH,
             "SESSIONS_PATH_REQUIRED",
         ),
+        credentials: servicePath(
+            env.PRIVATE_TRADING_CREDENTIALS_PATH,
+            "CREDENTIALS_PATH_REQUIRED",
+        ),
     });
-    if (new Set(Object.values(routes)).size !== 4) fail("SERVICE_PATHS_CONFLICT");
+    if (new Set(Object.values(routes)).size !== 5) fail("SERVICE_PATHS_CONFLICT");
+    const holderCredentialsFile = env.PRIVATE_HOLDER_CREDENTIALS_FILE;
+    if (
+        typeof holderCredentialsFile !== "string"
+        || !path.isAbsolute(holderCredentialsFile)
+        || path.resolve(holderCredentialsFile) !== holderCredentialsFile
+    ) {
+        fail("HOLDER_CREDENTIALS_FILE_REQUIRED");
+    }
     return Object.freeze({
         stateDirectory,
+        holderCredentialsFile,
         rpcUrl: rpcEndpoint(rpcUrl),
         engineAddress: engine,
         releaseConfig: Object.freeze({
@@ -593,6 +607,17 @@ export async function openPrivateTradingRuntime({
         registrationController,
         recoveryController,
     });
+    const credentialController = new PrivateCredentialController({
+        registry: registrationAdapter.registry,
+        gate: registrationAdapter.gate,
+        allowlist: {
+            chainId: TIMED_TICKET_CHAIN_ID,
+            gate: config.registration.allowlist.gate,
+            factory: config.registration.allowlist.factory,
+        },
+        storePath: config.holderCredentialsFile,
+        nowSeconds,
+    });
     const service = new TimedTicketCustodyService({
         store: ticketStore,
         lockedKeyProvider,
@@ -625,6 +650,7 @@ export async function openPrivateTradingRuntime({
             relayer.initialize(),
             registrationAdapter.initialize(),
             recoveryAdapter.initialize(),
+            credentialController.initialize(),
         ]);
     } catch (error) {
         chainAdapter.close();
@@ -647,6 +673,7 @@ export async function openPrivateTradingRuntime({
         registrationController,
         recoveryController,
         sessionController,
+        credentialController,
         routingController,
         worker,
         async close() {

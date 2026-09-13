@@ -10,6 +10,7 @@ import {
     roundAtOrAfter,
     roundTime,
     selectSafeTargetRound,
+    timedTicketStoreId,
 } from "./timed-ticket.mjs";
 import {
     PinnedQuicknetClient,
@@ -42,6 +43,7 @@ globalThis.PrivateTradingCrypto = Object.freeze({
     roundAtOrAfter,
     roundTime,
     selectSafeTargetRound,
+    timedTicketStoreId,
     plonk,
     createPrivateRoutingProofs,
     createPrivateSessionProofs,

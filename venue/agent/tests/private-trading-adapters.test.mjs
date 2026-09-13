@@ -1921,6 +1921,8 @@ test("runtime config requires canonical release addresses, denominations, and sp
         PRIVATE_TRADING_ORDERS_BASE: "/api/private/orders",
         PRIVATE_TRADING_ROUTING_PATH: "/api/private/routing",
         PRIVATE_TRADING_SESSIONS_PATH: "/api/private/sessions",
+        PRIVATE_TRADING_CREDENTIALS_PATH: "/api/private/credentials",
+        PRIVATE_HOLDER_CREDENTIALS_FILE: "/state/holder-credentials.json",
         PRIVATE_TRADING_MAX_GAS_PRICE_WEI: "20",
         PRIVATE_TRADING_RELAYER_RESERVE_WEI: "0",
     };
@@ -1928,11 +1930,13 @@ test("runtime config requires canonical release addresses, denominations, and sp
     assert.equal(config.releaseConfig.factory, FACTORY);
     assert.equal(config.relayerReserveWei, "0");
     assert.equal(config.pools.LPRC.asset, SECURITY);
+    assert.equal(config.holderCredentialsFile, "/state/holder-credentials.json");
     assert.deepEqual(config.routes, {
         tickets: "/api/private/tickets",
         orders: "/api/private/orders",
         routing: "/api/private/routing",
         sessions: "/api/private/sessions",
+        credentials: "/api/private/credentials",
     });
     assert.deepEqual(config.registration.allowlist, {
         creationCodeHash: SESSION_CREATION_CODE_HASH,
@@ -1978,6 +1982,20 @@ test("runtime config requires canonical release addresses, denominations, and sp
             PRIVATE_TRADING_ROUTING_PATH: env.PRIVATE_TRADING_ORDERS_BASE,
         }),
         {code: "SERVICE_PATHS_CONFLICT"},
+    );
+    assert.throws(
+        () => privateTradingRuntimeConfig({
+            ...env,
+            PRIVATE_TRADING_CREDENTIALS_PATH: "",
+        }),
+        {code: "CREDENTIALS_PATH_REQUIRED"},
+    );
+    assert.throws(
+        () => privateTradingRuntimeConfig({
+            ...env,
+            PRIVATE_HOLDER_CREDENTIALS_FILE: "state/holder-credentials.json",
+        }),
+        {code: "HOLDER_CREDENTIALS_FILE_REQUIRED"},
     );
     assert.throws(
         () => privateTradingRuntimeConfig({

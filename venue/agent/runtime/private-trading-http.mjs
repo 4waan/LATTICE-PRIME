@@ -6,6 +6,9 @@ import {
 import {
     PRIVATE_ROUTING_BODY_LIMIT,
 } from "./private-routing-controller.mjs";
+import {
+    PRIVATE_CREDENTIAL_BODY_LIMIT,
+} from "./private-credential-controller.mjs";
 
 export const PRIVATE_SESSION_BODY_LIMIT = 32_768;
 export const PRIVATE_HTTP_DEFAULT_RATE_LIMIT = 60;
@@ -232,6 +235,14 @@ function routeDescriptor(pathname, method, routes) {
             controller: "sessions",
         };
     }
+    if (pathname === routes.credentials) {
+        return {
+            category: "credentials",
+            limit: PRIVATE_CREDENTIAL_BODY_LIMIT,
+            contentType: "application/json",
+            controller: "credentials",
+        };
+    }
     return {
         category: "unknown",
         limit: 0,
@@ -364,6 +375,7 @@ export class PrivateTradingHttpServer {
         tradingController,
         routingController,
         sessionController,
+        credentialController,
         worker,
         routes,
         config,
@@ -374,6 +386,7 @@ export class PrivateTradingHttpServer {
             typeof tradingController?.handle !== "function"
             || typeof routingController?.handle !== "function"
             || typeof sessionController?.handle !== "function"
+            || typeof credentialController?.handle !== "function"
             || typeof worker?.start !== "function"
             || typeof worker?.stop !== "function"
             || typeof eventSink !== "function"
@@ -385,8 +398,9 @@ export class PrivateTradingHttpServer {
             orders: servicePath(routes?.orders, "ORDERS_BASE_REQUIRED"),
             routing: servicePath(routes?.routing, "ROUTING_PATH_REQUIRED"),
             sessions: servicePath(routes?.sessions, "SESSIONS_PATH_REQUIRED"),
+            credentials: servicePath(routes?.credentials, "CREDENTIALS_PATH_REQUIRED"),
         });
-        if (new Set(Object.values(this.routes)).size !== 4) {
+        if (new Set(Object.values(this.routes)).size !== 5) {
             fail("SERVICE_PATHS_CONFLICT", 500);
         }
         this.config = Object.freeze({...config});
@@ -406,6 +420,7 @@ export class PrivateTradingHttpServer {
         this.tradingController = tradingController;
         this.routingController = routingController;
         this.sessionController = sessionController;
+        this.credentialController = credentialController;
         this.worker = worker;
         this.eventSink = eventSink;
         this.rateLimiter = new FixedWindowRateLimiter({
@@ -535,6 +550,11 @@ export class PrivateTradingHttpServer {
                     body,
                 }));
             }
+            if (descriptor.controller === "credentials") {
+                const claimed = await this.credentialController.handle(parseJson(body));
+                sendJson(response, 200, claimed);
+                return;
+            }
             const result = await this.sessionController.handle(parseJson(body));
             sendJson(response, 200, result);
         } finally {
@@ -553,6 +573,7 @@ export function createPrivateTradingHttpServer({
         tradingController: runtime?.controller,
         routingController: runtime?.routingController,
         sessionController: runtime?.sessionController,
+        credentialController: runtime?.credentialController,
         worker: runtime?.worker,
         routes: runtime?.config?.routes,
         config: privateTradingHttpConfig(env),

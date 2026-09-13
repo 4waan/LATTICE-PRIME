@@ -226,7 +226,8 @@ button.wallet-btn.connected{background:var(--ink);color:var(--paper);border:0}
 .eligibility-card[data-state="granted"] .eligibility-mark{
   background:color-mix(in srgb,var(--success-fill) 22%,var(--surface));color:var(--success);
 }
-.eligibility-card[data-state="error"] .eligibility-mark{
+.eligibility-card[data-state="error"] .eligibility-mark,
+.eligibility-card[data-state="ineligible"] .eligibility-mark{
   background:var(--exposed-wash);color:var(--exposed);
 }
 @keyframes eligibility-pulse{50%{filter:brightness(1.15)}}
@@ -1485,6 +1486,15 @@ body[data-screen="trade"]{
 .order-card.waiting{box-shadow:inset 3px 0 0 var(--market-blue)}
 .order-card.live{box-shadow:inset 3px 0 0 var(--market-green)}
 .order-card.closed{background:color-mix(in srgb,var(--paper) 65%,var(--surface))}
+.order-card.just-placed{
+  border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 24%,transparent);
+}
+@media(prefers-reduced-motion:no-preference){
+  .order-card.just-placed{animation:private-order-arrival 1s ease-in-out 2}
+}
+@keyframes private-order-arrival{
+  50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--primary) 32%,transparent)}
+}
 .order-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
 .order-card-title{display:flex;align-items:center;gap:.5rem;min-width:0}
 .order-side{
@@ -3051,6 +3061,7 @@ body[data-screen="position"] .withdraw-confirm-actions .primary{
 .private-credential-input > strong{grid-column:2;grid-row:1/3;color:var(--violet)}
 .private-credential-input > small{color:var(--muted)}
 .private-credential-input input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.review-detail-body .private-credential-input{margin-top:.6rem}
 .private-session-balances{
   display:grid;grid-template-columns:1fr 1fr;margin:.8rem 0;border:1px solid var(--rule);border-radius:10px;
 }

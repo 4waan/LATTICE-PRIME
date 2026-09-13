@@ -12,6 +12,19 @@ const ORDER_SCALE_LIMIT = 1n << 96n;
 const RECEIPT_SESSION = "seamme.disclosure-receipt.v1";
 const TRADE_SIDE_KEY = "seamme.trade.side";
 const ELIGIBILITY_RELAY_PATH = "/api/eligibility/register";
+// The private-session credential claim. Signed by the connected wallet, checked
+// by the worker against the same domain and type list. Keep both in step:
+// agent/tests/private-credential-controller.test.mjs reads this file.
+const PRIVATE_CREDENTIAL_CLAIM_DOMAIN_NAME = "Lattice Prime Private Session";
+const PRIVATE_CREDENTIAL_CLAIM_TYPES = {
+    CredentialClaim: [
+        {name: "account", type: "address"},
+        {name: "factory", type: "address"},
+        {name: "issuedAt", type: "uint64"},
+    ],
+};
+const PRIVATE_PROOF_WORKER_URL = "private-proof-worker.js";
+const PRIVATE_PROOF_TIMEOUT_MS = 12 * 60 * 1000;
 const ORACLE_REFRESH_MS = 30_000;
 // Live HBAR inserts used 892,647 to 959,079 gas. 600,000 OOGs on Hedera.
 const PRIVATE_HBAR_DEPOSIT_GAS = 1_100_000n;
@@ -38,6 +51,7 @@ const PRIVATE_SESSION_ABI = [
 ];
 const PRIVATE_FACTORY_ABI = [
     "function isSessionAccount(address account) view returns (bool)",
+    "function creationCodeHash() view returns (bytes32)",
     "function accountAddress((address sessionSigner,address recoverySigner,address engine,address security,bytes32 partition,address router,bytes32 quicknetChainHash,uint64 generation,bytes32 feePolicyDigest) config,bytes32 salt) view returns (address)",
 ];
 const PRIVATE_GATE_ABI = [
@@ -371,6 +385,7 @@ function ticketFile(t) {
         releaseAt: t.releaseAt || undefined,
         generation: t.generation || undefined,
         feePolicyDigest: t.feePolicyDigest || undefined,
+        envelopeId: t.envelopeId || undefined,
         timedTicketId: t.timedTicketId || undefined,
         timedTicketCapability: t.timedTicketCapability || undefined,
         automationState: t.automationState || undefined,
@@ -499,6 +514,7 @@ function ticketRecord(t, account) {
         }
         const envelopeDigest = privateHash(t.envelopeDigest, "envelope digest");
         const feePolicyDigest = privateHash(t.feePolicyDigest, "fee policy");
+        const envelopeId = privateHash(t.envelopeId, "envelope id");
         const timedTicketId = String(t.timedTicketId || "").toLowerCase();
         const timedTicketCapability = String(t.timedTicketCapability || "").toLowerCase();
         if (!/^[0-9a-f]{64}$/.test(timedTicketId)
@@ -524,6 +540,7 @@ function ticketRecord(t, account) {
             releaseAt,
             generation,
             feePolicyDigest,
+            envelopeId,
             timedTicketId,
             timedTicketCapability,
             automationState: String(t.automationState || "Stored"),
@@ -663,6 +680,7 @@ const Venue = {
     _privateSessionRecords: [],
     _privateSecretPayload: {v: 1, credential: null, notes: []},
     _privateScope: null,
+    _privateOrderFlow: null,
 };
 
 function ticketVaultCacheKey(account) {
@@ -1259,35 +1277,159 @@ Venue.adoptPrivateCredential = async function (value, owner = Venue.account) {
     return true;
 };
 
-Venue.ensurePrivateHolderCredential = async function () {
-    if (Venue._privateSecretPayload?.credential) return true;
+// When the next private period opens, from the registry clock the page already
+// carries. Used so a full pool reads as a dated wait rather than an error.
+Venue.privatePeriodOpens = function () {
+    const zero = asBig(CLIENT.clocks?.kyc?.origin ?? 0);
+    const period = asBig(CLIENT.clocks?.kyc?.period ?? 0);
+    if (period === 0n) return "at the next eligibility period";
+    const t = nowSec();
+    const epoch = t <= zero ? 0n : (t - zero) / period;
+    const end = Venue.snap.kycEnd && Venue.snap.kycEnd > t
+        ? Venue.snap.kycEnd
+        : zero + (epoch + 1n) * period;
+    const d = new Date(Number(end) * 1000);
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()];
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mm = String(d.getUTCMinutes()).padStart(2, "0");
+    return d.getUTCDate() + " " + month + " " + hh + ":" + mm + " UTC";
+};
+
+// Service refusals, by public code, as a reason the flow can branch on and a
+// sentence the person can act on. Anything else is "service unavailable".
+Venue.privateClaimRefusal = function (code) {
+    const table = {
+        NOT_ELIGIBLE: ["needs-eligibility",
+            "This wallet has no current eligibility grant. Prove eligibility first."],
+        POOL_EXHAUSTED: ["pool-exhausted",
+            "Private sessions for this period are fully allocated. New sessions open "
+            + Venue.privatePeriodOpens() + "."],
+        ROOT_NOT_ACTIVE: ["root-not-active",
+            "Private session credentials for this period are not issued yet."],
+        CLAIM_STALE: ["clock",
+            "This device clock is more than five minutes off. Correct it and try again."],
+        SIGNATURE_INVALID: ["signature-invalid",
+            "The wallet signature did not verify. Try again from the connected wallet."],
+        CLAIM_CONTEXT_INVALID: ["context",
+            "This page is out of date for the private service. Reload and try again."],
+        CLAIM_SCHEMA_INVALID: ["context",
+            "This page is out of date for the private service. Reload and try again."],
+    };
+    const hit = table[String(code || "")];
+    return hit
+        ? {reason: hit[0], message: hit[1]}
+        : {reason: "service-unavailable",
+            message: "The private credential service is unavailable. Nothing was changed."};
+};
+
+// One wallet signature, no file. The worker checks the signature and the
+// wallet's current on-chain grant, then returns the leaf bound to this wallet
+// in the tree the gate names for the current period. The browser re-derives the
+// commitment and the path before anything touches device storage.
+Venue.claimPrivateHolderCredential = async function (options = {}) {
+    await Venue.requireAccount();
     const owner = Venue.account;
-    if (!owner) return false;
-    const bound = CLIENT.privateTrading?.holderCredentials?.[owner.toLowerCase()]
-        || CLIENT.privateTrading?.holderCredentials?.[owner];
-    if (bound) {
-        await Venue.adoptPrivateCredential(bound, owner);
-        return true;
+    const refuse = (reason, message) => {
+        Venue._privateCredentialState = {stage: "failed", reason, message};
+        return {ok: false, reason, message};
+    };
+    const release = CLIENT.privateTrading;
+    const path = release?.services?.credentials;
+    if (
+        !release?.enabled
+        || !path
+        || !release.addresses?.DualRegistrationGate
+        || !release.addresses?.SessionAccountFactory
+    ) {
+        return refuse("no-service",
+            "Private session credentials are not served on this deployment.");
     }
+    let kyc = Venue.snap.kyc;
+    if (kyc === undefined) {
+        try {
+            kyc = Number(await Venue.c.registry.getKycStatus(owner));
+        } catch {
+            kyc = undefined;
+        }
+    }
+    if (kyc !== 1) {
+        return refuse("needs-eligibility",
+            "Prove eligibility first. The private credential is linked to this wallet's grant.");
+    }
+    Venue._privateCredentialState = {stage: "claiming"};
+    Venue.paintPrivateSetup();
+    const domain = {
+        name: PRIVATE_CREDENTIAL_CLAIM_DOMAIN_NAME,
+        version: "1",
+        chainId: Number(CLIENT.network.chainId),
+        verifyingContract: release.addresses.DualRegistrationGate,
+    };
+    const message = {
+        account: owner,
+        factory: release.addresses.SessionAccountFactory,
+        issuedAt: nowSec().toString(),
+    };
+    let signature;
     try {
-        const response = await fetch("/api/private/holder-credential", {
-            method: "GET",
-            credentials: "omit",
-            cache: "no-store",
-            redirect: "error",
-            referrerPolicy: "no-referrer",
-            headers: {
-                accept: "application/json",
-                "x-lattice-account": owner,
-            },
+        signature = await Venue.signer.signTypedData(
+            domain,
+            PRIVATE_CREDENTIAL_CLAIM_TYPES,
+            message,
+        );
+    } catch (e) {
+        const rejected = e?.code === 4001 || e?.code === "ACTION_REJECTED"
+            || /user rejected|request rejected|denied/i.test(String(e?.shortMessage || e?.message || ""));
+        return refuse(
+            rejected ? "signature-declined" : "signature-failed",
+            rejected
+                ? "The wallet signature was declined. Nothing was changed."
+                : "The wallet could not sign the credential claim.",
+        );
+    }
+    if (!addrEq(Venue.account, owner)) {
+        return refuse("wallet-changed", "The connected wallet changed during the claim.");
+    }
+    let result;
+    try {
+        result = await Venue.privatePost(path, {
+            account: owner,
+            chainId: String(CLIENT.network.chainId),
+            gate: release.addresses.DualRegistrationGate,
+            factory: release.addresses.SessionAccountFactory,
+            issuedAt: message.issuedAt,
+            signature,
         });
-        const text = await response.text();
-        if (!response.ok || text.length > 64 * 1024) return false;
-        const value = JSON.parse(text);
-        if (!addrEq(Venue.account, owner)) return false;
-        await Venue.adoptPrivateCredential(value, owner);
-        return true;
-    } catch {
+    } catch (e) {
+        const refusal = Venue.privateClaimRefusal(e?.message);
+        return refuse(refusal.reason, refusal.message);
+    }
+    if (!addrEq(Venue.account, owner)) {
+        return refuse("wallet-changed", "The connected wallet changed during the claim.");
+    }
+    if (
+        options.expectedRoot !== undefined
+        && BigInt(result?.credential?.credentialRoot || 0) !== asBig(options.expectedRoot)
+    ) {
+        return refuse("root-mismatch",
+            "The issued credential is not for the current private period.");
+    }
+    await Venue.adoptPrivateCredential(result, owner);
+    Venue._privateCredentialState = {stage: "linked"};
+    return {ok: true, credential: Venue._privateSecretPayload?.credential};
+};
+
+Venue.ensurePrivateHolderCredential = async function (options = {}) {
+    if (Venue._privateSecretPayload?.credential) return true;
+    if (!Venue.account) return false;
+    try {
+        const outcome = await Venue.claimPrivateHolderCredential(options);
+        return outcome.ok === true;
+    } catch (e) {
+        Venue._privateCredentialState = {
+            stage: "failed",
+            reason: "adopt-failed",
+            message: e?.message || "The private credential could not be stored on this device.",
+        };
         return false;
     }
 };
@@ -1305,22 +1447,87 @@ Venue.importPrivateCredential = async function (file) {
         throw new Error("The holder credential is not valid JSON.");
     }
     await Venue.adoptPrivateCredential(value, owner);
+    Venue._privateCredentialState = {stage: "restored"};
     Venue.status(
         "private-setup-status",
-        "Holder credential encrypted on this device.",
+        "Holder credential restored from file and encrypted on this device.",
         "ok",
     );
     Venue.paintPrivateSetup();
+};
+
+Venue.privateFundingProgress = function (side = Venue._privateSetupSide) {
+    const order = Venue._privateOrderFlow?.order || Venue.readOrder();
+    const funds = Venue.orderFunds(order);
+    const sell = Number(side) === 1;
+    if (
+        (sell && Venue.snap.sessionFree === undefined)
+        || Venue.snap.sessionTinybar === undefined
+        || funds.privateRequired === null
+    ) {
+        return {ready: false, asset: null, label: "Checking funding", action: "Checking funding"};
+    }
+    let asset;
+    let current;
+    let required;
+    if (
+        sell
+        && Venue.snap.sessionFree !== undefined
+        && Venue.snap.sessionFree < order.qty
+    ) {
+        asset = "LPRC";
+        current = Venue.snap.sessionFree;
+        required = order.qty;
+    } else if (
+        Venue.snap.sessionTinybar !== undefined
+        && funds.privateRequired !== null
+        && Venue.snap.sessionTinybar < funds.privateRequired
+    ) {
+        asset = "HBAR";
+        current = Venue.snap.sessionTinybar;
+        required = funds.privateRequired;
+    } else {
+        return {ready: true, asset: null, label: "Ready for this order", action: "Place private order"};
+    }
+    const denomination = asBig(CLIENT.privateTrading?.routing?.[asset]?.denomination || 0);
+    if (denomination <= 0n) {
+        return {ready: false, asset, label: "Top-up required", action: "Fund private session"};
+    }
+    const targetNotes = (required + denomination - 1n) / denomination;
+    const fundedNotes = current / denomination > targetNotes
+        ? targetNotes
+        : current / denomination;
+    const shortfall = required > current ? required - current : 0n;
+    const amount = asset === "HBAR" ? readableHbar(denomination) : formatQuantity(denomination);
+    const remaining = asset === "HBAR" ? readableHbar(shortfall) : formatQuantity(shortfall);
+    return {
+        ready: false,
+        asset,
+        denomination,
+        targetNotes,
+        fundedNotes,
+        shortfall,
+        label: fundedNotes + " of " + targetNotes + " " + asset + " funded",
+        action: "Fund next " + amount + " " + asset,
+        status: remaining + " " + asset + " still required. Fund the next " +
+            amount + " " + asset + " when ready.",
+    };
 };
 
 Venue.paintPrivateSetup = function () {
     const credential = Venue._privateSecretPayload?.credential;
     const pending = Venue._privateSessionRecords.find((item) => item.state === "PENDING");
     const session = Venue.session;
+    const claimState = Venue._privateCredentialState || {};
+    const kyc = Venue.snap.kyc;
     if ($("private-step-credential")) {
         $("private-step-credential").textContent = credential
             ? "Encrypted on device"
-            : "Import required";
+            : claimState.stage === "claiming"
+                ? "Claiming…"
+                : kyc === 1
+                    ? "Linked to eligibility"
+                    : "Prove eligibility first";
     }
     if ($("private-step-session")) {
         $("private-step-session").textContent = session
@@ -1332,24 +1539,14 @@ Venue.paintPrivateSetup = function () {
                 : "Not created";
     }
     const side = Number(Venue._privateSetupSide || $("side")?.value || 0);
-    const needed = Venue.orderFunds(Venue.readOrder());
-    const funded = session && (
-        side === 1
-            ? Venue.snap.sessionFree !== undefined
-                && Venue.snap.sessionFree >= Venue.readOrder().qty
-                && Venue.snap.sessionTinybar !== undefined
-                && needed.privateRequired !== null
-                && Venue.snap.sessionTinybar >= needed.privateRequired
-            : Venue.snap.sessionTinybar !== undefined
-                && needed.privateRequired !== null
-                && Venue.snap.sessionTinybar >= needed.privateRequired
-    );
+    const progress = Venue.privateFundingProgress?.(side);
+    const funded = session && progress?.ready === true;
     if ($("private-step-funding")) {
         $("private-step-funding").textContent = !session
             ? "Waiting for session"
             : funded
                 ? "Ready for this order"
-                : "Top-up required";
+                : progress?.label || "Top-up required";
     }
     if ($("private-session-hbar")) {
         $("private-session-hbar").textContent = Venue.snap.sessionTinybar === undefined
@@ -1366,13 +1563,28 @@ Venue.paintPrivateSetup = function () {
     }
     const action = $("private-setup-action");
     if (!action) return;
-    action.disabled = !CLIENT.privateTrading?.enabled;
+    const routing = Venue._privateRouteBusy === true;
+    const placing = Venue._privateOrderFlow?.placing === true;
+    const checking = !!session && !funded && progress?.asset === null;
+    action.disabled = !CLIENT.privateTrading?.enabled || routing || placing || checking;
+    action.setAttribute?.("aria-busy", routing || placing || checking ? "true" : "false");
     if ($("private-setup-copy") && !CLIENT.privateTrading?.enabled) {
         $("private-setup-copy").textContent = CLIENT.privateTrading?.reason
             || "Private trading is not bound on this deployment yet. Direct manual remains available.";
     }
-    action.textContent = !credential
-        ? "Choose holder credential"
+    if (!credential && claimState.stage === "failed" && claimState.message) {
+        Venue.status("private-setup-status", claimState.message, "bad");
+    }
+    action.textContent = placing
+        ? "Placing sealed order"
+        : routing
+        ? "Routing deposit in background"
+        : !credential
+        ? kyc === 1
+            ? claimState.stage === "claiming"
+                ? "Waiting for wallet signature"
+                : "Link holder credential"
+            : "Prove eligibility"
         : !session
             ? pending
                 ? "Resume private registration"
@@ -1380,8 +1592,8 @@ Venue.paintPrivateSetup = function () {
             : Venue.snap.sessionKyc !== 1
                 ? "Renew private eligibility"
                 : funded
-                    ? "Ready to trade"
-                    : "Fund private session";
+                    ? "Place private order"
+                    : progress?.action || "Fund private session";
 };
 
 Venue.openPrivateSetup = async function (options = {}) {
@@ -1411,9 +1623,13 @@ Venue.openPrivateSetup = async function (options = {}) {
     });
 };
 
-Venue.closePrivateSetup = function () {
+Venue.closePrivateSetup = function (options = {}) {
     clearTimeout(Venue._privateFundingTimer);
     Venue._privateFundingTimer = null;
+    const flow = Venue._privateOrderFlow;
+    if (options.cancelFlow !== false && flow && flow.completed !== true) {
+        flow.cancelled = true;
+    }
     const modal = $("private-setup-modal");
     if (modal) modal.hidden = true;
     if ($("withdraw-modal")?.hidden !== false) {
@@ -1448,6 +1664,83 @@ Venue.waitForPrivateSession = async function (account) {
     throw new Error("Private session registration is still pending. You can resume safely.");
 };
 
+// Witness generation is CPU and memory intensive. Keeping it in a short-lived
+// worker lets the setup modal, cancel controls, and venue clocks keep painting.
+// The worker is terminated after each request so proving memory is released.
+Venue.runPrivateProof = function (kind, request) {
+    const methods = {
+        routing: "createPrivateRoutingProofs",
+        session: "createPrivateSessionProofs",
+    };
+    const method = methods[kind];
+    if (!method) return Promise.reject(new Error("Private proof request is invalid."));
+    const payload = {...request};
+    delete payload.plonk;
+    if (typeof Worker !== "function") {
+        return PrivateTradingCrypto[method]({
+            ...payload,
+            plonk: PrivateTradingCrypto.plonk,
+        });
+    }
+    return new Promise((resolve, reject) => {
+        let worker;
+        let settled = false;
+        let timer;
+        const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            worker?.terminate();
+            callback(value);
+        };
+        timer = setTimeout(() => {
+            finish(reject, new Error(
+                "Private proof generation timed out. The deposited funds remain recoverable.",
+            ));
+        }, PRIVATE_PROOF_TIMEOUT_MS);
+        try {
+            worker = new Worker(PRIVATE_PROOF_WORKER_URL);
+        } catch {
+            finish(reject, new Error(
+                "The background proof worker is unavailable. Reload Markets and try again.",
+            ));
+            return;
+        }
+        let id;
+        try {
+            id = globalThis.crypto.randomUUID();
+        } catch {
+            finish(reject, new Error(
+                "Browser cryptography is unavailable for the private proof request.",
+            ));
+            return;
+        }
+        worker.onmessage = (event) => {
+            const message = event?.data;
+            if (!message || message.id !== id) return;
+            if (message.ok === true) {
+                finish(resolve, message.result);
+                return;
+            }
+            const error = new Error(
+                String(message.error?.message || "Private proof generation failed."),
+            );
+            error.code = String(message.error?.code || "PROOF_FAILED");
+            finish(reject, error);
+        };
+        worker.onerror = () => finish(reject, new Error(
+            "The background proof worker stopped. The deposited funds remain recoverable.",
+        ));
+        try {
+            worker.postMessage({schemaVersion: 1, id, kind, request: payload});
+        } catch {
+            finish(reject, new Error(
+                "The private proof request could not be moved to the background worker.",
+            ));
+        }
+    });
+};
+
 Venue.createOrRenewPrivateSession = async function (options = {}) {
     const owner = Venue.account;
     if (!owner) throw new Error("Connect the private session owner first.");
@@ -1459,9 +1752,10 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
     if (!Venue._privateSecretPayload?.credential) {
         await Venue.ensurePrivateHolderCredential();
     }
-    const credential = Venue._privateSecretPayload?.credential;
+    let credential = Venue._privateSecretPayload?.credential;
     if (!credential) {
-        $("private-credential-file")?.click();
+        const state = Venue._privateCredentialState || {};
+        if (state.stage === "failed" && state.message) throw new Error(state.message);
         return null;
     }
     const contracts = Venue.privateContracts();
@@ -1527,14 +1821,21 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
     if (!viewKey.published || asBig(root) === 0n) {
         throw new Error("Private eligibility inputs are not published for this period.");
     }
-    if (
-        String(creationCodeHash).toLowerCase()
-        !== String(CLIENT.privateTrading.session.creationCodeHash).toLowerCase()
-    ) {
+    const releasedCodeHash = await Venue.privateSessionCodeHash(contracts);
+    if (String(creationCodeHash).toLowerCase() !== releasedCodeHash) {
         throw new Error("Private session code does not match the released configuration.");
     }
     if (BigInt(credential.credentialRoot) !== asBig(root)) {
-        throw new Error("The holder credential is not valid for this private period.");
+        // A new period published a new tree. The wallet is still granted, so
+        // claim the leaf bound to it under the live root before giving up.
+        const renewed = await Venue.claimPrivateHolderCredential({expectedRoot: asBig(root)});
+        requireOwner();
+        credential = renewed.ok ? Venue._privateSecretPayload?.credential : null;
+        if (!credential || BigInt(credential.credentialRoot) !== asBig(root)) {
+            throw new Error(renewed.ok
+                ? "The holder credential is not valid for this private period."
+                : renewed.message);
+        }
     }
 
     Venue.status(
@@ -1543,7 +1844,7 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
         "",
     );
     const release = CLIENT.privateTrading;
-    const proofs = await PrivateTradingCrypto.createPrivateSessionProofs({
+    const proofs = await Venue.runPrivateProof("session", {
         credential,
         context: {
             credentialRoot: asBig(root).toString(),
@@ -1565,7 +1866,6 @@ Venue.createOrRenewPrivateSession = async function (options = {}) {
             eligibility: release.artifacts.sessionEligibility,
             compliance: release.artifacts.sessionCompliance,
         },
-        plonk: PrivateTradingCrypto.plonk,
     });
     requireOwner();
     const needsDeployment = await Venue.reader.getCode(record.account) === "0x";
@@ -2204,7 +2504,11 @@ Venue.armPrivateFundingWatch = function (note, seconds = 15) {
         }
         try {
             const context = await Venue.privateRoutingContext(note.asset);
-            await Venue.completePrivateRoutingNote(note, context);
+            const outcome = await Venue.completePrivateRoutingNote(note, context);
+            const flow = Venue._privateOrderFlow;
+            if (outcome.status === "routed" && flow && !flow.cancelled) {
+                await Venue.advancePrivateOrderFlow(flow);
+            }
         } catch {
             Venue.status(
                 "private-setup-status",
@@ -2270,12 +2574,15 @@ Venue.selectPrivateRoutingRoot = async function (note, context) {
 };
 
 Venue.completePrivateRoutingNote = async function (note, context) {
-    if (!note || !["DEPOSITED", "RECOVERED"].includes(note.state)) return false;
-    if (Venue._privateRouteBusy) return false;
+    if (!note || !["DEPOSITED", "RECOVERED"].includes(note.state)) {
+        return {status: "not-required"};
+    }
+    if (Venue._privateRouteBusy) return {status: "busy"};
     const owner = Venue.account;
     const recipient = Venue.session?.account;
     if (!owner || !recipient) throw new Error("The private session is unavailable.");
     Venue._privateRouteBusy = true;
+    Venue.paintPrivateSetup();
     try {
         const selected = await Venue.selectPrivateRoutingRoot(note, context);
         if (!selected.ready) {
@@ -2288,12 +2595,12 @@ Venue.completePrivateRoutingNote = async function (note, context) {
                 "ok",
             );
             Venue.armPrivateFundingWatch(note, Math.min(30, Number(remaining + 1n)));
-            return false;
+            return {status: "waiting", availableAt: selected.availableAt};
         }
 
         Venue.status(
             "private-setup-status",
-            "Generating the private routing proof on this device.",
+            "Generating the private routing proof in the background. No wallet approval is needed.",
             "",
         );
         if (!addrEq(Venue.account, owner) || !addrEq(Venue.session?.account, recipient)) {
@@ -2317,7 +2624,7 @@ Venue.completePrivateRoutingNote = async function (note, context) {
             context.router.activeViewKeyY(),
         ]);
         const release = CLIENT.privateTrading;
-        const proof = await PrivateTradingCrypto.createPrivateRoutingProofs({
+        const proof = await Venue.runPrivateProof("routing", {
             note,
             path,
             context: {
@@ -2337,7 +2644,6 @@ Venue.completePrivateRoutingNote = async function (note, context) {
                 withdrawal: release.artifacts.routingWithdrawal,
                 compliance: release.artifacts.routingCompliance,
             },
-            plonk: PrivateTradingCrypto.plonk,
         });
         if (!addrEq(Venue.account, owner) || !addrEq(Venue.session?.account, recipient)) {
             throw new Error("The active private session changed during routing.");
@@ -2379,9 +2685,10 @@ Venue.completePrivateRoutingNote = async function (note, context) {
             "ok",
         );
         Venue.paintPrivateSetup();
-        return true;
+        return {status: "routed", asset: context.symbol, transactionHash};
     } finally {
         Venue._privateRouteBusy = false;
+        Venue.paintPrivateSetup();
     }
 };
 
@@ -2392,9 +2699,7 @@ Venue.fundPrivateSession = async function (side) {
     }
     const asset = Venue.privateFundingAsset(side);
     if (!asset) {
-        Venue.closePrivateSetup();
-        Venue.paintTicket();
-        return;
+        return {status: "ready"};
     }
     const context = await Venue.privateRoutingContext(asset);
     let note = await Venue.preparePrivateRoutingNote(context);
@@ -2405,9 +2710,9 @@ Venue.fundPrivateSession = async function (side) {
             "",
         );
         note = await Venue.depositPrivateRoutingNote(note, context);
-        if (!note) return;
+        if (!note) return {status: "cancelled"};
     }
-    await Venue.completePrivateRoutingNote(note, context);
+    return Venue.completePrivateRoutingNote(note, context);
 };
 
 Venue.pendingPrivateTicket = function (order) {
@@ -2459,6 +2764,8 @@ Venue.assertPrivateTicketSummary = function (ticket, summary) {
             !== String(ticket.id).toLowerCase()
         || String(summary?.envelopeDigest || "").toLowerCase()
             !== String(ticket.envelopeDigest).toLowerCase()
+        || String(summary?.envelopeId || "").toLowerCase()
+            !== String(ticket.envelopeId).toLowerCase()
         || String(summary?.targetRound || "") !== String(ticket.releaseRound)
     ) {
         throw new Error("Private ticket service context does not match this order.");
@@ -2495,7 +2802,7 @@ Venue.stagePrivateTicket = async function (ticket, envelope) {
             expected: {
                 engine: CLIENT.addresses.MatchingEngine,
                 sessionAccount: ticket.committer,
-                envelopeId: "0x" + ticket.timedTicketId,
+                envelopeId: ticket.envelopeId,
                 engineCommitment: ticket.id,
                 targetRound: BigInt(ticket.releaseRound),
             },
@@ -2575,7 +2882,8 @@ Venue.createPrivateTicket = async function (order) {
             releaseAt: made.targetTime.toString(),
             generation: made.generation.toString(),
             feePolicyDigest: made.feePolicyDigest,
-            timedTicketId: made.envelopeId.slice(2).toLowerCase(),
+            envelopeId: made.envelopeId.toLowerCase(),
+            timedTicketId: await PrivateTradingCrypto.timedTicketStoreId(made.envelopeId),
             timedTicketCapability: capability,
             automationState: "Stored locally",
             serviceState: "LOCAL",
@@ -2983,40 +3291,171 @@ Venue.emergencyPrivateReveal = async function () {
     return receipt;
 };
 
+Venue.privateOrderFingerprint = function (order) {
+    return [
+        Number(order?.side),
+        String(order?.price),
+        String(order?.qty),
+        String(order?.salt || "").toLowerCase(),
+    ].join(":");
+};
+
+Venue.capturePrivateOrderFlow = function (order) {
+    if (!order?.ok || !Venue.account) throw new Error("Fix the order fields first.");
+    const snapshot = Object.freeze({
+        ok: true,
+        side: Number(order.side),
+        price: asBig(order.price),
+        qty: asBig(order.qty),
+        salt: String(order.salt).toLowerCase(),
+        bad: Object.freeze({}),
+        empty: Object.freeze({price: false, qty: false}),
+    });
+    const flow = {
+        owner: Venue.account,
+        sessionAccount: Venue.session?.account || null,
+        order: snapshot,
+        fingerprint: Venue.privateOrderFingerprint(snapshot),
+        cancelled: false,
+        placing: false,
+        completed: false,
+    };
+    Venue._privateOrderFlow = flow;
+    return flow;
+};
+
+Venue.assertPrivateOrderFlow = function (flow) {
+    if (!flow || Venue._privateOrderFlow !== flow || flow.cancelled) {
+        throw new Error("Private order continuation was cancelled. Routed funds remain safe.");
+    }
+    if (!addrEq(Venue.account, flow.owner)) {
+        throw new Error("The connected wallet changed during private setup.");
+    }
+    if (
+        Venue.privateOrderFingerprint(Venue.readOrder()) !== flow.fingerprint
+    ) {
+        throw new Error("The reviewed order changed during private setup.");
+    }
+    if (flow.sessionAccount && !addrEq(Venue.session?.account, flow.sessionAccount)) {
+        throw new Error("The active private session changed during private setup.");
+    }
+    if (!flow.sessionAccount && Venue.session?.account) {
+        flow.sessionAccount = Venue.session.account;
+    }
+    return flow;
+};
+
+Venue.focusPlacedPrivateOrder = function (ticket) {
+    const section = $("active-orders");
+    const box = $("tickets");
+    const card = [...(box?.querySelectorAll(":scope > .order-card") || [])].find((item) =>
+        String(item.dataset.id).toLowerCase() === String(ticket?.id || "").toLowerCase());
+    card?.classList.add("just-placed");
+    section?.scrollIntoView({behavior: "smooth", block: "start"});
+    if (card) {
+        setTimeout(() => card.classList.remove("just-placed"), 5000);
+    }
+};
+
+Venue.advancePrivateOrderFlow = async function (flow = Venue._privateOrderFlow) {
+    Venue.assertPrivateOrderFlow(flow);
+    await Venue.refreshTrade();
+    Venue.assertPrivateOrderFlow(flow);
+    const state = Venue.guidedOrderState(flow.order, "private");
+    if (state.mode === "session-fund") {
+        const progress = Venue.privateFundingProgress(flow.order.side);
+        Venue.status(
+            "private-setup-status",
+            progress.status || state.blocker || "Another fixed top-up is required.",
+            "ok",
+        );
+        Venue.paintPrivateSetup();
+        return {status: "funding-required", progress};
+    }
+    if (state.mode !== "private-commit") {
+        throw new Error(state.blocker || "Private order placement is not ready.");
+    }
+    if (flow.placing) return {status: "placing"};
+    flow.placing = true;
+    Venue.paintPrivateSetup();
+    Venue.status(
+        "private-setup-status",
+        "Funding is ready. Placing the sealed order through the private relay.",
+        "",
+    );
+    try {
+        const committed = await Venue.placePrivateOrder(flow.order);
+        Venue.assertPrivateOrderFlow(flow);
+        flow.completed = true;
+        await Venue.paintTickets();
+        Venue.closePrivateSetup({cancelFlow: false});
+        Venue.trackTicketId = committed.id;
+        Venue.showOrderStage("track");
+        Venue.status(
+            "trade-status",
+            "Order sealed and scheduled for automatic reveal. It will enter the public order book after reveal.",
+            "ok",
+        );
+        Venue.focusPlacedPrivateOrder(committed);
+        return {status: "placed", ticket: committed};
+    } catch (error) {
+        flow.placing = false;
+        await Venue.paintTickets().catch(() => {});
+        Venue.paintPrivateSetup();
+        throw error;
+    }
+};
+
 Venue.continuePrivateSetup = async function () {
+    const flow = Venue._privateOrderFlow || (
+        typeof Venue.readOrder === "function"
+        && typeof Venue.capturePrivateOrderFlow === "function"
+            ? Venue.capturePrivateOrderFlow(Venue.readOrder())
+            : null
+    );
+    if (flow) Venue.assertPrivateOrderFlow(flow);
     if (!Venue._privateSecretPayload?.credential) {
-        const adopted = await Venue.ensurePrivateHolderCredential();
-        if (!adopted) {
-            $("private-credential-file")?.click();
+        if (Venue.snap.kyc !== undefined && Venue.snap.kyc !== 1) {
+            Venue.closePrivateSetup();
+            window.location.href = "prove.html";
             return;
         }
+        const adopted = await Venue.ensurePrivateHolderCredential();
+        Venue.paintPrivateSetup();
+        if (!adopted) {
+            if (Venue._privateCredentialState?.reason === "needs-eligibility") {
+                Venue.closePrivateSetup();
+                window.location.href = "prove.html";
+            }
+            return;
+        }
+        Venue.status(
+            "private-setup-status",
+            "Holder credential linked to this wallet's eligibility and encrypted on this device.",
+            "ok",
+        );
     }
     if (!Venue.session || Venue.snap.sessionKyc !== 1) {
-        await Venue.createOrRenewPrivateSession();
-        return;
+        const created = await Venue.createOrRenewPrivateSession();
+        if (!created) return {status: "waiting"};
+        if (flow) Venue.assertPrivateOrderFlow(flow);
     }
-    const o = Venue.readOrder();
-    const funds = Venue.orderFunds(o);
-    const side = Number(Venue._privateSetupSide ?? o.side);
-    const funded = side === 1
-        ? Venue.snap.sessionFree >= o.qty
-            && Venue.snap.sessionTinybar >= (funds.privateRequired || 0n)
-        : Venue.snap.sessionTinybar >= (funds.privateRequired || 0n);
-    if (funded) {
-        Venue.closePrivateSetup();
-        Venue.paintTicket();
-        return;
+    if (!flow) return {status: "ready"};
+    if (Venue.privateFundingProgress(flow.order.side).ready) {
+        return Venue.advancePrivateOrderFlow(flow);
     }
-    await Venue.fundPrivateSession(side);
+    const outcome = await Venue.fundPrivateSession(flow.order.side);
+    if (["ready", "routed", "not-required"].includes(outcome.status)) {
+        return Venue.advancePrivateOrderFlow(flow);
+    }
+    return outcome;
 };
 
 Venue.runPrivatePathClick = async function (order, mode) {
     await Venue.requireAccount();
-    const owner = Venue.account;
-    await Venue.hydratePrivateState(owner);
-    if (!addrEq(Venue.account, owner)) {
-        throw new Error("The connected wallet changed during private setup.");
-    }
+    const flow = Venue.capturePrivateOrderFlow(order);
+    await Venue.openPrivateSetup({side: order.side});
+    Venue.assertPrivateOrderFlow(flow);
     const adopted = await Venue.ensurePrivateHolderCredential();
     if (!adopted && !Venue._privateSecretPayload?.credential) {
         await Venue.openPrivateSetup({side: order.side});
@@ -3028,12 +3467,20 @@ Venue.runPrivatePathClick = async function (order, mode) {
             await Venue.openPrivateSetup({side: order.side});
             return;
         }
+        Venue.assertPrivateOrderFlow(flow);
     }
     if (!Venue.session || Venue.snap.sessionKyc !== 1) {
         await Venue.openPrivateSetup({side: order.side});
         return;
     }
-    await Venue.fundPrivateSession(order.side);
+    if (Venue.privateFundingProgress(flow.order.side).ready) {
+        return Venue.advancePrivateOrderFlow(flow);
+    }
+    const outcome = await Venue.fundPrivateSession(flow.order.side);
+    if (["ready", "routed", "not-required"].includes(outcome.status)) {
+        return Venue.advancePrivateOrderFlow(flow);
+    }
+    return outcome;
 };
 
 Venue.boot = async function (page) {
@@ -3174,20 +3621,31 @@ Venue.applyPrivateCandidateOverlay = async function () {
     }
     CLIENT.privateTrading = overlay;
     try {
-        const factory = Venue.privateContracts()?.factory;
-        if (factory) {
-            const hash = String(await factory.creationCodeHash()).toLowerCase();
-            CLIENT.privateTrading = {
-                ...CLIENT.privateTrading,
-                session: {
-                    ...CLIENT.privateTrading.session,
-                    creationCodeHash: hash,
-                },
-            };
-        }
-    } catch { /* keep the overlay; registration will refuse a missing hash */ }
+        const contracts = Venue.privateContracts();
+        if (contracts) await Venue.privateSessionCodeHash(contracts);
+    } catch { /* keep the overlay; registration reads the hash again */ }
     await Venue.observePrivateGate();
     return CLIENT.privateTrading;
+};
+
+// The released client ships the session creation code hash. The candidate
+// overlay ships an empty one, so read it from the factory and keep it.
+Venue.privateSessionCodeHash = async function (contracts) {
+    const shipped = String(CLIENT.privateTrading?.session?.creationCodeHash || "").toLowerCase();
+    if (/^0x[0-9a-f]{64}$/.test(shipped)) return shipped;
+    if (CLIENT.privateTrading?.overlay !== true) {
+        throw new Error("Private session code is not released.");
+    }
+    if (!contracts?.factory) throw new Error("Private trading is not released.");
+    const hash = String(await contracts.factory.creationCodeHash()).toLowerCase();
+    if (!/^0x[0-9a-f]{64}$/.test(hash)) {
+        throw new Error("Private session code hash is unavailable.");
+    }
+    CLIENT.privateTrading = {
+        ...CLIENT.privateTrading,
+        session: {...(CLIENT.privateTrading.session || {}), creationCodeHash: hash},
+    };
+    return hash;
 };
 
 Venue.observePrivateGate = async function () {
@@ -4184,7 +4642,32 @@ Venue.pulseProveStatus = function () {
 Venue.setEligibilityStage = function (stage, message, kind) {
     Venue._eligibilityStage = stage || null;
     if (message !== undefined) Venue.status("prove-status", message, kind || "");
+    Venue.paintEligibilityCopy();
     Venue.paintEligibilityAction();
+};
+
+// The headline follows the stage rather than the grant alone. The old copy
+// promised an automatic check for every connected wallet and the poll
+// re-stamped it every five seconds, so a wallet the venue had turned down
+// still read "Confirm once" over its own refusal.
+Venue.eligibilityCopy = function () {
+    if (!Venue.viewer()) return "Confirm eligibility for this KYC period";
+    if (Venue.snap.kyc === 1) return "Private access is confirmed for this period.";
+    if (!Venue.account) return "This account does not have private access for the current period.";
+    const stage = Venue._eligibilityStage;
+    if (stage === "ineligible") return "This wallet is not eligible for the current period.";
+    if (stage === "checking" || (!Venue.proof && !stage)) return "Checking this wallet's access.";
+    if (!Venue.proof) return "This wallet is not eligible for the current period.";
+    if (stage === "passed") {
+        return "Access check passed. Confirm once and the venue activates access for this period.";
+    }
+    if (stage === "submitting" || stage === "confirming") return "Activating access for this period.";
+    return "Confirm once. The venue checks and activates access automatically.";
+};
+
+Venue.paintEligibilityCopy = function () {
+    const copy = $("kyc-copy");
+    if (copy) copy.textContent = Venue.eligibilityCopy();
 };
 
 Venue.paintEligibilityAction = function () {
@@ -4226,20 +4709,26 @@ Venue.paintEligibilityAction = function () {
         return;
     }
 
+    const verdict = {error: "error", ineligible: "ineligible"}[Venue._eligibilityStage] || "ready";
+
+    // No proof from any provider. Restoring a saved access file is the
+    // holder's own recovery path, offered rather than required: the bundled
+    // provider serves every wallet the issuer has proved for this period.
     if (!Venue.proof) {
         action.textContent = "Restore access file";
         action.dataset.action = "recover";
         action.setAttribute("aria-label", "Choose an account-bound access file");
-        card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "ready";
+        card.dataset.state = verdict;
         return;
     }
 
-    action.textContent = Venue._eligibilityStage === "error"
-        ? "Try private access again"
-        : "Confirm private access";
+    action.textContent = {
+        error: "Try private access again",
+        ineligible: "Check access again",
+    }[Venue._eligibilityStage] || "Confirm private access";
     action.dataset.action = "confirm";
     action.setAttribute("aria-label", action.textContent);
-    card.dataset.state = Venue._eligibilityStage === "error" ? "error" : "ready";
+    card.dataset.state = verdict;
 };
 
 Venue.toast = function (msg) {
@@ -4469,12 +4958,7 @@ Venue.clearProveGrant = function () {
             pins.innerHTML = EMPTY_SIGNALS;
         }
     }
-    const copy = $("kyc-copy");
-    if (copy) {
-        copy.textContent = who
-            ? "This wallet does not have private access for the current period yet."
-            : "Confirm eligibility for this KYC period";
-    }
+    Venue.paintEligibilityCopy();
     Venue.paintEligibilityAction();
 };
 
@@ -4503,22 +4987,26 @@ Venue.refreshProve = async function () {
         ? "next epoch root is unpublished; grants die at the boundary"
         : toHexWord(nextRoot);
     $("pol-next").classList.toggle("bad", nextRoot === 0n);
-    let status = "Confirm eligibility for this KYC period";
     if (who) {
-        const kyc = Number(granted);
-        Venue.snap.kyc = kyc;
-        status = kyc === 1
-            ? "Private access is confirmed for this period."
-            : Venue.account
-                ? "Confirm once. The venue checks and activates access automatically."
-                : "This account does not have private access for the current period.";
+        Venue.snap.kyc = Number(granted);
     } else {
         Venue.snap.kyc = 0;
         Venue.clearProveGrant();
     }
-    if (!Venue._eligibilityBusy) $("kyc-copy").textContent = status;
+    Venue.paintEligibilityCopy();
     if (Venue.proof) Venue.paintPins();
     Venue.paintEligibilityAction();
+    // Grants die at the period boundary and the next period's proof may be
+    // bundled already, so a page left open across the roll re-resolves the
+    // proof and re-runs the check instead of holding last period's verdict.
+    if (
+        Venue.account
+        && Venue._provedEpoch != null
+        && Venue._provedEpoch !== epoch
+        && !Venue._eligibilityBusy
+    ) {
+        await Venue.hydrateProof();
+    }
 };
 
 Venue.onProofFile = async function (file) {
@@ -4590,45 +5078,89 @@ Venue.hydrateProof = async function () {
     const epoch = Venue.snap.kycEpoch !== undefined && Venue.snap.kycEpoch !== null
         ? Venue.snap.kycEpoch
         : asBig(await Venue.c.registry.currentEpoch());
+    Venue._provedEpoch = epoch;
     const bound = Venue.proof?.address
         && String(Venue.proof.address).toLowerCase() === who.toLowerCase()
         && String(Venue.proof.pub?.[3]) === String(epoch);
-    if (bound) {
-        Venue.paintEligibilityAction();
-        return;
-    }
-    const picked = Venue.proofFor(who, epoch);
-    if (picked) {
+    if (!bound) {
+        const picked = Venue.proofFor(who, epoch);
         Venue.proof = picked;
-        Venue.paintPins();
-        if (Venue.account && Venue.snap.kyc !== 1 && !Venue._eligibilityBusy) {
-            Venue.setEligibilityStage(
-                null,
-                "Your private access check is ready. Confirm once to activate it.",
-                "",
-            );
+        if (picked) {
+            Venue.paintPins();
         } else {
-            Venue.paintEligibilityAction();
+            const pins = $("pins");
+            if (pins) {
+                pins.className = "pins-slot";
+                pins.innerHTML = EMPTY_SIGNALS;
+            }
+            const uses = $("uses");
+            if (uses) uses.textContent = "";
         }
+    }
+    // Inside a confirmation the controller owns the check and the messaging;
+    // its own lookup must not start a second check underneath it.
+    if (Venue._eligibilityBusy) {
+        Venue.paintEligibilityAction();
         return;
     }
-    Venue.proof = null;
-    const pins = $("pins");
-    if (pins) {
-        pins.className = "pins-slot";
-        pins.innerHTML = EMPTY_SIGNALS;
-    }
-    const uses = $("uses");
-    if (uses) uses.textContent = "";
-    if (Venue.account && !Venue.proof && Venue.snap.kyc !== 1) {
-        Venue.setEligibilityStage(
-            null,
-            "This wallet has no account-bound access file on this device.",
-            "",
-        );
-    } else {
+    await Venue.checkEligibility(who);
+};
+
+// The automatic step on connect, and it is read-only: resolve the proof, ask
+// the gate whether it would accept it, and say so. The sponsored registration
+// still needs the one click, so a wallet merely connecting never spends the
+// venue's money. Nothing here calls the relay.
+//
+// Boot mounts the screen and reconnects the wallet concurrently, and both end
+// in `hydrateProof`, so a check already in flight for the same wallet and
+// period is joined rather than repeated.
+Venue.checkEligibility = function (who) {
+    if (!Venue.account || Venue.snap.kyc === 1) {
         Venue.paintEligibilityAction();
+        return Promise.resolve();
     }
+    const proof = Venue.proof;
+    if (!proof) {
+        Venue.setEligibilityStage(
+            "ineligible",
+            "The issuer has no access file on record for this wallet this period.",
+            "bad",
+        );
+        return Promise.resolve();
+    }
+    // The headline and the button already say a check is running; the status
+    // line stays blank until there is a reason or a receipt to put in it.
+    Venue._eligibilityBusy = true;
+    Venue.setEligibilityStage("checking", "", "");
+    const key = who.toLowerCase() + ":" + String(proof.pub?.[3]);
+    if (Venue._eligibilityCheck?.key !== key) {
+        const flight = {key};
+        flight.promise = (async () => {
+            let verdict = null;
+            try { verdict = await Venue.preflightEligibility(who, proof); } catch { verdict = null; }
+            if (Venue._eligibilityCheck === flight) Venue._eligibilityCheck = null;
+            // A check that started for one wallet must not paint for the next;
+            // the next wallet's `clearProveGrant` already reset busy and stage.
+            if (!Venue.stillViewer(who)) return;
+            Venue._eligibilityBusy = false;
+            try { Venue.paintPins(); } catch { /* details cannot interrupt the verdict */ }
+            if (!verdict) {
+                // The gate did not answer. The click re-runs the full check,
+                // so a flaky read must not stand in its way: back to the
+                // unchecked headline, nothing in the status line.
+                Venue.setEligibilityStage(null, "", "");
+                return;
+            }
+            const [ok, reason] = verdict;
+            if (ok) {
+                Venue.setEligibilityStage("passed", "", "");
+            } else {
+                Venue.setEligibilityStage("ineligible", Venue.explainGate(reason), "bad");
+            }
+        })();
+        Venue._eligibilityCheck = flight;
+    }
+    return Venue._eligibilityCheck.promise;
 };
 
 Venue.pickProof = function (data) {
@@ -4850,7 +5382,7 @@ Venue.ensureEligibility = async function () {
 
     Venue._eligibilityBusy = true;
     try {
-        Venue.setEligibilityStage("checking", "Checking your account-bound access privately.", "");
+        Venue.setEligibilityStage("checking", "", "");
         await Venue.hydrateProof();
         const proof = Venue.proof;
         if (!proof) {
@@ -4869,13 +5401,9 @@ Venue.ensureEligibility = async function () {
         try { Venue.paintPins(); } catch { /* details cannot interrupt registration */ }
         if (!ok) throw new Error(Venue.explainGate(reason));
 
-        Venue.setEligibilityStage(
-            "submitting",
-            "The venue is sponsoring your access confirmation. Your wallet will not be charged.",
-            "",
-        );
+        Venue.setEligibilityStage("submitting", "Your wallet will not be charged.", "");
         const submitted = await Venue.submitSponsoredEligibility(who, proof);
-        Venue.setEligibilityStage("confirming", "Confirming private access on Hedera.", "");
+        Venue.setEligibilityStage("confirming", "Confirming on Hedera.", "");
         await Venue.waitForEligibility(who, submitted.txHash);
 
         Venue.snap.kyc = 1;
@@ -4893,6 +5421,9 @@ Venue.ensureEligibility = async function () {
         throw error;
     } finally {
         Venue._eligibilityBusy = false;
+        // The headline said "Activating" a moment ago; it must not keep
+        // saying so under an error line.
+        Venue.paintEligibilityCopy();
         Venue.paintEligibilityAction();
     }
 };

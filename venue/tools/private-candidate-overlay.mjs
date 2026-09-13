@@ -11,6 +11,7 @@ export const PRIVATE_OVERLAY_SERVICES = Object.freeze({
     orders: "/api/private/orders",
     routing: "/api/private/routing",
     sessions: "/api/private/sessions",
+    credentials: "/api/private/credentials",
 });
 
 export const PRIVATE_PROVING_ARTIFACT_LAYOUT = Object.freeze({

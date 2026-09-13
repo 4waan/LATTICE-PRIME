@@ -63,6 +63,7 @@ test("candidate overlay binds addresses and keeps sells closed", () => {
     assert.equal(overlay.routing.HBAR.denomination, "100000000");
     assert.equal(overlay.provingReady, true);
     assert.equal(overlay.services.sessions, "/api/private/sessions");
+    assert.equal(overlay.services.credentials, "/api/private/credentials");
 });
 
 test("candidate overlay refuses a commercial-looking candidate file", () => {

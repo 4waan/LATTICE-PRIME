@@ -17,6 +17,7 @@ const ROUTES = Object.freeze({
     orders: "/api/private/orders",
     routing: "/api/private/routing",
     sessions: "/api/private/sessions",
+    credentials: "/api/private/credentials",
 });
 const CAPABILITY = `0x${"88".repeat(32)}`;
 const TICKET_ID = "99".repeat(32);
@@ -97,10 +98,19 @@ async function harness({rateLimit = 30} = {}) {
             };
         },
     };
+    const credentialController = {
+        async handle(value) {
+            calls.push({controller: "credentials", value});
+            return {
+                credential: {credentialId: "100", wallet: value.account},
+            };
+        },
+    };
     const server = new PrivateTradingHttpServer({
         tradingController,
         routingController,
         sessionController,
+        credentialController,
         worker: {
             start() {
                 workerState.starts += 1;
@@ -184,11 +194,42 @@ test("HTTP service runs the worker and dispatches bounded ticket, routing, and s
         });
         assert.equal(session.status, 200);
         assert.equal(session.json().status, "CONFIRMED");
+
+        const claimBody = Buffer.from(JSON.stringify({account: "0xabc"}));
+        const claim = await request({
+            port: running.port,
+            method: "POST",
+            path: ROUTES.credentials,
+            headers: {"content-type": "application/json"},
+            body: claimBody,
+        });
+        assert.equal(claim.status, 200);
+        assert.deepEqual(claim.json(), {
+            credential: {credentialId: "100", wallet: "0xabc"},
+        });
+        const claimGet = await request({
+            port: running.port,
+            method: "GET",
+            path: ROUTES.credentials,
+            omitOrigin: true,
+            headers: {"sec-fetch-site": "same-origin"},
+        });
+        assert.equal(claimGet.status, 415);
+        assert.deepEqual(claimGet.json(), {error: {code: "CONTENT_TYPE_INVALID"}});
+        const oversizedClaim = await request({
+            port: running.port,
+            method: "POST",
+            path: ROUTES.credentials,
+            headers: {"content-type": "application/json"},
+            body: Buffer.alloc(2_049, 0x20),
+        });
+        assert.equal(oversizedClaim.status, 413);
         assert.deepEqual(
             running.calls.map((call) => call.controller),
-            ["trading", "trading", "routing", "sessions"],
+            ["trading", "trading", "routing", "sessions", "credentials"],
         );
         assert.deepEqual(running.calls[3].value, {action: "register"});
+        assert.deepEqual(running.calls[4].value, {account: "0xabc"});
     } finally {
         await running.server.close();
     }
@@ -316,6 +357,7 @@ test("HTTP entrypoint binds the unified runtime session controller", () => {
         controller: {async handle() {}},
         routingController: {async handle() {}},
         sessionController: {async handle() {}},
+        credentialController: {async handle() {}},
         worker: {start() {}, async stop() {}},
         config: {routes: ROUTES},
     };
@@ -331,6 +373,7 @@ test("HTTP entrypoint binds the unified runtime session controller", () => {
         },
     });
     assert.equal(server.sessionController, runtime.sessionController);
+    assert.equal(server.credentialController, runtime.credentialController);
     assert.equal(server.tradingController, runtime.controller);
     assert.deepEqual(server.routes, ROUTES);
 });
@@ -342,6 +385,7 @@ test("server entrypoint opens and closes the unified runtime contract", async ()
         controller: {async handle() {}},
         routingController: {async handle() {}},
         sessionController: {async handle() {}},
+        credentialController: {async handle() {}},
         worker: {
             start() {},
             async stop() {

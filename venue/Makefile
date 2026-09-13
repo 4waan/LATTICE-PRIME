@@ -124,8 +124,8 @@ private-browser:
 	$(NODE) node tools/build-private-trading-browser.mjs
 
 private-test: private-browser
-	$(NODE) node --test tools/timed-ticket.test.mjs tools/private-zk.test.mjs tools/private-session-vault.test.mjs tools/private-secret-vault.test.mjs tools/private-release.test.mjs tools/private-canary-evidence.test.mjs tools/private-canary-runner.test.mjs
-	$(NODE) node --test agent/tests/timed-ticket-custody.test.mjs agent/tests/private-trading-adapters.test.mjs agent/tests/private-session-registration.test.mjs agent/tests/private-session-recovery.test.mjs agent/tests/private-trading-http.test.mjs
+	$(NODE) node --test tools/timed-ticket.test.mjs tools/private-zk.test.mjs tools/private-session-vault.test.mjs tools/private-secret-vault.test.mjs tools/private-release.test.mjs tools/private-canary-evidence.test.mjs tools/private-canary-runner.test.mjs tools/private-trading-bootstrap.test.mjs
+	$(NODE) node --test agent/tests/timed-ticket-custody.test.mjs agent/tests/private-trading-adapters.test.mjs agent/tests/private-session-registration.test.mjs agent/tests/private-session-recovery.test.mjs agent/tests/private-trading-http.test.mjs agent/tests/private-credential-store.test.mjs agent/tests/private-credential-controller.test.mjs
 	forge test --match-path 'test/Session*.t.sol'
 	forge test --match-path 'test/DualRegistrationGate.t.sol'
 	forge test --match-path 'test/FixedDenominationRouter.t.sol'
@@ -151,7 +151,7 @@ local-app:
 	PRIVATE_TRADING_ALLOWED_ORIGIN=http://127.0.0.1:8765 $(NODE) node tools/local-app-gateway.mjs
 
 app: vectors private-browser
-	$(NODE) node --test tools/ticket-vault.test.mjs tools/private-session-vault.test.mjs tools/private-secret-vault.test.mjs tools/private-zk.test.mjs tools/private-release.test.mjs tools/private-candidate-overlay.test.mjs tools/local-app-gateway.test.mjs tools/venue-obs.test.mjs tools/oracle-ui.test.mjs tools/financing-ui.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/issuer-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
+	$(NODE) node --test tools/ticket-vault.test.mjs tools/private-session-vault.test.mjs tools/private-secret-vault.test.mjs tools/private-zk.test.mjs tools/private-release.test.mjs tools/private-candidate-overlay.test.mjs tools/local-app-gateway.test.mjs tools/venue-obs.test.mjs tools/oracle-ui.test.mjs tools/financing-ui.test.mjs tools/hcs-view.test.mjs tools/hcs-project.test.mjs tools/landing.test.mjs tools/claw-ui.test.mjs tools/prove-ui.test.mjs tools/private-credential-ui.test.mjs tools/private-session-ui.test.mjs tools/markets-ui.test.mjs tools/portfolio-ui.test.mjs tools/issuer-ui.test.mjs tools/agent-client.test.mjs tools/agent-ui.test.mjs
 	$(NODE) node --test ../api/eligibility/register.test.mjs
 	$(NODE) node tools/gen-app.mjs
 

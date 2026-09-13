@@ -11,6 +11,7 @@ import {
     createTimedTicketEnvelope,
     decryptTimedTicketEnvelope,
     setTimedTicketCommitment,
+    timedTicketStoreId,
 } from "../../tools/timed-ticket.mjs";
 import {
     PinnedQuicknetClient,
@@ -254,6 +255,10 @@ test("staging atomically reads back exact bytes and enforces capability conflict
     assert.equal(staged.state, "PREARMED");
     assert.equal(staged.capability, CAPABILITY);
     assert.equal(staged.byteDigest, digest(made.envelope));
+    // The browser derives the same service id before it stages the envelope.
+    assert.equal(staged.ticketId, await timedTicketStoreId(made.envelopeId, webcrypto));
+    assert.notEqual(staged.ticketId, made.envelopeId.slice(2));
+    assert.equal(staged.envelopeId, made.envelopeId);
     const persisted = await store.read(staged.ticketId, CAPABILITY);
     assert.deepEqual(persisted.envelope, Buffer.from(made.envelope));
     assert.equal(

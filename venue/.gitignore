@@ -30,6 +30,9 @@ deployments/.rename-bond/
 agent/artifacts/
 agent/state/
 
+# Private trading operator keys and the holder credential store. Never tracked.
+agent/secrets/
+
 # The synthetic bot population: runner, job configs, journals. Kept local.
 bots/
 

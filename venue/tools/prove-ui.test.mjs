@@ -135,7 +135,12 @@ test("eligibility presents one centered private-access action", () => {
         css,
         /\.eligibility-page button\.eligibility-action\{[\s\S]*?background:var\(--grad\)/,
     );
-    assert.match(runtime, /let status = "Confirm eligibility for this KYC period"/);
+    assert.match(runtime, /Venue\.eligibilityCopy = function/);
+    assert.match(runtime, /return "Confirm eligibility for this KYC period"/);
+    assert.match(
+        css,
+        /\.eligibility-card\[data-state="error"\] \.eligibility-mark,\n\.eligibility-card\[data-state="ineligible"\] \.eligibility-mark\{/,
+    );
 });
 
 test("the one action covers disconnected, ready, busy, and granted states", () => {
@@ -147,6 +152,21 @@ test("the one action covers disconnected, ready, busy, and granted states", () =
     const recovery = renderAction({account: wallet});
     assert.equal(recovery.action.textContent, "Restore access file");
     assert.equal(recovery.action.dataset.action, "recover");
+
+    const ineligible = renderAction({account: wallet, stage: "ineligible"});
+    assert.equal(ineligible.action.textContent, "Restore access file");
+    assert.equal(ineligible.action.dataset.action, "recover");
+    assert.equal(ineligible.card.dataset.state, "ineligible");
+
+    const refused = renderAction({account: wallet, proof: {proof: [], pub: []}, stage: "ineligible"});
+    assert.equal(refused.action.textContent, "Check access again");
+    assert.equal(refused.action.dataset.action, "confirm");
+    assert.equal(refused.card.dataset.state, "ineligible");
+
+    const passed = renderAction({account: wallet, proof: {proof: [], pub: []}, stage: "passed"});
+    assert.equal(passed.action.textContent, "Confirm private access");
+    assert.equal(passed.action.dataset.action, "confirm");
+    assert.equal(passed.card.dataset.state, "ready");
 
     const ready = renderAction({account: wallet, proof: {proof: [], pub: []}});
     assert.equal(ready.action.textContent, "Confirm private access");
@@ -221,6 +241,7 @@ test("one confirmation runs lookup, preflight, sponsor, and grant polling in ord
         stillViewer: () => true,
         paintPins() {},
         paintEligibilityAction() {},
+        paintEligibilityCopy() {},
         setEligibilityStage(stage) {
             calls.push("stage:" + stage);
             this._eligibilityStage = stage;
@@ -255,6 +276,152 @@ test("one confirmation runs lookup, preflight, sponsor, and grant polling in ord
     assert.equal(Venue.snap.kyc, 1);
     assert.equal(Venue._eligibilityBusy, false);
     assert.equal(Venue.result.message, "Access confirmed. The venue paid the registration cost.");
+});
+
+function copyFor({account = wallet, watching = null, granted = 0, proof = null, stage = null} = {}) {
+    const Venue = {
+        account,
+        proof,
+        snap: {kyc: granted},
+        _eligibilityStage: stage,
+        viewer: () => account || watching || null,
+    };
+    const start = runtime.indexOf("Venue.eligibilityCopy = function");
+    const end = runtime.indexOf("\nVenue.paintEligibilityCopy", start);
+    assert.ok(start >= 0 && end > start, "eligibility copy table should be extractable");
+    runInNewContext(runtime.slice(start, end), {Venue});
+    return Venue.eligibilityCopy();
+}
+
+test("the headline follows the verdict instead of promising a check", () => {
+    assert.equal(copyFor({account: null}), "Confirm eligibility for this KYC period");
+    assert.equal(copyFor({granted: 1}), "Private access is confirmed for this period.");
+    assert.equal(
+        copyFor({account: null, watching: wallet}),
+        "This account does not have private access for the current period.",
+    );
+    assert.equal(copyFor(), "Checking this wallet's access.");
+    assert.equal(copyFor({proof: {}, stage: "checking"}), "Checking this wallet's access.");
+    assert.equal(copyFor({stage: "ineligible"}), "This wallet is not eligible for the current period.");
+    assert.equal(copyFor({proof: {}, stage: "ineligible"}), "This wallet is not eligible for the current period.");
+    assert.equal(copyFor({stage: "error"}), "This wallet is not eligible for the current period.");
+    assert.equal(copyFor({proof: {}}), "Confirm once. The venue checks and activates access automatically.");
+    assert.equal(copyFor({proof: {}, stage: "error"}), "Confirm once. The venue checks and activates access automatically.");
+    assert.equal(
+        copyFor({proof: {}, stage: "passed"}),
+        "Access check passed. Confirm once and the venue activates access for this period.",
+    );
+    assert.equal(copyFor({proof: {}, stage: "submitting"}), "Activating access for this period.");
+    assert.equal(copyFor({proof: {}, stage: "confirming"}), "Activating access for this period.");
+    // The one place the poll writes the headline goes through the table.
+    const refresh = runtime.slice(
+        runtime.indexOf("Venue.refreshProve = async function"),
+        runtime.indexOf("\nVenue.onProofFile", runtime.indexOf("Venue.refreshProve = async function")),
+    );
+    assert.match(refresh, /Venue\.paintEligibilityCopy\(\)/);
+    assert.doesNotMatch(refresh, /kyc-copy/);
+    const clear = runtime.slice(
+        runtime.indexOf("Venue.clearProveGrant = function"),
+        runtime.indexOf("\nVenue.refreshProve", runtime.indexOf("Venue.clearProveGrant = function")),
+    );
+    assert.match(clear, /Venue\.paintEligibilityCopy\(\)/);
+    assert.doesNotMatch(clear, /kyc-copy/);
+});
+
+function runCheck({proof, preflight, granted = 0, account = wallet, viewerAfter} = {}) {
+    const calls = [];
+    const Venue = {
+        account,
+        proof,
+        snap: {kyc: granted},
+        _eligibilityBusy: false,
+        _eligibilityStage: null,
+        _eligibilityCheck: null,
+        viewer: () => account,
+        stillViewer(who) {
+            const now = viewerAfter === undefined ? account : viewerAfter;
+            return !!now && now.toLowerCase() === who.toLowerCase();
+        },
+        async preflightEligibility() {
+            calls.push("preflight");
+            return preflight();
+        },
+        async submitSponsoredEligibility() { calls.push("sponsor"); },
+        async waitForEligibility() { calls.push("poll"); },
+        paintPins() {},
+        paintEligibilityAction() { calls.push("paint"); },
+        setEligibilityStage(stage, message, kind) {
+            calls.push("stage:" + stage);
+            this._eligibilityStage = stage;
+            this.result = {message, kind};
+            if (stage === "checking") this.checking = {message, kind};
+        },
+        explainGate: (reason) => "explained:" + reason,
+    };
+    const start = runtime.indexOf("Venue.checkEligibility = function");
+    const end = runtime.indexOf("\nVenue.pickProof", start);
+    assert.ok(start >= 0 && end > start, "automatic check should be extractable");
+    runInNewContext(runtime.slice(start, end), {Venue});
+    return {Venue, calls};
+}
+
+test("connecting runs a read-only access check and states the verdict", async () => {
+    const bound = {address: wallet, proof: Array(24).fill("1"), pub: Array(7).fill("8")};
+
+    const missing = runCheck({proof: null, preflight: () => [true, ""]});
+    await missing.Venue.checkEligibility(wallet);
+    assert.deepEqual(missing.calls, ["stage:ineligible"]);
+    assert.equal(missing.Venue.result.kind, "bad");
+    assert.match(missing.Venue.result.message, /no access file on record/);
+
+    const passed = runCheck({proof: bound, preflight: () => [true, ""]});
+    const pending = passed.Venue.checkEligibility(wallet);
+    assert.equal(passed.Venue._eligibilityBusy, true);
+    assert.equal(passed.Venue._eligibilityStage, "checking");
+    await pending;
+    assert.deepEqual(passed.calls, ["stage:checking", "preflight", "stage:passed"]);
+    assert.equal(passed.Venue._eligibilityBusy, false);
+    // The headline carries the verdict; the status line stays blank.
+    assert.equal(passed.Venue.result.message, "");
+    assert.equal(passed.Venue.checking.message, "");
+
+    const refused = runCheck({proof: bound, preflight: () => [false, "wrong credential root"]});
+    await refused.Venue.checkEligibility(wallet);
+    assert.equal(refused.Venue._eligibilityStage, "ineligible");
+    assert.equal(refused.Venue._eligibilityBusy, false);
+    assert.equal(refused.Venue.result.message, "explained:wrong credential root");
+
+    const flaky = runCheck({proof: bound, preflight: () => { throw new Error("timeout"); }});
+    await flaky.Venue.checkEligibility(wallet);
+    assert.equal(flaky.Venue._eligibilityStage, null);
+    assert.equal(flaky.Venue._eligibilityBusy, false);
+    assert.equal(flaky.Venue.result.message, "");
+
+    const switched = runCheck({proof: bound, preflight: () => [true, ""], viewerAfter: "0x" + "bb".repeat(20)});
+    switched.Venue._eligibilityBusy = false;
+    await switched.Venue.checkEligibility(wallet);
+    assert.deepEqual(switched.calls, ["stage:checking", "preflight"]);
+
+    const granted = runCheck({proof: bound, preflight: () => [true, ""], granted: 1});
+    await granted.Venue.checkEligibility(wallet);
+    assert.deepEqual(granted.calls, ["paint"]);
+
+    // Two callers for the same wallet and period share one gate read.
+    let reads = 0;
+    const twice = runCheck({proof: bound, preflight: () => { reads++; return [true, ""]; }});
+    await Promise.all([twice.Venue.checkEligibility(wallet), twice.Venue.checkEligibility(wallet)]);
+    assert.equal(reads, 1);
+    assert.equal(twice.Venue._eligibilityCheck, null);
+
+    for (const run of [missing, passed, refused, flaky, switched, granted, twice]) {
+        assert.ok(!run.calls.includes("sponsor") && !run.calls.includes("poll"), "the check never registers");
+    }
+    const hydrate = runtime.slice(
+        runtime.indexOf("Venue.hydrateProof = async function"),
+        runtime.indexOf("\nVenue.checkEligibility", runtime.indexOf("Venue.hydrateProof = async function")),
+    );
+    assert.match(hydrate, /await Venue\.checkEligibility\(who\)/);
+    assert.match(hydrate, /if \(Venue\._eligibilityBusy\) \{/);
 });
 
 test("eligibility presents proof checks in plain language", () => {

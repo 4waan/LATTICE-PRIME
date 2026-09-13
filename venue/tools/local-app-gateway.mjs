@@ -44,9 +44,6 @@ export function localAppGatewayConfig(env = process.env) {
         originHostAliases: loopbackHostAliases(parsed.host.toLowerCase()),
         root: resolve(env.LOCAL_APP_ROOT || DEFAULT_ROOT),
         privateUpstream: String(env.PRIVATE_TRADING_UPSTREAM || "http://127.0.0.1:8787"),
-        holderCredentialsFile: env.PRIVATE_HOLDER_CREDENTIALS_FILE
-            ? resolve(env.PRIVATE_HOLDER_CREDENTIALS_FILE)
-            : resolve(HERE, "../agent/secrets/holder-credentials.json"),
         candidateFile: env.PRIVATE_TRADING_CANDIDATE_FILE
             ? resolve(env.PRIVATE_TRADING_CANDIDATE_FILE)
             : resolve(HERE, "../out/private-trading/private-trading-candidate-deployment.json"),
@@ -138,10 +135,6 @@ export function createLocalAppGateway({
         const pagePath = stripAppPrefix(url.pathname);
         if (url.pathname === "/api/private/status") {
             await servePrivateStatus(request, response);
-            return;
-        }
-        if (url.pathname === "/api/private/holder-credential") {
-            serveHolderCredential(request, response);
             return;
         }
         if (url.pathname.startsWith("/api/private/")) {
@@ -281,41 +274,6 @@ export function createLocalAppGateway({
             return;
         }
         createReadStream(record.path).pipe(response);
-    }
-
-    function serveHolderCredential(request, response) {
-        if (request.method !== "GET" && request.method !== "HEAD") {
-            refuse(response, 405, "method not allowed");
-            return;
-        }
-        const account = String(request.headers["x-lattice-account"] || "").toLowerCase();
-        if (!/^0x[0-9a-f]{40}$/.test(account)) {
-            refuse(response, 400, "account required");
-            return;
-        }
-        if (!existsSync(config.holderCredentialsFile)) {
-            refuse(response, 404, "holder credential not issued");
-            return;
-        }
-        let store;
-        try {
-            store = JSON.parse(readFileSync(config.holderCredentialsFile, "utf8"));
-        } catch {
-            refuse(response, 500, "holder credential store unreadable");
-            return;
-        }
-        const pack = store?.[account]
-            || store?.credentials?.[account]
-            || store?.holders?.[account];
-        if (!pack) {
-            refuse(response, 404, "holder credential not issued");
-            return;
-        }
-        const body = JSON.stringify({credential: pack.credential || pack});
-        send(response, 200, {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-        }, request.method === "HEAD" ? "" : body);
     }
 
     async function proxyPrivate(request, response, url) {
