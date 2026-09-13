@@ -16544,7 +16544,7 @@ Venue.paintIncome = function () {
         } else if (!Venue.viewer()) {
             Venue._incomeSummaryAction = "connect";
             summaryAction.textContent = "Connect or watch";
-        } else if (state.proof?.merkleValid == null) {
+        } else if (state.proof && state.proof.merkleValid == null) {
             Venue._incomeSummaryAction = "refresh";
             summaryAction.textContent = "Retry validation";
         } else if (!state.proof || state.proof.merkleValid === false ||
