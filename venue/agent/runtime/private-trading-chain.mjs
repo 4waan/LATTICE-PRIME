@@ -80,6 +80,7 @@ const RELEASE_CONFIG_KEYS = Object.freeze([
 const POOL_CONFIG_KEYS = Object.freeze(["HBAR", "LPRC"]);
 const ASSET_POOL_KEYS = Object.freeze(["address", "asset", "denomination"]);
 const ROUTING_CONTEXT_KEYS = Object.freeze([
+    "id",
     "asset",
     "assetAddress",
     "chainId",
@@ -392,9 +393,17 @@ function normalizeOrder(value) {
 function normalizeRoutingContext(value) {
     exactObject(value, ROUTING_CONTEXT_KEYS);
     if (!POOL_CONFIG_KEYS.includes(value.asset)) fail("CHAIN_REQUEST_INVALID");
+    if (
+        typeof value.id !== "string"
+        || !TICKET_ID.test(value.id)
+        || value.id !== String(value.nullifier || "").toLowerCase().replace(/^0x/, "")
+    ) {
+        fail("CHAIN_REQUEST_INVALID");
+    }
     const chainId = canonicalDecimal(value.chainId, "CHAIN_REQUEST_INVALID");
     if (chainId !== TIMED_TICKET_CHAIN_ID) fail("CHAIN_MISMATCH");
     return Object.freeze({
+        id: value.id,
         asset: value.asset,
         assetAddress: normalizedAddress(value.assetAddress),
         chainId: chainId.toString(),

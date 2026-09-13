@@ -348,6 +348,28 @@ test("chain adapter pins chain, session getters, commitment owner, and timing to
     engineCredit = 0n;
     assert.deepEqual(await adapter.cancel(baseContext()), {status: "CONFIRMED"});
 
+    const routingNullifier = `0x${BigInt(7001).toString(16).padStart(64, "0")}`;
+    const routingContext = {
+        id: routingNullifier.slice(2),
+        asset: "HBAR",
+        assetAddress: ZERO_ADDRESS,
+        chainId: "296",
+        denomination: "100000000",
+        nullifier: routingNullifier,
+        pool: HBAR_POOL,
+        recipient: ACCOUNT,
+        root: "1234",
+        viewKeyEpoch: "1",
+        viewKeyX: "2",
+        viewKeyY: "3",
+    };
+    assert.equal((await adapter.verifyRoutingContext(routingContext)).status, "UNSPENT");
+    assert.equal((await adapter.observeRoutingWithdrawal(routingContext)).status, "UNSPENT");
+    await assert.rejects(
+        adapter.observeRoutingWithdrawal({...routingContext, id: "00".repeat(32)}),
+        {code: "CHAIN_REQUEST_INVALID"},
+    );
+
     const wrongChain = new HederaTimedTicketChainAdapter({
         provider: {
             ...provider,
