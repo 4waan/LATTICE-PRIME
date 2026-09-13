@@ -368,7 +368,14 @@ async function provePlonk(input, artifacts, plonk, options) {
     const zkey = await fetchVerifiedPrivateArtifact(artifacts?.zkey, options);
     let result;
     try {
-        result = await plonk.fullProve(input, wasm, zkey);
+        result = await plonk.fullProve(
+            input,
+            wasm,
+            zkey,
+            undefined,
+            undefined,
+            {singleThread: true},
+        );
     } catch {
         fail("PROOF_FAILED", "private proof generation failed");
     }
@@ -401,9 +408,19 @@ async function provePlonk(input, artifacts, plonk, options) {
         fail("PROOF_ENCODING_FAILED", "private proof encoding failed");
     }
     return {
-        proof: calldata[0].map(String),
-        publicSignals: calldata[1].map(String),
+        proof: calldata[0].map(calldataWord),
+        publicSignals: calldata[1].map(calldataWord),
     };
+}
+
+// snarkjs exports calldata as 0x-prefixed 32-byte words. Every consumer
+// (policy checks, the relayer, the ticket encoder) compares decimal strings.
+function calldataWord(value) {
+    const word = String(value).trim();
+    if (!/^(0x[0-9a-fA-F]{1,64}|[0-9]{1,78})$/.test(word)) {
+        fail("PROOF_ENCODING_FAILED", "private proof encoding failed");
+    }
+    return BigInt(word).toString();
 }
 
 export async function createPrivateSessionProofs({
