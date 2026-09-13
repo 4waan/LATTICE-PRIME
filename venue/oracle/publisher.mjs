@@ -626,6 +626,25 @@ async function recoverPending({
             return {recovered: true, receipt: summary};
         }
         await assertCurrentDeployment(oracle.target, readDeploymentFn);
+        {
+            // The oracle refuses submit() once a round is finalised, so a
+            // signed answer for a closed round can never land whatever its
+            // nonce. Holding it wedges the seat out of every later round.
+            const record = journal.state.pending;
+            const openRound = BigInt(await oracle.openRound());
+            if (openRound > BigInt(record.round)) {
+                journal.abandon(
+                    "ROUND_CLOSED",
+                    `round ${record.round} finalised before answer ` +
+                    `${record.txHash} landed; open round is ${openRound}`,
+                );
+                return {
+                    recovered: false,
+                    abandoned: true,
+                    code: "ROUND_CLOSED",
+                };
+            }
+        }
         if (isExpired()) {
             // The seat wallet may also sign unrelated transactions. If one of
             // them spent this nonce while our hash never landed, the signed

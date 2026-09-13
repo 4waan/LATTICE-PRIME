@@ -1428,6 +1428,57 @@ test("an expired answer whose nonce another transaction spent is abandoned", asy
     }
 });
 
+test("a broadcast answer for a round that has since finalised is abandoned", async () => {
+    const root = mkdtempSync(join(tmpdir(), "oracle-round-closed-"));
+    try {
+        const firstOrder = [];
+        await assert.rejects(
+            () => runPublisherPass(passOptions(root, {
+                provider: fakeProvider(firstOrder, {
+                    broadcastError: new Error("relay unavailable"),
+                }),
+            })),
+            (error) => error.code === "BROADCAST_FAILED",
+        );
+        const journal = PublisherJournal.open(root, "publisher-a", wallet.address);
+        assert.equal(journal.state.pending.status, "BROADCAST");
+        assert.equal(journal.state.pending.round, "3");
+        const hashBefore = journal.state.lastEvidenceHash;
+        const failedBefore = journal.state.counters.failed;
+
+        const secondOrder = [];
+        const recoveryProvider = fakeProvider(secondOrder);
+        recoveryProvider.getTransactionReceipt = async () => null;
+        recoveryProvider.getTransactionCount = async () => {
+            throw new Error("nonce must not decide a closed round");
+        };
+        const result = await runPublisherPass(passOptions(root, {
+            journal,
+            provider: recoveryProvider,
+            oracle: fakeOracle({round: 4n, lastRound: 3n}),
+        }));
+        assert.equal(result.action, "recovery");
+        assert.equal(result.abandoned, true);
+        assert.equal(result.code, "ROUND_CLOSED");
+        assert.deepEqual(secondOrder, []);
+        assert.equal(journal.state.pending, null);
+        assert.equal(journal.state.lastConfirmedRound, null);
+        assert.equal(journal.state.lastEvidenceHash, hashBefore);
+        assert.equal(journal.state.counters.failed, failedBefore + 1);
+
+        const events = readFileSync(join(root, "events.jsonl"), "utf8")
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const abandoned = events.filter((event) => event.type === "abandoned");
+        assert.equal(abandoned.length, 1);
+        assert.equal(abandoned[0].code, "ROUND_CLOSED");
+        assert.equal(abandoned[0].status, "BROADCAST");
+    } finally {
+        rmSync(root, {recursive: true, force: true});
+    }
+});
+
 test("an existing open answer rearms a missing scheduler after restart", async () => {
     const root = mkdtempSync(join(tmpdir(), "oracle-rearm-"));
     try {
