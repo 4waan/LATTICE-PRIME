@@ -115,10 +115,23 @@ function fakeArtifacts(bytes) {
     };
 }
 
-function fakePlonk() {
+// snarkjs 0.7.6 exports calldata as two JSON arrays of quoted 0x-prefixed
+// 32-byte words with no separator between them. The decimal form is kept as an
+// option so both encodings stay covered.
+function calldataWord(value, encoding) {
+    if (encoding === "decimal") return String(value);
+    return `0x${BigInt(value).toString(16).padStart(64, "0")}`;
+}
+
+function fakePlonk(encoding = "hex") {
     const proofWords = Array.from({length: 24}, (_, index) => String(index + 1));
     return {
-        async fullProve(input) {
+        async fullProve(input, wasm, zkey, logger, witnessOptions, proverOptions) {
+            assert.equal(wasm instanceof Uint8Array, true);
+            assert.equal(zkey instanceof Uint8Array, true);
+            assert.equal(logger, undefined);
+            assert.equal(witnessOptions, undefined);
+            assert.deepEqual(proverOptions, {singleThread: true});
             if (input.validUntilEpoch !== undefined) {
                 return {
                     proof: {kind: "eligibility"},
@@ -166,7 +179,9 @@ function fakePlonk() {
         },
         async exportSolidityCallData(proof, publicSignals) {
             assert.ok(["eligibility", "compliance"].includes(proof.kind));
-            return `${JSON.stringify(proofWords)},${JSON.stringify(publicSignals)}`;
+            const words = proofWords.map((word) => calldataWord(word, encoding));
+            const signals = publicSignals.map((word) => calldataWord(word, encoding));
+            return `${JSON.stringify(words)}${JSON.stringify(signals)}`;
         },
     };
 }
@@ -216,6 +231,27 @@ test("session proof orchestration keeps holder data local and pins every output"
         ephemeralX: "803",
         ephemeralY: "804",
     });
+    // Calldata words come back as decimal strings whatever snarkjs emitted.
+    const decimal = /^[0-9]+$/;
+    for (const proofSet of [result.eligibility, result.compliance]) {
+        assert.deepEqual(proofSet.proof, Array.from({length: 24}, (_, index) => String(index + 1)));
+        assert.ok(proofSet.publicSignals.every((word) => decimal.test(word)));
+    }
+    assert.equal(result.eligibility.publicSignals[1], "1");
+    assert.equal(result.eligibility.publicSignals[7], context.factory);
+    assert.equal(result.compliance.publicSignals[5], context.credentialRoot);
+
+    const decimalResult = await createPrivateSessionProofs({
+        credential,
+        context,
+        viewKey: {epoch: "4", x: "333", y: "444"},
+        artifacts: fakeArtifacts(artifactBytes),
+        plonk: fakePlonk("decimal"),
+        crypto: webcrypto,
+        fetchImpl: async () => response(artifactBytes),
+    });
+    assert.deepEqual(decimalResult.eligibility.publicSignals, result.eligibility.publicSignals);
+    assert.deepEqual(decimalResult.compliance.proof, result.compliance.proof);
 
     let error;
     try {
