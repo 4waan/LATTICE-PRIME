@@ -17175,18 +17175,42 @@ Venue.chooseFinanceStart = function (rows, credit) {
 
 Venue.enterFinanceReview = async function () {
     Venue.ensureFinanceId(false);
-    const draft = await Venue.previewFinance();
-    if (!draft) throw new Error("A live quote is required before review.");
-    if (draft.principal == null) throw new Error("The live vault did not return a principal.");
+    // Enter review before the quote settles so the preview's own gating
+    // paints the Fund button with reviewing=true instead of a stale draft
+    // readiness snapshot (a debounced preview in flight returns the prior
+    // preview and never updates readiness).
+    Venue.setFinanceUi({reviewStage: "review"});
+    let draft;
+    try {
+        draft = await Venue.previewFinance();
+    } catch (e) {
+        Venue.setFinanceUi({reviewStage: "draft"});
+        throw e;
+    }
+    if (!draft || draft.principal == null) {
+        Venue.setFinanceUi({reviewStage: "draft"});
+        if (!draft) throw new Error("A live quote is required before review.");
+        throw new Error("The live vault did not return a principal.");
+    }
     Venue.setFinanceUi({reviewStage: "review", reviewedPrincipal: String(draft.principal)});
     Venue.paintFinanceReviewMode(true);
     Venue.paintFinanceReview(draft);
     if ($("fin-fund")) {
-        $("fin-fund").disabled = !Venue.financeUiState().readiness?.fundReady;
+        $("fin-fund").disabled = !Venue.financeFundable(draft);
         Venue.paintFundButton(draft.principal);
     }
     $("fin-review-body")?.focus?.();
     return draft;
+};
+
+// Whether the connected wallet can fund this reviewed draft. Derived from the
+// draft itself so a stale readiness snapshot can never leave Fund dead while
+// the quote card says ready. doFundOffer re-checks everything on chain.
+Venue.financeFundable = function (draft) {
+    const account = Venue.account;
+    return !!draft && !!account && !addrEq(account, draft.borrower) && !draft.hasOffer &&
+        draft.principal != null && draft.principal !== 0n &&
+        !!draft.borrowerEligible && !!draft.lenderEligible;
 };
 
 Venue.exitFinanceReview = function () {
