@@ -10004,6 +10004,9 @@ Venue._runTick = async function () {
                 Venue._venueEpoch = epoch;
                 Venue._venueAt = now;
                 await Venue.refreshVenue();
+                // Once per session, so the HCS evidence tile is filled in on
+                // first paint rather than waiting for the Evidence tab.
+                await Venue.refreshIssuerEvidence?.({lazy: true}).catch(() => {});
             }
         }
         Venue.pollMs = 5000;

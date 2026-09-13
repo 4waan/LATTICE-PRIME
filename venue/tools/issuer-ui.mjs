@@ -753,8 +753,19 @@ Venue.invalidateIssuerCache = function (groups) {
     Venue.setIssuerUi({loaded, coreStale: false});
 };
 
-Venue.refreshIssuerCore = async function () {
+Venue.refreshIssuerCore = async function ({evidence = true} = {}) {
     await Venue.refreshVenue();
+    // Refresh re-reads the HCS topic too. It is one Mirror Node call, and
+    // without it the tile fell back to "Evidence not checked" until someone
+    // opened the Evidence tab.
+    if (!evidence) return;
+    try {
+        await Venue.refreshIssuerEvidence({force: true});
+    } catch (e) {
+        // A Mirror Node hiccup must not take the chain reads down with it. The
+        // tile stays at "Evidence not checked" and the Evidence tab still works.
+        Venue.setIssuerUi({errors: {...(Venue.issuerUiState().errors || {}), hcs: e?.message || String(e)}});
+    }
 };
 
 Venue.bindIssuerChrome = function () {
@@ -790,7 +801,7 @@ Venue.bindIssuerChrome = function () {
 
     $("iss-refresh")?.addEventListener("click", () => {
         Venue.invalidateIssuerCache(["param-row", "param-keys", "fees", "immutables", "coupon"]);
-        Venue.setIssuerUi({activityChecked: false, hcs: {...Venue.issuerUiState().hcs, checked: false, audited: false}});
+        Venue.setIssuerUi({activityChecked: false});
         Venue.refreshIssuerCore().catch((e) => Venue.fail(e));
     });
     $("iss-open-activity")?.addEventListener("click", () => Venue.openIssuerDrawer("activity"));
