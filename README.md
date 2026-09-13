@@ -31,7 +31,7 @@ A bond needs somewhere to trade, a way to check who can hold it, a price for col
 
 The problem has a history. In 2016, the SEC found that Credit Suisse transmitted confidential subscriber order information outside its dark pool. A confidentiality promise had not prevented the operator from using the information it held. [SEC enforcement release](https://www.sec.gov/newsroom/press-releases/2016-16).
 
-The market already has scale: Broadridge reported **$7.5 trillion in repo transaction volume during June 2026** on its Distributed Ledger Repo platform. That is category activity, not Lattice Prime's volume or addressable revenue. [Broadridge's July 2026 release](https://www.broadridge.com/press-release/2026/broadridges-dlr-processes-over-7-trillion-in-june).
+The market already has scale: Broadridge reported **$7.4 trillion in repo transaction volume during August 2026** on its Distributed Ledger Repo platform. That is category activity, not Lattice Prime's volume or addressable revenue. [Broadridge's 2 September 2026 release](https://www.prnewswire.com/news-releases/broadridge-brings-g7-securities-to-institutional-tokenized-repo-302867070.html).
 
 ## Explore the app
 
@@ -40,7 +40,7 @@ The names below are the names in the app. Go straight from an explanation to the
 - **[Markets](https://lattice-prime.vercel.app/trade.html): place a sealed order.** Inspect LPRC, its price reference and auction clock. The app encrypts the reveal key on the device, sequences sell reservation when needed, and keeps the next action in the order panel. Both sides clear at a uniform auction price.
 - **[Portfolio](https://lattice-prime.vercel.app/position.html): follow your position.** Read available and held bond balances, settlement credits, and coupon information for the selected account.
 - **[Financing](https://lattice-prime.vercel.app/repo.html): fund against tokenised collateral.** RepoVault v5 is bound live. Eligible lenders can fund offers, named borrowers can accept them against ATS holds, and both parties can follow margin, coupon, fail, close, and default evidence.
-- **[Eligibility](https://lattice-prime.vercel.app/prove.html): confirm private access.** Connect a matching wallet and one action restores its account-bound proof, checks the live policy, and asks the venue relay to sponsor registration. Proof import and public signals remain available under recovery details.
+- **[Eligibility](https://lattice-prime.vercel.app/prove.html): confirm private access.** Connect a wallet and the screen resolves its account-bound proof and checks it against the live policy on its own, stating a verdict either way; one action then asks the venue relay to sponsor registration. Proof import and public signals remain available under recovery details.
 - **[Issuer](https://lattice-prime.vercel.app/venue.html): inspect the venue's rules.** Read governance, policy, published disclosures, and the HCS record. Follow the evidence out to Hedera and verify it independently.
 
 The app's **README** links bring you back here for the mechanism, setup, and evidence behind those screens.

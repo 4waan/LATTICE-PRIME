@@ -1,7 +1,8 @@
 # venue
 
-A cryptographically robust protocol for tokenised repo and fair-order
-settlement on Hedera, using the Asset Tokenization Studio.
+A provably governed secondary marketplace on Hedera to trade tokenised
+bonds, or finance them through a funded repo agreement. Bonds are issued
+through the Asset Tokenization Studio.
 
 Trade tokenised bonds. Control what the venue publishes.
 
